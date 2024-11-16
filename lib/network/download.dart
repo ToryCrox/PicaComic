@@ -30,6 +30,7 @@ import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
+import 'package:synchronized/synchronized.dart';
 
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
@@ -216,16 +217,21 @@ class DownloadManager with _DownloadDb implements Listenable {
     await _initDb();
   }
 
+
+  static final Lock _saveInfoLock = Lock();
+
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
-    notifyListeners();
-    var data = <String, dynamic>{};
-    data["downloading"] = <Map<String, dynamic>>[];
-    for (var item in downloading) {
-      data["downloading"].add(item.toMap());
-    }
-    var file = File("$path${pathSep}newDownload.json");
-    await file.writeAsString(const JsonEncoder().convert(data));
+    await _saveInfoLock.synchronized(() async {
+      notifyListeners();
+      var data = <String, dynamic>{};
+      data["downloading"] = <Map<String, dynamic>>[];
+      for (var item in downloading) {
+        data["downloading"].add(item.toMap());
+      }
+      var file = File("$path${pathSep}newDownload.json");
+      await file.writeAsString(const JsonEncoder().convert(data));
+    });
   }
 
   /// move comic to first
@@ -404,7 +410,10 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
     var fileName  = _downloadedFileName["$id$ep$index"];
     if(fileName != null) {
-      return File(downloadPath + fileName);
+      final file = File(downloadPath + fileName);
+      if (await file.exists()) {
+        return file;
+      }
     }
     await for (var file in Directory(downloadPath).list()) {
       var i = file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "");

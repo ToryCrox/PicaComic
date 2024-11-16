@@ -55,7 +55,6 @@ abstract class ReadingData {
           1, 1, "", DownloadManager().getImage(downloadId, hasEp ? ep : 0, page).path);
     } else {
       if (title != null) {
-        print('loadImage $title, $ep');
         final file = await downloadManager.getDownloadImageOrNull(title, ep, page);
         if (file != null) {
           yield DownloadProgress(1, 1, "", file.path);

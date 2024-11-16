@@ -1,12 +1,41 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:pica_comic/tools/extensions.dart';
+
+import 'logger_pretty_printer.dart';
 
 void log(String content,
     [String title = "debug", LogLevel level = LogLevel.info]) {
   LogManager.addLog(level, title, content);
 }
+
+final excludePaths = [
+  'package:pica_comic/foundation/log.dart',
+];
+final excludeMethods = <String>[];
+final logger = Logger(
+  level: Level.trace,
+  printer: LoggerPrettyPrinter(
+      methodCount: 1,
+      printEmojis: false,
+      lineLength: 160,
+      printTime: true,
+      colors: !Platform.isIOS,
+      excludePaths: [],
+      excludeFilter: (method, segment) {
+        if (excludeMethods.contains(method)) {
+          return true;
+        }
+        /// segment: package:app/src/log/log.dart:96:15
+        if (excludePaths.any((e) => segment.contains(e))) {
+          return true;
+        }
+        return false;
+      }
+  ),
+);
 
 class LogManager {
   static final List<Log> _logs = <Log>[];
@@ -35,17 +64,27 @@ class LogManager {
     if (kDebugMode) {
       switch (level) {
         case LogLevel.error:
-          printError("$title: $content");
+          //printError("$title: $content");
+          logger.e('$title: $content');
+          break;
         case LogLevel.warning:
-          printWarning("$title: $content");
+          logger.w("$title: $content");
+          break;
         case LogLevel.info:
-          print("$title: $content");
+          logger.i("$title: $content");
+          break;
+        case LogLevel.debug:
+          logger.d("$title: $content");
+          break;
       }
     }
 
     var newLog = Log(level, title, content);
 
     if (newLog == _logs.lastOrNull) {
+      return;
+    }
+    if (level == LogLevel.debug) {
       return;
     }
 
@@ -94,6 +133,10 @@ class Log {
 
   Log(this.level, this.title, this.content);
 
+  static void debug(String title, String message) {
+    LogManager.addLog(LogLevel.debug, title, message);
+  }
+
   static void info(String title, String message) {
     LogManager.addLog(LogLevel.info, title, message);
   }
@@ -116,4 +159,4 @@ class Log {
   int get hashCode => level.hashCode ^ title.hashCode ^ content.hashCode;
 }
 
-enum LogLevel { error, warning, info }
+enum LogLevel { error, warning, info, debug }
