@@ -49,12 +49,22 @@ abstract class ReadingData {
   /// Load image from local or network
   ///
   /// [page] starts from 0, [ep] starts from 1
-  Stream<DownloadProgress> loadImage(int ep, int page, String url) async* {
+  Stream<DownloadProgress> loadImage(int ep, int page, String url, {String? title}) async* {
     if (downloaded && checkEpDownloaded(ep)) {
       yield DownloadProgress(
           1, 1, "", DownloadManager().getImage(downloadId, hasEp ? ep : 0, page).path);
     } else {
-      yield* loadImageNetwork(ep, page, url);
+      if (title != null) {
+        print('loadImage $title, $ep');
+        final file = await downloadManager.getDownloadImageOrNull(title, ep, page);
+        if (file != null) {
+          yield DownloadProgress(1, 1, "", file.path);
+        } else {
+          yield* loadImageNetwork(ep, page, url);
+        }
+      } else {
+        yield* loadImageNetwork(ep, page, url);
+      }
     }
   }
 
@@ -62,7 +72,7 @@ abstract class ReadingData {
     if (downloaded && checkEpDownloaded(ep)){
       return FileImageProvider(downloadId, hasEp ? ep : 0, page);
     } else {
-      return StreamImageProvider(() => loadImage(ep, page, url), buildImageKey(ep, page, url));
+      return StreamImageProvider(() => loadImage(ep, page, url, title: title), buildImageKey(ep, page, url));
     }
   }
 

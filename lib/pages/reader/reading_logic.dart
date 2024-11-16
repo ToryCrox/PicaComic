@@ -354,9 +354,17 @@ class ComicReadingPageLogic extends StateController {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
           reverse ? jumpToLastPage(): jumpToNextPage();
+          break;
         case LogicalKeyboardKey.arrowUp:
         case LogicalKeyboardKey.arrowLeft:
           reverse ? jumpToNextPage(): jumpToLastPage();
+          break;
+        case LogicalKeyboardKey.pageUp:
+          jumpToLastChapter();
+          break;
+        case LogicalKeyboardKey.pageDown:
+          jumpToNextChapter();
+          break;
         case LogicalKeyboardKey.f12:
           fullscreen();
       }

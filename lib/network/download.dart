@@ -29,6 +29,7 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:path/path.dart' as Path;
 
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
@@ -139,7 +140,7 @@ class DownloadManager with _DownloadDb implements Listenable {
     //读取数据
     var file = File("$path${pathSep}newDownload.json");
     if (!file.existsSync()) {
-      await _saveInfo();
+      //await _saveInfo();
     } else {
       try {
         var json = const JsonDecoder().convert(file.readAsStringSync());
@@ -150,8 +151,8 @@ class DownloadManager with _DownloadDb implements Listenable {
       } catch (e, s) {
         LogManager.addLog(LogLevel.error, "IO",
             "Failed to read downloaded information\n$e\n$s");
-        file.deleteSync();
-        await _saveInfo();
+        // file.deleteSync();
+        // await _saveInfo();
       }
     }
   }
@@ -383,6 +384,15 @@ class DownloadManager with _DownloadDb implements Listenable {
       }
     }
     throw Exception("File not found");
+  }
+
+  Future<File?> getDownloadImageOrNull(String title, int ep, int index) async {
+    final directory = findValidDirectoryName(DownloadManager().path!, title);
+    final downloadPath = "$path/$directory/$ep/";
+    final dir = Directory(downloadPath);
+    if (!(await dir.exists())) return null;
+    return dir.listSync().whereType<File>().toList().firstWhereOrNull(
+        (e) => Path.basenameWithoutExtension(e.path) == index.toString());
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {

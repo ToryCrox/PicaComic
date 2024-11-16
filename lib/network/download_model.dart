@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as Path;
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -181,7 +182,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
     if (_downloading["$ep$index"] == null ||
         _downloading["$ep$index"]!.error != null) {
       _downloading["$ep$index"] = _ImageDownloadWrapper(
-        downloadImage(link),
+        () => downloadImage(link),
         downloadTo,
         basename,
         onData,
@@ -411,7 +412,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 }
 
 class _ImageDownloadWrapper {
-  final Stream<DownloadProgress> stream;
+  final Stream<DownloadProgress> Function()? streamCreator;
 
   final String path;
 
@@ -432,7 +433,7 @@ class _ImageDownloadWrapper {
   }
 
   _ImageDownloadWrapper(
-    this.stream,
+    this.streamCreator,
     this.path,
     this.fileBaseName,
     this.onReceiveData,
@@ -442,39 +443,54 @@ class _ImageDownloadWrapper {
   }
 
   _ImageDownloadWrapper.finished():
-    stream = const Stream.empty(),
+    streamCreator = null,
     path = "",
     fileBaseName = "",
     onReceiveData = null,
     onFinished = null,
     isFinished = true;
 
-  void listen() async {
-    try {
-      var last = 0;
-      await for (var progress in stream) {
-        if(_canceled) {
-          for (var c in completers) {
-            c.complete(this);
-          }
-          return;
-        }
-        onReceiveData?.call(progress.currentBytes - last);
-        last = progress.currentBytes;
-        if (progress.finished) {
-          var data = progress.data ?? await progress.getFile().readAsBytes();
-          var type = detectFileType(data);
-          var file = File("$path/$fileBaseName${type.ext}");
-          if (!await file.exists()) {
-            await file.create(recursive: true);
-          }
-          await file.writeAsBytes(data);
-          isFinished = true;
-        }
+  Future<void> listen() async {
+    final dir = Directory(path);
+    if (await dir.exists()) {
+      final files = dir.listSync();
+      final file = files.whereType<File>().toList().firstWhereOrNull((e) =>
+      Path.basenameWithoutExtension(e.path) == fileBaseName);
+      isFinished = file != null;
+      if (isFinished) {
+        Log.info("DownloadManager", "Found cached image ${file?.path}");
       }
-    } catch (e) {
-      error = e;
     }
+
+    if (!isFinished) {
+      var stream = streamCreator!();
+      try {
+        var last = 0;
+        await for (var progress in stream) {
+          if(_canceled) {
+            for (var c in completers) {
+              c.complete(this);
+            }
+            return;
+          }
+          onReceiveData?.call(progress.currentBytes - last);
+          last = progress.currentBytes;
+          if (progress.finished) {
+            var data = progress.data ?? await progress.getFile().readAsBytes();
+            var type = detectFileType(data);
+            var file = File("$path/$fileBaseName${type.ext}");
+            if (!await file.exists()) {
+              await file.create(recursive: true);
+            }
+            await file.writeAsBytes(data);
+            isFinished = true;
+          }
+        }
+      } catch (e) {
+        error = e;
+      }
+    }
+
     if (!isFinished && error == null) {
       error = Exception("Failed to download image");
     }

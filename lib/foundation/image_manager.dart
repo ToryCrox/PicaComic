@@ -546,7 +546,7 @@ class ImageManager {
       var cache = await CacheManager().findCache(key);
       if (cache != null) {
         yield DownloadProgress(1, 1, url, cache);
-        loadingItems.remove(url);
+        loadingItems.remove(urlWithoutParam);
         return;
       }
 
@@ -722,6 +722,9 @@ class ImageManager {
   }
 
   Future<void> wait(String cacheKey) {
+    if (loadingItems[cacheKey] == null) {
+      return Future.value();
+    }
     int timeout = 50;
     return Future.doWhile(() async {
       await Future.delayed(const Duration(milliseconds: 300));

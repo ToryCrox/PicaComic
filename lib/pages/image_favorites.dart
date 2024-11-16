@@ -8,7 +8,9 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
+import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -47,7 +49,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
                 ),
                 Expanded(
                   child: buildPage(),
-                )
+                ),
               ],
             ),
           );
@@ -85,46 +87,52 @@ class FavoriteImageTile extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-                child: Container(
-                    decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8)),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image(
-                      image: _ImageProvider(image),
-                    ))),
+              child: Container(
+                decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8)),
+                clipBehavior: Clip.antiAlias,
+                child: Image(
+                  image: _ImageProvider(image),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
             Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.5),
-                          ]),
-                      borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(8),
-                          bottomRight: Radius.circular(8))),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                    child: Text(
-                      image.title.replaceAll("\n", ""),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14.0,
-                        color: Colors.white,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.5),
+                      ]),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
                   ),
-                )),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                  child: Text(
+                    image.title.replaceAll("\n", ""),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14.0,
+                      color: Colors.white,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
@@ -136,7 +144,7 @@ class FavoriteImageTile extends StatelessWidget {
                   child: const SizedBox.expand(),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -145,8 +153,8 @@ class FavoriteImageTile extends StatelessWidget {
 
   void onTap() {
     var type = image.id.split("-")[0];
-    _readWithKey(type, image.id.replaceFirst("$type-", ""), image.ep, image.page,
-        image.title, image.otherInfo);
+    _readWithKey(type, image.id.replaceFirst("$type-", ""), image.ep,
+        image.page, image.title, image.otherInfo);
   }
 
   void _readWithKey(String key, String target, int ep, int page, String title,
@@ -252,6 +260,12 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
       return await File("${App.dataPath}/images/${image.imagePath}")
           .readAsBytes();
     } else {
+      final downloadFile = await DownloadManager()
+          .getDownloadImageOrNull(image.title, image.ep, image.page);
+      if (downloadFile != null) {
+        return await downloadFile.readAsBytes();
+      }
+
       var type = image.id.split("-")[0];
       Stream<DownloadProgress> stream;
       switch (type) {
