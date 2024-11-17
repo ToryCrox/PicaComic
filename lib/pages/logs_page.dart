@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/io_tools.dart';
+import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 
 class LogsPage extends StatefulWidget {
@@ -27,18 +28,18 @@ class _LogsPageState extends State<LogsPage> {
             );
             showMenu(context: context, position: position, items: [
               PopupMenuItem(
-                child: const Text("清空"),
+                child: Text("清空".tl),
                 onTap: () => setState(()=>LogManager.clear()),
               ),
               PopupMenuItem(
-                child: const Text("禁用长度限制"),
+                child: Text("禁用长度限制".tl),
                 onTap: (){
                   LogManager.ignoreLimitation = true;
-                  showToast(message: "仅在本次运行时有效");
+                  showToast(message: "仅在本次运行时有效".tl);
                 },
               ),
               PopupMenuItem(
-                child: const Text("导出"),
+                child: Text("导出".tl),
                 onTap: () => saveLog(LogManager().toString()),
               ),
             ]);
@@ -92,7 +93,7 @@ class _LogsPageState extends State<LogsPage> {
                   Text(LogManager.logs[index].time.toString().replaceAll(RegExp(r"\.\w+"), "")),
                   TextButton(onPressed: (){
                     Clipboard.setData(ClipboardData(text: LogManager.logs[index].content));
-                  }, child: const Text("复制")),
+                  }, child: Text("复制".tl)),
                   const Divider(),
                 ],
               ),

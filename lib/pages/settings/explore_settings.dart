@@ -228,7 +228,7 @@ Map<String, String> categoryPages(){
   return {
     for(var source in ComicSource.sources)
       if(source.categoryData != null)
-        source.categoryData!.key: source.categoryData!.title
+        source.categoryData!.key: source.categoryData!.title.tl
   };
 }
 
@@ -236,6 +236,6 @@ Map<String, String> networkFavorites(){
   return {
     for(var source in ComicSource.sources)
       if(source.favoriteData != null)
-        source.key: source.favoriteData!.title
+        source.key: source.favoriteData!.title.tl
   };
 }

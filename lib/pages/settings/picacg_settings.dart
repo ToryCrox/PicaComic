@@ -52,7 +52,7 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           leading: const Icon(Icons.manage_search_outlined),
           trailing: Select(
             initialValue: appdata.getSearchMode(),
-            values: ["新到书".tl, "旧到新".tl, "最多喜欢".tl, "最多指名".tl],
+            values: ["新到旧".tl, "旧到新".tl, "最多喜欢".tl, "最多指名".tl],
             onChange: (i) {
               appdata.setSearchMode(i);
             },
@@ -98,7 +98,7 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           leading: const Icon(Icons.collections_bookmark_outlined),
           trailing: Select(
             initialValue: int.parse(appdata.settings[30]),
-            values: ["旧到新".tl, "新到书".tl],
+            values: ["旧到新".tl, "新到旧".tl],
             onChange: (i) {
               appdata.settings[30] = i.toString();
               appdata.updateSettings();

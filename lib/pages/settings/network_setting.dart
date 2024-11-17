@@ -26,8 +26,28 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             setProxy(context);
           },
         ),
-        const ListTile(
-          title: Text("hosts"),
+        ListTile(
+          title: Row(
+            children: [
+              const Text("Hosts"),
+              const SizedBox(
+                width: 2,
+              ),
+              InkWell(
+                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                onTap: () => showDialogMessage(
+                  context,
+                  "警告".tl,
+                  "${"此功能已不再受支持".tl}\n${"请勿反馈相关问题".tl}"
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red,
+                  size: 18,
+                ),
+              )
+            ]
+          )
         ),
         ListTile(
           leading: const Icon(Icons.dns),
@@ -53,14 +73,14 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             App.globalTo(() => const EditRuleView());
           },
         ),
-        ListTile(
-          leading: const Icon(Icons.help),
-          title: Text("帮助".tl),
-          trailing: const Icon(Icons.arrow_right),
-          onTap: (){
-            launchUrlString("https://github.com/Pacalini/PicaComic/blob/master/doc/hosts.md");
-          },
-        ),
+        // ListTile(
+        //   leading: const Icon(Icons.help),
+        //   title: Text("帮助".tl),
+        //   trailing: const Icon(Icons.arrow_right),
+        //   onTap: (){
+        //     launchUrlString("https://github.com/user/repo/blob/master/help.md");
+        //   },
+        // ),
         Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
       ],
     );

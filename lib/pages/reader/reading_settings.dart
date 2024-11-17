@@ -337,7 +337,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
           ),
           Center(
             child: FilledButton(
-              child: const Text("重启阅读器"),
+              child: Text("重启阅读器".tl),
               onPressed: () {
                 App.globalBack();
                 logic.refresh_();

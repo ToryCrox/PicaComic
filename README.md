@@ -1,6 +1,6 @@
 # Pica Comic
 
-[![flutter](https://img.shields.io/badge/flutter-3.24.3-blue)](https://flutter.dev/)
+[![flutter](https://img.shields.io/badge/flutter-3.24.4-blue)](https://flutter.dev/)
 [![License](https://img.shields.io/github/license/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/blob/master/LICENSE)
 [![Download](https://img.shields.io/github/v/release/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/releases)
 [![stars](https://img.shields.io/github/stars/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/stargazers)
@@ -40,10 +40,6 @@ Currently, Pica Comic has 5 built-in comic sources:
 - hitomi
 - htcomic
 - nhentai
-
-### Custom Comic Source
-
-You can add custom comic sources in the app after version 3.0.0.
 
 ### Features
 

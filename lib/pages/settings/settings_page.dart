@@ -402,9 +402,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
                     onTap: () => showDialogMessage(
                         context,
                         "高刷新率模式".tl,
-                        "启用后, APP将尝试设置高刷新率\n"
-                        "如果OS没有限制APP的刷新率, 无需启用此项\n"
-                        "OS可能不会响应更改"),
+                        "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}"),
                     child: const Icon(
                       Icons.info_outline,
                       size: 18,
@@ -631,7 +629,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
         ),
         ListTile(
           leading: const Icon(Icons.comment_outlined),
-          title: Text("提出建议(Github)".tl),
+          title: Text("问题反馈 (Github)".tl),
           onTap: () => launchUrlString(
               "https://github.com/Pacalini/PicaComic/issues",
               mode: LaunchMode.externalApplication),
@@ -639,15 +637,15 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
         ),
         // ListTile(
         //   leading: const Icon(Icons.email),
-        //   title: Text("通过电子邮件联系我".tl),
-        //   onTap: () => launchUrlString("mailto://nyne19710@proton.me",
+        //   title: Text("EMAIL_ME_PLACEHOLDER".tl),
+        //   onTap: () => launchUrlString("mailto://example@foo.bar",
         //       mode: LaunchMode.externalApplication),
         //   trailing: const Icon(Icons.arrow_right),
         // ),
         // ListTile(
         //   leading: const Icon(Icons.telegram),
-        //   title: Text("加入Telegram群".tl),
-        //   onTap: () => launchUrlString("https://t.me/pica_group",
+        //   title: Text("JOIN_GROUP_PLACEHOLDER".tl),
+        //   onTap: () => launchUrlString("https://t.me/example",
         //       mode: LaunchMode.externalApplication),
         //   trailing: const Icon(Icons.arrow_right),
         // ),

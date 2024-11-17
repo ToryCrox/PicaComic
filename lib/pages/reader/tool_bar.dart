@@ -1,6 +1,8 @@
 part of pica_reader;
 
 extension ToolBar on ComicReadingPage {
+  bool get isReversed => appdata.settings[9] == "2" || appdata.settings[9] == "6";
+
   ///构建底部工具栏
   Widget buildBottomToolBar(
       ComicReadingPageLogic logic, BuildContext context, bool showEps) {
@@ -29,13 +31,17 @@ extension ToolBar on ComicReadingPage {
                       width: 8,
                     ),
                     IconButton.filledTonal(
-                        onPressed: () => logic.jumpToLastChapter(),
+                        onPressed: () => !isReversed
+                            ? logic.jumpToLastChapter()
+                            : logic.jumpToNextChapter(),
                         icon: const Icon(Icons.first_page)),
                     Expanded(
                       child: buildSlider(logic),
                     ),
                     IconButton.filledTonal(
-                        onPressed: () => logic.jumpToNextChapter(),
+                        onPressed: () => !isReversed
+                            ? logic.jumpToNextChapter()
+                            : logic.jumpToLastChapter(),
                         icon: const Icon(Icons.last_page)),
                     const SizedBox(
                       width: 8,
@@ -242,7 +248,7 @@ extension ToolBar on ComicReadingPage {
       return CustomSlider(
         value: logic.index.toDouble(),
         min: 1,
-        reversed: appdata.settings[9] == "2" || appdata.settings[9] == "6",
+        reversed: isReversed,
         max: logic.urls.length.toDouble(),
         divisions: logic.urls.length - 1,
         onChanged: (i) {

@@ -840,7 +840,7 @@ class DownloadPage extends StatelessWidget {
                       const Spacer(),
                       Center(
                         child: FilledButton(
-                          child: const Text("确认"),
+                          child: Text("确认".tl),
                           onPressed: () {
                             if (folder == null) {
                               return;

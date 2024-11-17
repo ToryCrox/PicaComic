@@ -212,7 +212,27 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text("添加漫画源".tl),
+              title: Row(
+                children: [
+                  Text("添加漫画源".tl),
+                  const SizedBox(
+                    width: 2,
+                  ),
+                  InkWell(
+                    borderRadius: const BorderRadius.all(Radius.circular(18)),
+                    onTap: () => showDialogMessage(
+                        context,
+                        "警告".tl,
+                        "${"此功能已不再受支持".tl}\n${"请勿反馈相关问题".tl}"
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 18,
+                    ),
+                  )
+                ]
+              ),
               leading: const Icon(Icons.dashboard_customize),
             ),
             TextField(
@@ -232,6 +252,7 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
                 .paddingBottom(32),
             Row(
               children: [
+                const Spacer(),
                 TextButton(onPressed: chooseFile, child: Text("选择文件".tl))
                     .paddingLeft(8),
                 const Spacer(),
@@ -242,8 +263,8 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
                     },
                     child: Text("浏览列表".tl)),
                 const Spacer(),
-                TextButton(onPressed: help, child: Text("查看帮助".tl))
-                    .paddingRight(8),
+                // TextButton(onPressed: help, child: Text("查看帮助".tl))
+                //     .paddingRight(8),
               ],
             ),
             const SizedBox(height: 8),
@@ -271,10 +292,10 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
     }
   }
 
-  void help() {
-    launchUrlString(
-        "https://github.com/Pacalini/PicaComic/blob/master/doc/comic_source.md");
-  }
+  // void help() {
+  //   launchUrlString(
+  //       "https://github.com/user/repo/blob/master/help.md");
+  // }
 
   Future<void> handleAddSource(String url) async {
     if (url.isEmpty) {

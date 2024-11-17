@@ -324,7 +324,7 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                   height: 60,
                   child: Center(
                     child: FilledButton(
-                      child: const Text("确认"),
+                      child: Text("确认".tl),
                       onPressed: () async {
                         if (appdata.settings[22] != current) {
                           var oldPath = appdata.settings[22];
@@ -509,7 +509,7 @@ void clearUserData(BuildContext context) {
       context: context,
       builder: (context) => AlertDialog(
             title: Text("警告".tl),
-            content: Text("此操作无法撤销, 是否继续".tl),
+            content: Text("此操作无法撤销, 是否继续?".tl),
             actions: [
               TextButton(
                   onPressed: () => App.globalBack(), child: Text("取消".tl)),
