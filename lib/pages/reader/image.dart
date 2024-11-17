@@ -296,7 +296,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       );
     }
 
-    var width = widget.width??MediaQuery.of(context).size.width;
+    var width = widget.width ?? MediaQuery.of(context).size.width;
     double? height;
 
     Size? cacheSize = _cache[widget.image.hashCode];
@@ -360,7 +360,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       // build progress
       return SizedBox(
         width: width,
-        height: height??300,
+        height: height ?? width,
         child: Center(
           child: SizedBox(
             width: 24,

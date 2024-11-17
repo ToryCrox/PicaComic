@@ -3,6 +3,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
+import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/res.dart';
@@ -11,6 +12,7 @@ import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 import '../../foundation/app.dart';
 import '../../foundation/history.dart';
@@ -126,7 +128,17 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   String? get introduction => data!.description;
 
   @override
-  Future<Res<JmComicInfo>> loadData() => JmNetwork().getComicInfo(id);
+  Future<Res<JmComicInfo>> loadData() => JmNetwork().getComicInfo(id).then((res) {
+    if (res.success) {
+      CacheManager().writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
+    }
+    return res;
+  });
+
+  @override
+  Future<JmComicInfo?> loadCachedData() async {
+    return await CacheManager().findCacheModel(cacheKey, (map) => JmComicInfo.fromMap(map));
+  }
 
   @override
   int? get pages => null;

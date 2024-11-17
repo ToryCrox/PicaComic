@@ -599,10 +599,17 @@ class ComicPageLogic<T extends Object> extends StateController {
   int colorIndex = 0;
   bool? favoriteOnPlatform;
 
-  void get(Future<Res<T>> Function() loadData,
+  Future<void> get(Future<Res<T>> Function() loadData, Future<T?> Function() loadCacheData,
       Future<bool> Function(T) loadFavorite, String Function() getId) async {
+    final cache = await loadCacheData();
+    if (cache != null) {
+      data = cache;
+      loading = false;
+      Future.microtask(() => update());
+    }
+
     var [res, _] = await Future.wait(
-        [loadData(), Future.delayed(const Duration(milliseconds: 300))]);
+        [loadData(), Future.delayed(const Duration(milliseconds: 100))]);
     if (res.error) {
       if (res.errorMessage == "Exit") {
         return;
@@ -648,6 +655,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   /// load comic data
   Future<Res<T>> loadData();
+
+  String get cacheKey => "$tag-comic-info";
+
+  Future<T?> loadCachedData() => SynchronousFuture(null);
 
   /// get comic data
   @nonVirtual
@@ -790,7 +801,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             _logic.width = constraints.maxWidth;
             _logic.height = constraints.maxHeight;
             if (logic.loading) {
-              logic.get(loadData, loadFavorite, () => id);
+              logic.get(loadData, loadCachedData, loadFavorite, () => id);
               return buildLoading(context);
             } else if (logic.message != null) {
               return NetworkError(

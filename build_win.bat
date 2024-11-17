@@ -1,8 +1,6 @@
 @echo off
 setlocal
 
-flutter build windows
-
 REM Define source and destination directories
 set "source_dir=E:\Workspace\flutter\PicaComic\build\windows\x64\runner\Release"
 set "destination_dir=E:\Program Files\PicaComic"

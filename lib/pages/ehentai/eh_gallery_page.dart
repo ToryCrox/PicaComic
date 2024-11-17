@@ -19,6 +19,9 @@ import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
 
+import '../../foundation/cache_manager.dart';
+import '../../tools/type_util.dart';
+
 class EhGalleryPage extends BaseComicPage<Gallery> {
   EhGalleryPage(EhGalleryBrief brief, {super.key})
       : link = brief.link,
@@ -93,7 +96,16 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
         return const Res(null, errorMessage: "Exit");
       }
     }
+    final data = res.dataOrNull;
+    if (data != null) {
+      CacheManager().writeString(cacheKey, TypeUtil.parseString(data.toJson()));
+    }
     return res;
+  }
+
+  @override
+  Future<Gallery?> loadCachedData() async {
+    return await CacheManager().findCacheModel(cacheKey, (map) => Gallery.fromJson(map));
   }
 
   @override

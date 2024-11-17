@@ -1,6 +1,7 @@
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 class HomePageData {
   List<HomePageItem> items;
@@ -159,7 +160,7 @@ class JmComicInfo with HistoryMixin {
   }
 
   JmComicInfo.fromMap(Map<String, dynamic> map)
-      : name = map["name"],
+      : name = TypeUtil.parseString(map["name"]),
         id = map["id"],
         author = List<String>.from(map["author"]),
         description = map["description"],

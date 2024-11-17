@@ -433,8 +433,23 @@ class DownloadManager with _DownloadDb implements Listenable {
   static final _downloadedFileName = <String, String>{};
 
   ///获取封面, 所有漫画源通用
-  File getCover(String id) {
-    return File("$path/${getDirectory(id)}/cover.jpg");
+  File getCover(String id, {bool check = false}) {
+    var file = File("$path/${getDirectory(id)}/cover.jpg");
+    if (check) {
+      const extensions = [".png", ".webp"];
+      if (file.existsSync()) {
+        return file;
+      }
+      file = File("$path/${getDirectory(id)}/cover.webp");
+      if (file.existsSync()) {
+        return file;
+      }
+      file = File("$path/${getDirectory(id)}/cover.png");
+      if (file.existsSync()) {
+        return file;
+      }
+    }
+    return file;
   }
 }
 

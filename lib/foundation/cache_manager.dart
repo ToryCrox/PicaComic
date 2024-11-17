@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 class CacheManager {
@@ -78,10 +81,10 @@ class CacheManager {
     var dir = this.dir;
     var name = md5.convert(Uint8List.fromList(key.codeUnits)).toString();
     var file = File('$cachePath/$dir/$name');
-    while(await file.exists()){
-      name = md5.convert(Uint8List.fromList(name.codeUnits)).toString();
-      file = File('$cachePath/$dir/$name');
-    }
+    // while(await file.exists()){
+    //   name = md5.convert(Uint8List.fromList(name.codeUnits)).toString();
+    //   file = File('$cachePath/$dir/$name');
+    // }
     await file.create(recursive: true);
     await file.writeAsBytes(data);
     var expires = DateTime.now().millisecondsSinceEpoch + duration;
@@ -102,13 +105,46 @@ class CacheManager {
     var dir = this.dir;
     var name = md5.convert(Uint8List.fromList(key.codeUnits)).toString();
     var file = File('$cachePath/$dir/$name');
-    while(await file.exists()){
-      name = md5.convert(Uint8List.fromList(name.codeUnits)).toString();
-      file = File('$cachePath/$dir/$name');
-    }
+    // while(await file.exists()){
+    //   name = md5.convert(Uint8List.fromList(name.codeUnits)).toString();
+    //   file = File('$cachePath/$dir/$name');
+    // }
     await file.create(recursive: true);
     return CachingFile._(key, dir.toString(), name, file);
   }
+
+
+  Future<void> writeString(String key, String data) async {
+    try {
+      final bytes = Uint8List.fromList(utf8.encode(data));
+      await writeCache(key, bytes);
+    } catch (e) {
+      Log.error('CacheManager', 'writeString error: $e');
+    }
+  }
+
+  Future<T?> findCacheModel<T>(String key, T Function(Map<String, dynamic> map) factory) async{
+    final filePath = await findCache(key);
+    if (filePath != null) {
+      final file = File(filePath);
+      Log.debug('CacheManager', 'findCache $key, $filePath');
+      if (file.existsSync()) {
+        try {
+          final bytes = await file.readAsBytes();
+          final dataStr = utf8.decode(bytes);
+          Log.debug('CacheManager', dataStr);
+          final map = TypeUtil.parseMap(dataStr);
+          if (map.isNotEmpty) {
+            return factory(map);
+          }
+        } catch (e) {
+          Log.error('CacheManager', 'read cache error: $e');
+        }
+      }
+    }
+    return null;
+  }
+
 
   Future<String?> findCache(String key) async{
     var res = _db.select('''

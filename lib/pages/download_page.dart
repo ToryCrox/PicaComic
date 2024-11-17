@@ -387,7 +387,7 @@ class DownloadPage extends StatelessWidget {
         child: DownloadedComicTile(
           name: logic.comics[index].name,
           author: logic.comics[index].subTitle,
-          imagePath: downloadManager.getCover(logic.comics[index].id),
+          imagePath: downloadManager.getCover(logic.comics[index].id, check: true),
           type: type,
           tag: logic.comics[index].tags,
           onTap: () async {
