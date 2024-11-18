@@ -56,7 +56,7 @@ class LogManager {
     print('\x1B[31m$text\x1B[0m');
   }
 
-  static void addLog(LogLevel level, String title, String content) {
+  static void addLog(LogLevel level, String title, String content, {StackTrace? stackTrace}) {
     if (!ignoreLimitation && content.length > maxLogLength) {
       content = "${content.substring(0, maxLogLength)}...";
     }
@@ -65,7 +65,7 @@ class LogManager {
       switch (level) {
         case LogLevel.error:
           //printError("$title: $content");
-          logger.e('$title: $content');
+          logger.e('$title: $content', stackTrace: stackTrace);
           break;
         case LogLevel.warning:
           logger.w("$title: $content");
@@ -145,8 +145,8 @@ class Log {
     LogManager.addLog(LogLevel.warning, title, message);
   }
 
-  static void error(String title, String message) {
-    LogManager.addLog(LogLevel.error, title, message);
+  static void error(String title, String message, {StackTrace? stackTrace}) {
+    LogManager.addLog(LogLevel.error, title, message, stackTrace: stackTrace);
   }
 
   @override

@@ -182,17 +182,29 @@ class ComicReadingPageLogic extends StateController {
   ReadingMethod get readingMethod =>
       ReadingMethod.values[int.parse(appdata.settings[9]) - 1];
 
-  void jumpToNextPage() {
+  Future<void> jumpToNextPage({bool animate = false}) async {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index + 1);
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
-      scrollController.jumpTo(scrollController.position.pixels + 600);
+      final maxScrollExtent = scrollController.position.maxScrollExtent;
+      if (animate) {
+        double distance = 600;
+        if (maxScrollExtent - scrollController.position.pixels < 600) {
+          distance = (maxScrollExtent - scrollController.position.pixels).clamp(10, 600);
+        }
+        ;
+       await scrollController.animateTo(scrollController.position.pixels + distance,
+            duration: Duration(milliseconds: (distance / 600 * 2000).toInt()), curve: Curves.linear);
+      } else {
+        scrollController.jumpTo(scrollController.position.pixels + 600);
+      }
     } else {
       pageController.jumpToPage(pageController.page!.round() + 1);
     }
   }
 
   void jumpToLastPage() {
+    stopAutoPageTurning();
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index - 1);
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
@@ -297,8 +309,34 @@ class ComicReadingPageLogic extends StateController {
   /// 是否处于自动翻页状态
   bool runningAutoPageTurning = false;
 
+  void stopAutoPageTurning() {
+    runningAutoPageTurning = false;
+    if (readingMethod == ReadingMethod.topToBottomContinuously) {
+      scrollController.jumpTo(scrollController.position.pixels + 1);
+    }
+  }
+
   /// 自动翻页
-  void autoPageTurning() async {
+  Future<void> autoPageTurning() async {
+    if (readingMethod == ReadingMethod.topToBottomContinuously) {
+      if (!runningAutoPageTurning) {
+        stopAutoPageTurning();
+        return;
+      }
+      final pixels = scrollController.position.pixels;
+      final maxScrollExtent = scrollController.position.maxScrollExtent;
+      Log.debug('ReadingLogic', 'autoPageTurning $pixels $maxScrollExtent');
+      if (scrollController.position.pixels >=
+          scrollController.position.maxScrollExtent) {
+        stopAutoPageTurning();
+        return;
+      }
+      await jumpToNextPage(animate: true);
+      if (runningAutoPageTurning) {
+        autoPageTurning();
+      }
+      return;
+    }
     if (index == urls.length - 1) {
       runningAutoPageTurning = false;
       update();
@@ -359,14 +397,20 @@ class ComicReadingPageLogic extends StateController {
         case LogicalKeyboardKey.arrowLeft:
           reverse ? jumpToNextPage(): jumpToLastPage();
           break;
-        case LogicalKeyboardKey.pageUp:
+        case LogicalKeyboardKey.f3:
           jumpToLastChapter();
           break;
-        case LogicalKeyboardKey.pageDown:
+        case LogicalKeyboardKey.f4:
           jumpToNextChapter();
+          break;
+        case LogicalKeyboardKey.f5:
+          runningAutoPageTurning = !runningAutoPageTurning;
+          autoPageTurning();
+          update();
           break;
         case LogicalKeyboardKey.f12:
           fullscreen();
+          break;
       }
     }
   }

@@ -78,6 +78,7 @@ class FavoriteImageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ratio = MediaQuery.of(context).devicePixelRatio;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       child: Material(
@@ -93,7 +94,9 @@ class FavoriteImageTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8)),
                 clipBehavior: Clip.antiAlias,
                 child: Image(
-                  image: _ImageProvider(image),
+                  image: ResizeImage.resizeIfNeeded(
+                    (200 * ratio).toInt(), null, _ImageProvider(image),
+                  ),
                   fit: BoxFit.cover,
                 ),
               ),

@@ -136,10 +136,11 @@ extension ToolBar on ComicReadingPage {
                                         .toList();
                                 otherInfo["galleryId"] = readingData.id;
                               } else if (logic.data.type == ReadingType.jm) {
+                                Log.debug("TooBar", "${readingData.eps}, ${logic.order}");
                                 otherInfo["jmEpNames"] =
                                     readingData.eps!.values.toList();
                                 otherInfo["epsId"] = readingData.eps!.keys
-                                    .elementAt(logic.index - 1);
+                                    .elementAt(logic.order - 1);
                                 otherInfo["bookId"] = readingData.id;
                               }
                               if (logic.data.type != ComicType.other) {
@@ -158,7 +159,8 @@ extension ToolBar on ComicReadingPage {
                                   otherInfo));
                               showToast(message: "成功收藏图片".tl);
                             }
-                          } catch (e) {
+                          } catch (e, s) {
+                            Log.error('TooBar', '$e', stackTrace: s);
                             showToast(message: e.toString());
                           }
                         },

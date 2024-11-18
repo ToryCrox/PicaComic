@@ -116,8 +116,9 @@ class CacheManager {
 
   Future<void> writeString(String key, String data) async {
     try {
+      Log.debug('CacheManager', 'writeString $key');
       final bytes = Uint8List.fromList(utf8.encode(data));
-      await writeCache(key, bytes);
+      await writeCache(key, bytes, const Duration(days: 180).inMilliseconds);
     } catch (e) {
       Log.error('CacheManager', 'writeString error: $e');
     }
@@ -125,6 +126,7 @@ class CacheManager {
 
   Future<T?> findCacheModel<T>(String key, T Function(Map<String, dynamic> map) factory) async{
     final filePath = await findCache(key);
+    Log.debug('CacheManager', 'findCacheModel $key, $filePath');
     if (filePath != null) {
       final file = File(filePath);
       Log.debug('CacheManager', 'findCache $key, $filePath');
@@ -199,7 +201,7 @@ class CacheManager {
     compute((path) => Directory(path).size, cachePath)
         .then((value) => _currentSize = value);
 
-    while((_currentSize != null && _currentSize! > _limitSize) ||  count > 2000){
+    while((_currentSize != null && _currentSize! > _limitSize) ||  count > 200000){
       var res = _db.select('''
         SELECT * FROM cache
         ORDER BY expires ASC
