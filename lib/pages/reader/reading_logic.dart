@@ -65,6 +65,16 @@ class ComicReadingPageLogic extends StateController {
 
   var focusNode = FocusNode();
 
+  /// 正在选择图片
+  bool _isShowSelectImage = false;
+
+  bool get isShowSelectImage => _isShowSelectImage;
+
+  set isShowSelectImage(bool show) {
+    _isShowSelectImage = show;
+    update();
+  }
+
   static int _getIndex(int initPage) {
     if (appdata.settings[9] == "5" || appdata.settings[9] == "6") {
       return initPage % 2 == 1 ? initPage : initPage - 1;
@@ -194,7 +204,7 @@ class ComicReadingPageLogic extends StateController {
         }
         ;
        await scrollController.animateTo(scrollController.position.pixels + distance,
-            duration: Duration(milliseconds: (distance / 600 * 2000).toInt()), curve: Curves.linear);
+            duration: Duration(milliseconds: (distance / 600 * 1200).toInt()), curve: Curves.linear);
       } else {
         scrollController.jumpTo(scrollController.position.pixels + 600);
       }
@@ -397,6 +407,12 @@ class ComicReadingPageLogic extends StateController {
         case LogicalKeyboardKey.arrowLeft:
           reverse ? jumpToNextPage(): jumpToLastPage();
           break;
+        case LogicalKeyboardKey.f12:
+          fullscreen();
+          break;
+      }
+    } else if(event is KeyUpEvent){
+      switch(event.logicalKey) {
         case LogicalKeyboardKey.f3:
           jumpToLastChapter();
           break;
@@ -406,10 +422,10 @@ class ComicReadingPageLogic extends StateController {
         case LogicalKeyboardKey.f5:
           runningAutoPageTurning = !runningAutoPageTurning;
           autoPageTurning();
+          if (runningAutoPageTurning) {
+            tools = false;
+          }
           update();
-          break;
-        case LogicalKeyboardKey.f12:
-          fullscreen();
           break;
       }
     }

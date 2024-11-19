@@ -115,54 +115,7 @@ extension ToolBar on ComicReadingPage {
                       child: IconButton(
                         icon: const Icon(Icons.favorite),
                         onPressed: () async {
-                          try {
-                            final id =
-                                "${logic.data.sourceKey}-${logic.data.id}";
-                            var image = await _persistentCurrentImage();
-                            if (image != null) {
-                              image = image.split("/").last;
-                              var otherInfo = <String, dynamic>{};
-                              if (logic.data.type == ReadingType.ehentai) {
-                                otherInfo["gallery"] =
-                                    (logic.data as EhReadingData)
-                                        .gallery
-                                        .toJson();
-                              } else if (logic.data.type ==
-                                  ReadingType.hitomi) {
-                                otherInfo["hitomi"] =
-                                    (readingData as HitomiReadingData)
-                                        .images
-                                        .map((e) => e.toMap())
-                                        .toList();
-                                otherInfo["galleryId"] = readingData.id;
-                              } else if (logic.data.type == ReadingType.jm) {
-                                Log.debug("TooBar", "${readingData.eps}, ${logic.order}");
-                                otherInfo["jmEpNames"] =
-                                    readingData.eps!.values.toList();
-                                otherInfo["epsId"] = readingData.eps!.keys
-                                    .elementAt(logic.order - 1);
-                                otherInfo["bookId"] = readingData.id;
-                              }
-                              if (logic.data.type != ComicType.other) {
-                                otherInfo["eps"] =
-                                    readingData.eps?.keys.toList() ?? [];
-                              } else {
-                                otherInfo["eps"] = readingData.eps;
-                              }
-                              otherInfo["url"] = logic.urls[logic.index - 1];
-                              ImageFavoriteManager.add(ImageFavorite(
-                                  id,
-                                  image,
-                                  readingData.title,
-                                  logic.order,
-                                  logic.index,
-                                  otherInfo));
-                              showToast(message: "成功收藏图片".tl);
-                            }
-                          } catch (e, s) {
-                            Log.error('TooBar', '$e', stackTrace: s);
-                            showToast(message: e.toString());
-                          }
+                          _onTapFavoritePic(logic);
                         },
                       ),
                     ),

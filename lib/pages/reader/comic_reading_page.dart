@@ -16,11 +16,13 @@ import 'package:pica_comic/components/custom_slider.dart';
 import 'package:pica_comic/components/scrollable_list/src/item_positions_listener.dart';
 import 'package:pica_comic/components/scrollable_list/src/scrollable_positioned_list.dart';
 import 'package:pica_comic/components/window_frame.dart';
+import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_loader/file_image_loader.dart';
 import 'package:pica_comic/foundation/image_loader/stream_image_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
@@ -36,6 +38,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/tools/save_image.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import '../../foundation/app.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
@@ -321,6 +324,7 @@ class ComicReadingPage extends StatelessWidget {
                       logic,
                       context,
                       readingData.id,
+                      isShowSelectImage: logic.isShowSelectImage,
                     ),
                     if (MediaQuery.of(context).platformBrightness ==
                             Brightness.dark &&
@@ -354,7 +358,14 @@ class ComicReadingPage extends StatelessWidget {
               return KeyboardListener(
                 focusNode: logic.focusNode,
                 autofocus: true,
-                onKeyEvent: logic.handleKeyboard,
+                onKeyEvent: (event) {
+                  logic.handleKeyboard(event);
+                  if (event is KeyUpEvent) {
+                    if (event.logicalKey == LogicalKeyboardKey.f6) {
+                      _onTapFavoritePic(logic);
+                    }
+                  }
+                },
                 child: body,
               );
             } else {
@@ -464,14 +475,18 @@ class ComicReadingPage extends StatelessWidget {
 
   void loadInfo(ComicReadingPageLogic logic) async {
     logic.urls = [];
-    var res = await readingData.loadEp(logic.order);
-    if (res.error) {
-      logic.errorMessage = res.errorMessage;
-    } else {
-      logic.urls = res.data;
+    await for(var res in readingData.loadEp(logic.order)) {
+      if (res.error) {
+        if (logic.urls.isEmpty) {
+          logic.errorMessage = res.errorMessage;
+        }
+      } else {
+        logic.urls = res.data;
+      }
+      logic.isLoading = false;
+      logic.update();
     }
-    logic.isLoading = false;
-    logic.update();
+
   }
 
   Widget buildEpsView() {
@@ -509,6 +524,7 @@ class ComicReadingPage extends StatelessWidget {
     if (items.length == 1) {
       return items[0].index;
     }
+    logic.isShowSelectImage = true;
     int? res;
     await showDialog(
         context: App.globalContext!,
@@ -537,6 +553,7 @@ class ComicReadingPage extends StatelessWidget {
             ],
           );
         });
+    logic.isShowSelectImage = false;
     return res;
   }
 
@@ -573,6 +590,43 @@ class ComicReadingPage extends StatelessWidget {
         readingData.loadImage(logic.order, index, logic.urls[index]));
 
     shareImage(file);
+  }
+
+  Future<void> _onTapFavoritePic(ComicReadingPageLogic logic) async {
+    try {
+      final id = "${logic.data.sourceKey}-${logic.data.id}";
+      var image = await _persistentCurrentImage();
+      if (image != null) {
+        image = image.split("/").last;
+        var otherInfo = <String, dynamic>{};
+        if (logic.data.type == ReadingType.ehentai) {
+          otherInfo["gallery"] = (logic.data as EhReadingData).gallery.toJson();
+        } else if (logic.data.type == ReadingType.hitomi) {
+          otherInfo["hitomi"] = (readingData as HitomiReadingData)
+              .images
+              .map((e) => e.toMap())
+              .toList();
+          otherInfo["galleryId"] = readingData.id;
+        } else if (logic.data.type == ReadingType.jm) {
+          Log.debug("TooBar", "${readingData.eps}, ${logic.order}");
+          otherInfo["jmEpNames"] = readingData.eps!.values.toList();
+          otherInfo["epsId"] = readingData.eps!.keys.elementAt(logic.order - 1);
+          otherInfo["bookId"] = readingData.id;
+        }
+        if (logic.data.type != ComicType.other) {
+          otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];
+        } else {
+          otherInfo["eps"] = readingData.eps;
+        }
+        otherInfo["url"] = logic.urls[logic.index - 1];
+        ImageFavoriteManager.add(ImageFavorite(
+            id, image, readingData.title, logic.order, logic.index, otherInfo));
+        showToast(message: "成功收藏图片".tl);
+      }
+    } catch (e, s) {
+      Log.error('TooBar', '$e', stackTrace: s);
+      showToast(message: e.toString());
+    }
   }
 
   Future<String?> _persistentCurrentImage() async {

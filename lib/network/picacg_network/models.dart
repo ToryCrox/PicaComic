@@ -1,6 +1,8 @@
 import "package:pica_comic/base.dart";
 import "package:pica_comic/foundation/history.dart";
 import "package:pica_comic/network/base_comic.dart";
+import "package:pica_comic/network/jm_network/jm_models.dart";
+import "package:pica_comic/tools/map_extension.dart";
 
 class Profile {
   String id;
@@ -77,6 +79,25 @@ class ComicItemBrief extends BaseComic{
 
   @override
   String get subTitle => author;
+
+  ComicItemBrief.fromJson(Map<String,dynamic> json):
+    title = json.optString("title"),
+    author = json["author"],
+    likes = json["likes"],
+    path = json["path"],
+    id = json["id"],
+    tags = json.optStringList("tags"),
+    pages = json["pages"];
+
+  Map<String,dynamic> toJson()=>{
+    "title": title,
+    "author": author,
+    "likes": likes,
+    "path": path,
+    "id": id,
+    "tags": tags,
+    "pages": pages
+  };
 }
 
 class ComicItem with HistoryMixin{
@@ -139,7 +160,9 @@ class ComicItem with HistoryMixin{
     "isFavourite": isFavourite,
     "epsCount": epsCount,
     "time": time,
-    "pagesCount": pagesCount
+    "pagesCount": pagesCount,
+    'eps': eps,
+    'recommendation': recommendation.map((e) => e.toJson()).toList(),
   };
 
   ComicItem.fromJson(Map<String,dynamic> json):
@@ -159,8 +182,8 @@ class ComicItem with HistoryMixin{
     epsCount = json["epsCount"],
     time = json["time"],
     pagesCount = json["pagesCount"],
-    eps = [],
-    recommendation = [];
+    eps = json.optStringList('eps'),
+    recommendation = json.optList('recommendation', (e) => ComicItemBrief.fromJson(e));
 
   @override
   String get cover => thumbUrl;

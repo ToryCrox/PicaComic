@@ -29,7 +29,7 @@ abstract class ReadingData {
     return !hasEp || downloadedEps.contains(ep-1);
   }
 
-  Future<Res<List<String>>> loadEp(int ep) async {
+  Stream<Res<List<String>>> loadEp(int ep) async* {
     if(downloaded && downloadedEps.isEmpty){
       downloadedEps = (await DownloadManager().getComicOrNull(downloadId))!.downloadedEps;
     }
@@ -40,9 +40,22 @@ abstract class ReadingData {
       } else {
         length = await DownloadManager().getComicLength(downloadId);
       }
-      return Res(List.filled(length, ""));
+      yield Res(List.filled(length, ""));
     } else {
-      return await loadEpNetwork(ep);
+      final cacheKey = 'reading-data-${type.name}-$id-$ep';
+      final cacheRes = await CacheManager().findCacheModel(cacheKey,
+          (e) => TypeUtil.parseStringList(e['data']));
+      if (cacheRes != null && cacheRes.isNotEmpty) {
+        yield Res(cacheRes);
+      }
+      final netRes = await loadEpNetwork(ep);
+      if (netRes.success) {
+        yield netRes;
+        CacheManager().writeString('reading-data-${type.name}-$id-$ep',
+            TypeUtil.parseString({'data': netRes.data}));
+      } else {
+        yield netRes;
+      }
     }
   }
 

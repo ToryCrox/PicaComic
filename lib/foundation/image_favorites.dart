@@ -37,7 +37,7 @@ class ImageFavoriteManager{
 
   static void add(ImageFavorite favorite){
     _db.execute("""
-      insert into image_favorites(id, title, cover, ep, page, other)
+      insert or replace into image_favorites(id, title, cover, ep, page, other)
       values(?, ?, ?, ?, ?, ?);
     """, [favorite.id, favorite.title, favorite.imagePath, favorite.ep, favorite.page, jsonEncode(favorite.otherInfo)]);
     Webdav.uploadData();

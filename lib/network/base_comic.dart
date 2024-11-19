@@ -47,11 +47,23 @@ class CustomComic extends BaseComic {
     this.sourceKey,
   );
 
-  CustomComic.fromJson(Map json, this.sourceKey)
+  CustomComic.fromJson(Map<String, dynamic> json, this.sourceKey)
       : title = json["title"],
         subTitle = json["subTitle"] ?? "",
         cover = json["cover"],
         id = json["id"],
         tags = List<String>.from(json["tags"] ?? []),
         description = json["description"] ?? "";
+
+  Map<String, dynamic> toJson() {
+    return {
+      "title": title,
+      "subTitle": subTitle,
+      "cover": cover,
+      "id": id,
+      "tags": tags,
+      "description": description,
+    };
+  }
+
 }

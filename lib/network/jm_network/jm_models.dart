@@ -1,6 +1,7 @@
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
 class HomePageData {
@@ -45,6 +46,24 @@ class JmComicBrief extends BaseComic {
 
   @override
   String get title => name;
+
+  JmComicBrief.fromJson(Map<String, dynamic> json)
+      : id = json["id"],
+        author = json["author"],
+        name = json["name"],
+        description = json["description"],
+        categories =
+            json.optList("categories", (e) => ComicCategoryInfo.fromJson(e));
+
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "author": author,
+      "name": name,
+      "description": description,
+      "categories": categories.map((e) => e.toJson()).toList()
+    };
+  }
 }
 
 class ComicCategoryInfo {
@@ -52,6 +71,17 @@ class ComicCategoryInfo {
   String name;
 
   ComicCategoryInfo(this.id, this.name);
+
+  factory ComicCategoryInfo.fromJson(Map<String, dynamic> json) {
+    return ComicCategoryInfo(json.optString("id"), json.optString("name"));
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "name": name
+    };
+  }
 }
 
 class PromoteList {
@@ -152,7 +182,7 @@ class JmComicInfo with HistoryMixin {
       "views": "",
       "series": seriesToJsonMap(series),
       "tags": tags,
-      "relatedComics": [],
+      "relatedComics": relatedComics.map((e) => e.toJson()).toList(),
       "liked": "",
       "favorite": "",
       "epNames": epNames
@@ -168,7 +198,7 @@ class JmComicInfo with HistoryMixin {
         views = 0,
         series = jsonMapToSeries(map["series"]),
         tags = List<String>.from(map["tags"]),
-        relatedComics = [],
+        relatedComics = map.optList('relatedComics', (e) => JmComicBrief.fromJson(e)),
         liked = false,
         favorite = false,
         comments = 0,

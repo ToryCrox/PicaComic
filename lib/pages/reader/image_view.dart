@@ -25,7 +25,7 @@ const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
 extension ImageExt on ComicReadingPage {
   /// build comic image
   Widget buildComicView(
-      ComicReadingPageLogic logic, BuildContext context, String target) {
+      ComicReadingPageLogic logic, BuildContext context, String target, {bool isShowSelectImage = false}) {
     ScrollExtension.futurePosition = null;
     Widget buildType4() {
       return ScrollablePositionedList.builder(
@@ -40,8 +40,9 @@ extension ImageExt on ComicReadingPage {
             ? const NeverScrollableScrollPhysics()
             : const ClampingScrollPhysics(),
         itemBuilder: (context, index) {
-          double width = MediaQuery.of(context).size.width;
-          double height = MediaQuery.of(context).size.height;
+          final mediaQuery = MediaQuery.of(context);
+          double width = mediaQuery.size.width;
+          double height = mediaQuery.size.height;
 
           double imageWidth = width;
 
@@ -52,12 +53,33 @@ extension ImageExt on ComicReadingPage {
           precacheComicImage(logic, context, index + 1, target);
 
           ImageProvider image = createImageProvider(type, logic, index, target);
-          return ComicImage(
-            filterQuality: FilterQuality.medium,
-            image: image,
-            width: imageWidth,
-            height: imageWidth * 1.2,
-            fit: BoxFit.cover,
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              ComicImage(
+                filterQuality: FilterQuality.medium,
+                image: image,
+                width: imageWidth,
+                height: imageWidth * 1.2,
+                fit: BoxFit.cover,
+              ),
+              if (isShowSelectImage)
+                Positioned.fill(
+                  top: 20,
+                  bottom: 20,
+                  child: Container(
+                    color: Colors.grey.withOpacity(0.6),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "${index + 1}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                      ),
+                    ),
+                  ),
+                )
+            ],
           );
         },
       );
