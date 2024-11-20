@@ -504,6 +504,37 @@ class _SetExplorePagesState extends State<SetExplorePages> {
   }
 }
 
+Future<void> clearCacheData(BuildContext context) async {
+  final result = await showDialog(context: context, builder: (context){
+    return SimpleDialog(
+      title: Text("清除缓存".tl),
+      children: [
+        ListTile(
+          title: Text("清除图片缓存".tl),
+          onTap: ()  {
+            Navigator.of(context).pop(0);
+          },
+        ),
+        ListTile(
+          title: Text("清除所有缓存".tl),
+          onTap: ()  {
+            Navigator.of(context).pop(1);
+          },
+        ),
+      ],
+    );
+  });
+  Log.debug('clearCache', 'select $result');
+  if (result == 1) {
+    CacheManager().clear();
+  } else if (result == 0){
+    for (final type in ['webp', 'jpg', 'png', 'gif', 'jpeg']) {
+      CacheManager().deleteByType(type);
+    }
+  }
+}
+
+
 void clearUserData(BuildContext context) {
   showDialog(
       context: context,

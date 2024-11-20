@@ -32,6 +32,8 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
 
+import '../tools/debounce.dart';
+import '../tools/throttle.dart';
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
 
@@ -218,12 +220,13 @@ class DownloadManager with _DownloadDb implements Listenable {
   }
 
 
-  static final Lock _saveInfoLock = Lock();
+  static final _saveInfoThrottle = Throttle(duration: const Duration(seconds: 1));
 
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
-    await _saveInfoLock.synchronized(() async {
+    _saveInfoThrottle.call(() async {
       notifyListeners();
+      final t1 = DateTime.now();
       var data = <String, dynamic>{};
       data["downloading"] = <Map<String, dynamic>>[];
       for (var item in downloading) {
@@ -231,6 +234,9 @@ class DownloadManager with _DownloadDb implements Listenable {
       }
       var file = File("$path${pathSep}newDownload.json");
       await file.writeAsString(const JsonEncoder().convert(data));
+      Log.debug("IO", "Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
+    }, preventFuc: () {
+      Log.debug("IO", "Prevented saving download information");
     });
   }
 

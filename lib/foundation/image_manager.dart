@@ -126,6 +126,7 @@ class ImageManager {
         savePath,
         Uint8List.fromList(imageData),
         ext,
+        cachingFile,
       );
     } catch (e, s) {
       caching?.cancel();
@@ -433,6 +434,7 @@ class ImageManager {
         savePath,
         Uint8List.fromList(data),
         ext,
+        cachingFile,
       );
     } catch (e, s) {
       caching?.cancel();
@@ -515,7 +517,7 @@ class ImageManager {
       var ext = getExt(res);
       CacheManager().setType(key, ext);
       yield DownloadProgress(currentBytes, currentBytes, url, savePath,
-          Uint8List.fromList(data), ext);
+          Uint8List.fromList(data), ext, cachingFile);
     } catch (e) {
       caching?.cancel();
       if (e is DioException && e.type == DioExceptionType.badResponse) {
@@ -603,6 +605,7 @@ class ImageManager {
         savePath,
         Uint8List.fromList(bytes),
         ext,
+        cachingFile,
       );
       yield progress;
     } catch (e) {
@@ -884,6 +887,7 @@ class DownloadProgress {
   final String savePath;
   final Uint8List? data;
   final String? ext;
+  final CachingFile? cachingFile;
 
   int get currentBytes => _currentBytes;
 
@@ -893,7 +897,7 @@ class DownloadProgress {
 
   const DownloadProgress(
       this._currentBytes, this._expectedBytes, this.url, this.savePath,
-      [this.data, this.ext]);
+      [this.data, this.ext, this.cachingFile]);
 
   File getFile() => File(savePath);
 }

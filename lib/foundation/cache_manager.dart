@@ -252,6 +252,7 @@ class CacheManager {
       fileSize = await file.length();
       await file.delete();
     }
+    Log.debug('CacheManager', 'delete $key, filePath: ${file.path}, size: $fileSize');
     _db.execute('''
       DELETE FROM cache
       WHERE key = ?
@@ -287,6 +288,33 @@ class CacheManager {
           await file.delete();
         }
         finally {}
+      }
+      _db.execute('''
+        DELETE FROM cache
+        WHERE key = ?
+      ''', [key]);
+      if(_currentSize != null) {
+        _currentSize = _currentSize! - fileSize;
+      }
+    }
+  }
+
+  Future<void> deleteByType(String type) async {
+    // 删除所有指定类型的缓存
+    var res = _db.select(' SELECT * FROM cache where type = ?', [type]);
+    for(var row in res){
+      var key = row[0] as String;
+      var dir = row[1] as String;
+      var name = row[2] as String;
+      var file = File('$cachePath/$dir/$name');
+      var fileSize = 0;
+      if(await file.exists()){
+        fileSize = await file.length();
+        try {
+          await file.delete();
+        } catch (e) {
+          continue;
+        }
       }
       _db.execute('''
         DELETE FROM cache

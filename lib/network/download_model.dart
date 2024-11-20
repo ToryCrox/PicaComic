@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as Path;
+import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -484,6 +485,10 @@ class _ImageDownloadWrapper {
             }
             await file.writeAsBytes(data);
             isFinished = true;
+            final cachingFile = progress.cachingFile;
+            if (cachingFile != null) {
+              CacheManager().delete(cachingFile.key);
+            }
           }
         }
       } catch (e) {

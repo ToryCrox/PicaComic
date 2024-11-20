@@ -1085,6 +1085,7 @@ class DownloadedComicTile extends ComicTile {
         imagePath,
         fit: BoxFit.cover,
         height: double.infinity,
+        cacheWidth: (100 * MediaQuery.of(App.globalContext!).devicePixelRatio).toInt(),
       );
 
   @override
