@@ -395,31 +395,45 @@ class ComicReadingPageLogic extends StateController {
     }
   }
 
+  int _lastKeyboardTime = 0;
   void handleKeyboard(KeyEvent event) {
+    bool hasEvent = false;
     if(event is KeyDownEvent || event is KeyRepeatEvent){
+      Log.debug('handleKeyboard', "key: ${event}");
       bool reverse = appdata.settings[9] == "2" || appdata.settings[9] == "6";
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
           reverse ? jumpToLastPage(): jumpToNextPage();
+          hasEvent = true;
           break;
         case LogicalKeyboardKey.arrowUp:
         case LogicalKeyboardKey.arrowLeft:
           reverse ? jumpToNextPage(): jumpToLastPage();
+          hasEvent = true;
           break;
         case LogicalKeyboardKey.f12:
+          hasEvent = true;
           fullscreen();
           break;
       }
     } else if(event is KeyUpEvent){
+      Log.debug('handleKeyboard', "key: ${event}");
+      if ((DateTime.now().millisecondsSinceEpoch - _lastKeyboardTime).abs() < 1000) {
+        Log.info('handleKeyboard', "Keyboard repeat event ignored $event");
+        return;
+      }
       switch(event.logicalKey) {
         case LogicalKeyboardKey.f3:
           jumpToLastChapter();
+          hasEvent = true;
           break;
         case LogicalKeyboardKey.f4:
           jumpToNextChapter();
+          hasEvent = true;
           break;
         case LogicalKeyboardKey.f5:
+          hasEvent = true;
           runningAutoPageTurning = !runningAutoPageTurning;
           autoPageTurning();
           if (runningAutoPageTurning) {
@@ -429,6 +443,10 @@ class ComicReadingPageLogic extends StateController {
           break;
       }
     }
+    if (hasEvent){
+      _lastKeyboardTime = DateTime.now().millisecondsSinceEpoch;
+    }
+
   }
 
   late final void Function() openEpsView;
