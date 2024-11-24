@@ -9,40 +9,40 @@ Widget buildExploreSettings(BuildContext context, bool popUp) {
   return Column(
     children: [
       SettingsTitle("显示".tl),
-      NewPageSetting(
-        title: "关键词屏蔽".tl,
-        onTap: () => showPopUpWidget(context,
-            BlockingKeywordPage(popUp: MediaQuery.of(context).size.width>600,)),
-        icon: const Icon(Icons.block)
-      ),
       SelectSettingWithAppdata(
-        icon: const Icon(Icons.article_outlined),
+        icon: const Icon(Icons.home_outlined),
         title: "初始页面".tl,
         options: ["我".tl, "收藏".tl, "探索".tl, "分类".tl],
         settingsIndex: 23,
       ),
       NewPageSetting(
+        title: "网络收藏页面".tl,
+        onTap: () => showPopUpWidget(App.globalContext!,
+            MultiPagesFilter("网络收藏页面".tl, 68, networkFavorites())),
+        icon: const Icon(Icons.local_activity_outlined),
+      ),
+      NewPageSetting(
           title: "探索页面".tl,
           onTap: () => setExplorePages(context),
-          icon:  const Icon(Icons.pages)
+          icon:  const Icon(Icons.explore_outlined)
       ),
       NewPageSetting(
           title: "分类页面".tl,
           onTap: () => showPopUpWidget(App.globalContext!,
               MultiPagesFilter("分类页面".tl, 67, categoryPages())),
-          icon:  const Icon(Icons.account_tree)
-      ),
-      NewPageSetting(
-          title: "网络收藏页面".tl,
-          onTap: () => showPopUpWidget(App.globalContext!,
-              MultiPagesFilter("网络收藏页面".tl, 68, networkFavorites())),
-          icon: const Icon(Icons.favorite),
+          icon:  const Icon(Icons.account_tree_outlined)
       ),
       SelectSettingWithAppdata(
         icon: const Icon(Icons.list),
         title: "漫画列表显示方式".tl,
         options: ["连续模式".tl, "分页模式".tl],
         settingsIndex: 25,
+      ),
+      NewPageSetting(
+          title: "关键词屏蔽".tl,
+          onTap: () => showPopUpWidget(context,
+              BlockingKeywordPage(popUp: MediaQuery.of(context).size.width>600,)),
+          icon: const Icon(Icons.block)
       ),
       SwitchSetting(
         title: "完全隐藏屏蔽的作品".tl,
@@ -74,11 +74,11 @@ Widget buildExploreSettings(BuildContext context, bool popUp) {
         title: "自动添加语言筛选".tl,
         settingsIndex: 69,
         options: ["无".tl, "chinese", "english", "japanese"],
-        icon: const Icon(Icons.language),
+        icon: const Icon(Icons.translate),
       ),
       SettingsTitle("漫画块".tl),
       SelectSetting(
-        leading: const Icon(Icons.crop_square),
+        leading: const Icon(Icons.web),
         title: "漫画块显示模式".tl,
         initialValue: int.parse(appdata.settings[44].split(',').first),
         onChanged: (i) {

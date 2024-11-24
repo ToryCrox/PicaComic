@@ -247,10 +247,12 @@ class Appdata {
     try {
       var newSettings = List<String>.from(json["settings"]);
       var downloadPath = settings[22];
+      var authRequired = settings[13];
       for (var i = 0; i < settings.length && i < newSettings.length; i++) {
         settings[i] = newSettings[i];
       }
       settings[22] = downloadPath;
+      settings[13] = authRequired;
       var newFirstUse = List<String>.from(json["firstUse"]);
       for (var i = 0; i < firstUse.length && i < newFirstUse.length; i++) {
         firstUse[i] = newFirstUse[i];

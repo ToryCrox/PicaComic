@@ -163,6 +163,8 @@ class DownloadPageLogic extends StateController {
 
   bool searchMode = false;
 
+  bool searchInit = false;
+
   String keyword = "";
   String keyword_ = "";
 
@@ -579,7 +581,12 @@ class DownloadPage extends StatelessWidget {
 
   Widget buildTitle(BuildContext context, DownloadPageLogic logic) {
     if (logic.searchMode && !logic.selecting) {
+      final FocusNode focusNode = FocusNode();
+      focusNode.requestFocus();
+      bool focus = logic.searchInit;
+      logic.searchInit = false;
       return TextField(
+        focusNode: focus ? focusNode : null,
         decoration:
         InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
         onChanged: (s) {
@@ -762,6 +769,7 @@ class DownloadPage extends StatelessWidget {
             icon: const Icon(Icons.search),
             onPressed: () {
               logic.searchMode = !logic.searchMode;
+              logic.searchInit = true;
               if (!logic.searchMode) {
                 logic.keyword = "";
               }

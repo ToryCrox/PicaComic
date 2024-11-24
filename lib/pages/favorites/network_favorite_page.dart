@@ -262,7 +262,7 @@ class _FolderTile extends StatelessWidget {
             content: Text("要删除这个收藏夹吗".tl),
             actions: [
               TextButton(
-                  onPressed: () => App.globalBack(), child: const Text("取消")),
+                  onPressed: () => App.globalBack(), child: Text("取消".tl)),
               TextButton(
                   onPressed: () async {
                     context.pop();
@@ -297,10 +297,12 @@ class _CreateFolderDialog extends StatefulWidget {
 
 class _CreateFolderDialogState extends State<_CreateFolderDialog> {
   var controller = TextEditingController();
+  var focusNode = FocusNode();
   bool loading = false;
 
   @override
   Widget build(BuildContext context) {
+    focusNode.requestFocus();
     return SimpleDialog(
       title: Text("创建收藏夹".tl),
       children: [
@@ -308,6 +310,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: "名称".tl,

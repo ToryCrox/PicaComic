@@ -179,12 +179,15 @@ class CreateFolderDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = TextEditingController();
+    final FocusNode focusNode = FocusNode();
+    focusNode.requestFocus();
     return SimpleDialog(
       title: Text("创建收藏夹".tl),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
           child: TextField(
+            focusNode: focusNode,
             controller: controller,
             onEditingComplete: () {
               try {
@@ -267,7 +270,11 @@ class RenameFolderDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: before
+    );
+    final FocusNode focusNode = FocusNode();
+    focusNode.requestFocus();
     return SimpleDialog(
       title: Text("重命名".tl),
       children: [
@@ -275,6 +282,7 @@ class RenameFolderDialog extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
             onEditingComplete: () {
               try {
                 LocalFavoritesManager().rename(before, controller.text);

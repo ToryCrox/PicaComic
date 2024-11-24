@@ -71,7 +71,7 @@ class _EpsViewState extends State<EpsView> {
             child: Row(
               children: [
                 const SizedBox(width: 16,),
-                Icon(Icons.library_books, color: Theme.of(context).colorScheme.secondary,),
+                Icon(Icons.format_list_numbered, color: Theme.of(context).colorScheme.secondary,),
                 const SizedBox(width: 8,),
                 Text("章节".tl, style: const TextStyle(fontSize: 18),),
                 const Spacer(),

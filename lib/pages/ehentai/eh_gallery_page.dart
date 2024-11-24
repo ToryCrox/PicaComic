@@ -1,6 +1,7 @@
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'dart:ui' as ui;
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
@@ -177,14 +178,15 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
         data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
       return ThumbnailsData(
           data!.thumbnails,
-          (page) => EhNetwork().getLargeThumbnails(data!, page),
+          (page) => EhNetwork().getThumbnails(data!, page),
           int.tryParse(data!.auth!["thumbnailKey"]!.nums) ?? 1);
     } else {
       return ThumbnailsData(
-        [],
-        (page) => EhNetwork().getThumbnailUrls(data!),
-        2,
-      );
+          List.generate(
+              min(data!.pageSize, int.tryParse(data!.maxPage) ?? 1),
+              (_) => data!.auth!["thumbnailKey"]!.split(" ")[0]),
+          (page) => EhNetwork().getThumbnails(data!, page),
+          int.tryParse(data!.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1);
     }
   }
 

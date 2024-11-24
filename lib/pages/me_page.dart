@@ -166,7 +166,7 @@ class MePage extends StatelessWidget {
         height: 24,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Theme.of(App.globalContext!).colorScheme.secondaryContainer,
+          color: Theme.of(App.globalContext!).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -215,7 +215,7 @@ class MePage extends StatelessWidget {
         height: 24,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Theme.of(App.globalContext!).colorScheme.primaryContainer,
+          color: Theme.of(App.globalContext!).colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -234,7 +234,7 @@ class MePage extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: [
-          buildItem("Eh订阅".tl),
+          buildItem("EH订阅".tl),
           buildItem("图片搜索".tl),
           buildItem("打开链接".tl),
         ],

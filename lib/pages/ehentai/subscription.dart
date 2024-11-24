@@ -26,7 +26,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               Future.microtask(() => showDialog(context: App.globalContext!, builder: (context){
                 return AlertDialog(
                   title: Text("订阅".tl),
-                  content: Text("其它漫画源的订阅尚未完成\n如需管理EH订阅, 请前往EH网站".tl),
+                  content: Text("请在网页端管理订阅".tl),
                   actions: [
                     TextButton(onPressed: ()=>App.globalBack(), child: Text("返回".tl)),
                   ],

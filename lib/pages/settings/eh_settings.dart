@@ -17,7 +17,7 @@ class _EhSettingsState extends State<EhSettings> {
           title: Text("E-Hentai"),
         ),
         ListTile(
-          leading: const Icon(Icons.domain),
+          leading: const Icon(Icons.dns),
           title: Text("画廊站点".tl),
           trailing: Select(
             initialValue: int.parse(appdata.settings[20]),

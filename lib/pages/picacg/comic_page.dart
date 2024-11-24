@@ -258,29 +258,6 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   String get sourceKey => "picacg";
 }
 
-class ComicPageLogic extends StateController {
-  bool isLoading = true;
-  ComicItem? comicItem;
-  bool showAppbarTitle = false;
-  String? message;
-  var tags = <Widget>[];
-  var categories = <Widget>[];
-  var recommendation = <ComicItemBrief>[];
-  var controller = ScrollController();
-  var eps = <Widget>[
-    ListTile(
-      leading: const Icon(Icons.library_books),
-      title: Text("章节".tl),
-    ),
-  ];
-  var epsStr = <String>[""];
-
-  void change() {
-    isLoading = !isLoading;
-    update();
-  }
-}
-
 void _downloadComic(
     ComicItem comic, BuildContext context, List<String> eps) async {
   for (var i in downloadManager.downloading) {

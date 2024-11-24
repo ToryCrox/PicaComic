@@ -6,19 +6,29 @@ import 'jm_network.dart';
 
 var _device = '';
 
-String get _jmUA {
+String get device {
   // 生成随机的设备标识符
   if(_device.isEmpty) {
-    var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     var random = math.Random();
-    for (var i = 0; i < 9; i++) {
+    for (var i = 0; i < 6; i++) {
       _device += chars[random.nextInt(chars.length)];
     }
   }
-  return "Mozilla/5.0 (Linux; Android 13; $_device Build/TQ1A.230305.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/114.0.5735.196 Safari/537.36";
+  return _device;
 }
 
-const _jmVersion = "1.7.2";
+String _build = "AP3A.241105.008";
+
+String get jmApiUA {
+  return "Mozilla/5.0 (Linux; Android 15; $device Build/$_build; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36";
+}
+
+String get jmImgUA {
+  return "Dalvik/2.1.0 (Linux; V; Android 15; $device Build/$_build)";
+}
+
+const _jmVersion = "1.7.5";
 
 const _jmAuthKey = "18comicAPPContent";
 
@@ -33,7 +43,8 @@ BaseOptions getHeader(int time,
       headers: {
         "token": token.toString(),
         "tokenparam": "$time,$_jmVersion",
-        "user-agent": _jmUA,
+        "Connection": "Keep-Alive",
+        "user-agent": jmApiUA,
         "accept-encoding": "gzip",
         "Host": JmNetwork().baseUrl.replaceFirst("https://", ""),
         ...headers ?? {},

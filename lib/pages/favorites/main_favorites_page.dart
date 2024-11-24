@@ -183,7 +183,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           height: _kSecondaryTopBarHeight,
           child: Row(children: [
             Icon(
-              Icons.local_activity,
+              Icons.rule_folder,
               color: iconColor,
             ),
             const SizedBox(
@@ -260,7 +260,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           child: Row(children: [
             if (controller.isNetwork == null)
               Icon(
-                Icons.folder,
+                Icons.folder_outlined,
                 color: iconColor,
               )
             else if (controller.isNetwork!)
@@ -270,7 +270,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               )
             else
               Icon(
-                Icons.local_activity,
+                Icons.folder,
                 color: iconColor,
               ),
             const SizedBox(
@@ -387,7 +387,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               children: [
                 const SizedBox(width: 16),
                 Icon(
-                  Icons.local_activity,
+                  Icons.folder,
                   color: Theme.of(context).colorScheme.secondary,
                 ),
                 const SizedBox(width: 8),
@@ -453,7 +453,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     return SliverToBoxAdapter(
       child: Wrap(
         children: [
-          buildItem("新建".tl, Icons.add, () {
+          buildItem("新建".tl, Icons.create_new_folder_outlined, () {
             showDialog(
                     context: context,
                     builder: (context) => const CreateFolderDialog())
@@ -935,7 +935,7 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
                 children: [
                   const SizedBox(width: 16),
                   Icon(
-                    Icons.local_activity,
+                    Icons.folder,
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                   const SizedBox(width: 8),

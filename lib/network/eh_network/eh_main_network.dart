@@ -603,41 +603,48 @@ class EhNetwork {
       var width = 200;
       var ext = "webp";
 
-      //Small Thumbnails on Page 0 (if exist)
+      // Small Thumbnails on Page 0 (if exist)
       var smallThumbnails = document.querySelectorAll("div#gdt.gt100 > a > div");
       if (smallThumbnails.isNotEmpty) {
+        // Merged
         var div = smallThumbnails[0].children.isEmpty
             ? smallThumbnails[0]
             : smallThumbnails[0].children[0];
         var style = div.attributes["style"];
-        width = int.parse(style!.split('width:')[1].split('px')[0]);
-        var url = style.split("background:transparent url(")[1].split(")")[0];
-        ext = url.substring(url.lastIndexOf('.') + 1);
+        width = 100;
         pageSize = ext == "webp" ? 40 : 20;
-        auth["thumbnailKey"] = url.substring(0, url.lastIndexOf('/'));
+        var r = style!.split("background:transparent url(")[1];
+        var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
+            .where((element) => element.text.isNum).last.text;
+        var url = r.split(")")[0];
+        ext = url.substring(url.lastIndexOf('.') + 1);
+        auth["thumbnailKey"] = "$url $totalPages";
       }
 
-      //Normal Thumbnails on Page 0 (if exist)
-      var normalThumbnails = document.querySelectorAll("div#gdt.gt200 > a > div");
-      if (normalThumbnails.isNotEmpty) {
+      // Large Thumbnails on Page 0 (if exist)
+      var largeThumbnails = document.querySelectorAll("div#gdt.gt200 > a > div");
+      if (largeThumbnails.isNotEmpty) {
         pageSize = 20;
-        var div = normalThumbnails[0].children.isEmpty
-            ? normalThumbnails[0]
-            : normalThumbnails[0].children[0];
+        var div = largeThumbnails[0].children.isEmpty
+            ? largeThumbnails[0]
+            : largeThumbnails[0].children[0];
         var style = div.attributes["style"];
-        width = int.parse(style!.split('width:')[1].split('px')[0]);
-        var r = style.split("background:transparent url(")[1];
+        width = 200;
+        var r = style!.split("background:transparent url(")[1];
         if (r.contains("px")) {
+          // Merged
+          var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
+              .where((element) => element.text.isNum).last.text;
           var url = r.split(")")[0];
           ext = url.substring(url.lastIndexOf('.') + 1);
-          auth["thumbnailKey"] = url.substring(0, url.lastIndexOf('/'));
+          auth["thumbnailKey"] = "$url $totalPages";
         } else {
-          // legacy stand-alone large thumbnail
+          // Stand-alone (legacy)
           var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
               .where((element) => element.text.isNum).last.text;
           auth["thumbnailKey"] = "large thumbnail: $totalPages";
           thumbnailUrls.addAll(
-              normalThumbnails.map((div){
+              largeThumbnails.map((div){
                 div = div.children.isEmpty ? div : div.children[0];
                 return div.attributes["style"]!.split("background:transparent url(")[1].split(")")[0];
               })
@@ -761,6 +768,7 @@ class EhNetwork {
     }
   }
 
+  // Deprecated due to page-wise decentralized thumbnail
   Future<Res<List<String>>> getThumbnailUrls(Gallery gallery) async {
     if (gallery.auth!["thumbnailKey"] == null) {
       var res = await request(gallery.link);
@@ -783,7 +791,7 @@ class EhNetwork {
     }));
   }
 
-  Future<Res<List<String>>> getLargeThumbnails(Gallery gallery, int page) async{
+  Future<Res<List<String>>> getThumbnails(Gallery gallery, int page) async{
     var res = await request("${gallery.link}?p=${page - 1}");
     if(res.error){
       return Res.fromErrorRes(res);
@@ -797,7 +805,6 @@ class EhNetwork {
           return url;
         }).toList()
     );
-
   }
 
   List<String> _splitKeyword(String keyword) {

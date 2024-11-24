@@ -17,6 +17,8 @@ import 'package:pica_comic/pages/jm/jm_comic_page.dart';
 import 'package:pica_comic/pages/jm/week_recommendation_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 
+import '../../../network/jm_network/headers.dart';
+
 final jm = ComicSource.named(
   name: '禁漫天堂',
   key: 'jm',
@@ -268,7 +270,7 @@ class _JmComicTile extends ComicTile {
         image: CachedImageProvider(
           getJmCoverUrl(comic.id),
           headers: {
-            "User-Agent": webUA,
+            "User-Agent": jmImgUA,
           },
         ),
         fit: BoxFit.cover,

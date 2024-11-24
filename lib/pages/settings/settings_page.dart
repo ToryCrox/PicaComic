@@ -476,19 +476,22 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
             onTap: () => setDownloadFolder(),
           ),
         ListTile(
-          leading: const Icon(Icons.storage),
-          title: Text("缓存大小".tl),
-          subtitle: Text(bytesLengthToReadableSize(CacheManager().currentSize)),
-          onTap: () {},
-        ),
-        ListTile(
           leading: const Icon(Icons.sd_storage_outlined),
-          title: Text("设置缓存限制".tl),
+          title: Text("缓存大小限制".tl),
+          subtitle: Text('${bytesLengthToReadableSize(CacheManager().currentSize)}'
+                         ' / '
+                         '${bytesLengthToReadableSize(CacheManager().limitSize)}'),
           onTap: setCacheLimit,
           trailing: const Icon(Icons.arrow_right),
         ),
+        // ListTile(
+        //   leading: const Icon(Icons.sd_storage_outlined),
+        //   title: Text("设置缓存限制".tl),
+        //   onTap: setCacheLimit,
+        //   trailing: const Icon(Icons.arrow_right),
+        // ),
         ListTile(
-          leading: const Icon(Icons.delete),
+          leading: const Icon(Icons.delete_outline),
           title: Text("清除缓存".tl),
           trailing: const Icon(Icons.arrow_right),
           onTap: () async {
@@ -499,8 +502,8 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
           },
         ),
         ListTile(
-          leading: const Icon(Icons.delete),
-          title: Text("清除所有数据".tl),
+          leading: const Icon(Icons.delete_forever),
+          title: Text("删除所有数据".tl),
           trailing: const Icon(Icons.arrow_right),
           onTap: () => clearUserData(context),
         ),
@@ -626,7 +629,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
           title: Text("项目地址".tl),
           onTap: () => launchUrlString("https://github.com/Pacalini/PicaComic",
               mode: LaunchMode.externalApplication),
-          trailing: const Icon(Icons.arrow_right),
+          trailing: const Icon(Icons.open_in_new),
         ),
         ListTile(
           leading: const Icon(Icons.comment_outlined),
@@ -634,7 +637,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
           onTap: () => launchUrlString(
               "https://github.com/Pacalini/PicaComic/issues",
               mode: LaunchMode.externalApplication),
-          trailing: const Icon(Icons.arrow_right),
+          trailing: const Icon(Icons.open_in_new),
         ),
         // ListTile(
         //   leading: const Icon(Icons.email),

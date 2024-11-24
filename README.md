@@ -1,6 +1,6 @@
 # Pica Comic
 
-[![flutter](https://img.shields.io/badge/flutter-3.24.4-blue)](https://flutter.dev/)
+[![flutter](https://img.shields.io/badge/flutter-3.24.5-blue)](https://flutter.dev/)
 [![License](https://img.shields.io/github/license/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/blob/master/LICENSE)
 [![Download](https://img.shields.io/github/v/release/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/releases)
 [![stars](https://img.shields.io/github/stars/Pacalini/PicaComic)](https://github.com/Pacalini/PicaComic/stargazers)
@@ -19,6 +19,11 @@ alt="Get it on GitHub" align="center" height="80" /></a>
 <img src="https://github.com/ImranR98/Obtainium/blob/main/assets/graphics/badge_obtainium.png"
 alt="Get it on Obtainium" align="center" height="54" />
 </a>
+
+An [AUR package](https://aur.archlinux.org/packages/pica-comic-bin) is packed by [Lilinzta](https://github.com/Lilinzta):
+```shell
+paru -S pica-comic-bin
+```
 
 ## Build
 

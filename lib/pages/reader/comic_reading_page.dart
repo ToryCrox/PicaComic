@@ -619,8 +619,21 @@ class ComicReadingPage extends StatelessWidget {
           otherInfo["eps"] = readingData.eps;
         }
         otherInfo["url"] = logic.urls[logic.index - 1];
-        ImageFavoriteManager.add(ImageFavorite(
-            id, image, readingData.title, logic.order, logic.index, otherInfo));
+        var favorite = ImageFavorite(
+          id,
+          image,
+          readingData.title,
+          logic.order,
+          logic.index,
+          otherInfo,
+        );
+        if (!ImageFavoriteManager.exist(id, logic.order, logic.index)) {
+          ImageFavoriteManager.add(favorite);
+          showToast(message: "已添加至图片收藏".tl);
+        } else {
+          ImageFavoriteManager.delete(favorite);
+          showToast(message: "已取消图片收藏".tl);
+        }
         showToast(message: "成功收藏图片".tl);
       }
     } catch (e, s) {

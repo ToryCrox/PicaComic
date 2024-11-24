@@ -756,18 +756,21 @@ void setCacheLimit() {
   int size = appdata.appSettings.cacheLimit;
   const minSize = 16;
   bool isValid = true;
+  final FocusNode focusNode = FocusNode();
   final TextEditingController controller = TextEditingController(text: size.toString());
   showDialog(
     context: App.globalContext!,
     useSafeArea: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
+        focusNode.requestFocus();
         return ContentDialog(
           title: "设置缓存限制".tl,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
+                focusNode: focusNode,
                 controller: controller,
                 keyboardType: TextInputType.number,
                 onChanged: (s) {

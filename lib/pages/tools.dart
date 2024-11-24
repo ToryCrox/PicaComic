@@ -54,6 +54,7 @@ void openTool() {
               webview.open();
             }
           },
+          trailing: const Icon(Icons.open_in_new)
         ),
         ListTile(
           leading: const Icon(Icons.image_search),
@@ -83,16 +84,18 @@ void openTool() {
               webview.open();
             }
           },
+          trailing: const Icon(Icons.open_in_new)
         ),
         ListTile(
-          leading: const Icon(Icons.web),
+          leading: const Icon(Icons.link),
           title: Text("打开链接".tl),
           onTap: () {
-            App.globalBack();
+            final FocusNode focusNode = FocusNode();
             showDialog(
               context: App.globalContext!,
               builder: (context) {
                 final controller = TextEditingController();
+                focusNode.requestFocus();
 
                 validateText() {
                   var text = controller.text;
@@ -132,6 +135,7 @@ void openTool() {
                         !text.contains("https://")) {
                       text = "https://$text";
                     }
+                    App.globalBack();
                     handleAppLinks(Uri.parse(text));
                   }
                 }
@@ -143,6 +147,7 @@ void openTool() {
                         void Function(void Function()) setState) {
                       stateSetter = setState;
                       return TextField(
+                        focusNode: focusNode,
                         controller: controller,
                         decoration: InputDecoration(
                           errorText: validateText(),
@@ -160,19 +165,21 @@ void openTool() {
           },
         ),
         ListTile(
-          leading: const Icon(Icons.insert_drive_file),
+          leading: const Icon(Icons.numbers),
           title: Text("禁漫漫画ID".tl),
           onTap: () {
-            App.globalBack();
             var controller = TextEditingController();
+            final FocusNode focusNode = FocusNode();
             showDialog(
               context: context,
               builder: (context) {
+                focusNode.requestFocus();
                 return AlertDialog(
                   title: Text("输入禁漫漫画ID".tl),
                   content: Padding(
                     padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
                     child: TextField(
+                      focusNode: focusNode,
                       keyboardType: TextInputType.number,
                       controller: controller,
                       onEditingComplete: () {
@@ -197,6 +204,7 @@ void openTool() {
                         onPressed: () {
                           App.globalBack();
                           if (controller.text.isNum) {
+                            App.globalBack();
                             App.mainNavigatorKey?.currentContext
                                 ?.to(() => JmComicPage(controller.text));
                           } else {

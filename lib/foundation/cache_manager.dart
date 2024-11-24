@@ -25,6 +25,8 @@ class CacheManager {
 
   int _limitSize = 2 * 1024 * 1024 * 1024;
 
+  int get limitSize => _limitSize;
+
   CacheManager._create(){
     Directory(cachePath).createSync(recursive: true);
     _db = sqlite3.open('${App.dataPath}/cache.db');

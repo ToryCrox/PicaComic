@@ -205,9 +205,12 @@ class _LoginPageState extends State<_LoginPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.link),
-                const SizedBox(width: 8),
                 Text("注册".tl),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.open_in_new,
+                  size: 16,
+                ),
               ],
             ),
           ),

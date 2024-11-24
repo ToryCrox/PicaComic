@@ -23,7 +23,7 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           title: Text("哔咔漫画".tl),
         ),
         ListTile(
-          leading: const Icon(Icons.hub_outlined),
+          leading: const Icon(Icons.dns),
           title: Text("设置分流".tl),
           trailing: Select(
             initialValue: int.parse(picacg.data['appChannel']) - 1,
@@ -57,7 +57,19 @@ class _PicacgSettingsState extends State<PicacgSettings> {
               appdata.setSearchMode(i);
             },
           ),
-          title: Text("设置搜索及分类排序模式".tl),
+          title: Text("搜索及分类排序模式".tl),
+        ),
+        ListTile(
+          leading: const Icon(Icons.collections_bookmark_outlined),
+          trailing: Select(
+            initialValue: int.parse(appdata.settings[30]),
+            values: ["旧到新".tl, "新到旧".tl],
+            onChange: (i) {
+              appdata.settings[30] = i.toString();
+              appdata.updateSettings();
+            },
+          ),
+          title: Text("收藏夹漫画排序模式".tl),
         ),
         ListTile(
           leading: const Icon(Icons.circle_outlined),
@@ -93,18 +105,6 @@ class _PicacgSettingsState extends State<PicacgSettings> {
               appdata.writeData();
             },
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.collections_bookmark_outlined),
-          trailing: Select(
-            initialValue: int.parse(appdata.settings[30]),
-            values: ["旧到新".tl, "新到旧".tl],
-            onChange: (i) {
-              appdata.settings[30] = i.toString();
-              appdata.updateSettings();
-            },
-          ),
-          title: Text("收藏夹漫画排序模式".tl),
         ),
       ],
     );

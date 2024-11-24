@@ -29,7 +29,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
         SwitchSetting(
           title: "反转点按翻页".tl,
           settingsIndex: 70,
-          icon: const Icon(Icons.touch_app),
+          icon: const Icon(Icons.swap_horiz),
         ),
         if (App.isAndroid)
           SwitchSetting(

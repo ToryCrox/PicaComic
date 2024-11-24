@@ -36,8 +36,13 @@ class _FloatingSearchBar extends StatefulWidget {
 }
 
 class _FloatingSearchBarState extends State<_FloatingSearchBar> {
+  bool isInit = true;
   @override
   Widget build(BuildContext context) {
+    if (isInit) {
+      widget.focusNode?.requestFocus();
+    }
+    isInit = false;
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
     var padding = 12.0;
@@ -261,7 +266,7 @@ class PreSearchPage extends StatelessWidget {
             builder: (context) => _FloatingSearchBar(
               supportingText: '${'搜索'.tl} / ${'链接'.tl} / ID',
               onFinish: (s) {
-                if (s == "") return;
+                // if (s == "") return;
                 search();
               },
               controller: controller,
@@ -744,7 +749,7 @@ class PreSearchPage extends StatelessWidget {
           ],
         );
       },
-      icon: const Icon(Icons.clear_all),
+      icon: const Icon(Icons.delete_forever),
     );
   }
 
@@ -772,7 +777,7 @@ class PreSearchPage extends StatelessWidget {
           ],
         );
       },
-      icon: const Icon(Icons.clear_all),
+      icon: const Icon(Icons.delete_forever),
     );
   }
 

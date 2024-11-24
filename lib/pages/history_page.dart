@@ -19,6 +19,7 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   final comics = HistoryManager().getAll();
+  bool searchInit = false;
   bool searchMode = false;
   String keyword = "";
   var results = <History>[];
@@ -34,23 +35,19 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Widget buildTitle() {
     if (searchMode) {
-      return Padding(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top / 2),
-        child: Center(
-          child: Container(
-            height: 42,
-            padding: const EdgeInsets.fromLTRB(0, 0, 8, 6),
-            child: TextField(
-              decoration:
-                  InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
-              onChanged: (s) {
-                setState(() {
-                  keyword = s.toLowerCase();
-                });
-              },
-            ),
-          ),
-        ),
+      final FocusNode focusNode = FocusNode();
+      focusNode.requestFocus();
+      bool focus = searchInit;
+      searchInit = false;
+      return TextField(
+        focusNode: focus ? focusNode : null,
+        decoration:
+        InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+        onChanged: (s) {
+          setState(() {
+            keyword = s.toLowerCase();
+          });
+        },
       );
     } else {
       return Text("${"历史记录".tl}(${comics.length})");
@@ -85,7 +82,7 @@ class _HistoryPageState extends State<HistoryPage> {
               Tooltip(
                 message: "清除".tl,
                 child: IconButton(
-                  icon: const Icon(Icons.clear_all),
+                  icon: const Icon(Icons.delete_forever),
                   onPressed: () => showDialog(
                       context: context,
                       builder: (dialogContext) => AlertDialog(
@@ -114,6 +111,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   onPressed: () {
                     setState(() {
                       searchMode = !searchMode;
+                      searchInit = true;
                       if (!searchMode) {
                         keyword = "";
                       }

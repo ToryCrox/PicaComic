@@ -18,8 +18,9 @@ class _HtSettingsState extends State<HtSettings> {
           title: Text("绅士漫画".tl),
         ),
         ListTile(
-          leading: const Icon(Icons.domain_rounded),
-          title: Text("Domain: ${appdata.settings[31].replaceFirst("https://", "")}"),
+          leading: const Icon(Icons.dns),
+          title: Text("域名".tl),
+          subtitle: Text(appdata.settings[31].replaceFirst("https://", "")),
           trailing: IconButton(onPressed: () => changeDomain(context), icon: const Icon(Icons.edit)),
         )
       ],
@@ -27,7 +28,10 @@ class _HtSettingsState extends State<HtSettings> {
   }
 
   void changeDomain(BuildContext context){
-    var controller = TextEditingController();
+    final FocusNode focusNode = FocusNode();
+    var controller = TextEditingController(
+      text : appdata.settings[31].replaceFirst("https://", "")
+    );
 
     void onFinished() {
       var text = controller.text;
@@ -45,16 +49,18 @@ class _HtSettingsState extends State<HtSettings> {
     }
 
     showDialog(context: context, builder: (context){
+      focusNode.requestFocus();
       return SimpleDialog(
-        title: const Text("Change Domain"),
+        title: Text("更改域名".tl),
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             width: 400,
             child: TextField(
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                label: Text("Domain")
+              focusNode: focusNode,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                label: Text("域名".tl)
               ),
               controller: controller,
               onEditingComplete: onFinished,
