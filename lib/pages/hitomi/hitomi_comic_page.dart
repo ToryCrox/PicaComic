@@ -193,5 +193,5 @@ void _downloadComic(
     }
   }
   downloadManager.addHitomiDownload(comic, cover, link);
-  showToast(message: "已加入下载".tl);
+  showToast(message: "已加入下载队列".tl);
 }

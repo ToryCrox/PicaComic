@@ -50,19 +50,37 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.auto_awesome_motion),
-            title: Text("首页显示单张图片".tl),
-            trailing: Switch(
-              value: appdata.implicitData[1] == '1',
-              onChanged: (b) {
-                appdata.implicitData[1] = b ? '1' : '0';
-                appdata.writeData();
-                setState(() {});
-                logic.update();
-              },
-            ),
-            onTap: () {},
+            leading: const Icon(Icons.chrome_reader_mode),
+            title: Text("阅读模式".tl),
+            subtitle: Text([
+              "从左至右".tl,
+              "从右至左".tl,
+              "从上至下".tl,
+              "从上至下(连续)".tl,
+              "双页".tl,
+              "双页(反向)".tl
+            ][int.parse(appdata.settings[9]) - 1]),
+            trailing: const Icon(Icons.arrow_right),
+            onTap: () => setState(() {
+              i = 1;
+            }),
           ),
+          if (appdata.settings[9] == "5" ||
+              appdata.settings[9] == "6")
+            ListTile(
+              leading: const Icon(Icons.auto_awesome_motion),
+              title: Text("首页显示单张图片".tl),
+              trailing: Switch(
+                value: appdata.implicitData[1] == '1',
+                onChanged: (b) {
+                  appdata.implicitData[1] = b ? '1' : '0';
+                  appdata.writeData();
+                  setState(() {});
+                  logic.update();
+                },
+              ),
+              onTap: () {},
+            ),
           ListTile(
             leading: const Icon(Icons.touch_app_outlined),
             title: Text("点按翻页".tl),
@@ -78,46 +96,47 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             ),
             onTap: () {},
           ),
-          ListTile(
-            leading: const SizedBox(),
-            title: Text("点按翻页识别范围".tl),
-            subtitle: SizedBox(
-              height: 25,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: -20,
-                      right: 0,
-                      child: Slider(
-                        max: 40,
-                        min: 0,
-                        divisions: 40,
-                        value: int.parse(appdata.settings[40]).toDouble(),
-                        overlayColor: WidgetStateColor.resolveWith(
-                            (states) => Colors.transparent),
-                        onChanged: (v) {
-                          if (v == 0) return;
-                          appdata.settings[40] = v.toInt().toString();
-                          appdata.updateSettings();
-                          setState(() {});
-                        },
-                      ))
-                ],
+          if (appdata.settings[0] == "1")
+            ListTile(
+              leading: const SizedBox(),
+              title: Text("点按翻页识别范围".tl),
+              subtitle: SizedBox(
+                height: 25,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                        top: 0,
+                        bottom: 0,
+                        left: -20,
+                        right: 0,
+                        child: Slider(
+                          max: 40,
+                          min: 0,
+                          divisions: 40,
+                          value: int.parse(appdata.settings[40]).toDouble(),
+                          overlayColor: WidgetStateColor.resolveWith(
+                              (states) => Colors.transparent),
+                          onChanged: (v) {
+                            if (v == 0) return;
+                            appdata.settings[40] = v.toInt().toString();
+                            appdata.updateSettings();
+                            setState(() {});
+                          },
+                        ))
+                  ],
+                ),
+              ),
+              trailing: SizedBox(
+                width: 40,
+                child: Text(
+                  "${appdata.settings[40]}%",
+                  style: const TextStyle(fontSize: 14),
+                ),
               ),
             ),
-            trailing: SizedBox(
-              width: 40,
-              child: Text(
-                "${appdata.settings[40]}%",
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-          ),
           ListTile(
-            leading: const Icon(Icons.touch_app),
+            leading: const Icon(Icons.swap_horiz),
             title: Text("反转点按翻页".tl),
             trailing: Switch(
               value: appdata.settings[70] == "1",
@@ -142,6 +161,44 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               },
             ),
             onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.timer_sharp),
+            subtitle: SizedBox(
+              height: 25,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: -20,
+                      right: 0,
+                      child: Slider(
+                        max: 20,
+                        min: 0,
+                        divisions: 20,
+                        value: int.parse(appdata.settings[33]).toDouble(),
+                        overlayColor: WidgetStateColor.resolveWith(
+                                (states) => Colors.transparent),
+                        onChanged: (v) {
+                          if (v == 0) return;
+                          appdata.settings[33] = v.toInt().toString();
+                          appdata.updateSettings();
+                          setState(() {});
+                        },
+                      ))
+                ],
+              ),
+            ),
+            trailing: SizedBox(
+              width: 40,
+              child: Text(
+                "${appdata.settings[33]}s",
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            title: Text("自动翻页时间间隔".tl),
           ),
           if (App.isAndroid)
             ListTile(
@@ -176,6 +233,37 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               },
             ),
           ),
+          if(App.isAndroid)
+            ListTile(
+              leading: const Icon(Icons.screen_lock_rotation),
+              title: Text("固定屏幕方向".tl),
+              onTap: () {},
+              trailing: Select(
+                initialValue: int.parse(appdata.settings[76]),
+                values: [
+                  "禁用".tl,
+                  "横屏".tl,
+                  "竖屏".tl,
+                ],
+                onChange: (int i) {
+                  appdata.settings[76] = i.toString();
+                  logic.update();
+                  appdata.updateSettings();
+                  if (i == 1) {
+                    SystemChrome.setPreferredOrientations([
+                      DeviceOrientation.landscapeLeft,
+                      DeviceOrientation.landscapeRight
+                    ]);
+                  } else if (i == 2) {
+                    SystemChrome.setPreferredOrientations([
+                      DeviceOrientation.portraitUp,
+                      DeviceOrientation.portraitDown,
+                    ]);
+                  }
+                  setState(() {});
+                },
+              ),
+            ),
           if (logic.readingMethod != ReadingMethod.topToBottomContinuously)
             ListTile(
               leading: const Icon(Icons.fit_screen_outlined),
@@ -209,44 +297,6 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 setState(() {});
               },
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.timer_sharp),
-            subtitle: SizedBox(
-              height: 25,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: -20,
-                      right: 0,
-                      child: Slider(
-                        max: 20,
-                        min: 0,
-                        divisions: 20,
-                        value: int.parse(appdata.settings[33]).toDouble(),
-                        overlayColor: WidgetStateColor.resolveWith(
-                            (states) => Colors.transparent),
-                        onChanged: (v) {
-                          if (v == 0) return;
-                          appdata.settings[33] = v.toInt().toString();
-                          appdata.updateSettings();
-                          setState(() {});
-                        },
-                      ))
-                ],
-              ),
-            ),
-            trailing: SizedBox(
-              width: 40,
-              child: Text(
-                "${appdata.settings[33]}秒",
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-            title: Text("自动翻页时间间隔".tl),
           ),
           if (logic.readingMethod == ReadingMethod.topToBottomContinuously)
             ListTile(
@@ -284,14 +334,6 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 Future.microtask(() => logic.update());
               }),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.chrome_reader_mode),
-            title: Text("选择阅读模式".tl),
-            trailing: const Icon(Icons.arrow_right),
-            onTap: () => setState(() {
-              i = 1;
-            }),
           ),
           if (!logic.data.downloaded &&
               (logic.data.type == ReadingType.picacg ||
@@ -424,7 +466,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 }),
               ),
               Text(
-                "选择阅读模式".tl,
+                "阅读模式".tl,
                 style: const TextStyle(fontSize: 18),
               ),
             ],

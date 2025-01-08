@@ -29,7 +29,7 @@ class NhentaiNetwork {
 
   bool logged = false;
 
-  String get baseUrl => appdata.settings[48];
+  String baseUrl = "https://nhentai.net";
 
   late Dio dio;
 
@@ -324,64 +324,44 @@ class NhentaiNetwork {
       return Res.fromErrorRes(res);
     }
     try {
-      if (baseUrl.contains("net")) {
-        var document = parse(res.data);
-        var script = document
-            .querySelectorAll("script")
-            .firstWhere((element) => element.text.contains("window._gallery"))
-            .text;
+      var document = parse(res.data);
+      var scripts = document
+          .querySelectorAll("script");
+      var script0 = scripts
+          .firstWhere((element) => element.text.contains("window._n_app"))
+          .text;
+      var script1 = scripts
+          .firstWhere((element) => element.text.contains("window._gallery"))
+          .text;
 
-        Map<String, dynamic> parseJavaScriptJson(String jsCode) {
-          String jsonText = jsCode.split('JSON.parse("')[1].split('");')[0];
-          String decodedJsonText =
-              jsonText.replaceAll("\\u0022", "\"").replaceAll("\\u005C", "\\");
+      Map<String, dynamic> parseJavaScriptJson(String jsCode) {
+        String jsonText = jsCode.split('JSON.parse("')[1].split('");')[0];
+        String decodedJsonText =
+            jsonText.replaceAll("\\u0022", "\"").replaceAll("\\u005C", "\\");
 
-          return json.decode(decodedJsonText);
-        }
-
-        var galleryData = parseJavaScriptJson(script);
-
-        String mediaId = galleryData["media_id"];
-
-        var images = <String>[];
-
-        for (var image in galleryData["images"]["pages"]) {
-          var extension = switch (image["t"]) {
-            "j" => "jpg",
-            "p" => "png",
-            "g" => "gif",
-            "w" => "webp",
-            _ => "jpg"
-          };
-          images.add(
-              "https://i7.nhentai.net/galleries/$mediaId/${images.length + 1}"
-              ".$extension");
-        }
-        return Res(images);
-      } else if (baseUrl.contains("xxx")) {
-        var document = parse(res.data);
-        for (var element in document.querySelectorAll("img")) {
-          if (!(element.attributes["data-cfsrc"] ??
-                  element.attributes["src"] ??
-                  "logo")
-              .contains("logo")) {
-            var splits =
-                (element.attributes["data-cfsrc"] ?? element.attributes["src"])!
-                    .split("/");
-            String imageUrl = splits.sublist(0, splits.length - 1).join("/");
-            var images = <String>[];
-            final pages =
-                int.parse(document.querySelector("span.num-pages")!.text);
-            for (int i = 1; i <= pages; i++) {
-              images.add("$imageUrl/$i.jpg");
-            }
-            return Res(images);
-          }
-        }
-        throw StateError("Failed to get images");
-      } else {
-        throw UnimplementedError();
+        return json.decode(decodedJsonText);
       }
+
+      var galleryData = parseJavaScriptJson(script1);
+
+      String mediaServer = script0.split("media_server: ")[1].split(',')[0];
+      String mediaId = galleryData["media_id"];
+
+      var images = <String>[];
+
+      for (var image in galleryData["images"]["pages"]) {
+        var extension = switch (image["t"]) {
+          "j" => "jpg",
+          "p" => "png",
+          "g" => "gif",
+          "w" => "webp",
+          _ => "jpg"
+        };
+        images.add(
+            "https://i$mediaServer.nhentai.net/galleries/$mediaId/${images.length + 1}"
+            ".$extension");
+      }
+      return Res(images);
     } catch (e, s) {
       LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");

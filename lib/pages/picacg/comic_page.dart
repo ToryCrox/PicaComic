@@ -277,7 +277,7 @@ void _downloadComic(
     (selectedEps) {
       downloadManager.addPicDownload(comic, selectedEps);
       App.globalBack();
-      showToast(message: "已加入下载".tl);
+      showToast(message: "已加入下载队列".tl);
     },
     downloaded,
   );

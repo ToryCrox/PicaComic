@@ -62,7 +62,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
       widgets.add(_DownloadingTile(
         comic: i,
         cancel: () {
-          showConfirmDialog(context, "删除".tl, "确认删除下载任务?".tl, () {
+          showConfirmDialog(context, "取消".tl, "取消下载任务?".tl, () {
             setState(() {
               downloadManager.cancel(i.id);
             });

@@ -9,10 +9,6 @@ import 'package:pica_comic/tools/translations.dart';
 
 
 void nhLogin(void Function() onFinished) async{
-  if(NhentaiNetwork().baseUrl.contains("xxx")){
-    showToast(message: "暂不支持");
-    return;
-  }
 
   if(App.isDesktop && (await DesktopWebview.isAvailable())){
     var webview = DesktopWebview(

@@ -212,6 +212,11 @@ class ComicReadingPage extends StatelessWidget {
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight
         ]);
+      } else if (appdata.settings[76] == "2") {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown
+        ]);
       }
       //进入阅读器时清除内存中的缓存, 并且增大限制
       BaseImageProvider.clearCache();
@@ -257,7 +262,7 @@ class ComicReadingPage extends StatelessWidget {
           BaseComicPage.tagsStack.last.updateHistory(history);
         }
       });
-      if (appdata.settings[76] == "1") {
+      if (appdata.settings[76] != "0") {
         SystemChrome.setPreferredOrientations(DeviceOrientation.values);
       }
       if (useDarkBackground) {

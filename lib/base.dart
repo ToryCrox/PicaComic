@@ -77,7 +77,7 @@ class Appdata {
     "", //45 webdav
     "0", //46 webdav version
     "0", //47 eh warning
-    "https://nhentai.net", //48 nhentai domain
+    "https://nhentai.net", //48 nhentai domain (deprecated)
     "1", //49 阅读器中双击放缩
     "", //50 language, empty=system
     "", //51 默认收藏夹
@@ -105,7 +105,7 @@ class Appdata {
     "0", //73 漫画块显示阅读位置
     "1.0", //74 图片收藏大小
     "", //75 eh profile
-    "0", //76 阅读器内固定横屏
+    "0", //76 阅读器内固定屏幕方向: 0-禁用, 1-横屏, 2-竖屏
     "picacg,Eh主页,Eh热门,禁漫主页,禁漫最新,hitomi,绅士漫画,nhentai", //77 探索页面
     "0", //78 已下载的eh漫画优先显示副标题
     "6", //79 下载并行

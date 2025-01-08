@@ -239,7 +239,7 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
           return SelectDownloadChapter(eps, (selectedEps) {
             downloadManager.addJmDownload(comic, selectedEps);
             App.globalBack();
-            showToast(message: "已加入下载".tl);
+            showToast(message: "已加入下载队列".tl);
           }, downloaded);
         });
   } else {
@@ -248,7 +248,7 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
         SelectDownloadChapter(eps, (selectedEps) {
           downloadManager.addJmDownload(comic, selectedEps);
           App.globalBack();
-          showToast(message: "已加入下载".tl);
+          showToast(message: "已加入下载队列".tl);
         }, downloaded),
         useSurfaceTintColor: true);
   }

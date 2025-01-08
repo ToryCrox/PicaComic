@@ -449,7 +449,7 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                     builder: (context) {
                       bool isCheck = false;
                       return AlertDialog(
-                        title: Text('是否退出程序？'.tl),
+                        title: Text('是否退出程序?'.tl),
                         content: StatefulBuilder(builder: (context, setState) {
                           return Row(
                             children: [

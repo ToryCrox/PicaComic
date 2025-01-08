@@ -95,7 +95,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       if (eps == null) {
         DownloadManager().addCustomDownload(data!, [0]);
         App.globalBack();
-        showToast(message: "已加入下载".tl);
+        showToast(message: "已加入下载队列".tl);
         return;
       }
     }
@@ -106,7 +106,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
             return SelectDownloadChapter(eps, (selectedEps) {
               DownloadManager().addCustomDownload(data!, selectedEps);
               App.globalBack();
-              showToast(message: "已加入下载".tl);
+              showToast(message: "已加入下载队列".tl);
             }, downloaded);
           });
     } else {
@@ -115,7 +115,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           SelectDownloadChapter(eps, (selectedEps) {
             DownloadManager().addCustomDownload(data!, selectedEps);
             App.globalBack();
-            showToast(message: "已加入下载".tl);
+            showToast(message: "已加入下载队列".tl);
           }, downloaded),
           useSurfaceTintColor: true);
     }
@@ -1274,7 +1274,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                   withInkWell: true,
                   borderRadius: 8,
                   flyoutBuilder: (context) => FlyoutContent(
-                    title: "是否删除下载".tl,
+                    title: "从本地下载中删除?".tl,
                     actions: [
                       TextButton(
                         onPressed: () async {

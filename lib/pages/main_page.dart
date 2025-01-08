@@ -168,7 +168,7 @@ class MainPageState extends State<MainPage> {
             builder: (dialogContext) {
               return AlertDialog(
                 title: Text("下载管理器".tl),
-                content: Text("有未完成的下载, 是否继续?".tl),
+                content: Text("继续未完成的下载?".tl),
                 actions: [
                   TextButton(onPressed: dialogContext.pop, child: Text("否".tl)),
                   TextButton(

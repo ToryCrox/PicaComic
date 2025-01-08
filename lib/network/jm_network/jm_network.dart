@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
@@ -88,7 +89,7 @@ class JmNetwork {
 
   String get baseUrl => "https://${domains[int.parse(appdata.settings[17])]}";
 
-  static const domainUrl = 'https://jmapp-1308024008.cos.ap-singapore.myqcloud.com/server-2024.txt';
+  static const domainUrl = 'https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt';
   static const domainSecret = [100, 105, 111, 115, 102, 106, 99, 107, 119, 112, 113, 112, 100, 102, 106, 107, 118, 110, 113, 81, 106, 115, 105, 107];
 
   static const kJmSecret = '185Hcomic3PAPP7R';
@@ -126,9 +127,19 @@ class JmNetwork {
   }
 
   Future<List<String>?> getDomains() async {
-    var dio = Dio();
+    var dio = Dio(
+      BaseOptions(
+        headers: {
+          "Accept-Encoding": "gzip",
+          "Connection": "Keep-Alive",
+          "User-Agent": "okhttp/3.12.1"
+        },
+      )
+    );
     try {
-      var res = await dio.get(domainUrl);
+      var res = await dio.get(
+        "$domainUrl?time=${DateTime.now().year}${DateTime.now().month}${DateTime.now().day}",
+      );
       var jsonData = json.decode(convertData(
           res.data,
           String.fromCharCodes(domainSecret)
@@ -149,44 +160,36 @@ class JmNetwork {
   }
 
   Future<int?> selectDomain() async {
-    var dio = Dio();
-    List<Future<int?>> futures = domains.map((domain) async {
-      try {
-        var res = await dio.get(
-          "https://$domain/login",
-          options: Options(
-            contentType: Headers.jsonContentType,
-            responseType: ResponseType.bytes,
-            followRedirects: false,
-            validateStatus: (_) => true,
-          ),
-        );
+    int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    var dio = Dio(getHeader(time, post: true));
+    dio.options.validateStatus = (status) {
+      return true;
+    };
 
-        if (res.statusCode == 401) {
-          return domains.indexOf(domain);
-        }
-      } on DioException catch (e) {
-        if (kDebugMode) {
-          print(e);
-        }
-      } catch (e, s) {
-        if (kDebugMode) {
-          print(e);
-        }
-        LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
-      }
-      return null;
-    }).toList();
+    Completer<int?> completer = Completer();
+    bool passed = false;
 
-    List<int?> results = await Future.wait(futures);
+    for (var domain in domains) {
+      () async {
+        try {
+          var res = await dio.post(
+            "https://$domain/login",
+            data: "&",
+          );
 
-    for (var i in results) {
-      if (i != null) {
-        return i;
-      }
+          if (res.statusCode == 401 && !passed) {
+            passed = true;
+            completer.complete(domains.indexOf(domain));
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            LogManager.addLog(LogLevel.error, "Network", "$e");
+          }
+        }
+      } ();
     }
 
-    return null;
+    return completer.future;
   }
 
   ///get请求, 返回Json数据中的data

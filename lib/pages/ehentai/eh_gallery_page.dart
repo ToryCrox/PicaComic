@@ -457,7 +457,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
       }
     }
     downloadManager.addEhDownload(data!, type);
-    showToast(message: "已加入队列".tl);
+    showToast(message: "已加入下载队列".tl);
   }
 
   @override
