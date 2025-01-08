@@ -59,19 +59,20 @@ class ImageManager {
   /// 获取图片, 适用于没有任何限制的图片链接
   Stream<DownloadProgress> getImage(final String url,
       [Map<String, String>? headers]) async* {
+    final key = url;
+    var cache = await CacheManager().findCache(key);
+    if (cache != null) {
+      yield DownloadProgress(
+          1, 1, url, cache, null, CacheManager().getType(key));
+      loadingItems.remove(url);
+      return;
+    }
+
     await wait(url);
     loadingItems[url] = DownloadProgress(0, 1, url, "");
     CachingFile? caching;
 
     try {
-      final key = url;
-      var cache = await CacheManager().findCache(key);
-      if (cache != null) {
-        yield DownloadProgress(
-            1, 1, url, cache, null, CacheManager().getType(key));
-        loadingItems.remove(url);
-        return;
-      }
 
       final cachingFile = await CacheManager().openWrite(key);
       caching = cachingFile;
@@ -154,6 +155,15 @@ class ImageManager {
     final cacheKey = "$galleryLink$page";
     final gid = getGalleryId(galleryLink);
 
+    final key = cacheKey;
+    var cache = await CacheManager().findCache(key);
+    if (cache != null) {
+      yield DownloadProgress(
+          1, 1, key, cache, null, CacheManager().getType(key));
+      loadingItems.remove(key);
+      return;
+    }
+
     // check whether this image is loading
     await wait(cacheKey);
     loadingItems[cacheKey] = DownloadProgress(0, 1, cacheKey, "");
@@ -161,14 +171,6 @@ class ImageManager {
     CachingFile? caching;
 
     try {
-      final key = cacheKey;
-      var cache = await CacheManager().findCache(key);
-      if (cache != null) {
-        yield DownloadProgress(
-            1, 1, key, cache, null, CacheManager().getType(key));
-        loadingItems.remove(key);
-        return;
-      }
 
       final cachingFile = await CacheManager().openWrite(key);
       caching = cachingFile;
@@ -541,18 +543,20 @@ class ImageManager {
       required String bookId}) async* {
     bookId = bookId.replaceAll(RegExp(r"\..+"), "");
     final urlWithoutParam = url.replaceAll(RegExp(r"\?.+"), "");
+
+    final key = urlWithoutParam;
+    var cache = await CacheManager().findCache(key);
+    if (cache != null) {
+      yield DownloadProgress(1, 1, url, cache);
+      loadingItems.remove(urlWithoutParam);
+      return;
+    }
+
     await wait(urlWithoutParam);
     loadingItems[urlWithoutParam] = DownloadProgress(0, 1, url, "");
     CachingFile? caching;
 
     try {
-      final key = urlWithoutParam;
-      var cache = await CacheManager().findCache(key);
-      if (cache != null) {
-        yield DownloadProgress(1, 1, url, cache);
-        loadingItems.remove(urlWithoutParam);
-        return;
-      }
 
       final cachingFile = await CacheManager().openWrite(key);
       caching = cachingFile;

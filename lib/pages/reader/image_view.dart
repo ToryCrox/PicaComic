@@ -46,8 +46,8 @@ extension ImageExt on ComicReadingPage {
 
           double imageWidth = width;
 
-          if (height / width < 1.2 && appdata.settings[43] == "1") {
-            imageWidth = height / 1.2;
+          if (height / width < 1 && appdata.settings[43] == "1") {
+            imageWidth = height / 1.0;
           }
 
           precacheComicImage(logic, context, index + 1, target);

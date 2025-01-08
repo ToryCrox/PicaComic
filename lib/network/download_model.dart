@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -147,11 +148,11 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   /// retry when error
   Future<void> retry() async {
     _retryTimes++;
-    if (_retryTimes > 4) {
+    if (_retryTimes > 100) {
       onError?.call();
       _retryTimes = 0;
     } else {
-      await Future.delayed(Duration(seconds: 2 << _retryTimes));
+      await Future.delayed(Duration(seconds: min(2 * _retryTimes, 8)));
       start();
     }
   }
