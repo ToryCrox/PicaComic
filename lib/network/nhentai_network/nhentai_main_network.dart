@@ -63,11 +63,12 @@ class NhentaiNetwork {
       await init();
     }
     try {
-      var res = await dio.get<String>(url);
+      var res = await dio.get<String>(url, options: Options(followRedirects: false));
       if (res.statusCode == 302) {
-        return Res(res.headers["Location"]?.first ??
+        var path = res.headers["Location"]?.first ??
             res.headers["location"]?.first ??
-            "");
+            "";
+        return get(Uri.parse(url).replace(path: path).toString());
       }
       return Res(res.data);
     } catch (e) {

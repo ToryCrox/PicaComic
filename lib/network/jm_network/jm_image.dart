@@ -1,16 +1,7 @@
 import 'package:pica_comic/base.dart';
 
-const imageUrls = [
-  "https://cdn-msp.jmapiproxy3.cc",
-  "https://cdn-msp3.jmapiproxy3.cc",
-  "https://cdn-msp2.jmapiproxy1.cc",
-  "https://cdn-msp3.jmapiproxy3.cc",
-  "https://cdn-msp2.jmapiproxy4.cc",
-  "https://cdn-msp2.jmapiproxy3.cc",
-];
-
 String getBaseUrl(){
-  return imageUrls[int.parse(appdata.settings[37])];
+  return appdata.settings[86];
 }
 
 String getJmCoverUrl(String id) {

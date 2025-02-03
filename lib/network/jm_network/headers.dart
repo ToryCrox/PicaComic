@@ -10,7 +10,7 @@ String get jmImgUA {
   return "Dalvik/2.1.0 (Linux; Android 10; K)";
 }
 
-const _jmVersion = "1.7.5";
+const _jmVersion = "1.7.6";
 
 const _jmAuthKey = "18comicAPPContent";
 
