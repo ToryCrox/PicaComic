@@ -192,6 +192,14 @@ class ComicReadingPageLogic extends StateController {
   ReadingMethod get readingMethod =>
       ReadingMethod.values[int.parse(appdata.settings[9]) - 1];
 
+  Size _pageSize = Size.zero;
+
+  void updatePageSize(Size size) {
+    _pageSize = size;
+  }
+
+  double get _animateNextPageDistance => (_pageSize.height * 0.95).clamp(100, 2000);
+
   Future<void> jumpToNextPage({bool animate = false}) async {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index + 1);
@@ -202,11 +210,14 @@ class ComicReadingPageLogic extends StateController {
         if (maxScrollExtent - scrollController.position.pixels < 600) {
           distance = (maxScrollExtent - scrollController.position.pixels).clamp(10, 600);
         }
-        ;
        await scrollController.animateTo(scrollController.position.pixels + distance,
             duration: Duration(milliseconds: (distance / 600 * 1200).toInt()), curve: Curves.linear);
       } else {
-        scrollController.jumpTo(scrollController.position.pixels + 600);
+        print("_animateNextPageDistance: $_animateNextPageDistance, height: ${_pageSize.height}");
+        //scrollController.jumpTo(scrollController.position.pixels + 600);
+        final duration = Duration(milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
+        await scrollController.animateTo(scrollController.position.pixels + _animateNextPageDistance,
+            duration: duration, curve: Curves.decelerate);
       }
     } else {
       pageController.jumpToPage(pageController.page!.round() + 1);
@@ -218,7 +229,10 @@ class ComicReadingPageLogic extends StateController {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index - 1);
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
-      scrollController.jumpTo(scrollController.position.pixels - 600);
+      //scrollController.jumpTo(scrollController.position.pixels - 600);
+      final duration = Duration(milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
+      scrollController.animateTo(scrollController.position.pixels - _animateNextPageDistance,
+          duration: duration, curve: Curves.decelerate);
     } else {
       pageController.jumpToPage(pageController.page!.round() - 1);
     }

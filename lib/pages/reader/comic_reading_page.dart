@@ -270,6 +270,7 @@ class ComicReadingPage extends StatelessWidget {
             StateController.findOrNull<WindowFrameController>()?.resetTheme());
       }
     }, builder: (logic) {
+      logic.updatePageSize(MediaQuery.of(context).size);
       return DefaultTextStyle.merge(
         style: TextStyle(
           color: useDarkBackground ? Colors.white : null,
