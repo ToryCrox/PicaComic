@@ -346,6 +346,12 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
   }
 
+  Future<void> deleteWithoutFile(List<String> ids) async {
+    for (var id in ids) {
+      _deleteFromDb(id);
+    }
+  }
+
   /// return error message when error, or null if success.
   Future<String?> deleteEpisode(DownloadedItem comic, int ep) async {
     try {

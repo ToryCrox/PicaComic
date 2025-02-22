@@ -9,16 +9,20 @@ class SmoothCustomScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SmoothScrollProvider(
+    return CustomScrollView(
       controller: controller,
-      builder: (context, controller, physics) {
-        return CustomScrollView(
-          controller: controller,
-          physics: physics,
-          slivers: slivers,
-        );
-      },
+      slivers: slivers,
     );
+    // return SmoothScrollProvider(
+    //   controller: controller,
+    //   builder: (context, controller, physics) {
+    //     return CustomScrollView(
+    //       controller: controller,
+    //       physics: physics,
+    //       slivers: slivers,
+    //     );
+    //   },
+    // );
   }
 }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:dynamic_color/dynamic_color.dart';
@@ -224,6 +225,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           Locale('zh', 'TW'),
           Locale('en', 'US')
         ],
+        scrollBehavior: fixScrollBehavior,
         builder: (context, widget) {
           ErrorWidget.builder = (details) {
             LogManager.addLog(LogLevel.error, "Unhandled Exception",
@@ -288,3 +290,15 @@ class _SystemUiProvider extends StatelessWidget {
     );
   }
 }
+
+final fixScrollBehavior = const MaterialScrollBehavior().copyWith(
+  scrollbars: true,
+  //physics: MBouncingScrollPhysics(),
+  dragDevices: {
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.trackpad,
+  },
+);

@@ -236,7 +236,7 @@ class DownloadPage extends StatelessWidget {
           } else {
             return Scaffold(
               floatingActionButton: buildFAB(context, logic),
-              body: SmoothCustomScrollView(
+              body: CustomScrollView(
                 slivers: [
                   buildAppbar(context, logic),
                   buildComics(context, logic)
@@ -361,7 +361,8 @@ class DownloadPage extends StatelessWidget {
       fileName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
       await createPdfFromComicWithIsolate(
           title: comic.name,
-          comicPath: "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}",
+          comicPath:
+              "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}",
           savePath: "${App.cachePath}/$fileName",
           chapters: comic.eps,
           chapterIndexes: comic.downloadedEps);
@@ -374,9 +375,10 @@ class DownloadPage extends StatelessWidget {
 
   Widget buildItem(BuildContext context, DownloadPageLogic logic, int index) {
     bool selected = logic.selected[index];
+    final item = logic.comics[index];
     var type = logic.comics[index].type.name;
-    if (logic.comics[index].type == DownloadType.other) {
-      type = (logic.comics[index] as CustomDownloadedItem).sourceName;
+    if (item.type == DownloadType.other) {
+      type = (item as CustomDownloadedItem).sourceName;
     }
     return Padding(
       padding: const EdgeInsets.all(2),
@@ -387,11 +389,13 @@ class DownloadPage extends StatelessWidget {
                 : Colors.transparent,
             borderRadius: const BorderRadius.all(Radius.circular(16))),
         child: DownloadedComicTile(
-          name: logic.comics[index].name,
-          author: logic.comics[index].subTitle,
-          imagePath: downloadManager.getCover(logic.comics[index].id, check: true),
+          id: item.id,
+          name: item.name,
+          author: item.subTitle,
+          imagePath:
+              downloadManager.getCover(item.id, check: true),
           type: type,
-          tag: logic.comics[index].tags,
+          tag: item.tags,
           onTap: () async {
             if (logic.selecting) {
               logic.selected[index] = !logic.selected[index];
@@ -433,6 +437,18 @@ class DownloadPage extends StatelessWidget {
                   showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl,
                       () {
                     downloadManager.delete([logic.comics[index].id]);
+                    logic.comics.removeAt(index);
+                    logic.selected.removeAt(index);
+                    logic.update();
+                  });
+                },
+              ),
+              DesktopMenuEntry(
+                text: "删除(不包括文件)".tl,
+                onClick: () {
+                  showConfirmDialog(context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl,
+                      () {
+                    downloadManager.deleteWithoutFile([item.id]);
                     logic.comics.removeAt(index);
                     logic.selected.removeAt(index);
                     logic.update();
@@ -588,7 +604,7 @@ class DownloadPage extends StatelessWidget {
       return TextField(
         focusNode: focus ? focusNode : null,
         decoration:
-        InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+            InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
         onChanged: (s) {
           logic.keyword = s.toLowerCase();
           logic.update();
@@ -605,22 +621,22 @@ class DownloadPage extends StatelessWidget {
     return SliverAppbar(
       radius: UiMode.m1(context) ? 0 : 16,
       color: logic.selecting
-        ? Theme.of(context).colorScheme.primaryContainer
-        : null,
+          ? Theme.of(context).colorScheme.primaryContainer
+          : null,
       leading: logic.selecting
           ? IconButton(
-          onPressed: () {
-            logic.selecting = false;
-            logic.selectedNum = 0;
-            for (int i = 0; i < logic.selected.length; i++) {
-              logic.selected[i] = false;
-            }
-            logic.update();
-          },
-          icon: const Icon(Icons.close))
+              onPressed: () {
+                logic.selecting = false;
+                logic.selectedNum = 0;
+                for (int i = 0; i < logic.selected.length; i++) {
+                  logic.selected[i] = false;
+                }
+                logic.update();
+              },
+              icon: const Icon(Icons.close))
           : IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back)),
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back)),
       title: buildTitle(context, logic),
       actions: buildActions(context, logic),
     );
@@ -638,52 +654,52 @@ class DownloadPage extends StatelessWidget {
               await showDialog(
                   context: context,
                   builder: (context) => SimpleDialog(
-                    title: Text("漫画排序模式".tl),
-                    children: [
-                      SizedBox(
-                        width: 400,
-                        child: Column(
-                          children: [
-                            ListTile(
-                              title: Text("漫画排序模式".tl),
-                              trailing: Select(
-                                initialValue:
-                                int.parse(appdata.settings[26][0]),
-                                onChange: (i) {
-                                  appdata.settings[26] = appdata
-                                      .settings[26]
-                                      .setValueAt(i.toString(), 0);
-                                  appdata.updateSettings();
-                                  changed = true;
-                                },
-                                values: ["时间", "漫画名", "作者名", "大小"].tl,
-                              ),
+                        title: Text("漫画排序模式".tl),
+                        children: [
+                          SizedBox(
+                            width: 400,
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  title: Text("漫画排序模式".tl),
+                                  trailing: Select(
+                                    initialValue:
+                                        int.parse(appdata.settings[26][0]),
+                                    onChange: (i) {
+                                      appdata.settings[26] = appdata
+                                          .settings[26]
+                                          .setValueAt(i.toString(), 0);
+                                      appdata.updateSettings();
+                                      changed = true;
+                                    },
+                                    values: ["时间", "漫画名", "作者名", "大小"].tl,
+                                  ),
+                                ),
+                                ListTile(
+                                  title: Text("倒序".tl),
+                                  trailing: StatefulSwitch(
+                                    initialValue:
+                                        appdata.settings[26][1] == "1",
+                                    onChanged: (b) {
+                                      if (b) {
+                                        appdata.settings[26] = appdata
+                                            .settings[26]
+                                            .setValueAt("1", 1);
+                                      } else {
+                                        appdata.settings[26] = appdata
+                                            .settings[26]
+                                            .setValueAt("0", 1);
+                                      }
+                                      appdata.updateSettings();
+                                      changed = true;
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
-                            ListTile(
-                              title: Text("倒序".tl),
-                              trailing: StatefulSwitch(
-                                initialValue:
-                                appdata.settings[26][1] == "1",
-                                onChanged: (b) {
-                                  if (b) {
-                                    appdata.settings[26] = appdata
-                                        .settings[26]
-                                        .setValueAt("1", 1);
-                                  } else {
-                                    appdata.settings[26] = appdata
-                                        .settings[26]
-                                        .setValueAt("0", 1);
-                                  }
-                                  appdata.updateSettings();
-                                  changed = true;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ));
+                          )
+                        ],
+                      ));
               if (changed) {
                 logic.refresh();
               }
@@ -737,8 +753,8 @@ class DownloadPage extends StatelessWidget {
                     ),
                     PopupMenuItem(
                       child: Text("查看漫画详情".tl),
-                      onTap: () => Future.delayed(
-                          const Duration(milliseconds: 200), () {
+                      onTap: () =>
+                          Future.delayed(const Duration(milliseconds: 200), () {
                         if (logic.selectedNum != 1) {
                           showToast(message: "请选择一个漫画".tl);
                         } else {
@@ -754,8 +770,8 @@ class DownloadPage extends StatelessWidget {
                       child: Text("添加至本地收藏".tl),
                       onTap: () => Future.delayed(
                         const Duration(milliseconds: 200),
-                            () => addToLocalFavoriteFolder(
-                            App.globalContext!, logic),
+                        () =>
+                            addToLocalFavoriteFolder(App.globalContext!, logic),
                       ),
                     ),
                   ]);
@@ -1068,6 +1084,7 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
 }
 
 class DownloadedComicTile extends ComicTile {
+  final String id;
   final String size;
   final File imagePath;
   final String author;
@@ -1079,11 +1096,9 @@ class DownloadedComicTile extends ComicTile {
   final void Function(TapDownDetails details) onSecondaryTap;
 
   @override
-  List<String>? get tags => tag.map((e) =>
-    App.locale.languageCode == "zh"
-        ? e.translateTagsToCN
-        : e
-  ).toList();
+  List<String>? get tags => tag
+      .map((e) => App.locale.languageCode == "zh" ? e.translateTagsToCN : e)
+      .toList();
 
   @override
   String get description => "${size}MB";
@@ -1093,7 +1108,8 @@ class DownloadedComicTile extends ComicTile {
         imagePath,
         fit: BoxFit.cover,
         height: double.infinity,
-        cacheWidth: (100 * MediaQuery.of(App.globalContext!).devicePixelRatio).toInt(),
+        cacheWidth:
+            (100 * MediaQuery.of(App.globalContext!).devicePixelRatio).toInt(),
       );
 
   @override
@@ -1103,7 +1119,7 @@ class DownloadedComicTile extends ComicTile {
   String get subTitle => author;
 
   @override
-  String get title => name;
+  String get title => '[$id]$name';
 
   @override
   void onLongTap_() => onLongTap();
@@ -1114,17 +1130,19 @@ class DownloadedComicTile extends ComicTile {
   @override
   String? get badge => type;
 
-  const DownloadedComicTile(
-      {required this.size,
-      required this.imagePath,
-      required this.author,
-      required this.name,
-      required this.onTap,
-      required this.onLongTap,
-      required this.onSecondaryTap,
-      required this.type,
-      required this.tag,
-      super.key});
+  const DownloadedComicTile({
+    required this.id,
+    required this.size,
+    required this.imagePath,
+    required this.author,
+    required this.name,
+    required this.onTap,
+    required this.onLongTap,
+    required this.onSecondaryTap,
+    required this.type,
+    required this.tag,
+    super.key,
+  });
 }
 
 void _toComicInfoPage(DownloadedItem comic) {
