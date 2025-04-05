@@ -8,9 +8,10 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/foundation/def.dart';
 import '../res.dart';
+import 'hitomi_main_network.dart';
 
 class HitomiSearch{
-  final domain = 'https://ltn.hitomi.la';
+  String get baseDomain => HiNetwork().baseDomain;
   var results = <int>[];
   String? tagIndexVersion;
   final dio = Dio();
@@ -90,7 +91,7 @@ class HitomiSearch{
 
   Future<void> getTagIndexVersion() async{
     var res = await dio.get(
-        "$domain/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch ~/ 1000}",
+        "https://ltn.$baseDomain/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch ~/ 1000}",
         options: Options(
             responseType: ResponseType.plain
         )
@@ -99,9 +100,9 @@ class HitomiSearch{
   }
 
   Future<List<int>> getGalleryIdsFromNozomi(String? area, String tag, String language) async{
-    var url = "$domain/n/$tag-$language$nozomiExtension";
+    var url = "https://ltn.$baseDomain/n/$tag-$language$nozomiExtension";
     if(area != null){
-      url = "$domain/n/$area/$tag-$language$nozomiExtension";
+      url = "https://ltn.$baseDomain/n/$area/$tag-$language$nozomiExtension";
     }
     var bytes = (await dio.get<Uint8List>(url, options: Options(
       responseType: ResponseType.bytes
@@ -161,7 +162,7 @@ class HitomiSearch{
 
   Future<Node?> getNodeAtAddress(String field, int address) async{
     const maxNodeSize = 464;
-    var url = '$domain/$indexDir/$field.${tagIndexVersion!}.index';
+    var url = 'https://ltn.$baseDomain/$indexDir/$field.${tagIndexVersion!}.index';
     var res = await getUrlAtRange(url, [address, address + maxNodeSize - 1]);
     if(res == null){
       return null;
@@ -306,7 +307,7 @@ class HitomiSearch{
         print("length $length is too long");
       }
     }
-    var url = '$domain/$galleriesIndexDir/galleries.${tagIndexVersion!}.data';
+    var url = 'https://ltn.$baseDomain/$galleriesIndexDir/galleries.${tagIndexVersion!}.data';
     var inbuf = await getUrlAtRange(url, [offset, offset+length-1]);
     if(inbuf == null){
       return [];

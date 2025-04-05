@@ -1,5 +1,5 @@
 import 'package:pica_comic/foundation/def.dart';
-
+import 'hitomi_main_network.dart';
 import 'hitomi_models.dart';
 import 'package:dio/dio.dart';
 
@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 ///
 /// gg.js内容会动态变化
 class GG{
+  String get baseDomain => HiNetwork().baseDomain;
   List<String> numbers = [];
   int initialG = 1;
   int mm(int g){
@@ -50,7 +51,7 @@ class GG{
           "Referer": "https://hitomi.la/reader/$galleryId.html"
         }
     ));
-    var res = await dio.get<String>("https://ltn.hitomi.la/gg.js?_=1683939645979");
+    var res = await dio.get<String>("https://ltn.$baseDomain/gg.js?_=1683939645979");
     RegExp exp = RegExp(r'(?<=case )\d+');
     Iterable<RegExpMatch> matches = exp.allMatches(res.data!);
     numbers = [];
@@ -79,7 +80,17 @@ class GG{
     }
     int g = int.parse(m[2]! + m[1]!, radix: b);
     if (!g.isNaN) {
-      retval = String.fromCharCode(97 + mm(g)) + retval;
+      var char = String.fromCharCode(97 + mm(g));
+      if (retval == "tn") {
+        retval = char + retval;
+      } else if (retval == "w") {
+        if (char == 'a') {
+          retval = '${retval}1';
+        }
+        else if (char == 'b') {
+          retval = '${retval}2';
+        }
+      }
     }
     return retval;
   }
@@ -97,21 +108,24 @@ class GG{
   }
 
   String urlFromUrl(String url, String? base) {
-    return url.replaceFirst(RegExp(r"//..?\.hitomi\.la/"), '//${subdomainFromUrl(url, base)}.hitomi.la/');
+    return url.replaceFirst("https://", "https://${subdomainFromUrl(url, base)}.");
   }
 
   String urlFromHash(HitomiFile image, String? dir, String? ext) {
     ext ??= dir ??= image.name.split('.').last;
     dir ??= 'images';
+    var url = "";
     if(dir.contains('small')){
-      return 'https://a.hitomi.la/$dir/${realFullPathFromHash(image.hash)}.$ext';
+      url = urlFromUrl('https://$baseDomain/$dir/${realFullPathFromHash(image.hash)}.$ext', 'tn');
+    } else {
+      url = urlFromUrl('https://$baseDomain/${fullPathFromHash(image.hash)}.$ext', 'w');
     }
-    return 'https://a.hitomi.la/$dir/${fullPathFromHash(image.hash)}.$ext';
+    return url;
   }
 
   ///获取图像信息
-  Future<String> urlFromUrlFromHash(String galleryId, HitomiFile image, String? dir, String? ext, [String subDomainBase = 'a']) async{
+  Future<String> urlFromUrlFromHash(String galleryId, HitomiFile image, String? dir, String? ext) async{
     await getGg(galleryId);
-    return urlFromUrl(urlFromHash(image, dir, ext), subDomainBase);
+    return urlFromHash(image, dir, ext);
   }
 }

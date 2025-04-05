@@ -19,7 +19,7 @@ class HiNetwork{
 
   static HiNetwork? cache;
 
-  final baseUrl = "https://hitomi.la";
+  String get baseDomain => appdata.settings[87];
 
   ///基本的get请求
   Future<Res<String>> get(String url, {CacheExpiredTime expiredTime=CacheExpiredTime.short}) async{
@@ -67,7 +67,7 @@ class HiNetwork{
 
   ///获取一个漫画的简略信息
   Future<Res<HitomiComicBrief>> getComicInfoBrief(String id) async{
-    var res = await get("https://ltn.hitomi.la/galleryblock/$id.html");
+    var res = await get("https://ltn.$baseDomain/galleryblock/$id.html");
     if(res.error){
       return Res(null, errorMessage: res.errorMessage!);
     }
@@ -75,7 +75,7 @@ class HiNetwork{
       var comicDiv = parse(res.data);
       var name = comicDiv.querySelector("h1.lillie > a")!.text;
       var link = comicDiv.querySelector("h1.lillie > a")!.attributes["href"]!;
-      link = baseUrl + link;
+      link = "https://$baseDomain$link";
       var artist = comicDiv.querySelector("div.artist-list a")?.text??"N/A";
       String cover;
       try {
@@ -84,7 +84,8 @@ class HiNetwork{
             comicDiv.querySelector("div.cg-img1 > picture > source")!
             .attributes["data-srcset"]!;
         cover = cover.substring(2);
-        cover = "https://a$cover";
+        cover = cover.substring(cover.indexOf('/'));
+        cover = "https://atn.$baseDomain$cover";
         cover = cover.replaceAll(RegExp(r"2x.*"), "");
         cover = cover.removeAllBlank;
         cover = cover.replaceFirst("avifbigtn", "webpbigtn");
@@ -145,7 +146,7 @@ class HiNetwork{
     if(brief.error){
       return Res(null, errorMessage: brief.errorMessage!);
     }
-    var res = await get("https://ltn.hitomi.la/galleries/$id.js");
+    var res = await get("https://ltn.$baseDomain/galleries/$id.js");
     if(res.error){
       return Res(null, errorMessage: res.errorMessage!);
     }
@@ -157,7 +158,7 @@ class HiNetwork{
     var files = <HitomiFile>[];
 
     for(var tag in json["tags"]??[]){
-      tags.add(Tag(tag["tag"], "$baseUrl${tag["url"]}"));
+      tags.add(Tag(tag["tag"], "https://ltn.$baseDomain${tag["url"]}"));
     }
 
     for(var file in json["files"]??[]){
@@ -179,26 +180,4 @@ class HiNetwork{
       brief.data.cover,
     ));
   }
-}
-
-enum HitomiUrls{
-  homePageAll('https://ltn.hitomi.la/index-all.nozomi'),
-  homePageCn("https://ltn.hitomi.la/index-chinese.nozomi"),
-  homePageJp("https://ltn.hitomi.la/index-japanese.nozomi"),
-  homePageEn("https://ltn.hitomi.la/index-english.nozomi");
-
-  final String url;
-
-  const HitomiUrls(this.url);
-}
-
-class HitomiDataUrls{
-  static String homePageAll = 'https://ltn.hitomi.la/index-all.nozomi';
-  static String homePageCn = "https://ltn.hitomi.la/index-chinese.nozomi";
-  static String homePageJp = "https://ltn.hitomi.la/index-japanese.nozomi";
-  static String homePageEn = "https://ltn.hitomi.la/index-english.nozomi";
-  static String todayPopular = "https://ltn.hitomi.la/popular/today-all.nozomi";
-  static String weekPopular = "https://ltn.hitomi.la/popular/week-all.nozomi";
-  static String monthPopular = "https://ltn.hitomi.la/popular/month-all.nozomi";
-  static String yearPopular = "https://ltn.hitomi.la/popular/year-all.nozomi";
 }

@@ -3,14 +3,14 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
 String get jmApiUA {
-  return "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36";
+  return "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/135.0.0.0 Mobile Safari/537.36";
 }
 
 String get jmImgUA {
   return "Dalvik/2.1.0 (Linux; Android 10; K)";
 }
 
-const _jmVersion = "1.7.6";
+const _jmVersion = "1.7.9";
 
 const _jmAuthKey = "18comicAPPContent";
 

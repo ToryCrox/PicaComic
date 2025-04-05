@@ -46,6 +46,7 @@ part "network_setting.dart";
 part "multi_pages_filter.dart";
 part "local_favorite_settings.dart";
 part "jm_settings.dart";
+part "hi_settings.dart";
 part "ht_settings.dart";
 part "explore_settings.dart";
 part "eh_settings.dart";

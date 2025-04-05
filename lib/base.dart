@@ -115,7 +115,8 @@ class Appdata {
     "1", //83 完全隐藏屏蔽的作品
     "0", //84 纯黑色模式
     "www.jmapiproxyxxx.vip,www.jmapiproxyxxx.me,www.cdnblackmyth.xyz,www.cdnxxx-proxy.co", //85 jm api domains
-    "https://cdn-msp.jmapiproxy3.cc" //86 jm image url
+    "https://cdn-msp.jmapiproxy3.cc", //86 jm image url
+    "gold-usergeneratedcontent.net" //87 hitomi cdn url
   ];
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步

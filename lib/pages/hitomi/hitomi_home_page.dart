@@ -135,7 +135,7 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    var url = "https://ltn.hitomi.la/$type$lang.nozomi";
+    var url = "https://ltn.${HiNetwork().baseDomain}/$type$lang.nozomi";
     return Column(
       children: [
         Material(

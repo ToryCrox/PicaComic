@@ -74,6 +74,8 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
           const EhSettings(false).withDivider(),
         if(appdata.appSettings.isComicSourceEnabled("jm"))
           const JmSettings(false).withDivider(),
+        if(appdata.appSettings.isComicSourceEnabled("hitomi"))
+          const HitomiSettings(false).withDivider(),
         if(appdata.appSettings.isComicSourceEnabled("htmanga"))
           // const HtSettings(false).withDivider(),
           const HtSettings(false),

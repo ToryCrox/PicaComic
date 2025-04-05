@@ -614,10 +614,11 @@ class ComicPageLogic<T extends Object> extends StateController {
     var [res, _] = await Future.wait(
         [loadData(), Future.delayed(const Duration(milliseconds: 100))]);
     if (res.error) {
-      if (res.errorMessage == "Exit") {
+      message = res.errorMessage;
+      if (message == "Exit") {
+        loading = false;
         return;
       }
-      message = res.errorMessage;
     } else {
       data = res.data;
       favorite = await loadFavorite(res.data);
