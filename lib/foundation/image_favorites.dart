@@ -50,6 +50,22 @@ class ImageFavoriteManager{
         ImageFavorite(e["id"], e["cover"], e["title"], e["ep"], e["page"], jsonDecode(e["other"]))).toList();
   }
 
+  static List<ImageFavorite> getAllByTitle(String title) {
+    final res = _db.select("""
+      select * from image_favorites
+      where title = ?;
+    """, [title]);
+    return res.map((e) =>
+        ImageFavorite(e["id"], e["cover"], e["title"], e["ep"], e["page"], jsonDecode(e["other"]))).toList();
+  }
+
+  static List<String> getAllTitle() {
+    final res = _db.select("""
+      select distinct title from image_favorites;
+    """);
+    return res.map((e) => e.optString('title')).toList();
+  }
+
   static void delete(ImageFavorite favorite){
     _db.execute("""
       delete from image_favorites

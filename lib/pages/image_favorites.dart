@@ -20,15 +20,48 @@ import 'package:pica_comic/components/components.dart';
 import 'reader/comic_reading_page.dart';
 
 class ImageFavoritesPage extends StatefulWidget {
-  const ImageFavoritesPage({super.key});
+  const ImageFavoritesPage({
+    super.key,
+    this.filterTitle = "",
+  });
+
+  final String filterTitle;
 
   @override
   State<ImageFavoritesPage> createState() => _ImageFavoritesPageState();
 }
 
 class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
+  String _filterTitle = '';
+  List<ImageFavorite> _imageList = [];
+
+  bool _showGroup = false;
+  List<String> _titles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filterTitle = widget.filterTitle;
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (_showGroup) {
+      _titles = ImageFavoriteManager.getAllTitle();
+    } else {
+      if (_filterTitle.isNotEmpty) {
+        _imageList = ImageFavoriteManager.getAllByTitle(_filterTitle);
+      } else {
+        _imageList = ImageFavoriteManager.getAll();
+      }
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    final title =
+        Text("图片收藏".tl + (_filterTitle.isEmpty ? "" : " - $_filterTitle"));
     return StateBuilder(
       tag: "image_favorites_page",
       init: SimpleController(),
@@ -36,7 +69,10 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
         if (UiMode.m1(context)) {
           return Scaffold(
             appBar: AppBar(
-              title: Text("图片收藏".tl),
+              title: title,
+              actions: [
+                ..._buildActions(),
+              ],
             ),
             body: buildPage(),
           );
@@ -45,7 +81,10 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
             child: Column(
               children: [
                 Appbar(
-                  title: Text("图片收藏".tl),
+                  title: title,
+                  actions: [
+                    ..._buildActions(),
+                  ],
                 ),
                 Expanded(
                   child: buildPage(),
@@ -58,14 +97,46 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     );
   }
 
+  List<Widget> _buildActions() {
+    return [
+      Tooltip(
+        message: _showGroup ? "显示列表".tl : "显示分组".tl,
+        child: IconButton(
+          icon:
+              _showGroup ? const Icon(Icons.list) : const Icon(Icons.grid_view),
+          onPressed: () {
+            _showGroup = !_showGroup;
+            _refresh();
+          },
+        ),
+      )
+    ];
+  }
+
   Widget buildPage() {
-    var images = ImageFavoriteManager.getAll();
+    if (_showGroup) {
+      return ListView.separated(
+        itemCount: _titles.length,
+        separatorBuilder: (context, index) => const Divider(),
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(_titles[index]),
+            onTap: () {
+              // _showGroup = false;
+              // _filterTitle = _titles[index];
+              // _refresh();
+              context.to(() => ImageFavoritesPage(filterTitle: _titles[index]));
+            },
+          );
+        },
+      );
+    }
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithComics(true, appdata.settings[74]),
-      itemCount: images.length,
+      itemCount: _imageList.length,
       itemBuilder: (context, index) {
-        return FavoriteImageTile(images[index]);
+        return FavoriteImageTile(_imageList[index]);
       },
     );
   }
@@ -95,7 +166,9 @@ class FavoriteImageTile extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: Image(
                   image: ResizeImage.resizeIfNeeded(
-                    (200 * ratio).toInt(), null, _ImageProvider(image),
+                    (200 * ratio).toInt(),
+                    null,
+                    _ImageProvider(image),
                   ),
                   fit: BoxFit.cover,
                 ),
@@ -142,7 +215,7 @@ class FavoriteImageTile extends StatelessWidget {
                 child: InkWell(
                   onTap: onTap,
                   onLongPress: onLongTap,
-                  onSecondaryTapDown: onSecondaryTap,
+                  onSecondaryTapDown: (details) => onSecondaryTap(details, context),
                   borderRadius: BorderRadius.circular(8),
                   child: const SizedBox.expand(),
                 ),
@@ -241,9 +314,12 @@ class FavoriteImageTile extends StatelessWidget {
     StateController.findOrNull(tag: "image_favorites_page")?.update();
   }
 
-  void onSecondaryTap(TapDownDetails details) {
+  void onSecondaryTap(TapDownDetails details, BuildContext context) {
     showDesktopMenu(App.globalContext!, details.globalPosition, [
       DesktopMenuEntry(text: "查看".tl, onClick: onTap),
+      DesktopMenuEntry(text: "分组".tl, onClick: (){
+        context.to(() => ImageFavoritesPage(filterTitle: image.title));
+      }),
       DesktopMenuEntry(text: "删除".tl, onClick: delete),
     ]);
   }

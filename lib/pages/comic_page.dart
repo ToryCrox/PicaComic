@@ -25,6 +25,7 @@ import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'image_favorites.dart';
 import 'show_image_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -1318,6 +1319,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                     ),
                   ),
                 ),
+              buildItem(
+                  "图片收藏".tl, Icons.image, () {
+                    context.to(() => ImageFavoritesPage(filterTitle: title!,));
+              }),
             ],
           ),
           if (width < 500)
