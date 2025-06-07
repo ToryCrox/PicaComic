@@ -14,6 +14,8 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 
+import '../../foundation/disk_cache.dart';
+
 class HtComicPage extends BaseComicPage<HtComicInfo> {
   const HtComicPage(this.id, {super.key, this.comicCover});
 
@@ -81,7 +83,17 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String? get introduction => data!.description;
 
   @override
-  Future<Res<HtComicInfo>> loadData() => HtmangaNetwork().getComicInfo(id);
+  Future<Res<HtComicInfo>> loadData() => HtmangaNetwork().getComicInfo(id).then((res) {
+    if (res.success) {
+      DiskCache.writeModel(cacheKey, res.data.toJson());
+    }
+    return res;
+  });
+
+  @override
+  Future<HtComicInfo?> loadCachedData() async {
+    return await DiskCache.readModel(cacheKey, (map) => HtComicInfo.fromJson(map));
+  }
 
   @override
   int? get pages => null;

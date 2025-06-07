@@ -13,6 +13,7 @@ import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
@@ -55,6 +56,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
         _imageList = ImageFavoriteManager.getAll();
       }
     }
+    Log.debug('ImageFavorites', '_imageList $_imageList');
     setState(() {});
   }
 
@@ -238,7 +240,7 @@ class FavoriteImageTile extends StatelessWidget {
     switch (key) {
       case "picacg":
         App.globalTo(() => ComicReadingPage.picacg(
-            target, ep, List.from(otherInfo["eps"]), title,
+            target, ep, List.from(otherInfo.optStringList("eps")), title,
             initialPage: page));
       case "ehentai":
         App.globalTo(
@@ -253,9 +255,9 @@ class FavoriteImageTile extends StatelessWidget {
             JmReadingData(
               title,
               target,
-              List.from(otherInfo["eps"]),
+              List.from(otherInfo.optStringList('eps')),
               List.from(
-                otherInfo["jmEpNames"],
+                otherInfo.optStringList("jmEpNames"),
               ),
             ),
             page,

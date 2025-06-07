@@ -43,7 +43,7 @@ abstract class ReadingData {
       yield Res(List.filled(length, ""));
     } else {
       final cacheKey = 'reading-data-${type.name}-$id-$ep';
-      final cacheRes = await CacheManager().findCacheModel(cacheKey,
+      final cacheRes = await DiskCache.readModel(cacheKey,
           (e) => TypeUtil.parseStringList(e['data']));
       if (cacheRes != null && cacheRes.isNotEmpty) {
         yield Res(cacheRes);
@@ -51,7 +51,7 @@ abstract class ReadingData {
       final netRes = await loadEpNetwork(ep);
       if (netRes.success) {
         yield netRes;
-        CacheManager().writeString('reading-data-${type.name}-$id-$ep',
+        DiskCache.writeString('reading-data-${type.name}-$id-$ep',
             TypeUtil.parseString({'data': netRes.data}));
       } else {
         yield netRes;

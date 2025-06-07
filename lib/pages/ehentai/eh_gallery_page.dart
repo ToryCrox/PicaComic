@@ -21,6 +21,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
 
 import '../../foundation/cache_manager.dart';
+import '../../foundation/disk_cache.dart';
 import '../../tools/type_util.dart';
 
 class EhGalleryPage extends BaseComicPage<Gallery> {
@@ -99,14 +100,14 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
     }
     final data = res.dataOrNull;
     if (data != null) {
-      CacheManager().writeString(cacheKey, TypeUtil.parseString(data.toJson()));
+      DiskCache.writeString(cacheKey, TypeUtil.parseString(data.toJson()));
     }
     return res;
   }
 
   @override
   Future<Gallery?> loadCachedData() async {
-    return await CacheManager().findCacheModel(cacheKey, (map) => Gallery.fromJson(map));
+    return await DiskCache.readModel(cacheKey, (map) => Gallery.fromJson(map));
   }
 
   @override

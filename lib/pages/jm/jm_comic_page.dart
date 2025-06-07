@@ -15,6 +15,7 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
 import '../../foundation/app.dart';
+import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
@@ -130,14 +131,14 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   @override
   Future<Res<JmComicInfo>> loadData() => JmNetwork().getComicInfo(id).then((res) {
     if (res.success) {
-      CacheManager().writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
+      DiskCache.writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
     }
     return res;
   });
 
   @override
   Future<JmComicInfo?> loadCachedData() async {
-    return await CacheManager().findCacheModel(cacheKey, (map) => JmComicInfo.fromMap(map));
+    return await DiskCache.readModel(cacheKey, (map) => JmComicInfo.fromMap(map));
   }
 
   @override

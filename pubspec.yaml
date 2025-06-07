@@ -34,7 +34,7 @@ dependencies:
   dynamic_color: ^1.6.9
   crypto: any
   pointycastle: ^3.7.3
-  uuid: ^3.0.7
+  uuid: ^4.5.1
   photo_view:
     git:
       url: https://github.com/wgh136/photo_view
@@ -43,6 +43,7 @@ dependencies:
   path_provider: ^2.0.12
   file_selector: ^1.0.1
   image_picker: ^1.0.2
+  flutter_cache_manager: ^3.4.1
   # 添加锁
   synchronized: ^3.1.0
   logger: ^2.0.1

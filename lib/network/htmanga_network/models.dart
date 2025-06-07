@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 
 @immutable
 class HtHomePageData {
@@ -70,7 +71,8 @@ class HtComicInfo with HistoryMixin {
     "description": description,
     "uploader": uploader,
     "avatar": avatar,
-    "uploadNum": uploadNum
+    "uploadNum": uploadNum,
+    "thumbnails": thumbnails
   };
 
   HtComicInfo.fromJson(Map<String, dynamic> json):
@@ -84,7 +86,7 @@ class HtComicInfo with HistoryMixin {
       uploader = json["uploader"],
       avatar = json["avatar"],
       uploadNum = json["uploadNum"],
-      thumbnails = [];
+      thumbnails = json.optStringList('thumbnails');
 
   @override
   String get cover => coverPath;

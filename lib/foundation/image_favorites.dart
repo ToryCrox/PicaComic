@@ -17,6 +17,11 @@ class ImageFavorite{
   final Map<String, dynamic> otherInfo;
 
   const ImageFavorite(this.id, this.imagePath, this.title, this.ep, this.page, this.otherInfo);
+
+  @override
+  String toString() {
+    return 'ImageFavorite{id: $id, imagePath: $imagePath, title: $title, ep: $ep, page: $page, otherInfo: $otherInfo}';
+  }
 }
 
 class ImageFavoriteManager{

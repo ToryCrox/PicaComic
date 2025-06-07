@@ -42,7 +42,7 @@ void saveImage(File file) async {
 }
 
 Future<String> persistentCurrentImage(File file) async {
-  var newFile = File("${App.dataPath}/images/${file.path.split('/').last})}");
+  var newFile = File("${App.dataPath}/images/${file.path.split('/').last}");
   if (!(await newFile.exists())) {
     newFile.createSync(recursive: true);
     newFile.writeAsBytesSync(await file.readAsBytes());

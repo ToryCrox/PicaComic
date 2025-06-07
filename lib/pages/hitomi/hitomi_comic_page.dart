@@ -18,6 +18,8 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 
+import '../../foundation/disk_cache.dart';
+
 class HitomiComicPage extends BaseComicPage<HitomiComic> {
   HitomiComicPage(HitomiComicBrief comic, {super.key})
       : link = comic.link,
@@ -69,7 +71,16 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
 
   @override
   Future<Res<HitomiComic>> loadData() async {
-    return HiNetwork().getComicInfo(link);
+    final result = await HiNetwork().getComicInfo(link);
+    if (result.success) {
+      DiskCache.writeModel(cacheKey, result.data.toMap());
+    }
+    return result;
+  }
+
+  @override
+  Future<HitomiComic?> loadCachedData() async {
+    return await DiskCache.readModel(cacheKey, (map) => HitomiComic.fromMap(map));
   }
 
   @override

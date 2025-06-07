@@ -32,6 +32,7 @@ import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
+import 'package:pica_comic/tools/iterable_extension.dart';
 import 'package:pica_comic/tools/keep_screen_on.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -40,6 +41,7 @@ import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import '../../foundation/app.dart';
+import '../../foundation/disk_cache.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import '../../tools/key_down_event.dart';
@@ -616,10 +618,9 @@ class ComicReadingPage extends StatelessWidget {
         } else if (logic.data.type == ReadingType.jm) {
           Log.debug("TooBar", "${readingData.eps}, ${logic.order}");
           otherInfo["jmEpNames"] = readingData.eps!.values.toList();
-          otherInfo["epsId"] = readingData.eps!.keys.elementAt(logic.order - 1);
+          otherInfo["epsId"] = readingData.eps!.keys.getOrNull(logic.order - 1);
           otherInfo["bookId"] = readingData.id;
-        }
-        if (logic.data.type != ComicType.other) {
+        } else if (logic.data.type != ComicType.other) {
           otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];
         } else {
           otherInfo["eps"] = readingData.eps;

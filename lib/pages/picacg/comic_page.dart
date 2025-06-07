@@ -17,6 +17,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import '../../foundation/cache_manager.dart';
+import '../../foundation/disk_cache.dart';
 import '../../network/picacg_network/picacg_download_model.dart';
 import '../../tools/type_util.dart';
 import '../comic_page.dart';
@@ -113,15 +114,14 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   @override
   Future<Res<ComicItem>> loadData() => network.getComicInfo(id).then((res){
     if (res.success) {
-      CacheManager().writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
+      DiskCache.writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
     }
     return res;
   });
 
   @override
   Future<ComicItem?> loadCachedData() async {
-    return await CacheManager()
-        .findCacheModel(cacheKey, (map) => ComicItem.fromJson(map));
+    return await DiskCache.readModel(cacheKey, (map) => ComicItem.fromJson(map));
   }
 
   @override
