@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -177,6 +179,16 @@ class DownloadPageLogic extends StateController {
     }
   }
 
+  String get allComicSize {
+    final sizeMB = comics.fold(0.0,
+        (previousValue, element) => previousValue + (element.comicSize ?? 0));
+    if (sizeMB >  1024) {
+      return "${(sizeMB / 1024).toStringAsFixed(2)}GB";
+    } else {
+      return "${sizeMB.toStringAsFixed(2)}MB";
+    }
+  }
+
   void find() {
     if (keyword == keyword_) {
       return;
@@ -223,7 +235,7 @@ class DownloadPage extends StatelessWidget {
           if (logic.loading) {
             Future.wait([
               getComics(logic),
-              Future.delayed(const Duration(milliseconds: 300))
+              Future.delayed(const Duration(milliseconds: 250))
             ]).then((v) {
               logic.resetSelected(logic.comics.length);
               logic.change();
@@ -380,6 +392,7 @@ class DownloadPage extends StatelessWidget {
     if (item.type == DownloadType.other) {
       type = (item as CustomDownloadedItem).sourceName;
     }
+    final comic = logic.comics[index];
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Container(
@@ -423,6 +436,7 @@ class DownloadPage extends StatelessWidget {
             logic.update();
           },
           onSecondaryTap: (details) {
+            final comic = logic.comics[index];
             showDesktopMenu(App.globalContext!,
                 Offset(details.globalPosition.dx, details.globalPosition.dy), [
               DesktopMenuEntry(
@@ -521,11 +535,18 @@ class DownloadPage extends StatelessWidget {
                 },
               ),
               DesktopMenuEntry(
+                text: "更新文件大小".tl,
+                onClick: () async {
+                  await downloadManager.updateComicSize(comic);
+                  logic.update();
+                },
+              ),
+              DesktopMenuEntry(
                 text: "复制路径".tl,
                 onClick: () {
                   Future.delayed(const Duration(milliseconds: 300), () {
                     var path =
-                        "${downloadManager.path}/${downloadManager.getDirectory(logic.comics[index].id)}";
+                        "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
                     Clipboard.setData(ClipboardData(text: path));
                   });
                 },
@@ -613,7 +634,7 @@ class DownloadPage extends StatelessWidget {
     } else {
       return logic.selecting
           ? Text("已选择 @num 个项目".tlParams({"num": logic.selectedNum.toString()}))
-          : Text("已下载".tl);
+          : Text('${"已下载".tl}(${logic.comics.length}, ${logic.allComicSize})');
     }
   }
 
@@ -765,6 +786,21 @@ class DownloadPage extends StatelessWidget {
                           }
                         }
                       }),
+                    ),
+                    PopupMenuItem(
+                      child: Text("更新漫画文件大小".tl),
+                      onTap: () async {
+                        final selected = List.from(logic.selected);
+                        final comics = List.from(logic.comics);
+                        for (int i = 0; i < selected.length; i++) {
+                          if (selected[i]) {
+                            await downloadManager.updateComicSize(comics[i]);
+                            logic.update();
+                            await Future.delayed(const Duration(milliseconds: 50));
+                          }
+                        }
+                        showToast(message: "更新完成".tl);
+                      },
                     ),
                     PopupMenuItem(
                       child: Text("添加至本地收藏".tl),

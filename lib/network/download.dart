@@ -27,6 +27,7 @@ import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
@@ -170,7 +171,7 @@ class DownloadManager with _DownloadDb implements Listenable {
             var id = entry.name;
             var json = infoFile.readAsStringSync();
             var time = infoFile.lastModifiedSync();
-            var comic = _getComicFromJson(id, json, time);
+            var comic = _getComicFromJson(id: id, json: json, time: time);
             if (comic != null) {
               infoFile.delete();
               var directory = comic.name;
@@ -368,6 +369,20 @@ class DownloadManager with _DownloadDb implements Listenable {
     } catch (e, s) {
       LogManager.addLog(LogLevel.error, "IO", "$e/n$s");
       return e.toString();
+    }
+  }
+
+  /// 更新漫画大小
+  Future<double> updateComicSize(DownloadedItem comic) async {
+    try {
+      final size = Directory("$path/${getDirectory(comic.id)}").getMBSizeSync();
+      comic.comicSize = size;
+      debugPrint("update comic size: ${comic.id} $size");
+      updateSize(comic.id, size);
+      return size;
+    } catch (e) {
+      LogManager.addLog(LogLevel.error, "IO", e.toString());
+      return 0;
     }
   }
 
@@ -599,7 +614,13 @@ extension AddDownloadExt on DownloadManager {
   }
 }
 
-DownloadedItem? _getComicFromJson(String id, String json, DateTime time, [String? directory]) {
+DownloadedItem? _getComicFromJson({
+  required String id,
+  required String json,
+  required DateTime time,
+  double? size,
+  String? directory,
+}) {
   DownloadedItem comic;
   try {
     if (id.contains('-')) {
@@ -619,6 +640,9 @@ DownloadedItem? _getComicFromJson(String id, String json, DateTime time, [String
     }
     comic.time = time;
     comic.directory = directory;
+    if (size != null && size > 0) {
+     comic.comicSize = size;
+    }
     return comic;
   } catch (e, s) {
     LogManager.addLog(
@@ -659,6 +683,15 @@ abstract mixin class _DownloadDb {
     ]);
   }
 
+  /// 跟新漫画大小
+  void updateSize(String id, double size) {
+    _db!.execute('''
+      update download
+      set size = ?
+      where id = ?
+    ''', [size, id]);
+  }
+
   bool isExists(String id) {
     var result = _db!.select('''
       select id from download
@@ -682,10 +715,11 @@ abstract mixin class _DownloadDb {
     if (result.isEmpty) return null;
     var data = result.first;
     return _getComicFromJson(
-      data['id'],
-      data['json'],
-      DateTime.fromMillisecondsSinceEpoch(data['time']),
-      data['directory'],
+      id: data['id'],
+      json: data['json'],
+      time: DateTime.fromMillisecondsSinceEpoch(data['time']),
+      size: data.optDouble('size'),
+      directory: data['directory'],
     );
   }
 
@@ -703,13 +737,15 @@ abstract mixin class _DownloadDb {
       select * from download
       order by $order $direction
     ''');
+    debugPrint("getAll downloads: ${result.take(1)}");
     return result
         .map(
           (e) => _getComicFromJson(
-            e['id'],
-            e['json'],
-            DateTime.fromMillisecondsSinceEpoch(e['time']),
-            e['directory']
+            id: e['id'],
+            json: e['json'],
+            time: DateTime.fromMillisecondsSinceEpoch(e['time']),
+            size: e.optDouble('size'),
+            directory: e['directory']
           )!,
         )
         .toList();
