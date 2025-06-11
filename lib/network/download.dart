@@ -737,7 +737,6 @@ abstract mixin class _DownloadDb {
       select * from download
       order by $order $direction
     ''');
-    debugPrint("getAll downloads: ${result.take(1)}");
     return result
         .map(
           (e) => _getComicFromJson(

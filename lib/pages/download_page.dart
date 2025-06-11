@@ -170,6 +170,8 @@ class DownloadPageLogic extends StateController {
   String keyword = "";
   String keyword_ = "";
 
+  final textFieldController = TextEditingController();
+
   void change() {
     loading = !loading;
     try {
@@ -199,8 +201,8 @@ class DownloadPageLogic extends StateController {
       comics.addAll(baseComics);
     } else {
       for (var element in baseComics) {
-        if (element.name.toLowerCase().contains(keyword) ||
-            element.subTitle.toLowerCase().contains(keyword)) {
+        if (element.name.toLowerCase().contains(keyword.toLowerCase()) ||
+            element.subTitle.toLowerCase().contains(keyword.toLowerCase())) {
           comics.add(element);
         }
       }
@@ -542,6 +544,15 @@ class DownloadPage extends StatelessWidget {
                 },
               ),
               DesktopMenuEntry(
+                text: "过滤同作者".tl,
+                onClick: () async {
+                  logic.searchMode = true;
+                  logic.textFieldController.text = comic.subTitle;
+                  logic.keyword = comic.subTitle;
+                  logic.update();
+                },
+              ),
+              DesktopMenuEntry(
                 text: "复制路径".tl,
                 onClick: () {
                   Future.delayed(const Duration(milliseconds: 300), () {
@@ -626,6 +637,7 @@ class DownloadPage extends StatelessWidget {
         focusNode: focus ? focusNode : null,
         decoration:
             InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+        controller: logic.textFieldController,
         onChanged: (s) {
           logic.keyword = s.toLowerCase();
           logic.update();
@@ -634,7 +646,7 @@ class DownloadPage extends StatelessWidget {
     } else {
       return logic.selecting
           ? Text("已选择 @num 个项目".tlParams({"num": logic.selectedNum.toString()}))
-          : Text('${"已下载".tl}(${logic.comics.length}, ${logic.allComicSize})');
+          : Text('${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})');
     }
   }
 
@@ -656,7 +668,15 @@ class DownloadPage extends StatelessWidget {
               },
               icon: const Icon(Icons.close))
           : IconButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                if (logic.searchMode) {
+                  logic.searchMode = false;
+                  logic.keyword = '';
+                  logic.update();
+                } else {
+                  Navigator.pop(context);
+                }
+              },
               icon: const Icon(Icons.arrow_back)),
       title: buildTitle(context, logic),
       actions: buildActions(context, logic),
