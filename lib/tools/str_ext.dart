@@ -12,6 +12,7 @@ extension StringExt on String {
       final c1 = name1[k];
       final c2 = name2[k];
 
+      // 判断c1是否为数字
       final i1 = int.tryParse(c1);
       final i2 = int.tryParse(c2);
       if (i1 != null && i2 != null) {

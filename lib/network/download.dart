@@ -36,6 +36,7 @@ import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
 
 import '../tools/debounce.dart';
+import '../tools/image_utils.dart';
 import '../tools/throttle.dart';
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
@@ -454,11 +455,8 @@ class DownloadManager with _DownloadDb implements Listenable {
       return [];
     }
     final files = await dir.list().toList();
-    return files.whereType<File>().sorted((a, b) {
-      final aName = Path.basenameWithoutExtension(a.path);
-      final bName = Path.basenameWithoutExtension(b.path);
-      return aName.compareIndex(bName);
-    }).map((e) => e.absolute.path).toList();
+    return files.where(predictImageFile)
+        .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
   }
 
   Future<List<String>> getAllImagesByDir(String dirPath) async {

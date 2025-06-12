@@ -16,6 +16,7 @@ import '../../components/components.dart';
 import '../../foundation/app.dart';
 import '../../tools/type_util.dart';
 import '../reader/comic_reading_page.dart';
+import 'local_thumbs_page.dart';
 
 class LocalComicPage extends StatefulWidget {
   const LocalComicPage({Key? key}) : super(key: key);
@@ -131,7 +132,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
           cover: '',
         );
       }
-      setState(() {});
+      _loadLocalComics();
     }
   }
 
@@ -160,12 +161,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
             _loadLocalComics();
             setState(() {});
           } else {
-            App.globalTo(
-              () => ComicReadingPage.localComic(
-                model.path,
-                model.title,
-              ),
-            );
+            App.globalTo(() => LocalThumbsPage(dirPath: model.path));
+            // App.globalTo(
+            //   () => ComicReadingPage.localComic(
+            //     model.path,
+            //     model.title,
+            //   ),
+            // );
           }
         },
         borderRadius: const BorderRadius.all(Radius.circular(16)),
@@ -212,6 +214,12 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   List<DesktopMenuEntry> _menuList(LocalComicModel model) {
     return [
+      DesktopMenuEntry(
+        text: "查看详情".tl,
+        onClick: () {
+          App.globalTo(() => LocalThumbsPage(dirPath: model.path));
+        },
+      ),
       DesktopMenuEntry(
         text: "删除".tl,
         onClick: () {

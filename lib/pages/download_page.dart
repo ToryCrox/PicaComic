@@ -1,8 +1,10 @@
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as Path;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -19,6 +21,8 @@ import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
+import 'package:pica_comic/tools/image_utils.dart';
+import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/tools/pdf.dart';
@@ -38,9 +42,10 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 
 import 'htmanga/ht_comic_page.dart';
+import 'local/local_thumbs_page.dart';
 
 extension ReadComic on DownloadedItem {
-  void read({int? ep}) async {
+  void read({int? ep, int? initialPage}) async {
     final comic = this;
     if (comic.type == DownloadType.picacg) {
       var history =
@@ -51,7 +56,7 @@ extension ReadComic on DownloadedItem {
           ep ?? history.ep,
           comic.eps,
           comic.name,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.ehentai) {
@@ -60,7 +65,7 @@ extension ReadComic on DownloadedItem {
       App.globalTo(
         () => ComicReadingPage.ehentai(
           (comic).gallery,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.jm) {
@@ -70,7 +75,7 @@ extension ReadComic on DownloadedItem {
         () => ComicReadingPage.jmComic(
           comic.comic,
           ep ?? history.ep,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.hitomi) {
@@ -80,7 +85,7 @@ extension ReadComic on DownloadedItem {
         () => ComicReadingPage.hitomi(
           comic.comic,
           comic.link,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.htmanga) {
@@ -90,7 +95,7 @@ extension ReadComic on DownloadedItem {
         () => ComicReadingPage.htmanga(
           comic.comic.id,
           comic.comic.title,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.nhentai) {
@@ -109,7 +114,7 @@ extension ReadComic on DownloadedItem {
         () => ComicReadingPage.nhentai(
           comic.id.replaceFirst("nhentai", ""),
           comic.title,
-          initialPage: ep == null ? history.page : 0,
+          initialPage: initialPage ?? (ep == null ? history.page : 0),
         ),
       );
     } else if (comic.type == DownloadType.other) {
@@ -443,8 +448,48 @@ class DownloadPage extends StatelessWidget {
                 Offset(details.globalPosition.dx, details.globalPosition.dy), [
               DesktopMenuEntry(
                 text: "阅读".tl,
-                onClick: () {
+                onClick: () async {
+                  //await Future.delayed(const Duration(milliseconds: 250));
                   logic.comics[index].read();
+                },
+              ),
+              DesktopMenuEntry(
+                text: "图片列表".tl,
+                onClick: () async {
+                  //await Future.delayed(const Duration(milliseconds: 250));
+                  var dirPath =
+                      "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
+                  App.globalTo(() => LocalThumbsPage(
+                        dirPath: dirPath,
+                        onItemTap: (index, filePath) async {
+                          int ep = 0;
+                          final file = File(filePath);
+                          final absPath = file.absolute.path;
+                          if (comic.type == DownloadType.picacg
+                              || comic.type == DownloadType.jm) {
+                            final fileParent = file.parent;
+                            final fileParentPath = Path.normalize(file.parent.absolute.path);
+                            for(final e in comic.downloadedEps) {
+                              final epDirPath = Path.normalize("$dirPath/$e");
+                              //debugPrint("epDirPath: $epDirPath, fileParent: $fileParent");
+                              if (epDirPath == fileParentPath) {
+                                ep = e;
+                                final imageNames = (await fileParent.list(recursive: true).toList())
+                                    .where(predictImageFile)
+                                    .sorted(fileNameCompare).map((e) => e.name).toList();
+                                index = imageNames.indexOf(Path.basename(absPath));
+                                if (index < 0) {
+                                  index = 0;
+                                }
+                                index += 1;
+                                break;
+                              }
+                            }
+                          }
+                          debugPrint("Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
+                          comic.read(initialPage: index, ep: ep);
+                        },
+                      ));
                 },
               ),
               DesktopMenuEntry(

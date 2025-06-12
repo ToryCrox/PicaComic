@@ -343,7 +343,7 @@ class ComicReadingPageLogic extends StateController {
     runningAutoPageTurning = false;
     _autoPageTurningTimer?.cancel();
     _autoPageTurningTimer = null;
-    if (readingMethod == ReadingMethod.topToBottomContinuously) {
+    if (readingMethod == ReadingMethod.topToBottomContinuously && scrollController.hasClients) {
       scrollController.jumpTo(scrollController.position.pixels + 1);
     }
   }
