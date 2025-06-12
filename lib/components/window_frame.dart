@@ -15,6 +15,7 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/pages/downloading_page.dart';
 import 'package:window_manager/window_manager.dart';
+import '../pages/local/local_comic_page.dart';
 import 'components.dart';
 
 const _kTitleBarHeight = 36.0;
@@ -305,6 +306,14 @@ class _SideBarBody extends StatelessWidget {
             onTap: () {
               StateController.find<WindowFrameController>().openSideBar();
               toPage(() => const ImageFavoritesPage());
+            }),
+        // 本地漫画
+        buildItem(
+            icon: Icons.image_outlined,
+            title: '本地漫画'.tl,
+            onTap: () {
+              StateController.find<WindowFrameController>().openSideBar();
+              toPage(() => const LocalComicPage());
             }),
         const Divider().paddingHorizontal(8),
         buildItem(

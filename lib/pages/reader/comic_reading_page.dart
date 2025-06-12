@@ -172,6 +172,16 @@ class ComicReadingPage extends StatelessWidget {
             StateController.find<ComicReadingPageLogic>(), false)));
   }
 
+  ComicReadingPage.localComic(String dirPath, String title, {super.key, this.initialPage = 1})
+      : initialEp = 1,
+        readingData = LocalReadingData(dirPath, title) {
+    StateController.put(ComicReadingPageLogic(
+        1,
+        readingData,
+        initialPage,
+            () => {}));
+  }
+
   _updateHistory(ComicReadingPageLogic? logic, bool updateMePage) {
     if (readingData.hasEp) {
       if (logic!.order == 1 && logic.index == 1) {

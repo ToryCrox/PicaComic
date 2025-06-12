@@ -96,6 +96,8 @@ dependencies:
       url: https://github.com/wgh136/flutter_desktop_webview
       path: packages/desktop_webview_window
 
+  desktop_drop: ^0.4.0
+
 dependency_overrides:
   flutter_inappwebview_android:
     git:

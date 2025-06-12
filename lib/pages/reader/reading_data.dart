@@ -21,6 +21,8 @@ abstract class ReadingData {
 
   List<int> downloadedEps = [];
 
+  String get dirPath => '';
+
   String get favoriteId => id;
 
   FavoriteType get favoriteType;
@@ -33,14 +35,24 @@ abstract class ReadingData {
     if(downloaded && downloadedEps.isEmpty){
       downloadedEps = (await DownloadManager().getComicOrNull(downloadId))!.downloadedEps;
     }
-    if (downloaded && checkEpDownloaded(ep)){
-      int length;
-      if(hasEp) {
-        length = await DownloadManager().getEpLength(downloadId, ep);
-      } else {
-        length = await DownloadManager().getComicLength(downloadId);
-      }
-      yield Res(List.filled(length, ""));
+    if (dirPath.isNotEmpty) {
+      final imageList = await DownloadManager().getAllImagesByDir(dirPath);
+      final imageFileUriList = imageList.map((e) => 'file://$e').toList();
+      yield Res(imageFileUriList);
+    } else if (downloaded && checkEpDownloaded(ep)){
+      // int length;
+      // if(hasEp) {
+      //   length = await DownloadManager().getEpLength(downloadId, ep);
+      // } else {
+      //   length = await DownloadManager().getComicLength(downloadId);
+      // }
+      final e = hasEp ? ep : 0;
+      final downloadDir = await DownloadManager().getImageDirectory(downloadId, e);
+      final imageList = await DownloadManager().getAllImageFileList(downloadId, e);
+      final imageFileUriList = imageList.map((e) => 'file://$e').toList();
+      debugPrint("loadEp $id $ep, imageFileUriList： ${imageList.map((e) => e.replaceFirst(downloadDir, '')).toList()}");
+      yield Res(imageFileUriList);
+      //yield Res(List.filled(length, ""));
     } else {
       final cacheKey = 'reading-data-${type.name}-$id-$ep';
       final cacheRes = await DiskCache.readModel(cacheKey,
@@ -81,7 +93,10 @@ abstract class ReadingData {
   }
 
   ImageProvider createImageProvider(int ep, int page, String url){
-    if (downloaded && checkEpDownloaded(ep)){
+    // url如果是文件的uri
+    if (url.startsWith("file://")) {
+      return FileImage(File(url.substring(7)));
+    } else if (downloaded && checkEpDownloaded(ep)){
       return FileImageProvider(downloadId, hasEp ? ep : 0, page);
     } else {
       return StreamImageProvider(() => loadImage(ep, page, url, title: title), buildImageKey(ep, page, url));
@@ -419,4 +434,54 @@ class CustomReadingData extends ReadingData{
 
   @override
   FavoriteType get favoriteType => FavoriteType(source!.intKey);
+}
+
+
+
+class LocalReadingData extends ReadingData {
+
+  final String _dirPath;
+  final String _title;
+
+  LocalReadingData(this._dirPath, this._title);
+
+  @override
+  String get dirPath => _dirPath;
+
+  @override
+  bool get hasEp => eps != null;
+
+  @override
+  String get sourceKey => "localComic";
+
+  @override
+  ComicType get type => ComicType.other;
+
+  @override
+  String get downloadId => _title;
+
+  @override
+  Future<Res<List<String>>> loadEpNetwork(int ep) async {
+    return Res([]);
+  }
+
+  @override
+  Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) async*{
+
+  }
+
+  @override
+  Map<String, String>? get eps => null;
+
+  @override
+  String get id => _title;
+
+  @override
+  String get title => _title;
+
+  @override
+  String buildImageKey(int ep, int page, String url) => "$dirPath$page";
+
+  @override
+  FavoriteType get favoriteType => FavoriteType.ehentai;
 }

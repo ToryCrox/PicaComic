@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
@@ -28,6 +29,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/str_ext.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
@@ -426,6 +428,52 @@ class DownloadManager with _DownloadDb implements Listenable {
         (e) => Path.basenameWithoutExtension(e.path) == index.toString());
   }
 
+  Future<String> getImageDirectory(String id, int ep) async {
+    String downloadPath;
+    if (ep == 0) {
+      downloadPath = "$path/${getDirectory(id)}/";
+    } else {
+      downloadPath = "$path/${getDirectory(id)}/$ep/";
+    }
+    final dir = Directory(downloadPath);
+    if (!(await dir.exists())) {
+      await dir.create(recursive: true);
+    }
+    return dir.absolute.path;
+  }
+
+  Future<List<String>> getAllImageFileList(String id, int ep) async {
+    String downloadPath;
+    if (ep == 0) {
+      downloadPath = "$path/${getDirectory(id)}/";
+    } else {
+      downloadPath = "$path/${getDirectory(id)}/$ep/";
+    }
+    final dir = Directory(downloadPath);
+    if (!(await dir.exists())) {
+      return [];
+    }
+    final files = await dir.list().toList();
+    return files.whereType<File>().sorted((a, b) {
+      final aName = Path.basenameWithoutExtension(a.path);
+      final bName = Path.basenameWithoutExtension(b.path);
+      return aName.compareIndex(bName);
+    }).map((e) => e.absolute.path).toList();
+  }
+
+  Future<List<String>> getAllImagesByDir(String dirPath) async {
+    final dir = Directory(dirPath);
+    if (!(await dir.exists())) {
+      return [];
+    }
+    final files = await dir.list().toList();
+    return files.whereType<File>().sorted((a, b) {
+      final aName = Path.basenameWithoutExtension(a.path);
+      final bName = Path.basenameWithoutExtension(b.path);
+      return aName.compareIndex(bName);
+    }).map((e) => e.absolute.path).toList();
+  }
+
   Future<File> getImageAsync(String id, int ep, int index) async {
     String downloadPath;
     if (ep == 0) {
@@ -666,6 +714,16 @@ abstract mixin class _DownloadDb {
         json text
       )
     ''');
+    _db!.execute('''
+      create table if not exists local_comic (
+         path text primary key,
+         title  text,
+         subtitle text,
+         json text,
+         size int,
+         cover text
+      )
+    ''');
   }
 
   void _addToDb(DownloadedItem item, String directory, [DateTime? time]) {
@@ -759,6 +817,10 @@ abstract mixin class _DownloadDb {
       select directory from download
       where id = ?
     ''', [id]);
+      if (result.isEmpty) {
+        debugPrint("Failed to get directory for $id");
+        return '';
+      }
       directory = result.first['directory'];
       directory = _findAccurateDirectory(directory!);
       if(_cache.length > 50) {
@@ -771,5 +833,39 @@ abstract mixin class _DownloadDb {
 
   String _findAccurateDirectory(String directory) {
     return sanitizeFileName(directory);
+  }
+
+  /// 添加一个本地的漫画
+  Future<void> addLocalItem({
+    required String path,
+    required String title,
+    required String subtitle,
+    required Map<String, dynamic> json,
+    required double size,
+    required String cover,
+  }) async {
+    _db!.execute('''
+      insert or replace into local_comic
+      values (?,?,?,?,?,?)
+    ''', [
+      path,
+      title,
+      subtitle,
+      jsonEncode(json),
+      size,
+      cover,
+    ]);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllLocal() async {
+    final result = await _db!.select('select * from local_comic');
+    return result;
+  }
+
+  Future<void> deleteLocal(String path) async {
+    _db!.execute('''
+      delete from local_comic
+      where path = ?
+    ''', [path]);
   }
 }
