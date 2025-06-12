@@ -2,6 +2,7 @@ library pica_reader;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -252,7 +253,7 @@ class ComicReadingPage extends StatelessWidget {
       if (appdata.settings[14] == "1") {
         cancelKeepScreenOn();
       }
-      logic.runningAutoPageTurning = false;
+      logic.stopAutoPageTurning();
       ComicImage.clear();
       StateController.remove<ComicReadingPageLogic>();
       // 更新本地收藏

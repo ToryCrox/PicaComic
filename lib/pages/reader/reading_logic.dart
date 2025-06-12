@@ -200,9 +200,12 @@ class ComicReadingPageLogic extends StateController {
 
   double get _animateNextPageDistance => (_pageSize.height * 0.95).clamp(100, 2000);
 
-  Future<void> jumpToNextPage({bool animate = false}) async {
+  Future<void> jumpToNextPage({bool animate = false, bool resetAutoTurning = false}) async {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index + 1);
+      if (resetAutoTurning && runningAutoPageTurning) {
+        autoPageTurning();
+      }
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
       final maxScrollExtent = scrollController.position.maxScrollExtent;
       if (animate) {
@@ -224,10 +227,12 @@ class ComicReadingPageLogic extends StateController {
     }
   }
 
-  void jumpToLastPage() {
-    stopAutoPageTurning();
+  void jumpToLastPage({bool resetAutoTurning = false}) {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index - 1);
+      if (resetAutoTurning && runningAutoPageTurning) {
+        autoPageTurning();
+      }
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
       //scrollController.jumpTo(scrollController.position.pixels - 600);
       final duration = Duration(milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
@@ -332,9 +337,12 @@ class ComicReadingPageLogic extends StateController {
 
   /// 是否处于自动翻页状态
   bool runningAutoPageTurning = false;
+  Timer? _autoPageTurningTimer;
 
   void stopAutoPageTurning() {
     runningAutoPageTurning = false;
+    _autoPageTurningTimer?.cancel();
+    _autoPageTurningTimer = null;
     if (readingMethod == ReadingMethod.topToBottomContinuously) {
       scrollController.jumpTo(scrollController.position.pixels + 1);
     }
@@ -362,19 +370,29 @@ class ComicReadingPageLogic extends StateController {
       return;
     }
     if (index == urls.length - 1) {
-      runningAutoPageTurning = false;
+      stopAutoPageTurning();
       update();
       return;
     }
     int sec = int.parse(appdata.settings[33]);
-    for (int i = 0; i < sec * 10; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (!runningAutoPageTurning) {
-        return;
-      }
+    _autoPageTurningTimer?.cancel();
+    if (runningAutoPageTurning) {
+      _autoPageTurningTimer = Timer.periodic(Duration(seconds: sec), (timer) {
+        if (!runningAutoPageTurning) {
+          timer.cancel();
+          return;
+        }
+        jumpToNextPage();
+      });
     }
-    jumpToNextPage();
-    autoPageTurning();
+    // for (int i = 0; i < sec * 10; i++) {
+    //   await Future.delayed(const Duration(milliseconds: 100));
+    //   if (!runningAutoPageTurning) {
+    //     return;
+    //   }
+    // }
+    // jumpToNextPage();
+    // autoPageTurning();
   }
 
   void refresh_() {
@@ -418,12 +436,12 @@ class ComicReadingPageLogic extends StateController {
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
-          reverse ? jumpToLastPage(): jumpToNextPage();
+          reverse ? jumpToLastPage(resetAutoTurning: true): jumpToNextPage(resetAutoTurning: true);
           hasEvent = true;
           break;
         case LogicalKeyboardKey.arrowUp:
         case LogicalKeyboardKey.arrowLeft:
-          reverse ? jumpToNextPage(): jumpToLastPage();
+          reverse ? jumpToNextPage(resetAutoTurning: true): jumpToLastPage(resetAutoTurning: true);
           hasEvent = true;
           break;
         case LogicalKeyboardKey.f12:

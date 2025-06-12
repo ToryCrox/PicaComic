@@ -193,6 +193,15 @@ class TapController {
             onTap: logic.fullscreen,
             child: Text("全屏".tl),
           ),
+        if(App.isWindows)
+          PopupMenuItem(
+            onTap: () {
+              appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
+              appdata.updateSettings();
+              Future.microtask(() => logic.update());
+            },
+            child: Text("限制最大宽度".tl),
+          ),
         PopupMenuItem(
           child: Text("退出".tl),
           onTap: () => App.globalBack(),
