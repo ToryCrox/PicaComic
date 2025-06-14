@@ -338,16 +338,19 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
   @override
   Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async {
     if (File(image.imagePath).existsSync()) {
+      final filePath = '${App.dataPath}/images/${image.imagePath}';
       return await File("${App.dataPath}/images/${image.imagePath}")
           .readAsBytes();
     } else {
+      var type = image.id.split("-")[0];
+      bool hasEp =  type == "jm";
+
       final downloadFile = await DownloadManager()
-          .getDownloadImageOrNull(image.title, image.ep, image.page);
+          .getDownloadImageOrNull(image.title, hasEp ? image.ep : 0, image.page);
       if (downloadFile != null) {
         return await downloadFile.readAsBytes();
       }
 
-      var type = image.id.split("-")[0];
       Stream<DownloadProgress> stream;
       switch (type) {
         case "ehentai":

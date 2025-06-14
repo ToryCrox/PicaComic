@@ -17,8 +17,10 @@ bool predictImageFile(FileSystemEntity file) {
   return sImageExtensions.contains(Path.extension(file.path).toLowerCase());
 }
 
+
+String sFileRelativeFromPath = '';
 int fileNameCompare(FileSystemEntity a, FileSystemEntity b) {
-  final aName = a.path;
-  final bName = b.path;
+  final aName = Path.relative(a.path, from: sFileRelativeFromPath);
+  final bName = Path.relative(b.path, from: sFileRelativeFromPath);
   return aName.compareIndex(bName);
 }

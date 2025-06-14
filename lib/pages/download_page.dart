@@ -474,6 +474,7 @@ class DownloadPage extends StatelessWidget {
                               //debugPrint("epDirPath: $epDirPath, fileParent: $fileParent");
                               if (epDirPath == fileParentPath) {
                                 ep = e;
+                                sFileRelativeFromPath = fileParent.path;
                                 final imageNames = (await fileParent.list(recursive: true).toList())
                                     .where(predictImageFile)
                                     .sorted(fileNameCompare).map((e) => e.name).toList();

@@ -39,6 +39,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   static Future<List<String>> loadImagesFilePaths(String dirPath) async {
     final dir = Directory(dirPath);
     //final images = (await dir.list(recursive: true).toList())
+    sFileRelativeFromPath = dirPath;
     final images = dir.listSync(recursive: true)
         .where(predictImageFile)
         .sorted(fileNameCompare)

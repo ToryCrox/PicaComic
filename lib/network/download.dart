@@ -422,7 +422,12 @@ class DownloadManager with _DownloadDb implements Listenable {
 
   Future<File?> getDownloadImageOrNull(String title, int ep, int index) async {
     final directory = findValidDirectoryName(DownloadManager().path!, title);
-    final downloadPath = "$path/$directory/$ep/";
+    String downloadPath;
+    if (ep == 0) {
+      downloadPath = "$path/$directory/";
+    } else {
+      downloadPath = "$path/$directory/$ep/";
+    }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) return null;
     return dir.listSync().whereType<File>().toList().firstWhereOrNull(
@@ -455,6 +460,7 @@ class DownloadManager with _DownloadDb implements Listenable {
       return [];
     }
     final files = await dir.list().toList();
+    sFileRelativeFromPath = downloadPath;
     return files.where(predictImageFile)
         .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
   }
