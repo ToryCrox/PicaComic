@@ -3,19 +3,17 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_file/open_file.dart';
 import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/tools/io_extensions.dart';
-import 'package:pica_comic/tools/io_tools.dart';
 import 'package:path/path.dart' as Path;
-import 'package:pica_comic/tools/map_extension.dart';
-import 'package:pica_comic/tools/str_ext.dart';
+import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'dart:io';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
+import '../../tools/image_utils.dart';
 import '../../tools/type_util.dart';
-import '../reader/comic_reading_page.dart';
 import 'local_thumbs_page.dart';
 
 class LocalComicPage extends StatefulWidget {
@@ -29,6 +27,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
   final List<LocalComicModel> _localComics = [];
 
   String? _parentPath;
+  String _fileSize = '';
 
   @override
   void initState() {
@@ -49,12 +48,18 @@ class _LocalComicPageState extends State<LocalComicPage> {
           cover: m.cover.isNotEmpty ? m.cover : imagePath,
         ));
       }
+      _fileSize = '';
     } else {
       _localComics.clear();
       final parentDir = Directory(parentPath);
-      final files = parentDir.listSync().where((e) => e is Directory);
+      sFileRelativeFromPath = Path.canonicalize(parentDir.path);
+
+      final files = (await parentDir.list().toList())
+          .whereType<Directory>()
+          .sorted(fileNameCompare);
       for (final file in files) {
         final path = file.absolute.path;
+        final dir = Directory(path);
         final comic = LocalComicModel(
           path: path,
           title: Path.basename(path),
@@ -62,6 +67,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         );
         _localComics.add(comic);
       }
+      _computeFileSize(parentPath);
       debugPrint(
           "localComics: ${_localComics.map((e) => Path.basename(e.cover)).toList()}");
     }
@@ -69,26 +75,39 @@ class _LocalComicPageState extends State<LocalComicPage> {
     setState(() {});
   }
 
+  Future<void> _computeFileSize(final String dir) async {
+    int totalFileSize = 0;
+    final files = await Directory(dir).list(recursive: true).toList();
+    for (final file in files) {
+      if (file is File) {
+        totalFileSize += file.lengthSync();
+      }
+    }
+    if (_parentPath == dir) {
+      setState(() {
+        _fileSize = bytesLengthToReadableSize(totalFileSize);
+      });
+    }
+  }
+
   Future<String> _getCoverImage(String directory) async {
     final dir = Directory(directory);
-    final exts = {'.webp', '.jpg', '.png', '.jpeg'};
-    final file = await dir.list(recursive: true).firstWhere((e) {
-      final ext = Path.extension(e.path).toLowerCase();
-      return exts.contains(ext);
-    }, orElse: () => File(''));
-    // final file = (await dir.list(recursive: true).toList()).whereType<File>().sorted((a, b) {
-    //   final aName = Path.basenameWithoutExtension(a.path);
-    //   final bName = Path.basenameWithoutExtension(b.path);
-    //   return aName.compareIndex(bName);
-    // }).firstWhereOrNull((e) {
-    //   final ext = Path.extension(e.path).toLowerCase();
-    //   return {'.webp', '.jpg', '.png', '.jpeg'}.contains(ext);
-    // });
-    return file.path ?? '';
+    try {
+      final file = await dir.list(recursive: true).firstWhere(predictImageFile);
+      return file.path;
+    } catch (e) {
+      debugPrint(e.toString());
+      return '';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    String titleText =
+        '本地漫画${_parentPath != null ? '(${Path.basename(_parentPath!)})' : ''}';
+    if (_fileSize.isNotEmpty) {
+      titleText += ' | $_fileSize';
+    }
     return PopScope(
       canPop: _parentPath == null,
       onPopInvokedWithResult: (didPop, result) {
@@ -100,8 +119,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-              '本地漫画${_parentPath != null ? '(${Path.basename(_parentPath!)})' : ''}'),
+          title: Text(titleText),
         ),
         body: DropTarget(
           enable: true,
@@ -161,7 +179,8 @@ class _LocalComicPageState extends State<LocalComicPage> {
             _loadLocalComics();
             setState(() {});
           } else {
-            App.globalTo(() => LocalThumbsPage(dirPath: model.path));
+            App.globalTo(() =>
+                LocalThumbsPage(dirPath: model.path, isEnableDelete: true));
             // App.globalTo(
             //   () => ComicReadingPage.localComic(
             //     model.path,
@@ -217,7 +236,8 @@ class _LocalComicPageState extends State<LocalComicPage> {
       DesktopMenuEntry(
         text: "查看详情".tl,
         onClick: () {
-          App.globalTo(() => LocalThumbsPage(dirPath: model.path));
+          App.globalTo(
+              () => LocalThumbsPage(dirPath: model.path, isEnableDelete: true));
         },
       ),
       DesktopMenuEntry(
@@ -233,6 +253,15 @@ class _LocalComicPageState extends State<LocalComicPage> {
           Future.delayed(const Duration(milliseconds: 300), () {
             var path = model.path;
             Clipboard.setData(ClipboardData(text: path));
+          });
+        },
+      ),
+      DesktopMenuEntry(
+        text: "打开目录".tl,
+        onClick: () {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            var path = model.path;
+            OpenFile.open(path);
           });
         },
       ),

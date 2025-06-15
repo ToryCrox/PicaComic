@@ -165,6 +165,7 @@ class MainPageState extends State<MainPage> {
         if (mounted) {
           showDialog(
             context: context,
+            barrierDismissible: false,
             builder: (dialogContext) {
               return AlertDialog(
                 title: Text("下载管理器".tl),

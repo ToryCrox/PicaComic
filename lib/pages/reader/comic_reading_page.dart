@@ -233,7 +233,8 @@ class ComicReadingPage extends StatelessWidget {
       }
       //进入阅读器时清除内存中的缓存, 并且增大限制
       BaseImageProvider.clearCache();
-      BaseImageProvider.setCacheSizeLimit(100 * 1024 * 1024);
+      BaseImageProvider.setCacheSizeLimit(500 * 1024 * 1024);
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 800 * 1024 * 1024;
       logic.openEpsView = openEpsDrawer;
       if (useDarkBackground) {
         Future.microtask(() =>
@@ -241,10 +242,12 @@ class ComicReadingPage extends StatelessWidget {
                 ?.setDarkTheme());
       }
     }, dispose: (logic) {
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
       //清除缓存并减小最大缓存
       BaseImageProvider.clearCache();
       BaseImageProvider.setCacheSizeLimit(50 * 1024 * 1024);
       logic.clearPhotoViewControllers();
+
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
       if (logic.listenVolume != null) {

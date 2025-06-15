@@ -10,7 +10,7 @@ const sImageExtensions = [
   '.webp',
   '.gif',
   '.bmp',
-  '.heif'
+  '.heif',
 ];
 
 bool predictImageFile(FileSystemEntity file) {

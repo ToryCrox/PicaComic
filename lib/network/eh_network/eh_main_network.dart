@@ -713,6 +713,9 @@ class EhNetwork {
       return Res(res.data[page - 1]);
     }
     var urlsOnePage = res.data.length;
+    if (urlsOnePage <= 0) {
+      return const Res.error('get  reader link failed');
+    }
 
     final shouldLoadPage = (page - 1) ~/ urlsOnePage + 1;
     final urlsRes = (await _getReaderLinks(gLink, shouldLoadPage));

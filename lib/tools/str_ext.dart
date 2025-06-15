@@ -1,5 +1,19 @@
 import 'dart:math';
 
+import 'package:collection/collection.dart';
+
+
+final sDigits = _initDigitsMap();
+
+Map<String, int> _initDigitsMap() {
+  const digitsStr = "0123456789";
+  final map = <String, int>{};
+  for (var i = 0; i < digitsStr.length; i++) {
+    map[digitsStr[i]] = i;
+  }
+  return map;
+}
+
 extension StringExt on String {
 
   int compareIndex(String str) {
@@ -13,8 +27,8 @@ extension StringExt on String {
       final c2 = name2[k];
 
       // 判断c1是否为数字
-      final i1 = int.tryParse(c1);
-      final i2 = int.tryParse(c2);
+      final i1 = sDigits[c1];
+      final i2 = sDigits[c2];
       if (i1 != null && i2 != null) {
         final p1 = name1.subDigitNum(c1, k);
         final p2 = name2.subDigitNum(c2, k);
@@ -35,7 +49,7 @@ extension StringExt on String {
     var isInStr = false;
     for (var i = start + 1; i < length; i++) {
       final c = this[i];
-      final ci = int.tryParse(c);
+      final ci = sDigits[c];
       if (ci != null && !isInStr) {
         sb1.write(c);
       } else {

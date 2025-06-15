@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -400,6 +401,17 @@ class DownloadPage extends StatelessWidget {
       type = (item as CustomDownloadedItem).sourceName;
     }
     final comic = logic.comics[index];
+
+    String name = comic.name;
+    String maxPage = '';
+    if (comic.type == DownloadType.ehentai) {
+      maxPage = (comic as DownloadedGallery).gallery.maxPage;
+    }
+    if (maxPage.isNotEmpty && maxPage != '0') {
+      name = '(${maxPage}P)[${comic.id}]${comic.name}';
+    } else {
+      name = '[${comic.id}]${comic.name}';
+    }
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Container(
@@ -410,7 +422,7 @@ class DownloadPage extends StatelessWidget {
             borderRadius: const BorderRadius.all(Radius.circular(16))),
         child: DownloadedComicTile(
           id: item.id,
-          name: item.name,
+          name: name,
           author: item.subTitle,
           imagePath:
               downloadManager.getCover(item.id, check: true),
@@ -462,6 +474,10 @@ class DownloadPage extends StatelessWidget {
                   App.globalTo(() => LocalThumbsPage(
                         dirPath: dirPath,
                         onItemTap: (index, filePath) async {
+                          if (index <= 0) {
+                            comic.read();
+                            return;
+                          }
                           int ep = 0;
                           final file = File(filePath);
                           final absPath = file.absolute.path;
@@ -517,63 +533,63 @@ class DownloadPage extends StatelessWidget {
                   });
                 },
               ),
-              DesktopMenuEntry(
-                text: "导出".tl,
-                onClick: () =>
-                    Future.delayed(const Duration(milliseconds: 200), () {
-                  Future<void>.delayed(
-                    const Duration(milliseconds: 200),
-                    () => showDialog(
-                      context: App.globalContext!,
-                      barrierDismissible: false,
-                      barrierColor: Colors.black26,
-                      builder: (context) => SimpleDialog(
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            height: 200,
-                            child: Center(
-                              child: SizedBox(
-                                width: 50,
-                                height: 80,
-                                child: Column(
-                                  children: [
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
-                                    const CircularProgressIndicator(),
-                                    const SizedBox(
-                                      height: 9,
-                                    ),
-                                    Text("打包中".tl)
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                  );
-                  Future<void>.delayed(const Duration(milliseconds: 500),
-                      () async {
-                    var res = await exportComic(logic.comics[index].id,
-                        logic.comics[index].name, logic.comics[index].eps);
-                    App.globalBack();
-                    if (res) {
-                      //忽视
-                    } else {
-                      showToast(message: "导出失败".tl);
-                    }
-                  });
-                }),
-              ),
-              DesktopMenuEntry(
-                text: "导出为pdf".tl,
-                onClick: () {
-                  exportAsPdf(logic.comics[index], logic);
-                },
-              ),
+              // DesktopMenuEntry(
+              //   text: "导出".tl,
+              //   onClick: () =>
+              //       Future.delayed(const Duration(milliseconds: 200), () {
+              //     Future<void>.delayed(
+              //       const Duration(milliseconds: 200),
+              //       () => showDialog(
+              //         context: App.globalContext!,
+              //         barrierDismissible: false,
+              //         barrierColor: Colors.black26,
+              //         builder: (context) => SimpleDialog(
+              //           children: [
+              //             SizedBox(
+              //               width: 200,
+              //               height: 200,
+              //               child: Center(
+              //                 child: SizedBox(
+              //                   width: 50,
+              //                   height: 80,
+              //                   child: Column(
+              //                     children: [
+              //                       const SizedBox(
+              //                         height: 10,
+              //                       ),
+              //                       const CircularProgressIndicator(),
+              //                       const SizedBox(
+              //                         height: 9,
+              //                       ),
+              //                       Text("打包中".tl)
+              //                     ],
+              //                   ),
+              //                 ),
+              //               ),
+              //             )
+              //           ],
+              //         ),
+              //       ),
+              //     );
+              //     Future<void>.delayed(const Duration(milliseconds: 500),
+              //         () async {
+              //       var res = await exportComic(logic.comics[index].id,
+              //           logic.comics[index].name, logic.comics[index].eps);
+              //       App.globalBack();
+              //       if (res) {
+              //         //忽视
+              //       } else {
+              //         showToast(message: "导出失败".tl);
+              //       }
+              //     });
+              //   }),
+              // ),
+              // DesktopMenuEntry(
+              //   text: "导出为pdf".tl,
+              //   onClick: () {
+              //     exportAsPdf(logic.comics[index], logic);
+              //   },
+              // ),
               DesktopMenuEntry(
                 text: "查看漫画详情".tl,
                 onClick: () {
@@ -606,6 +622,14 @@ class DownloadPage extends StatelessWidget {
                         "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
                     Clipboard.setData(ClipboardData(text: path));
                   });
+                },
+              ),
+              DesktopMenuEntry(
+                text: "打开文件".tl,
+                onClick: () {
+                  var path =
+                      "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
+                  OpenFile.open(path);
                 },
               ),
             ]);
@@ -730,7 +754,42 @@ class DownloadPage extends StatelessWidget {
   }
 
   List<Widget> buildActions(BuildContext context, DownloadPageLogic logic) {
+    final filterTags = [
+      'CunnyFunky',
+      'iroheki',
+      'Nyako',
+      'NFFA',
+      'RainySHST',
+    ];
     return [
+      if (!logic.selecting)
+        Tooltip(
+          message: "过滤常用标签".tl,
+          child: IconButton(
+            icon: const Icon(Icons.filter_alt_sharp),
+            onPressed: () {
+              showMenu(
+                  context: context,
+                  position: RelativeRect.fromLTRB(
+                      MediaQuery.of(context).size.width - 300,
+                      50,
+                      MediaQuery.of(context).size.width - 60,
+                      50),
+                  items: [
+                    for(var tag in filterTags)
+                      PopupMenuItem(
+                        child: Text(tag),
+                        onTap: () {
+                          logic.searchMode = true;
+                          logic.textFieldController.text = tag;
+                          logic.keyword = tag;
+                          logic.update();
+                        },
+                      ),
+                  ]);
+            },
+          ),
+        ),
       if (!logic.selecting && !logic.searchMode)
         Tooltip(
           message: "排序".tl,
@@ -1221,7 +1280,7 @@ class DownloadedComicTile extends ComicTile {
   String get subTitle => author;
 
   @override
-  String get title => '[$id]$name';
+  String get title => name;
 
   @override
   void onLongTap_() => onLongTap();

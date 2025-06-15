@@ -459,7 +459,7 @@ class DownloadManager with _DownloadDb implements Listenable {
     if (!(await dir.exists())) {
       return [];
     }
-    final files = await dir.list().toList();
+    final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = downloadPath;
     return files.where(predictImageFile)
         .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
@@ -470,12 +470,11 @@ class DownloadManager with _DownloadDb implements Listenable {
     if (!(await dir.exists())) {
       return [];
     }
-    final files = await dir.list().toList();
-    return files.whereType<File>().sorted((a, b) {
-      final aName = Path.basenameWithoutExtension(a.path);
-      final bName = Path.basenameWithoutExtension(b.path);
-      return aName.compareIndex(bName);
-    }).map((e) => e.absolute.path).toList();
+    final files = await dir.list(recursive: true).toList();
+    sFileRelativeFromPath = Path.normalize(dirPath);
+    return files.whereType<File>()
+        .where(predictImageFile)
+        .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {

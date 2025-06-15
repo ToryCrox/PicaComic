@@ -97,6 +97,7 @@ dependencies:
       path: packages/desktop_webview_window
 
   desktop_drop: ^0.4.0
+  open_file: ^3.5.10
 
 dependency_overrides:
   flutter_inappwebview_android:

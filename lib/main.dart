@@ -150,7 +150,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (appdata.settings[12] == "1") {
       blockScreenshot();
     }
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 200 * 1024 * 1024;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
     super.initState();
   }
 
