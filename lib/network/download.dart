@@ -462,7 +462,7 @@ class DownloadManager with _DownloadDb implements Listenable {
     final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = downloadPath;
     return files.where(predictImageFile)
-        .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
+        .sortedByName().map((e) => e.absolute.path).toList();
   }
 
   Future<List<String>> getAllImagesByDir(String dirPath) async {
@@ -474,7 +474,7 @@ class DownloadManager with _DownloadDb implements Listenable {
     sFileRelativeFromPath = Path.normalize(dirPath);
     return files.whereType<File>()
         .where(predictImageFile)
-        .sorted(fileNameCompare).map((e) => e.absolute.path).toList();
+        .sortedByName().map((e) => e.absolute.path).toList();
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {

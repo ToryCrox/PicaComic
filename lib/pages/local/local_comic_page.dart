@@ -56,7 +56,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
       final files = (await parentDir.list().toList())
           .whereType<Directory>()
-          .sorted(fileNameCompare);
+          .sortedByName();
       for (final file in files) {
         final path = file.absolute.path;
         final dir = Directory(path);

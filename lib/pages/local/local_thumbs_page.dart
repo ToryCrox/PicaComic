@@ -57,7 +57,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         .listSync(recursive: true)
         .whereType<File>()
         .where(predictImageFile)
-        .sorted(fileNameCompare)
+        //.sorted(fileNameCompare)
+        .sortedByName()
         .map(
           (e) => ImageFile(
             path: e.absolute.path,
@@ -70,7 +71,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    final images = await compute(loadImagesFilePaths, widget.dirPath);
+    //final images = await compute(loadImagesFilePaths, widget.dirPath);
+    final images = await loadImagesFilePaths(widget.dirPath);
     final diff = DateTime.now().difference(t1);
     if (diff.inMilliseconds < 300) {
       final delay = 300 - diff.inMilliseconds;
@@ -82,6 +84,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     // _fileSize = bytesLengthToReadableSize(fileSize);
     debugPrint(
         "LocalThumbsPage: load ${images.length} images, diff: ${diff.inMilliseconds}ms");
+    if (false) {
+      final imagePaths = images.take(30).map((e) => e.path).toList();
+      debugPrint("LocalThumbsPage: load ${imagePaths}");
+    }
     setState(() {
       _loading = false;
       _imageFiles.clear();
@@ -105,8 +111,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            _title + (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") + (_fileSize != "" ? " | $_fileSize" : "")),
+        title: Text(_title +
+            (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") +
+            (_fileSize != "" ? " | $_fileSize" : "")),
         actions: [
           if (_isSelectedMode)
             TextButton(
@@ -133,7 +140,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
             widget.onItemTap?.call(-1, '');
           } else {
             App.globalTo(
-                  () => ComicReadingPage.localComic(
+              () => ComicReadingPage.localComic(
                 widget.dirPath,
                 _title,
                 initialPage: 1,

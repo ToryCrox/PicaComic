@@ -493,7 +493,7 @@ class DownloadPage extends StatelessWidget {
                                 sFileRelativeFromPath = fileParent.path;
                                 final imageNames = (await fileParent.list(recursive: true).toList())
                                     .where(predictImageFile)
-                                    .sorted(fileNameCompare).map((e) => e.name).toList();
+                                    .sortedByName().map((e) => e.name).toList();
                                 index = imageNames.indexOf(Path.basename(absPath));
                                 if (index < 0) {
                                   index = 0;
