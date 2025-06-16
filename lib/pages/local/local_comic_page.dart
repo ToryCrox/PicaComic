@@ -26,6 +26,7 @@ class LocalComicPage extends StatefulWidget {
 class _LocalComicPageState extends State<LocalComicPage> {
   final List<LocalComicModel> _localComics = [];
 
+  final List<String> _historyPaths = [];
   String? _parentPath;
   String _fileSize = '';
 
@@ -112,7 +113,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
       canPop: _parentPath == null,
       onPopInvokedWithResult: (didPop, result) {
         if (_parentPath != null) {
-          _parentPath = null;
+          _parentPath = _historyPaths.isNotEmpty ? _historyPaths.removeLast() : null;
           _loadLocalComics();
         }
         setState(() {});
@@ -138,8 +139,6 @@ class _LocalComicPageState extends State<LocalComicPage> {
         .toList();
     if (dirPaths.isNotEmpty) {
       for (var dirPath in dirPaths) {
-        final dir = Directory(dirPath);
-        final size = 0; //await dir.getMBSizeSync();
         final name = Path.basename(dirPath);
         await DownloadManager().addLocalItem(
           path: dirPath,
@@ -174,6 +173,9 @@ class _LocalComicPageState extends State<LocalComicPage> {
           final dir = Directory(model.path);
           final subDirs = (await dir.list().toList()).whereType<Directory>();
           if (subDirs.isNotEmpty) {
+            if (_parentPath != null) {
+              _historyPaths.add(_parentPath!);
+            }
             _parentPath = model.path;
             debugPrint('parent path: ${model.path}');
             _loadLocalComics();
