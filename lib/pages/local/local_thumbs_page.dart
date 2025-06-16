@@ -4,6 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_size_getter/file_input.dart';
+import 'package:image_size_getter/image_size_getter.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/image_utils.dart';
@@ -62,7 +64,6 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         .map(
           (e) => ImageFile(
             path: e.absolute.path,
-            size: 0,
           ),
         )
         .toList();
@@ -79,32 +80,66 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       debugPrint("LocalThumbsPage: delay $delay ms");
       await Future.delayed(Duration(milliseconds: delay));
     }
-
-    // final fileSize = images.fold(0, (previousValue, element) => previousValue + element.size);
-    // _fileSize = bytesLengthToReadableSize(fileSize);
     debugPrint(
         "LocalThumbsPage: load ${images.length} images, diff: ${diff.inMilliseconds}ms");
-    if (false) {
-      final imagePaths = images.take(30).map((e) => e.path).toList();
-      debugPrint("LocalThumbsPage: load ${imagePaths}");
-    }
     setState(() {
       _loading = false;
       _imageFiles.clear();
       _imageFiles.addAll(images);
-      _loadAllImageSize();
     });
+    _loadAllFileSize();
+    _loadAllImageSize();
   }
 
   Future<void> _loadAllImageSize() async {
+    int index = 0;
+    while (index < _imageFiles.length) {
+      final end =
+          index + 30 > _imageFiles.length ? _imageFiles.length : index + 30;
+      final subImages = _imageFiles.sublist(index, end);
+      final imageSizes = await compute(
+        _loadImageSizes,
+        subImages,
+      );
+      //final imageSizes = await _loadImageSizes(subImages.map((e) => e.path).toList());
+      for (var i = 0; i < subImages.length; i++) {
+        final imageFile = subImages[i];
+        final size = imageSizes[imageFile.path];
+        if (size != null) {
+          imageFile.size = size;
+        }
+      }
+      if (mounted) {
+        setState(() {});
+      } else {
+        debugPrint("LocalThumbsPage umouted");
+        return;
+      }
+      index += 30;
+    }
+  }
+
+  Future<void> _loadAllFileSize() async {
     int totalSize = 0;
     for (var i = 0; i < _imageFiles.length; i++) {
       final imageFile = _imageFiles[i];
-      totalSize += (File(imageFile.path)).lengthSync();
+      imageFile.fileSize = (File(imageFile.path)).lengthSync();
+      totalSize += imageFile.fileSize;
     }
     setState(() {
       _fileSize = bytesLengthToReadableSize(totalSize);
     });
+  }
+
+  static Future<Map<String, Size>> _loadImageSizes(List<ImageFile> imageFiles) async {
+    final imageSizes = <String, Size>{};
+    for (var i = 0; i < imageFiles.length; i++) {
+      final imageFilePath = imageFiles[i].path;
+      final file = File(imageFilePath);
+      final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
+      imageSizes[imageFilePath] = sizeResult.size;
+    }
+    return imageSizes;
   }
 
   @override
@@ -215,6 +250,33 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 cacheWidth: cacheWidth.toInt(),
               ),
             ),
+            if (imageFile.size != null)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                left: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "${imageFile.size!.width.toInt()}x${imageFile.size!.height.toInt()}",
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                      Text(
+                        bytesLengthToReadableSize(imageFile.fileSize),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             IgnorePointer(
               child: Container(
                 decoration: BoxDecoration(
@@ -308,12 +370,22 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   }
 }
 
+class ImageFileList {
+  final List<String> list;
+
+  ImageFileList({
+    required this.list,
+  });
+}
+
 class ImageFile {
   final String path;
-  final int size;
+  Size? size;
+  int fileSize;
 
   ImageFile({
     required this.path,
-    required this.size,
+    this.size,
+    this.fileSize = 0,
   });
 }
