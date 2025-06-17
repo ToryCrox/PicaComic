@@ -4,11 +4,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:image_size_getter/file_input.dart';
+import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -508,7 +511,7 @@ class ComicReadingPage extends StatelessWidget {
       logic.isLoading = false;
       logic.update();
     }
-
+    logic.loadImageSizes();
   }
 
   Widget buildEpsView() {

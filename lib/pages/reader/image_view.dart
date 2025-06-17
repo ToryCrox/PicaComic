@@ -46,7 +46,40 @@ extension ImageExt on ComicReadingPage {
 
           double imageWidth = width;
 
-          if (height / width < 1 && appdata.settings[43] == "1") {
+          bool hasOriginSize = false;
+          if (logic.isShowOriginSize) {
+            final url = logic.urls[index];
+            final size = logic.imageSize[url];
+            if (size != null && size.height > 0 && size.width > 0) {
+              final originWidth = size.width / mediaQuery.devicePixelRatio;
+              final originHeight = size.height / mediaQuery.devicePixelRatio;
+              final sRatio = width / height;
+              final oRadio = size.height / size.width;
+              if (oRadio <= 1) { // width > height
+                if (originWidth > width) {
+                  imageWidth = width;
+                } else {
+                  imageWidth = originWidth;
+                }
+              } else if (oRadio > 1){ // 高比宽大， 宽度最大为3000
+                final mmWidth = (2560 / mediaQuery.devicePixelRatio);
+                final maxWidth = mmWidth > width ? width : mmWidth;
+                if (originWidth > maxWidth) {
+                  imageWidth = maxWidth;
+                } else {
+                  imageWidth = originWidth;
+                }
+              } else if (originWidth > width) {
+                imageWidth = width;
+              } else {
+                imageWidth = originWidth;
+              }
+              hasOriginSize = true;
+            } else {
+              hasOriginSize = false;
+            }
+          }
+          if (!hasOriginSize && height / width < 1 && appdata.settings[43] == "1") {
             imageWidth = min(height / 0.8, 2160 / mediaQuery.devicePixelRatio);
           }
 

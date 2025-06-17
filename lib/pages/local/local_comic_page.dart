@@ -14,6 +14,7 @@ import '../../components/components.dart';
 import '../../foundation/app.dart';
 import '../../tools/image_utils.dart';
 import '../../tools/type_util.dart';
+import '../reader/comic_reading_page.dart';
 import 'local_thumbs_page.dart';
 
 class LocalComicPage extends StatefulWidget {
@@ -217,7 +218,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(10),
                   color: Colors.black.withOpacity(0.5),
                   child: Text(
                     model.title,
@@ -235,6 +236,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   List<DesktopMenuEntry> _menuList(LocalComicModel model) {
     return [
+      DesktopMenuEntry(
+        text: "阅读".tl,
+        onClick: () {
+          App.globalTo(() =>
+              ComicReadingPage.localComic(model.path, model.title));
+        },
+      ),
       DesktopMenuEntry(
         text: "查看详情".tl,
         onClick: () {

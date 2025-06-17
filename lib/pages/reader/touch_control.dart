@@ -202,6 +202,14 @@ class TapController {
             },
             child: Text("限制最大宽度".tl),
           ),
+        if(App.isWindows)
+          PopupMenuItem(
+            onTap: () {
+              logic.isShowOriginSize = !logic.isShowOriginSize;
+              Future.microtask(() => logic.update());
+            },
+            child: Text(logic.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
+          ),
         PopupMenuItem(
           child: Text("退出".tl),
           onTap: () => App.globalBack(),

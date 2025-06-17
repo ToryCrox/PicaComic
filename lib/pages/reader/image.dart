@@ -21,6 +21,7 @@ class ComicImage extends StatefulWidget {
         this.gaplessPlayback = false,
         this.filterQuality = FilterQuality.medium,
         this.isAntiAlias = false,
+        this.isShowOriginSize = false,
         Map<String, String>? headers,
         int? cacheWidth,
         int? cacheHeight,
@@ -62,6 +63,8 @@ class ComicImage extends StatefulWidget {
   final bool isAntiAlias;
 
   static void clear() => _ComicImageState.clear();
+
+  final bool isShowOriginSize;
 
   @override
   State<ComicImage> createState() => _ComicImageState();
@@ -150,7 +153,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
     final ImageStream newStream =
     provider.resolve(createLocalImageConfiguration(
       context,
-      size: widget.width != null && widget.height != null ? Size(widget.width!, widget.height!) : null,
+      size: !widget.isShowOriginSize && widget.width != null && widget.height != null ? Size(widget.width!, widget.height!) : null,
     ));
     _updateSourceStream(newStream);
   }

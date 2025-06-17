@@ -75,6 +75,99 @@ class ComicReadingPageLogic extends StateController {
     update();
   }
 
+  bool _isShowOriginSize  = appdata.settings[43] == '0';
+  bool get isShowOriginSize => _isShowOriginSize;
+  set isShowOriginSize(bool show) {
+    _isShowOriginSize = show;
+    update();
+  }
+
+  final Map<String, Size?> _imageSize = {};
+  Map<String, Size?> get imageSize => _imageSize;
+  int _imageSizeComputeId = 0;
+
+
+  Future<void> loadImageSizes([int? fromIndex]) async {
+    final localImageUrls = urls.where((e) => e.startsWith('file://')).toList();
+    int startIndex = index - 1;
+    if (startIndex < 0) {
+      startIndex = 0;
+    }
+    if (fromIndex != null) {
+      startIndex = fromIndex;
+    }
+    final requestedUrls = <String>[];
+    if (startIndex > 0) {
+      requestedUrls.addAll(localImageUrls);
+    } else {
+      requestedUrls.addAll(localImageUrls.sublist(startIndex));
+      if (startIndex > 0) {
+        requestedUrls.addAll(localImageUrls.sublist(0, startIndex));
+      }
+    }
+    final resultUrs = requestedUrls.where((e) => !_imageSize.containsKey(e)).toList();
+    if (resultUrs.isEmpty) {
+      return;
+    }
+    debugPrint("loadImageSizes start $startIndex");
+    _imageSizeComputeId++;
+    final thisComputeId = _imageSizeComputeId;
+    // 每10个图片请求一次图片大小
+    for (int i = 0; i < resultUrs.length; i += 5) {
+      final end = i + 10 > resultUrs.length ? resultUrs.length : i + 5;
+      final urls = requestedUrls.sublist(i, end);
+      for(var url in urls){
+        _imageSize[url] = null;
+      }
+      final imagesSize = await loadImagesSize(urls);
+      _imageSize.addAll(imagesSize);
+      update();
+      debugPrint("loadImageSizes $imagesSize");
+      if (thisComputeId != _imageSizeComputeId) {
+        debugPrint("loadImageSizes cancel");
+        return;
+      }
+      if (isDispose) {
+        return;
+      }
+    }
+    debugPrint("loadImageSizes finish");
+  }
+
+  Future<Map<String, Size>> loadImagesSize(List<String> urls) async {
+    return await compute(_loadImageSizes, urls);
+  }
+
+  static Future<Map<String, Size>> _loadImageSizes(List<String> imageUrs) async {
+    final imageSizes = <String, Size>{};
+    for (var i = 0; i < imageUrs.length; i++) {
+      final url = imageUrs[i];
+      String imageFilePath;
+      if (url.startsWith("file://")) {
+        imageFilePath = url.substring(7);
+      } else {
+        continue;
+      }
+      final file = File(imageFilePath);
+      try {
+        final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
+        imageSizes[url] = Size(sizeResult.size.width.toDouble(),
+            sizeResult.size.height.toDouble());
+      } catch (e) {
+        debugPrint("loadImageSizes error: $e");
+      }
+    }
+    return imageSizes;
+  }
+
+
+  bool isDispose = false;
+
+  @override
+  void dispose() {
+    isDispose = true;
+  }
+
   static int _getIndex(int initPage) {
     if (appdata.settings[9] == "5" || appdata.settings[9] == "6") {
       return initPage % 2 == 1 ? initPage : initPage - 1;

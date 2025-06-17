@@ -40,12 +40,6 @@ abstract class ReadingData {
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
       yield Res(imageFileUriList);
     } else if (downloaded && checkEpDownloaded(ep)){
-      // int length;
-      // if(hasEp) {
-      //   length = await DownloadManager().getEpLength(downloadId, ep);
-      // } else {
-      //   length = await DownloadManager().getComicLength(downloadId);
-      // }
       final e = hasEp ? ep : 0;
       final downloadDir = await DownloadManager().getImageDirectory(downloadId, e);
       final imageList = await DownloadManager().getAllImageFileList(downloadId, e);
@@ -70,6 +64,9 @@ abstract class ReadingData {
       }
     }
   }
+
+
+
 
   /// Load image from local or network
   ///
