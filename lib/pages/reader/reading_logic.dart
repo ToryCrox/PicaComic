@@ -128,6 +128,7 @@ class ComicReadingPageLogic extends StateController {
         return;
       }
       if (isDispose) {
+        debugPrint("loadImageSizes cancel dispose");
         return;
       }
     }
@@ -163,9 +164,13 @@ class ComicReadingPageLogic extends StateController {
 
   bool isDispose = false;
 
+  void disposeAll() {
+    isDispose = true;
+  }
+
   @override
   void dispose() {
-    isDispose = true;
+
   }
 
   static int _getIndex(int initPage) {

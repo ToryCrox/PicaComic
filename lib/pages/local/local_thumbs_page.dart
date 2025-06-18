@@ -193,7 +193,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final cacheWidth = MediaQuery.devicePixelRatioOf(context) * 200;
+    final cacheWidth = MediaQuery.devicePixelRatioOf(context) * 150;
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
