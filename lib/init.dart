@@ -30,6 +30,7 @@ import 'comic_source/built_in/nhentai.dart';
 import 'comic_source/built_in/picacg.dart';
 import 'foundation/app.dart';
 import 'network/nhentai_network/nhentai_main_network.dart';
+import 'tools/prefs_helper.dart';
 
 Future<void> init() async {
   try {
@@ -47,6 +48,7 @@ Future<void> init() async {
     if(logFile?.existsSync() ?? false) {
       await logFile?.delete();
     }
+    PrefsHelper.init();
     LogManager.logFile = logFile;
     LogManager.addLog(LogLevel.info, "App Status", "Start initialization.");
     await appdata.readData();

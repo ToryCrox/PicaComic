@@ -7,6 +7,7 @@ import 'package:open_file/open_file.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
+import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'dart:io';
 
@@ -30,6 +31,10 @@ class _LocalComicPageState extends State<LocalComicPage> {
   final List<String> _historyPaths = [];
   String? _parentPath;
   String _fileSize = '';
+
+  late ComicFileSort _fileSort =
+      ComicFileSort.values.asNameMap()[PrefsHelper.getString('local_comic_folder_sort')] ??
+          ComicFileSort.asc;
 
   @override
   void initState() {
@@ -69,6 +74,12 @@ class _LocalComicPageState extends State<LocalComicPage> {
         );
         _localComics.add(comic);
       }
+      if (_fileSort == ComicFileSort.desc) {
+        final newList = List.of(_localComics.reversed);
+        _localComics.clear();
+        _localComics.addAll(newList);
+      }
+
       _computeFileSize(parentPath);
       debugPrint(
           "localComics: ${_localComics.map((e) => Path.basename(e.cover)).toList()}");
@@ -114,7 +125,8 @@ class _LocalComicPageState extends State<LocalComicPage> {
       canPop: _parentPath == null,
       onPopInvokedWithResult: (didPop, result) {
         if (_parentPath != null) {
-          _parentPath = _historyPaths.isNotEmpty ? _historyPaths.removeLast() : null;
+          _parentPath =
+              _historyPaths.isNotEmpty ? _historyPaths.removeLast() : null;
           _loadLocalComics();
         }
         setState(() {});
@@ -122,6 +134,24 @@ class _LocalComicPageState extends State<LocalComicPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(titleText),
+          actions: [
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _fileSort =
+                  _fileSort == ComicFileSort.asc ? ComicFileSort.desc : ComicFileSort.asc;
+                  PrefsHelper.setString('local_comic_folder_sort', _fileSort.name);
+                  final newImages = List.of(_localComics.reversed);
+                  _localComics.clear();
+                  _localComics.addAll(newImages);
+                });
+              },
+              icon: _fileSort == ComicFileSort.asc
+                  ? const Icon(Icons.arrow_upward)
+                  : const Icon(Icons.arrow_downward),
+            ),
+            const SizedBox(width: 10),
+          ],
         ),
         body: DropTarget(
           enable: true,
@@ -239,8 +269,8 @@ class _LocalComicPageState extends State<LocalComicPage> {
       DesktopMenuEntry(
         text: "阅读".tl,
         onClick: () {
-          App.globalTo(() =>
-              ComicReadingPage.localComic(model.path, model.title));
+          App.globalTo(
+              () => ComicReadingPage.localComic(model.path, model.title));
         },
       ),
       DesktopMenuEntry(
@@ -254,7 +284,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         text: "删除".tl,
         onClick: () {
           DownloadManager().deleteLocal(model.path);
-          setState(() {});
+          _loadLocalComics();
         },
       ),
       DesktopMenuEntry(

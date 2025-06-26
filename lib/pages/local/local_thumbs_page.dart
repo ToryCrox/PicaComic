@@ -14,6 +14,7 @@ import 'package:pica_comic/tools/translations.dart';
 import '../../components/components.dart';
 import '../../foundation/app.dart';
 import '../../tools/io_tools.dart';
+import '../../tools/prefs_helper.dart';
 import '../reader/comic_reading_page.dart';
 
 class LocalThumbsPage extends StatefulWidget {
@@ -43,6 +44,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   bool _isSelectedMode = false;
 
   String _fileSize = '';
+
+  late ComicFileSort _fileSort =
+      ComicFileSort.values.asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
+          ComicFileSort.asc;
 
   @override
   void initState() {
@@ -85,7 +90,11 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     setState(() {
       _loading = false;
       _imageFiles.clear();
-      _imageFiles.addAll(images);
+      if (_fileSort == ComicFileSort.desc) {
+        _imageFiles.addAll(images.reversed);
+      } else {
+        _imageFiles.addAll(images);
+      }
     });
     _loadAllFileSize();
     _loadAllImageSize();
@@ -123,6 +132,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     int totalSize = 0;
     for (var i = 0; i < _imageFiles.length; i++) {
       final imageFile = _imageFiles[i];
+      final file =  File(imageFile.path);
+      if (!file.existsSync()) {
+        continue;
+      }
       imageFile.fileSize = (File(imageFile.path)).lengthSync();
       totalSize += imageFile.fileSize;
     }
@@ -131,7 +144,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     });
   }
 
-  static Future<Map<String, Size>> _loadImageSizes(List<ImageFile> imageFiles) async {
+  static Future<Map<String, Size>> _loadImageSizes(
+      List<ImageFile> imageFiles) async {
     final imageSizes = <String, Size>{};
     for (var i = 0; i < imageFiles.length; i++) {
       final imageFilePath = imageFiles[i].path;
@@ -140,6 +154,94 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       imageSizes[imageFilePath] = sizeResult.size;
     }
     return imageSizes;
+  }
+
+  Future<void> _pixivSortTap() async {
+    final controller = showLoadingDialog(context, message: "正在整理图片...");
+    await compute(
+      _organizePixivImages,
+      ImageFileList(
+        list: _imageFiles,
+        dirPath: widget.dirPath,
+      ),
+    );
+    controller.close();
+    _loadImages();
+  }
+
+  /// 整理图片
+  static Future<void> _organizePixivImages(ImageFileList imageFileList) async {
+    final imageFiles = imageFileList.list;
+    final dir = Directory(imageFileList.dirPath);
+    if (!dir.existsSync()) {
+      return;
+    }
+    final dirPath = dir.parent.absolute.path;
+
+    // 按照id分组
+    final imagesCollection = <String, List<_PixivImageInfo>>{};
+    for (var i = 0; i < imageFiles.length; i++) {
+      final imageFile = imageFiles[i];
+      final file = File(imageFile.path);
+      final name = Path.basenameWithoutExtension(file.path);
+      final ext = Path.extension(file.path);
+      final nameParts = name.split("_"); // 类似: [にっか]_125934717_結束いのり - 初練_p8
+      if (nameParts.length < 3 || !file.existsSync()) {
+        continue;
+      }
+      final userName = nameParts[0];
+      final illustId = nameParts[1];
+      final title = nameParts.sublist(2, nameParts.length - 1).join('_');
+      final part = nameParts.last;
+      final imageInfo = _PixivImageInfo(
+        userName: userName,
+        illustId: illustId,
+        title: title,
+        part: part,
+        file: file,
+        ext: ext,
+      );
+      final list = imagesCollection.putIfAbsent(
+        illustId,
+        () => <_PixivImageInfo>[],
+      );
+      list.add(imageInfo);
+    }
+
+    for (final illustId in imagesCollection.keys) {
+      final list = imagesCollection[illustId] ?? [];
+      if (list.isEmpty) {
+        continue;
+      }
+      final first = list.firstOrNull;
+      if (first == null) {
+        continue;
+      }
+      final userName = first.userName;
+
+      String imageFolderPath;
+      if (list.length >= 8) {
+        // 8张以上，单独创建一个文件夹
+        final imageFolder =
+            '[${first.illustId}]${first.title}';
+        imageFolderPath = Path.join(dirPath, userName, imageFolder);
+      } else {
+        imageFolderPath = Path.join(dirPath, userName, '[0]散图');
+      }
+      if (!Directory(imageFolderPath).existsSync()) {
+        await Directory(imageFolderPath).create(recursive: true);
+      }
+      for (final item in list) {
+        final fileName = '${item.illustId}_${item.part}${item.ext}';
+        final newFilePath = Path.join(imageFolderPath, fileName);
+        if (!File(newFilePath).existsSync()) {
+          item.file.rename(newFilePath);
+          debugPrint('move file:\n    ==: ${item.file.path}\n    =>: $newFilePath');
+        } else {
+          debugPrint('file exists!!!: $newFilePath');
+        }
+      }
+    }
   }
 
   @override
@@ -167,6 +269,40 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
               },
               child: Text("删除".tl),
             ),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _fileSort =
+                    _fileSort == ComicFileSort.asc ? ComicFileSort.desc : ComicFileSort.asc;
+                PrefsHelper.setString('local_comic_sort', _fileSort.name);
+                final newImages = List.of(_imageFiles.reversed);
+                _imageFiles.clear();
+                _imageFiles.addAll(newImages);
+              });
+            },
+            icon: _fileSort == ComicFileSort.asc
+                ? const Icon(Icons.arrow_upward)
+                : const Icon(Icons.arrow_downward),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.more_horiz,
+            ),
+            itemBuilder: (BuildContext context) {
+              return [
+                PopupMenuItem(
+                  value: "pixiv_sort1",
+                  onTap: () {
+                    _pixivSortTap();
+                  },
+                  child: Text("整理Pixv图片".tl),
+                ),
+              ];
+            },
+          ),
+          const SizedBox(
+            width: 10,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -266,12 +402,14 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                       Expanded(
                         child: Text(
                           "${imageFile.size!.width.toInt()}x${imageFile.size!.height.toInt()}",
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
                         ),
                       ),
                       Text(
                         bytesLengthToReadableSize(imageFile.fileSize),
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ],
                   ),
@@ -371,10 +509,12 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 }
 
 class ImageFileList {
-  final List<String> list;
+  final List<ImageFile> list;
+  final String dirPath;
 
-  ImageFileList({
+  const ImageFileList({
     required this.list,
+    required this.dirPath,
   });
 }
 
@@ -389,3 +529,28 @@ class ImageFile {
     this.fileSize = 0,
   });
 }
+
+enum ComicFileSort {
+  asc,
+  desc,
+}
+
+class _PixivImageInfo {
+  final File file;
+  final String userName;
+  final String illustId;
+  final String title;
+  final String part;
+  final String ext;
+
+  _PixivImageInfo({
+    required this.file,
+    required this.userName,
+    required this.illustId,
+    required this.title,
+    required this.part,
+    required this.ext,
+  });
+}
+
+
