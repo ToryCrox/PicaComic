@@ -84,8 +84,8 @@ class ComicReadingPageLogic extends StateController {
 
   final Map<String, Size?> _imageSize = {};
   Map<String, Size?> get imageSize => _imageSize;
-  int _imageSizeComputeId = 0;
 
+  StreamSubscription? _imageSizeSubscription;
 
   Future<void> loadImageSizes([int? fromIndex]) async {
     final localImageUrls = urls.where((e) => e.startsWith('file://')).toList();
@@ -110,55 +110,13 @@ class ComicReadingPageLogic extends StateController {
       return;
     }
     debugPrint("loadImageSizes start $startIndex");
-    _imageSizeComputeId++;
-    final thisComputeId = _imageSizeComputeId;
-    // 每10个图片请求一次图片大小
-    for (int i = 0; i < resultUrs.length; i += 5) {
-      final end = i + 10 > resultUrs.length ? resultUrs.length : i + 5;
-      final urls = requestedUrls.sublist(i, end);
-      for(var url in urls){
-        _imageSize[url] = null;
+    _imageSizeSubscription = computeImageSizes(resultUrs).listen((e){
+      for(var url in e.keys) {
+        final sizeInfo = e[url]!;
+        _imageSize[url] = sizeInfo.size;
       }
-      final imagesSize = await loadImagesSize(urls);
-      _imageSize.addAll(imagesSize);
-      update();
-      debugPrint("loadImageSizes $imagesSize");
-      if (thisComputeId != _imageSizeComputeId) {
-        debugPrint("loadImageSizes cancel");
-        return;
-      }
-      if (isDispose) {
-        debugPrint("loadImageSizes cancel dispose");
-        return;
-      }
-    }
+    });
     debugPrint("loadImageSizes finish");
-  }
-
-  Future<Map<String, Size>> loadImagesSize(List<String> urls) async {
-    return await compute(_loadImageSizes, urls);
-  }
-
-  static Future<Map<String, Size>> _loadImageSizes(List<String> imageUrs) async {
-    final imageSizes = <String, Size>{};
-    for (var i = 0; i < imageUrs.length; i++) {
-      final url = imageUrs[i];
-      String imageFilePath;
-      if (url.startsWith("file://")) {
-        imageFilePath = url.substring(7);
-      } else {
-        continue;
-      }
-      final file = File(imageFilePath);
-      try {
-        final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
-        imageSizes[url] = Size(sizeResult.size.width.toDouble(),
-            sizeResult.size.height.toDouble());
-      } catch (e) {
-        debugPrint("loadImageSizes error: $e");
-      }
-    }
-    return imageSizes;
   }
 
 
@@ -170,7 +128,7 @@ class ComicReadingPageLogic extends StateController {
 
   @override
   void dispose() {
-
+    _imageSizeSubscription?.cancel();
   }
 
   static int _getIndex(int initPage) {

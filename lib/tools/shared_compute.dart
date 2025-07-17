@@ -18,7 +18,7 @@ Future<R> sharedCompute<Q, R>(ComputeFunc<Q, R> function, Q parameter, {
   );
 }
 
-typedef ComputeFunc<Q, R> = R Function(Q arg);
+typedef ComputeFunc<Q, R> = FutureOr<R> Function(Q arg);
 
 /// Isolate 线程池管理
 class _IsolatePool {

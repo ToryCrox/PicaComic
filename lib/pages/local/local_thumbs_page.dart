@@ -1,11 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_size_getter/file_input.dart';
-import 'package:image_size_getter/image_size_getter.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/image_utils.dart';
@@ -13,6 +12,7 @@ import 'package:pica_comic/tools/translations.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
+import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';
 import '../reader/comic_reading_page.dart';
@@ -53,11 +53,19 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   bool get isReversed => _fileSort == ComicFileSort.desc;
 
+  StreamSubscription? _imageSizeSubscription;
+
   @override
   void initState() {
     super.initState();
     _title = Path.basename(widget.dirPath);
     _loadImages();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _imageSizeSubscription?.cancel();
   }
 
   static Future<List<ImageFile>> loadImagesFilePaths(String dirPath) async {
@@ -105,31 +113,45 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   }
 
   Future<void> _loadAllImageSize() async {
-    int index = 0;
-    while (index < _imageFiles.length) {
-      final end =
-          index + 30 > _imageFiles.length ? _imageFiles.length : index + 30;
-      final subImages = _imageFiles.sublist(index, end);
-      final imageSizes = await compute(
-        _loadImageSizes,
-        subImages,
-      );
-      //final imageSizes = await _loadImageSizes(subImages.map((e) => e.path).toList());
-      for (var i = 0; i < subImages.length; i++) {
-        final imageFile = subImages[i];
-        final size = imageSizes[imageFile.path];
-        if (size != null) {
-          imageFile.size = size;
+    final allImagePathList = _imageFiles.map((e) => e.path).toList();
+    final imageFileMap = _imageFiles.groupFoldBy((e) => e.path, (p, e) => e);
+    _imageSizeSubscription = computeImageSizes(allImagePathList).listen((e) {
+      for(var imagePath in e.keys) {
+        final sizeInfo = e[imagePath]!;
+        final imageFile = imageFileMap[imagePath];
+        if (imageFile != null) {
+          imageFile.size = sizeInfo.size;
         }
       }
       if (mounted) {
         setState(() {});
-      } else {
-        debugPrint("LocalThumbsPage umouted");
-        return;
       }
-      index += 30;
-    }
+    });
+    // int index = 0;
+    // while (index < _imageFiles.length) {
+    //   final end =
+    //       index + 30 > _imageFiles.length ? _imageFiles.length : index + 30;
+    //   final subImages = _imageFiles.sublist(index, end);
+    //   final imageSizes = await compute(
+    //     _loadImageSizes,
+    //     subImages,
+    //   );
+    //   //final imageSizes = await _loadImageSizes(subImages.map((e) => e.path).toList());
+    //   for (var i = 0; i < subImages.length; i++) {
+    //     final imageFile = subImages[i];
+    //     final size = imageSizes[imageFile.path];
+    //     if (size != null) {
+    //       imageFile.size = size;
+    //     }
+    //   }
+    //   if (mounted) {
+    //     setState(() {});
+    //   } else {
+    //     debugPrint("LocalThumbsPage umouted");
+    //     return;
+    //   }
+    //   index += 30;
+    // }
   }
 
   Future<void> _loadAllFileSize() async {
@@ -148,21 +170,21 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     });
   }
 
-  static Future<Map<String, Size>> _loadImageSizes(
-      List<ImageFile> imageFiles) async {
-    final imageSizes = <String, Size>{};
-    for (var i = 0; i < imageFiles.length; i++) {
-      final imageFilePath = imageFiles[i].path;
-      final file = File(imageFilePath);
-      try {
-        final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
-        imageSizes[imageFilePath] = sizeResult.size;
-      } catch (e) {
-        debugPrint("LocalThumbsPage: error: $e");
-      }
-    }
-    return imageSizes;
-  }
+  // static Future<Map<String, Size>> _loadImageSizes(
+  //     List<ImageFile> imageFiles) async {
+  //   final imageSizes = <String, Size>{};
+  //   for (var i = 0; i < imageFiles.length; i++) {
+  //     final imageFilePath = imageFiles[i].path;
+  //     final file = File(imageFilePath);
+  //     try {
+  //       final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
+  //       imageSizes[imageFilePath] = sizeResult.size;
+  //     } catch (e) {
+  //       debugPrint("LocalThumbsPage: error: $e");
+  //     }
+  //   }
+  //   return imageSizes;
+  // }
 
   Future<void> _pixivSortTap() async {
     final controller = showLoadingDialog(context, message: "正在整理图片...");

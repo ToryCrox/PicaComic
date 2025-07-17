@@ -29,6 +29,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/shared_compute.dart';
 import 'package:pica_comic/tools/str_ext.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sqlite3/sqlite3.dart';
