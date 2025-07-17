@@ -18,52 +18,21 @@ class _EpsViewState extends State<EpsView> {
     var type = widget.data.type;
     var data = widget.data;
     var epsWidgets = <Widget>[];
-    for(int index = 0; index<data.eps!.length; index++){
-      String title = data.eps!.values.elementAt(index);
-      epsWidgets.add(
-          InkWell(
-            onTap: (){
-              Navigator.pop(App.globalContext!);
-              logic.jumpToChapter(index+1);
-            },
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                children: [
-                  const SizedBox(width: 16,),
-                  Expanded(
-                    child: Text(title, overflow: TextOverflow.clip,),
-                  ),
-                  if(data.downloadedEps.contains(index))
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: const BorderRadius.all(Radius.circular(5)),
-                      ),
-                      margin: const EdgeInsets.all(5),
-                      padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
-                      child: Text("已下载".tl, style: const TextStyle(fontSize: 14),),
-                    ),
-                  if(logic.order == index+1)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: const BorderRadius.all(Radius.circular(5)),
-                      ),
-                      margin: const EdgeInsets.all(5),
-                      padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
-                      child: Text("当前".tl, style: const TextStyle(fontSize: 14),),
-                    )
-                ],
-              ),
-            ),
-          )
-      );
-    }
+    // for(int index = 0; index<data.eps!.length; index++){
+    //
+    //   epsWidgets.add(
+    //
+    //   );
+    // }
 
-    return SizedBox(
-      height: 500,
-      width: double.infinity,
+    return Container(
+      // height: 500,
+      // width: double.infinity,
+      constraints: const BoxConstraints(
+        maxHeight: 500,
+        minHeight: 200,
+        maxWidth: 600,
+      ),
       child: Column(
         children: [
           SizedBox(
@@ -112,10 +81,48 @@ class _EpsViewState extends State<EpsView> {
             itemCount: data.eps!.length,
             itemBuilder: (context, index){
               if(value){
-                return epsWidgets[epsWidgets.length - index -1];
-              }else{
-                return epsWidgets[index];
+                index = data.eps!.length - index -1;
+                //return epsWidgets[epsWidgets.length - index -1];
               }
+              String title = data.eps!.values.elementAt(index);
+
+              return InkWell(
+                onTap: (){
+                  Navigator.pop(App.globalContext!);
+                  logic.jumpToChapter(index+1);
+                },
+                child: SizedBox(
+                  height: 60,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 16,),
+                      Expanded(
+                        child: Text(title, overflow: TextOverflow.ellipsis, maxLines: 1,),
+                      ),
+                      if(data.downloadedEps.contains(index))
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.secondaryContainer,
+                            borderRadius: const BorderRadius.all(Radius.circular(5)),
+                          ),
+                          margin: const EdgeInsets.all(5),
+                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                          child: Text("已下载".tl, style: const TextStyle(fontSize: 14),),
+                        ),
+                      if(logic.order == index+1)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.secondaryContainer,
+                            borderRadius: const BorderRadius.all(Radius.circular(5)),
+                          ),
+                          margin: const EdgeInsets.all(5),
+                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                          child: Text("当前".tl, style: const TextStyle(fontSize: 14),),
+                        )
+                    ],
+                  ),
+                ),
+              );
             },
             scrollController: ScrollController(),
             itemScrollController: controller,

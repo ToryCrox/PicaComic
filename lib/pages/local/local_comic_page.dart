@@ -32,9 +32,11 @@ class _LocalComicPageState extends State<LocalComicPage> {
   String? _parentPath;
   String _fileSize = '';
 
-  late ComicFileSort _fileSort =
-      ComicFileSort.values.asNameMap()[PrefsHelper.getString('local_comic_folder_sort')] ??
-          ComicFileSort.asc;
+  late ComicFileSort _fileSort = ComicFileSort.values
+          .asNameMap()[PrefsHelper.getString('local_comic_folder_sort')] ??
+      ComicFileSort.asc;
+
+  bool get isReversed => _fileSort == ComicFileSort.desc;
 
   @override
   void initState() {
@@ -47,14 +49,17 @@ class _LocalComicPageState extends State<LocalComicPage> {
     if (parentPath == null) {
       final downloadManager = DownloadManager();
       final localComics = await downloadManager.getAllLocal();
-      _localComics.clear();
+      final list = <LocalComicModel>[];
       for (final map in localComics) {
         final m = LocalComicModel.fromMap(map);
         final imagePath = await _getCoverImage(m.path);
-        _localComics.add(m.copyWith(
+        list.add(m.copyWith(
           cover: m.cover.isNotEmpty ? m.cover : imagePath,
         ));
       }
+      _localComics.clear();
+      _localComics.addAll(list.sortedFileNameBy((e) => e.path));
+
       _fileSize = '';
     } else {
       _localComics.clear();
@@ -138,9 +143,11 @@ class _LocalComicPageState extends State<LocalComicPage> {
             IconButton(
               onPressed: () {
                 setState(() {
-                  _fileSort =
-                  _fileSort == ComicFileSort.asc ? ComicFileSort.desc : ComicFileSort.asc;
-                  PrefsHelper.setString('local_comic_folder_sort', _fileSort.name);
+                  _fileSort = _fileSort == ComicFileSort.asc
+                      ? ComicFileSort.desc
+                      : ComicFileSort.asc;
+                  PrefsHelper.setString(
+                      'local_comic_folder_sort', _fileSort.name);
                   final newImages = List.of(_localComics.reversed);
                   _localComics.clear();
                   _localComics.addAll(newImages);
@@ -212,8 +219,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
             _loadLocalComics();
             setState(() {});
           } else {
-            App.globalTo(() =>
-                LocalThumbsPage(dirPath: model.path, isEnableDelete: true));
+            App.globalTo(
+              () => LocalThumbsPage(
+                dirPath: model.path,
+                isEnableDelete: true,
+                allDirPaths: _localComics.map((e) => e.path).toList(),
+              ),
+            );
             // App.globalTo(
             //   () => ComicReadingPage.localComic(
             //     model.path,
@@ -269,15 +281,22 @@ class _LocalComicPageState extends State<LocalComicPage> {
       DesktopMenuEntry(
         text: "阅读".tl,
         onClick: () {
-          App.globalTo(
-              () => ComicReadingPage.localComic(model.path, model.title));
+          App.globalTo(() => ComicReadingPage.localComic(
+                model.path,
+                model.title,
+                allDirPaths: _localComics.map((e) => e.path).toList(),
+                //isReversed: isReversed,
+              ));
         },
       ),
       DesktopMenuEntry(
         text: "查看详情".tl,
         onClick: () {
-          App.globalTo(
-              () => LocalThumbsPage(dirPath: model.path, isEnableDelete: true));
+          App.globalTo(() => LocalThumbsPage(
+                dirPath: model.path,
+                isEnableDelete: true,
+                allDirPaths: _localComics.map((e) => e.path).toList(),
+              ));
         },
       ),
       DesktopMenuEntry(

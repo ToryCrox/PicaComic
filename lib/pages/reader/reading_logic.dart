@@ -311,8 +311,10 @@ class ComicReadingPageLogic extends StateController {
         if (maxScrollExtent - scrollController.position.pixels < 600) {
           distance = (maxScrollExtent - scrollController.position.pixels).clamp(10, 600);
         }
+        int sec = int.parse(appdata.settings[33]);
+       final duration = Duration(milliseconds: (distance / 600 * 1200 * (sec / 5)).toInt());
        await scrollController.animateTo(scrollController.position.pixels + distance,
-            duration: Duration(milliseconds: (distance / 600 * 1200).toInt()), curve: Curves.linear);
+            duration: duration, curve: Curves.linear);
       } else {
         print("_animateNextPageDistance: $_animateNextPageDistance, height: ${_pageSize.height}");
         //scrollController.jumpTo(scrollController.position.pixels + 600);
@@ -387,6 +389,9 @@ class ComicReadingPageLogic extends StateController {
       return;
     }
     order += 1;
+    if (data is LocalReadingData) {
+      (data as LocalReadingData).goNext();
+    }
     urls = [];
     isLoading = true;
     tools = false;
@@ -398,6 +403,9 @@ class ComicReadingPageLogic extends StateController {
 
   void jumpToChapter(int index){
     order = index;
+    if (data is LocalReadingData) {
+      (data as LocalReadingData).goTo(index - 1);
+    }
     urls = [];
     isLoading = true;
     tools = false;
@@ -421,6 +429,9 @@ class ComicReadingPageLogic extends StateController {
     }
 
     order -= 1;
+    if (data is LocalReadingData) {
+      (data as LocalReadingData).goPrev();
+    }
     urls = [];
     isLoading = true;
     tools = false;

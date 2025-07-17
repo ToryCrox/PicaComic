@@ -23,9 +23,11 @@ class LocalThumbsPage extends StatefulWidget {
     required this.dirPath,
     this.onItemTap,
     this.isEnableDelete = false,
+    this.allDirPaths = const [],
   });
 
   final String dirPath;
+  final List<String> allDirPaths;
   final void Function(int, String)? onItemTap;
   final bool isEnableDelete;
 
@@ -45,9 +47,11 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   String _fileSize = '';
 
-  late ComicFileSort _fileSort =
-      ComicFileSort.values.asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
-          ComicFileSort.asc;
+  late ComicFileSort _fileSort = ComicFileSort.values
+          .asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
+      ComicFileSort.asc;
+
+  bool get isReversed => _fileSort == ComicFileSort.desc;
 
   @override
   void initState() {
@@ -132,7 +136,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     int totalSize = 0;
     for (var i = 0; i < _imageFiles.length; i++) {
       final imageFile = _imageFiles[i];
-      final file =  File(imageFile.path);
+      final file = File(imageFile.path);
       if (!file.existsSync()) {
         continue;
       }
@@ -150,8 +154,12 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     for (var i = 0; i < imageFiles.length; i++) {
       final imageFilePath = imageFiles[i].path;
       final file = File(imageFilePath);
-      final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
-      imageSizes[imageFilePath] = sizeResult.size;
+      try {
+        final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
+        imageSizes[imageFilePath] = sizeResult.size;
+      } catch (e) {
+        debugPrint("LocalThumbsPage: error: $e");
+      }
     }
     return imageSizes;
   }
@@ -176,17 +184,18 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     if (!dir.existsSync()) {
       return;
     }
-    final dirPath = dir.parent.absolute.path;
+    final dirPath = Path.join(dir.parent.absolute.path, '[01]PIXIV画师合集');
 
     // 按照id分组
     final imagesCollection = <String, List<_PixivImageInfo>>{};
     for (var i = 0; i < imageFiles.length; i++) {
       final imageFile = imageFiles[i];
-      final file = File(imageFile.path);
+      final file = File(Path.canonicalize(imageFile.path));
       final name = Path.basenameWithoutExtension(file.path);
       final ext = Path.extension(file.path);
       final nameParts = name.split("_"); // 类似: [にっか]_125934717_結束いのり - 初練_p8
       if (nameParts.length < 3 || !file.existsSync()) {
+        debugPrint("LocalThumbsPage: invalid image file: ${file.path}");
         continue;
       }
       final userName = nameParts[0];
@@ -222,8 +231,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       String imageFolderPath;
       if (list.length >= 8) {
         // 8张以上，单独创建一个文件夹
-        final imageFolder =
-            '[${first.illustId}]${first.title}';
+        final imageFolder = '[${first.illustId}]${first.title}';
         imageFolderPath = Path.join(dirPath, userName, imageFolder);
       } else {
         imageFolderPath = Path.join(dirPath, userName, '[0]散图');
@@ -235,8 +243,14 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         final fileName = '${item.illustId}_${item.part}${item.ext}';
         final newFilePath = Path.join(imageFolderPath, fileName);
         if (!File(newFilePath).existsSync()) {
-          item.file.rename(newFilePath);
-          debugPrint('move file:\n    ==: ${item.file.path}\n    =>: $newFilePath');
+          try {
+            await item.file.rename(newFilePath);
+            debugPrint(
+                'move file:\n    ==: ${item.file.path}\n    =>: $newFilePath');
+          } catch (e) {
+            await item.file.copy(newFilePath);
+            debugPrint('move file error: ${item.file.path}, $e');
+          }
         } else {
           debugPrint('file exists!!!: $newFilePath');
         }
@@ -272,8 +286,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
           IconButton(
             onPressed: () {
               setState(() {
-                _fileSort =
-                    _fileSort == ComicFileSort.asc ? ComicFileSort.desc : ComicFileSort.asc;
+                _fileSort = _fileSort == ComicFileSort.asc
+                    ? ComicFileSort.desc
+                    : ComicFileSort.asc;
                 PrefsHelper.setString('local_comic_sort', _fileSort.name);
                 final newImages = List.of(_imageFiles.reversed);
                 _imageFiles.clear();
@@ -315,6 +330,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 widget.dirPath,
                 _title,
                 initialPage: 1,
+                allDirPaths: widget.allDirPaths,
+                isReversed: isReversed,
               ),
             );
           }
@@ -361,6 +378,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                       widget.dirPath,
                       _title,
                       initialPage: index + 1,
+                      allDirPaths: widget.allDirPaths,
+                      isReversed: isReversed,
                     ),
                   );
                 }
@@ -552,5 +571,3 @@ class _PixivImageInfo {
     required this.ext,
   });
 }
-
-

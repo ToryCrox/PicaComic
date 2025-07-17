@@ -3,6 +3,8 @@ part of pica_reader;
 abstract class ReadingData {
   ReadingData();
 
+  bool isReversed = false;
+
   String get title;
 
   String get id;
@@ -38,7 +40,11 @@ abstract class ReadingData {
     if (dirPath.isNotEmpty) {
       final imageList = await DownloadManager().getAllImagesByDir(dirPath);
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
-      yield Res(imageFileUriList);
+      if (isReversed) {
+        yield Res(imageFileUriList.reversed.toList());
+      } else {
+        yield Res(imageFileUriList);
+      }
     } else if (downloaded && checkEpDownloaded(ep)){
       final e = hasEp ? ep : 0;
       final downloadDir = await DownloadManager().getImageDirectory(downloadId, e);
@@ -437,10 +443,34 @@ class CustomReadingData extends ReadingData{
 
 class LocalReadingData extends ReadingData {
 
-  final String _dirPath;
-  final String _title;
+  String _dirPath;
+  String _title;
+  final List<String> allDirPaths;
+  bool _isReversed = false;
 
-  LocalReadingData(this._dirPath, this._title);
+  LocalReadingData(this._dirPath, this._title, {this.allDirPaths = const [], bool isReversed = false})
+      : _isReversed = isReversed;
+
+  @override
+  bool get isReversed => _isReversed;
+
+  void goNext() {
+    final index = allDirPaths.indexOf(_dirPath);
+    if (index >= 0 && index < allDirPaths.length - 1) {
+      _dirPath = allDirPaths[index + 1];
+    }
+  }
+
+  void goPrev() {
+    final index = allDirPaths.indexOf(_dirPath);
+    if (index > 0) {
+      _dirPath = allDirPaths[index - 1];
+    }
+  }
+
+  void goTo(int index) {
+    _dirPath = allDirPaths[index];
+  }
 
   @override
   String get dirPath => _dirPath;
@@ -468,13 +498,20 @@ class LocalReadingData extends ReadingData {
   }
 
   @override
-  Map<String, String>? get eps => null;
+  Map<String, String>? get eps {
+    if (allDirPaths.isNotEmpty) {
+      return allDirPaths.groupFoldBy(
+          (e) => e, (p, e) => path.basenameWithoutExtension(e));
+    } else {
+      return null;
+    }
+  }
 
   @override
-  String get id => _title;
+  String get id => _dirPath;
 
   @override
-  String get title => _title;
+  String get title => path.basenameWithoutExtension(_dirPath);
 
   @override
   String buildImageKey(int ep, int page, String url) => "$dirPath$page";

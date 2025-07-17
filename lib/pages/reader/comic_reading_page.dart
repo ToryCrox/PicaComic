@@ -4,12 +4,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as path;
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:photo_view/photo_view.dart';
@@ -176,14 +178,17 @@ class ComicReadingPage extends StatelessWidget {
             StateController.find<ComicReadingPageLogic>(), false)));
   }
 
-  ComicReadingPage.localComic(String dirPath, String title, {super.key, this.initialPage = 1})
-      : initialEp = 1,
-        readingData = LocalReadingData(dirPath, title) {
-    StateController.put(ComicReadingPageLogic(
-        1,
-        readingData,
-        initialPage,
-            () => {}));
+  ComicReadingPage.localComic(
+    String dirPath,
+    String title, {
+    super.key,
+    this.initialPage = 1,
+    final List<String> allDirPaths = const [], bool isReversed = false,
+  })  : initialEp = 1,
+        readingData = LocalReadingData(dirPath, title, allDirPaths: allDirPaths, isReversed: isReversed) {
+    final order = allDirPaths.indexOf(dirPath);
+    StateController.put(
+        ComicReadingPageLogic(order > 0 ? order + 1 : 1, readingData, initialPage, () => {}));
   }
 
   _updateHistory(ComicReadingPageLogic? logic, bool updateMePage) {
