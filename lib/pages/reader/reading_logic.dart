@@ -123,12 +123,8 @@ class ComicReadingPageLogic extends StateController {
   bool isDispose = false;
 
   void disposeAll() {
-    isDispose = true;
-  }
-
-  @override
-  void dispose() {
     _imageSizeSubscription?.cancel();
+    isDispose = true;
   }
 
   static int _getIndex(int initPage) {

@@ -7,6 +7,7 @@ import 'package:open_file/open_file.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'dart:io';
@@ -280,12 +281,16 @@ class _LocalComicPageState extends State<LocalComicPage> {
     return [
       DesktopMenuEntry(
         text: "阅读".tl,
-        onClick: () {
+        onClick: () async {
+          final history = await DownloadManager().getLocalHistory(model.path);
+          final initIndex = history.optInt('pageIndex', 1);
+          final isReversed = history.optInt('isReversed') == 1;
           App.globalTo(() => ComicReadingPage.localComic(
                 model.path,
                 model.title,
                 allDirPaths: _localComics.map((e) => e.path).toList(),
-                //isReversed: isReversed,
+                initialPage: initIndex,
+                isReversed: isReversed,
               ));
         },
       ),

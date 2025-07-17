@@ -8,10 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/image_utils.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
+import '../../network/download.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';
@@ -343,15 +345,18 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
+        onPressed: () async {
           if (widget.onItemTap != null) {
             widget.onItemTap?.call(-1, '');
           } else {
+            final history = await DownloadManager().getLocalHistory(widget.dirPath);
+            final initIndex = history.optInt('pageIndex', 1);
+            final isReversed = history.optInt('isReversed') == 1;
             App.globalTo(
               () => ComicReadingPage.localComic(
                 widget.dirPath,
                 _title,
-                initialPage: 1,
+                initialPage: initIndex,
                 allDirPaths: widget.allDirPaths,
                 isReversed: isReversed,
               ),

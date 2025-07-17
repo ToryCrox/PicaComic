@@ -32,6 +32,7 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/shared_compute.dart';
 import 'package:pica_comic/tools/str_ext.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
@@ -728,6 +729,16 @@ abstract mixin class _DownloadDb {
          cover text
       )
     ''');
+    _db!.execute('''
+      create table if not exists local_history (
+        path text primary key,
+        isReversed int,
+        pageIndex int,
+        time int,
+        json text
+      )
+    
+    ''');
   }
 
   void _addToDb(DownloadedItem item, String directory, [DateTime? time]) {
@@ -871,5 +882,33 @@ abstract mixin class _DownloadDb {
       delete from local_comic
       where path = ?
     ''', [path]);
+  }
+
+  Future<void> addOrUpdateLocalHistory({
+    required String path,
+    required bool isReversed,
+    required int pageIndex,
+    required int time,
+    Map<String, dynamic> json = const {},
+  }) async {
+    _db!.execute('''
+      insert or replace into local_history
+      values (?,?,?,?,?)
+    ''', [
+      path,
+      isReversed ? 1 : 0,
+      pageIndex,
+      time,
+      TypeUtil.parseString(json),
+    ]);
+  }
+
+  Future<Map<String, dynamic>> getLocalHistory(String path) async {
+    final result = await _db!.select('''
+      select * from local_history
+      where path = ?
+    ''', [path]);
+    if(result.isEmpty) return {};
+    return TypeUtil.parseMap(result.first);
   }
 }

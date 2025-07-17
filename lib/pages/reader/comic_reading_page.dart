@@ -188,8 +188,14 @@ class ComicReadingPage extends StatelessWidget {
   })  : initialEp = 1,
         readingData = LocalReadingData(dirPath, title, allDirPaths: allDirPaths, isReversed: isReversed) {
     final order = allDirPaths.indexOf(dirPath);
-    StateController.put(
-        ComicReadingPageLogic(order > 0 ? order + 1 : 1, readingData, initialPage, () => {}));
+    StateController.put(ComicReadingPageLogic(
+        order > 0 ? order + 1 : 1, readingData, initialPage, () {
+      DownloadManager().addOrUpdateLocalHistory(
+          path: dirPath,
+          isReversed: isReversed,
+          pageIndex: StateController.find<ComicReadingPageLogic>().index,
+          time: DateTime.now().millisecondsSinceEpoch);
+    }));
   }
 
   _updateHistory(ComicReadingPageLogic? logic, bool updateMePage) {
