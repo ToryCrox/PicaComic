@@ -238,10 +238,17 @@ class DownloadManager with _DownloadDb implements Listenable {
       for (var item in downloading) {
         data["downloading"].add(item.toMap());
       }
-      var file = File("$path${pathSep}newDownload.json");
-      await file.writeAsString(const JsonEncoder().convert(data));
+      final saveItem = SaveInfoItem(data, path ?? '');
+      sharedCompute(saveToFile, saveItem);
+      // var file = File("$path${pathSep}newDownload.json");
+      // await file.writeAsString(const JsonEncoder().convert(data));
       Log.debug("IO", "Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
     });
+  }
+
+  static Future<void> saveToFile(SaveInfoItem item) async{
+    var file = File("${item.path}${pathSep}newDownload.json");
+    await file.writeAsString(const JsonEncoder().convert(item.items));
   }
 
   /// move comic to first
@@ -911,4 +918,10 @@ abstract mixin class _DownloadDb {
     if(result.isEmpty) return {};
     return TypeUtil.parseMap(result.first);
   }
+}
+
+class SaveInfoItem {
+  final Map<String, dynamic> items;
+  final String path;
+  SaveInfoItem(this.items, this.path);
 }
