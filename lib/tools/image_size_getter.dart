@@ -80,6 +80,7 @@ Map<String, ImageSizeInfo> _loadImageSizes(List<String> imageUrs) {
       imageSizes[url] = ImageSizeInfo(
         imagePath: file.path,
         size: Size(sizeResult.size.width.toDouble(), sizeResult.size.height.toDouble()),
+        fileSize: file.lengthSync(),
         lastModifiedTime: file.lastModifiedSync().millisecondsSinceEpoch,
       );
     } catch (e) {
@@ -110,11 +111,13 @@ String _adjustImagePath(String imagePath) {
 class ImageSizeInfo {
   final String imagePath;
   final Size size;
+  final int fileSize;
   final int lastModifiedTime;
 
   ImageSizeInfo({
     required this.imagePath,
     required this.size,
+    required this.fileSize,
     required this.lastModifiedTime,
   });
 }

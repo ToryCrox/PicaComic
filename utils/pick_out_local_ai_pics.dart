@@ -3,7 +3,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as Path;
 
-bool execute = false;
+bool execute = true;
 
 Future<void> main() async {
   final srcDir = Directory(r'');

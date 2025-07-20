@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
+
 
 /// 复用型 Isolate 计算器 (线程池风格)
 /// 使用示例: final result = await sharedCompute(complexCalculation, 42);
@@ -52,7 +54,6 @@ class _IsolatePool {
       _workers.remove(functionSignature)?.dispose();
       return execute(function, parameter, functionSignature);
     } catch (e) {
-      worker.dispose();
       rethrow;
     }
   }
@@ -141,12 +142,14 @@ class _Worker {
     final commandPort = ReceivePort();
     mainSendPort.send(commandPort.sendPort);
 
-    commandPort.listen((message) {
+    commandPort.listen((message) async {
       if (message is _IsolateTask) {
         try {
-          final result = message.function(message.argument);
+          final result = await message.function(message.argument);
           message.responsePort.send(result);
         } catch (e, stack) {
+          debugPrint('IsolateError: $e');
+          debugPrintStack(stackTrace: stack);
           // 异常捕获处理
           message.responsePort.send(IsolateError(e.toString(), stack.toString()));
         }

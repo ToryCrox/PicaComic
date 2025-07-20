@@ -9,12 +9,14 @@ import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
+import 'package:pica_comic/tools/shared_compute.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'dart:io';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
 import '../../tools/image_utils.dart';
+import '../../tools/input_dialog.dart';
 import '../../tools/type_util.dart';
 import '../reader/comic_reading_page.dart';
 import 'local_thumbs_page.dart';
@@ -72,7 +74,6 @@ class _LocalComicPageState extends State<LocalComicPage> {
           .sortedByName();
       for (final file in files) {
         final path = file.absolute.path;
-        final dir = Directory(path);
         final comic = LocalComicModel(
           path: path,
           title: Path.basename(path),
@@ -86,7 +87,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         _localComics.addAll(newList);
       }
 
-      _computeFileSize(parentPath);
+      _loadAllFileSize(parentPath);
       debugPrint(
           "localComics: ${_localComics.map((e) => Path.basename(e.cover)).toList()}");
     }
@@ -94,19 +95,24 @@ class _LocalComicPageState extends State<LocalComicPage> {
     setState(() {});
   }
 
-  Future<void> _computeFileSize(final String dir) async {
-    int totalFileSize = 0;
-    final files = await Directory(dir).list(recursive: true).toList();
-    for (final file in files) {
-      if (file is File) {
-        totalFileSize += file.lengthSync();
-      }
-    }
+  Future<void> _loadAllFileSize(final String dir) async {
+    int totalFileSize = await sharedCompute(_computeAllFileSize, dir);
     if (_parentPath == dir) {
       setState(() {
         _fileSize = bytesLengthToReadableSize(totalFileSize);
       });
     }
+  }
+
+  static Future<int> _computeAllFileSize(final String dir) async {
+    int totalFileSize = 0;
+    final files = Directory(dir).listSync(recursive: true);
+    for (final file in files) {
+      if (file is File) {
+        totalFileSize += file.lengthSync();
+      }
+    }
+    return totalFileSize;
   }
 
   Future<String> _getCoverImage(String directory) async {
@@ -304,13 +310,17 @@ class _LocalComicPageState extends State<LocalComicPage> {
               ));
         },
       ),
-      DesktopMenuEntry(
-        text: "删除".tl,
-        onClick: () {
-          DownloadManager().deleteLocal(model.path);
-          _loadLocalComics();
-        },
-      ),
+      if (_parentPath == null)
+        DesktopMenuEntry(
+          text: "删除".tl,
+          onClick: () {
+            DownloadManager().deleteLocal(model.path);
+            _loadLocalComics();
+          },
+        ),
+      if (_parentPath != null) DesktopMenuEntry(text: '重命名', onClick: () {
+        _renameFolder(model);
+      }),
       DesktopMenuEntry(
         text: "复制路径".tl,
         onClick: () {
@@ -330,6 +340,31 @@ class _LocalComicPageState extends State<LocalComicPage> {
         },
       ),
     ];
+  }
+
+  Future<void> _renameFolder(LocalComicModel model) async {
+    final path = model.path;
+    final fileName = Path.basename(path);
+    String? newName = await InputDialog.show(
+      context: App.globalContext!,
+      title: '重命名',
+      hint: '请输入新名称',
+      content: fileName,
+      predicate: (text) {
+        return text.isNotEmpty;
+      },
+    );
+    newName = newName?.replaceAll('/', ' ');
+    if (newName != null && newName != fileName) {
+      final newPath = Path.join(Path.dirname(path), newName);
+      try {
+        await Directory(path).rename(newPath);
+        _loadLocalComics();
+      } catch (e) {
+        showToast(message: '重命名失败');
+      }
+    }
+
   }
 }
 

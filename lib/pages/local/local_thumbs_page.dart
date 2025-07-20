@@ -17,6 +17,7 @@ import '../../network/download.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';
+import '../../tools/shared_compute.dart';
 import '../reader/comic_reading_page.dart';
 
 class LocalThumbsPage extends StatefulWidget {
@@ -91,8 +92,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    //final images = await compute(loadImagesFilePaths, widget.dirPath);
-    final images = await loadImagesFilePaths(widget.dirPath);
+    final images = await sharedCompute(loadImagesFilePaths, widget.dirPath);
+    //final images = await loadImagesFilePaths(widget.dirPath);
     final diff = DateTime.now().difference(t1);
     if (diff.inMilliseconds < 300) {
       final delay = 300 - diff.inMilliseconds;
@@ -110,7 +111,6 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         _imageFiles.addAll(images);
       }
     });
-    _loadAllFileSize();
     _loadAllImageSize();
   }
 
@@ -123,70 +123,15 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         final imageFile = imageFileMap[imagePath];
         if (imageFile != null) {
           imageFile.size = sizeInfo.size;
+          imageFile.fileSize = sizeInfo.fileSize;
         }
       }
       if (mounted) {
         setState(() {});
       }
     });
-    // int index = 0;
-    // while (index < _imageFiles.length) {
-    //   final end =
-    //       index + 30 > _imageFiles.length ? _imageFiles.length : index + 30;
-    //   final subImages = _imageFiles.sublist(index, end);
-    //   final imageSizes = await compute(
-    //     _loadImageSizes,
-    //     subImages,
-    //   );
-    //   //final imageSizes = await _loadImageSizes(subImages.map((e) => e.path).toList());
-    //   for (var i = 0; i < subImages.length; i++) {
-    //     final imageFile = subImages[i];
-    //     final size = imageSizes[imageFile.path];
-    //     if (size != null) {
-    //       imageFile.size = size;
-    //     }
-    //   }
-    //   if (mounted) {
-    //     setState(() {});
-    //   } else {
-    //     debugPrint("LocalThumbsPage umouted");
-    //     return;
-    //   }
-    //   index += 30;
-    // }
   }
 
-  Future<void> _loadAllFileSize() async {
-    int totalSize = 0;
-    for (var i = 0; i < _imageFiles.length; i++) {
-      final imageFile = _imageFiles[i];
-      final file = File(imageFile.path);
-      if (!file.existsSync()) {
-        continue;
-      }
-      imageFile.fileSize = (File(imageFile.path)).lengthSync();
-      totalSize += imageFile.fileSize;
-    }
-    setState(() {
-      _fileSize = bytesLengthToReadableSize(totalSize);
-    });
-  }
-
-  // static Future<Map<String, Size>> _loadImageSizes(
-  //     List<ImageFile> imageFiles) async {
-  //   final imageSizes = <String, Size>{};
-  //   for (var i = 0; i < imageFiles.length; i++) {
-  //     final imageFilePath = imageFiles[i].path;
-  //     final file = File(imageFilePath);
-  //     try {
-  //       final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
-  //       imageSizes[imageFilePath] = sizeResult.size;
-  //     } catch (e) {
-  //       debugPrint("LocalThumbsPage: error: $e");
-  //     }
-  //   }
-  //   return imageSizes;
-  // }
 
   Future<void> _pixivSortTap() async {
     final controller = showLoadingDialog(context, message: "正在整理图片...");

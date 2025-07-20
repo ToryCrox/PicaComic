@@ -75,7 +75,8 @@ class ComicReadingPageLogic extends StateController {
     update();
   }
 
-  bool _isShowOriginSize  = appdata.settings[43] == '0';
+  /// 是否显示原图大小，默认是不限制宽度或者是本地模式时
+  late bool _isShowOriginSize  = appdata.settings[43] == '0' || data is LocalReadingData || data.downloaded;
   bool get isShowOriginSize => _isShowOriginSize;
   set isShowOriginSize(bool show) {
     _isShowOriginSize = show;
@@ -115,6 +116,7 @@ class ComicReadingPageLogic extends StateController {
         final sizeInfo = e[url]!;
         _imageSize[url] = sizeInfo.size;
       }
+      update();
     });
     debugPrint("loadImageSizes finish");
   }
