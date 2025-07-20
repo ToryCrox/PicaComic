@@ -87,7 +87,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         _localComics.addAll(newList);
       }
 
-      _loadAllFileSize(parentPath);
+      //_loadAllFileSize(parentPath);
       debugPrint(
           "localComics: ${_localComics.map((e) => Path.basename(e.cover)).toList()}");
     }
@@ -128,13 +128,14 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   @override
   Widget build(BuildContext context) {
+    final parentPath = _parentPath;
     String titleText =
-        '本地漫画${_parentPath != null ? '(${Path.basename(_parentPath!)})' : ''}';
+        '本地漫画${parentPath != null ? '(${Path.basename(parentPath)})' : ''}';
     if (_fileSize.isNotEmpty) {
       titleText += ' | $_fileSize';
     }
     return PopScope(
-      canPop: _parentPath == null,
+      canPop: parentPath == null,
       onPopInvokedWithResult: (didPop, result) {
         if (_parentPath != null) {
           _parentPath =
@@ -147,6 +148,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
         appBar: AppBar(
           title: Text(titleText),
           actions: [
+            if (parentPath != null)
+              IconButton(
+                onPressed: () {
+                  _loadAllFileSize(parentPath);
+                },
+                icon: const Icon(Icons.refresh),
+              ),
             IconButton(
               onPressed: () {
                 setState(() {

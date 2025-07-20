@@ -99,6 +99,7 @@ dependencies:
   desktop_drop: ^0.4.0
   open_file: ^3.5.10
   image_size_getter: ^2.4.0
+  scrollview_observer: ^1.26.1
 
 dependency_overrides:
   flutter_inappwebview_android:

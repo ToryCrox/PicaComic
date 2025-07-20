@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
@@ -40,6 +42,7 @@ class LocalThumbsPage extends StatefulWidget {
 
 class _LocalThumbsPageState extends State<LocalThumbsPage> {
   final _imageFiles = <ImageFile>[];
+  Map<String, ImageFile> _imageFileMap = {};
 
   String _title = '';
   bool _loading = true;
@@ -57,6 +60,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   bool get isReversed => _fileSort == ComicFileSort.desc;
 
   StreamSubscription? _imageSizeSubscription;
+
+  final _scrollController = ScrollController();
+  late final _observerController = GridObserverController(controller: _scrollController);
 
   @override
   void initState() {
@@ -110,8 +116,16 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       } else {
         _imageFiles.addAll(images);
       }
+      _imageFileMap = _imageFiles.groupFoldBy((e) => e.path, (p, e) => e);
+
     });
-    _loadAllImageSize();
+    await Future.delayed(const Duration(milliseconds: 50));
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _observerController.dispatchOnceObserve();
+      }
+    });
+    //_loadAllImageSize();
   }
 
   Future<void> _loadAllImageSize() async {
@@ -121,6 +135,30 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       for(var imagePath in e.keys) {
         final sizeInfo = e[imagePath]!;
         final imageFile = imageFileMap[imagePath];
+        if (imageFile != null) {
+          imageFile.size = sizeInfo.size;
+          imageFile.fileSize = sizeInfo.fileSize;
+        }
+      }
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  final _hasViewImageSizes = <String>{};
+
+  void _loadHasViewImageSizes(List<int> indexList)  {
+    final imageFiles = indexList.map((i) => _imageFiles[i].path).toList();
+    final needUpdate = imageFiles.where((i) => !_hasViewImageSizes.contains(i)).toList();
+    if (needUpdate.isEmpty) {
+      return;
+    }
+    _hasViewImageSizes.addAll(needUpdate);
+    computeImageSizes(needUpdate).listen((e) {
+      for(var imagePath in e.keys) {
+        final sizeInfo = e[imagePath]!;
+        final imageFile = _imageFileMap[imagePath];
         if (imageFile != null) {
           imageFile.size = sizeInfo.size;
           imageFile.fileSize = sizeInfo.fileSize;
@@ -253,7 +291,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
               child: Text("删除".tl),
             ),
           IconButton(
-            onPressed: () {
+            onPressed: () async {
               setState(() {
                 _fileSort = _fileSort == ComicFileSort.asc
                     ? ComicFileSort.desc
@@ -262,6 +300,12 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 final newImages = List.of(_imageFiles.reversed);
                 _imageFiles.clear();
                 _imageFiles.addAll(newImages);
+              });
+              await Future.delayed(const Duration(milliseconds: 50));
+              SchedulerBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _observerController.dispatchOnceObserve();
+                }
               });
             },
             icon: _fileSort == ComicFileSort.asc
@@ -319,107 +363,118 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       return const Center(child: CircularProgressIndicator());
     }
     final cacheWidth = MediaQuery.devicePixelRatioOf(context) * 150;
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1,
-      ),
-      itemCount: _imageFiles.length,
-      itemBuilder: (BuildContext context, int index) {
-        final imageFile = _imageFiles[index];
-        final selected = _selectedImages.contains(imageFile);
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            InkWell(
-              onTap: () {
-                if (_isSelectedMode) {
-                  if (_selectedImages.contains(imageFile)) {
-                    _selectedImages.remove(imageFile);
+    return GridViewObserver(
+      controller: _observerController,
+      onObserve: (model) {
+        final list = model.displayingChildModelList.map((e) => e.index).toList();
+        _loadHasViewImageSizes(list);
+        // final patchFiles = list.map((i) => _imageFiles[i]).toList();
+        // computeImageSizes(imagePaths)
+        // debugPrint("observe: $list");
+      },
+      child: GridView.builder(
+        controller: _scrollController,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1,
+        ),
+        itemCount: _imageFiles.length,
+        itemBuilder: (BuildContext context, int index) {
+          final imageFile = _imageFiles[index];
+          final selected = _selectedImages.contains(imageFile);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              InkWell(
+                onTap: () {
+                  if (_isSelectedMode) {
+                    if (_selectedImages.contains(imageFile)) {
+                      _selectedImages.remove(imageFile);
+                    } else {
+                      _selectedImages.add(imageFile);
+                    }
+                    setState(() {});
+                  } else if (widget.onItemTap != null) {
+                    widget.onItemTap?.call(index + 1, imageFile.path);
                   } else {
-                    _selectedImages.add(imageFile);
+                    App.globalTo(
+                      () => ComicReadingPage.localComic(
+                        widget.dirPath,
+                        _title,
+                        initialPage: index + 1,
+                        allDirPaths: widget.allDirPaths,
+                        isReversed: isReversed,
+                      ),
+                    );
                   }
-                  setState(() {});
-                } else if (widget.onItemTap != null) {
-                  widget.onItemTap?.call(index + 1, imageFile.path);
-                } else {
-                  App.globalTo(
-                    () => ComicReadingPage.localComic(
-                      widget.dirPath,
-                      _title,
-                      initialPage: index + 1,
-                      allDirPaths: widget.allDirPaths,
-                      isReversed: isReversed,
-                    ),
+                },
+                onSecondaryTapDown: (TapDownDetails details) {
+                  showDesktopMenu(
+                    App.globalContext!,
+                    Offset(details.globalPosition.dx, details.globalPosition.dy),
+                    _menuList(imageFile),
                   );
-                }
-              },
-              onSecondaryTapDown: (TapDownDetails details) {
-                showDesktopMenu(
-                  App.globalContext!,
-                  Offset(details.globalPosition.dx, details.globalPosition.dy),
-                  _menuList(imageFile),
-                );
-              },
-              onLongPress: () {
-                if (widget.isEnableDelete && !_isSelectedMode) {
-                  setState(() {
-                    _isSelectedMode = true;
-                    _selectedImages.add(imageFile);
-                  });
-                }
-              },
-              child: Image.file(
-                File(imageFile.path),
-                fit: BoxFit.contain,
-                cacheWidth: cacheWidth.toInt(),
-              ),
-            ),
-            if (imageFile.size != null)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                left: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "${imageFile.size!.width.toInt()}x${imageFile.size!.height.toInt()}",
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                      Text(
-                        bytesLengthToReadableSize(imageFile.fileSize),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ],
-                  ),
+                },
+                onLongPress: () {
+                  if (widget.isEnableDelete && !_isSelectedMode) {
+                    setState(() {
+                      _isSelectedMode = true;
+                      _selectedImages.add(imageFile);
+                    });
+                  }
+                },
+                child: Image.file(
+                  File(imageFile.path),
+                  fit: BoxFit.contain,
+                  cacheWidth: cacheWidth.toInt(),
                 ),
               ),
-            IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                    border: Border.all(
-                  color: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.transparent,
-                  width: 2,
-                )),
-              ),
-            )
-          ],
-        );
-      },
+              if (imageFile.size != null)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  left: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "${imageFile.size!.width.toInt()}x${imageFile.size!.height.toInt()}",
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                        Text(
+                          bytesLengthToReadableSize(imageFile.fileSize),
+                          style:
+                              const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                      border: Border.all(
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.transparent,
+                    width: 2,
+                  )),
+                ),
+              )
+            ],
+          );
+        },
+      ),
     );
   }
 

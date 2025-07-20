@@ -85,11 +85,11 @@ class ComicReadingPageLogic extends StateController {
 
   final Map<String, Size?> _imageSize = {};
   Map<String, Size?> get imageSize => _imageSize;
+  final _hasComputeImageSizes = <String>{};
 
   StreamSubscription? _imageSizeSubscription;
 
   Future<void> loadImageSizes([int? fromIndex]) async {
-    final localImageUrls = urls.where((e) => e.startsWith('file://')).toList();
     int startIndex = index - 1;
     if (startIndex < 0) {
       startIndex = 0;
@@ -97,21 +97,20 @@ class ComicReadingPageLogic extends StateController {
     if (fromIndex != null) {
       startIndex = fromIndex;
     }
-    final requestedUrls = <String>[];
-    if (startIndex > 0) {
-      requestedUrls.addAll(localImageUrls);
-    } else {
-      requestedUrls.addAll(localImageUrls.sublist(startIndex));
-      if (startIndex > 0) {
-        requestedUrls.addAll(localImageUrls.sublist(0, startIndex));
-      }
-    }
-    final resultUrs = requestedUrls.where((e) => !_imageSize.containsKey(e)).toList();
-    if (resultUrs.isEmpty) {
+
+    final localImageUrls = urls
+        .sublist(startIndex, min(startIndex + 10, urls.length))
+        .where((e) => e.startsWith('file://'))
+        .toList();
+    final needLoadUrls = localImageUrls
+        .where((e) => !_hasComputeImageSizes.contains(e))
+        .toList();
+    if (needLoadUrls.isEmpty) {
       return;
     }
-    debugPrint("loadImageSizes start $startIndex");
-    _imageSizeSubscription = computeImageSizes(resultUrs).listen((e){
+    _hasComputeImageSizes.addAll(needLoadUrls);
+
+    _imageSizeSubscription = computeImageSizes(needLoadUrls).listen((e){
       for(var url in e.keys) {
         final sizeInfo = e[url]!;
         _imageSize[url] = sizeInfo.size;
@@ -120,6 +119,39 @@ class ComicReadingPageLogic extends StateController {
     });
     debugPrint("loadImageSizes finish");
   }
+
+  // Future<void> loadImageSizes([int? fromIndex]) async {
+  //   final localImageUrls = urls.where((e) => e.startsWith('file://')).toList();
+  //   int startIndex = index - 1;
+  //   if (startIndex < 0) {
+  //     startIndex = 0;
+  //   }
+  //   if (fromIndex != null) {
+  //     startIndex = fromIndex;
+  //   }
+  //   final requestedUrls = <String>[];
+  //   if (startIndex > 0) {
+  //     requestedUrls.addAll(localImageUrls);
+  //   } else {
+  //     requestedUrls.addAll(localImageUrls.sublist(startIndex));
+  //     if (startIndex > 0) {
+  //       requestedUrls.addAll(localImageUrls.sublist(0, startIndex));
+  //     }
+  //   }
+  //   final resultUrs = requestedUrls.where((e) => !_imageSize.containsKey(e)).toList();
+  //   if (resultUrs.isEmpty) {
+  //     return;
+  //   }
+  //   debugPrint("loadImageSizes start $startIndex");
+  //   _imageSizeSubscription = computeImageSizes(resultUrs).listen((e){
+  //     for(var url in e.keys) {
+  //       final sizeInfo = e[url]!;
+  //       _imageSize[url] = sizeInfo.size;
+  //     }
+  //     update();
+  //   });
+  //   debugPrint("loadImageSizes finish");
+  // }
 
 
   bool isDispose = false;

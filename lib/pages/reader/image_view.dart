@@ -511,5 +511,6 @@ extension ImageExt on ComicReadingPage {
         precacheImage(createImageProvider(type, logic, index, target), context);
       }
     }
+    logic.loadImageSizes(index);
   }
 }
