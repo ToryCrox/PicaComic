@@ -203,7 +203,7 @@ class TapController {
             logic.autoPageTurning();
           },
         ),
-        if(App.isWindows)
+        if(App.isDesktop)
           PopupMenuItem(
             onTap: () {
               appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
@@ -212,7 +212,7 @@ class TapController {
             },
             child: Text("限制最大宽度".tl),
           ),
-        if(App.isWindows)
+        if(App.isDesktop)
           PopupMenuItem(
             onTap: () {
               logic.isShowOriginSize = !logic.isShowOriginSize;
