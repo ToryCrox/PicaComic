@@ -47,6 +47,7 @@ import 'package:pica_comic/tools/save_image.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/tools/type_util.dart';
+import 'package:window_manager/window_manager.dart';
 import '../../foundation/app.dart';
 import '../../foundation/disk_cache.dart';
 import '../../foundation/ui_mode.dart';
@@ -185,6 +186,7 @@ class ComicReadingPage extends StatelessWidget {
     super.key,
     this.initialPage = 1,
     final List<String> allDirPaths = const [], bool isReversed = false,
+    final bool isAutoFullscreenAndScroll = false,
   })  : initialEp = 1,
         readingData = LocalReadingData(dirPath, title, allDirPaths: allDirPaths, isReversed: isReversed) {
     final order = allDirPaths.indexOf(dirPath);
@@ -195,7 +197,7 @@ class ComicReadingPage extends StatelessWidget {
           isReversed: isReversed,
           pageIndex: StateController.find<ComicReadingPageLogic>().index,
           time: DateTime.now().millisecondsSinceEpoch);
-    }));
+    }, isAutoFullscreenAndScroll: isAutoFullscreenAndScroll));
   }
 
   _updateHistory(ComicReadingPageLogic? logic, bool updateMePage) {
@@ -511,7 +513,7 @@ class ComicReadingPage extends StatelessWidget {
     ));
   }
 
-  void loadInfo(ComicReadingPageLogic logic) async {
+  Future<void> loadInfo(ComicReadingPageLogic logic) async {
     logic.urls = [];
     await for(var res in readingData.loadEp(logic.order)) {
       if (res.error) {
@@ -525,6 +527,15 @@ class ComicReadingPage extends StatelessWidget {
       logic.update();
     }
     logic.loadImageSizes();
+    if (logic.isAutoFullscreenAndScroll) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (logic.isDispose) return;
+      logic.fullscreen();
+      logic.runningAutoPageTurning = true;
+      logic.tools = false;
+      logic.update();
+      logic.autoPageTurning();
+    }
   }
 
   Widget buildEpsView() {

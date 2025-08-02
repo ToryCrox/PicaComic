@@ -188,7 +188,7 @@ class TapController {
           child: Text("设置".tl),
           onTap: () => showSettings(App.globalContext!),
         ),
-        if(App.isWindows)
+        if(App.isDesktop)
           PopupMenuItem(
             onTap: logic.fullscreen,
             child: Text("全屏".tl),
@@ -196,6 +196,9 @@ class TapController {
         PopupMenuItem(
           child: Text("自动翻页".tl),
           onTap: () {
+            if (!logic.isFullScreen && App.isDesktop) {
+              logic.fullscreen();
+            }
             logic.runningAutoPageTurning =
             !logic.runningAutoPageTurning;
             logic.tools = false;

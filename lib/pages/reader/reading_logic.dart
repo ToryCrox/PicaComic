@@ -177,7 +177,9 @@ class ComicReadingPageLogic extends StateController {
     }
   }
 
-  ComicReadingPageLogic(this.order, this.data, int initialPage, this.updateHistory){
+  ComicReadingPageLogic(
+      this.order, this.data, int initialPage, this.updateHistory,
+      {this.isAutoFullscreenAndScroll = false}) {
     if(initialPage <= 0){
       initialPage = 1;
     }
@@ -512,8 +514,9 @@ class ComicReadingPageLogic extends StateController {
   bool isFullScreen = false;
 
   void fullscreen(){
-    const channel = MethodChannel("pica_comic/full_screen");
-    channel.invokeMethod("set", !isFullScreen);
+    // const channel = MethodChannel("pica_comic/full_screen");
+    // channel.invokeMethod("set", !isFullScreen);
+    WindowManager.instance.setFullScreen(!isFullScreen);
     isFullScreen = !isFullScreen;
     focusNode.requestFocus();
 
@@ -579,4 +582,6 @@ class ComicReadingPageLogic extends StateController {
   }
 
   late final void Function() openEpsView;
+
+  final bool isAutoFullscreenAndScroll;
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:pica_comic/foundation/pair.dart';
 
 class SimpleController extends StateController {
@@ -166,13 +167,29 @@ class _StateBuilderState<T extends StateController>
       throw "Controller Not Found";
     }
     controller.stateUpdaters.add(Pair(widget.id, () {
-      if (mounted) {
-        setState(() {});
-      }
+      updateState();
     }));
     widget.initStateWrapped(controller);
     super.initState();
   }
+
+  bool isInBuildPhase() {
+    return SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks;
+  }
+// 使用示例
+  void updateState() {
+    if (isInBuildPhase()) {
+      debugPrint("⚠️ 当前处于构建过程中，需延迟更新");
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() { /* 安全更新 */ });
+        }
+      });
+    } else if (mounted){
+      setState(() { /* 直接更新 */ });
+    }
+  }
+
 
   @override
   void dispose() {

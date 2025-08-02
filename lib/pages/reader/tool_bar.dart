@@ -63,7 +63,7 @@ extension ToolBar on ComicReadingPage {
                       child: Text(text),
                     ),
                     const Spacer(),
-                    if (App.isWindows)
+                    if (App.isDesktop)
                       Tooltip(
                         message: "${"全屏".tl}(F12)",
                         child: IconButton(
@@ -380,8 +380,8 @@ extension ToolBar on ComicReadingPage {
           var epName = readingData.eps?.values
                   .elementAtOrNull(comicReadingPageLogic.order - 1) ??
               "E1";
-          if (epName.length > 8) {
-            epName = "${epName.substring(0, 8)}...";
+          if (epName.length > 18) {
+            epName = "${epName.substring(0, 18)}...";
           }
           var text = readingData.hasEp
               ? "$epName : ${comicReadingPageLogic.index}/${comicReadingPageLogic.urls.length}"

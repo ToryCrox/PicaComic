@@ -39,25 +39,44 @@ class _EpsViewState extends State<EpsView> {
             height: 60,
             child: Row(
               children: [
-                const SizedBox(width: 16,),
-                Icon(Icons.format_list_numbered, color: Theme.of(context).colorScheme.secondary,),
-                const SizedBox(width: 8,),
-                Text("章节".tl, style: const TextStyle(fontSize: 18),),
+                const SizedBox(
+                  width: 16,
+                ),
+                Icon(
+                  Icons.format_list_numbered,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+                const SizedBox(
+                  width: 8,
+                ),
+                Text(
+                  "章节".tl,
+                  style: const TextStyle(fontSize: 18),
+                ),
                 const Spacer(),
-                if(type == ReadingType.jm)
+                if (type == ReadingType.jm)
                   IconButton(
-                    icon: Icon(Icons.comment_outlined, color: Theme.of(context).colorScheme.secondary,),
-                    onPressed: (){
-                      showComments(context, data.eps!.keys.elementAt(logic.order-1),
+                    icon: Icon(
+                      Icons.comment_outlined,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    onPressed: () {
+                      showComments(
+                          context,
+                          data.eps!.keys.elementAt(logic.order - 1),
                           (logic.data as JmReadingData).commentsLength ?? 9999);
                     },
                   ),
                 IconButton(
-                  icon: Icon(Icons.my_location_outlined, color: Theme.of(context).colorScheme.secondary,size: 23,),
-                  onPressed: (){
+                  icon: Icon(
+                    Icons.my_location_outlined,
+                    color: Theme.of(context).colorScheme.secondary,
+                    size: 23,
+                  ),
+                  onPressed: () {
                     var length = data.eps!.length;
-                    if(!value) {
-                      controller.jumpTo(index: logic.order-1);
+                    if (!value) {
+                      controller.jumpTo(index: logic.order - 1);
                     } else {
                       controller.jumpTo(index: length - logic.order);
                     }
@@ -68,56 +87,75 @@ class _EpsViewState extends State<EpsView> {
                   scale: 0.8,
                   child: Switch(
                     value: value,
-                    onChanged: (b)=>setState(() {
-                      value = ! value;
+                    onChanged: (b) => setState(() {
+                      value = !value;
                     }),
                   ),
                 ),
               ],
             ),
           ),
-          Expanded(child: ScrollablePositionedList.builder(
-            initialScrollIndex: logic.order-1,
+          Expanded(
+              child: ScrollablePositionedList.builder(
+            initialScrollIndex: logic.order - 1,
             itemCount: data.eps!.length,
-            itemBuilder: (context, index){
-              if(value){
-                index = data.eps!.length - index -1;
+            itemBuilder: (context, index) {
+              if (value) {
+                index = data.eps!.length - index - 1;
                 //return epsWidgets[epsWidgets.length - index -1];
               }
               String title = data.eps!.values.elementAt(index);
 
               return InkWell(
-                onTap: (){
+                onTap: () {
                   Navigator.pop(App.globalContext!);
-                  logic.jumpToChapter(index+1);
+                  logic.jumpToChapter(index + 1);
                 },
                 child: SizedBox(
                   height: 60,
                   child: Row(
                     children: [
-                      const SizedBox(width: 16,),
-                      Expanded(
-                        child: Text(title, overflow: TextOverflow.ellipsis, maxLines: 1,),
+                      const SizedBox(
+                        width: 16,
                       ),
-                      if(data.downloadedEps.contains(index))
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.secondaryContainer,
-                            borderRadius: const BorderRadius.all(Radius.circular(5)),
-                          ),
-                          margin: const EdgeInsets.all(5),
-                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
-                          child: Text("已下载".tl, style: const TextStyle(fontSize: 14),),
+                      Expanded(
+                        child: Text(
+                          title,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                         ),
-                      if(logic.order == index+1)
+                      ),
+                      if (data.downloadedEps.contains(index))
                         Container(
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.secondaryContainer,
-                            borderRadius: const BorderRadius.all(Radius.circular(5)),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            borderRadius:
+                                const BorderRadius.all(Radius.circular(5)),
                           ),
                           margin: const EdgeInsets.all(5),
                           padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
-                          child: Text("当前".tl, style: const TextStyle(fontSize: 14),),
+                          child: Text(
+                            "已下载".tl,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      if (logic.order == index + 1)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            borderRadius:
+                                const BorderRadius.all(Radius.circular(5)),
+                          ),
+                          margin: const EdgeInsets.all(5),
+                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                          child: Text(
+                            "当前".tl,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         )
                     ],
                   ),
@@ -127,7 +165,9 @@ class _EpsViewState extends State<EpsView> {
             scrollController: ScrollController(),
             itemScrollController: controller,
           )),
-          SizedBox(height: MediaQuery.of(context).padding.bottom,)
+          SizedBox(
+            height: MediaQuery.of(context).padding.bottom,
+          )
         ],
       ),
     );

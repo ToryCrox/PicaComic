@@ -444,9 +444,9 @@ class CustomReadingData extends ReadingData{
 class LocalReadingData extends ReadingData {
 
   String _dirPath;
-  String _title;
+  final String _title;
   final List<String> allDirPaths;
-  bool _isReversed = false;
+  final bool _isReversed;
 
   LocalReadingData(this._dirPath, this._title, {this.allDirPaths = const [], bool isReversed = false})
       : _isReversed = isReversed;
@@ -501,7 +501,7 @@ class LocalReadingData extends ReadingData {
   Map<String, String>? get eps {
     if (allDirPaths.isNotEmpty) {
       return allDirPaths.groupFoldBy(
-          (e) => e, (p, e) => path.basenameWithoutExtension(e));
+          (e) => e, (p, e) => path.basename(e));
     } else {
       return null;
     }
@@ -511,7 +511,7 @@ class LocalReadingData extends ReadingData {
   String get id => _dirPath;
 
   @override
-  String get title => path.basenameWithoutExtension(_dirPath);
+  String get title => path.basename(_dirPath);
 
   @override
   String buildImageKey(int ep, int page, String url) => "$dirPath$page";
