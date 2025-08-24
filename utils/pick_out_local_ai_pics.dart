@@ -25,7 +25,7 @@ Future<void> main() async {
 
     for (final file in subDir.listSync()) {
       final extension = Path.extension(file.path);
-      if (file is! Directory && !{'.7z', '.rar', '.zip'}.contains(extension)) {
+      if (!{'.7z', '.rar', '.zip'}.contains(extension)) {
         print('${file.path} is not a archive file or dir');
         continue;
       }

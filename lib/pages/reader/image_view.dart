@@ -492,6 +492,7 @@ extension ImageExt on ComicReadingPage {
   /// preload image
   void precacheComicImage(ComicReadingPageLogic logic, BuildContext context,
       int index, String target) {
+    logic.loadImageSizes(index);
     if (logic.requestedLoadingItems.length != logic.length) {
       logic.requestedLoadingItems = List.filled(logic.length + 1, false);
     }
@@ -511,6 +512,5 @@ extension ImageExt on ComicReadingPage {
         precacheImage(createImageProvider(type, logic, index, target), context);
       }
     }
-    logic.loadImageSizes(index);
   }
 }

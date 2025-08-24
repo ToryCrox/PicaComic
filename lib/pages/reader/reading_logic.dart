@@ -87,7 +87,7 @@ class ComicReadingPageLogic extends StateController {
   Map<String, Size?> get imageSize => _imageSize;
   final _hasComputeImageSizes = <String>{};
 
-  StreamSubscription? _imageSizeSubscription;
+  List<StreamSubscription> _imageSizeSubscriptions = [];
 
   Future<void> loadImageSizes([int? fromIndex]) async {
     int startIndex = index - 1;
@@ -99,7 +99,7 @@ class ComicReadingPageLogic extends StateController {
     }
 
     final localImageUrls = urls
-        .sublist(startIndex, min(startIndex + 10, urls.length))
+        .sublist(startIndex, min(startIndex + 5, urls.length))
         .where((e) => e.startsWith('file://'))
         .toList();
     final needLoadUrls = localImageUrls
@@ -110,13 +110,16 @@ class ComicReadingPageLogic extends StateController {
     }
     _hasComputeImageSizes.addAll(needLoadUrls);
 
-    _imageSizeSubscription = computeImageSizes(needLoadUrls).listen((e){
-      for(var url in e.keys) {
-        final sizeInfo = e[url]!;
-        _imageSize[url] = sizeInfo.size;
-      }
-      update();
-    });
+    debugPrint("loadImageSizes start $startIndex, ${needLoadUrls.map((e) => path.basename(e)).toList()}");
+    _imageSizeSubscriptions.add(
+        computeImageSizes(needLoadUrls).listen((e){
+          for(var url in e.keys) {
+            final sizeInfo = e[url]!;
+            _imageSize[url] = sizeInfo.size;
+          }
+          update();
+        })
+    );
     debugPrint("loadImageSizes finish");
   }
 
@@ -157,7 +160,10 @@ class ComicReadingPageLogic extends StateController {
   bool isDispose = false;
 
   void disposeAll() {
-    _imageSizeSubscription?.cancel();
+    _imageSizeSubscriptions.forEach((element) {
+      element.cancel();
+    });
+    _imageSizeSubscriptions.clear();
     isDispose = true;
   }
 

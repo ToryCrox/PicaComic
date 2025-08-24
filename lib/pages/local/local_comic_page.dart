@@ -258,7 +258,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
           );
         },
         child: ClipRRect(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -319,17 +319,47 @@ class _LocalComicPageState extends State<LocalComicPage> {
               ));
         },
       ),
-      if (_parentPath == null)
-        DesktopMenuEntry(
-          text: "删除".tl,
-          onClick: () {
+      DesktopMenuEntry(
+        text: "删除".tl,
+        onClick: () async {
+          if (_parentPath == null) {
             DownloadManager().deleteLocal(model.path);
             _loadLocalComics();
-          },
-        ),
-      if (_parentPath != null) DesktopMenuEntry(text: '重命名', onClick: () {
-        _renameFolder(model);
-      }),
+          } else {
+            showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('提示'),
+                    content: const Text('确定要将文件从磁盘删除吗？删除后无法恢复'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          final dir = Directory(model.path);
+                          await dir.delete(recursive: true);
+                          _loadLocalComics();
+                        },
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  );
+                });
+          }
+        },
+      ),
+      if (_parentPath != null)
+        DesktopMenuEntry(
+            text: '重命名',
+            onClick: () {
+              _renameFolder(model);
+            }),
       DesktopMenuEntry(
         text: "复制路径".tl,
         onClick: () {
@@ -373,7 +403,6 @@ class _LocalComicPageState extends State<LocalComicPage> {
         showToast(message: '重命名失败');
       }
     }
-
   }
 }
 
