@@ -72,6 +72,8 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
           const PicacgSettings(false).withDivider(),
         if(appdata.appSettings.isComicSourceEnabled("ehentai"))
           const EhSettings(false).withDivider(),
+        if(appdata.appSettings.isComicSourceEnabled("nhentai"))
+          const NhSettings(false).withDivider(),
         if(appdata.appSettings.isComicSourceEnabled("jm"))
           const JmSettings(false).withDivider(),
         if(appdata.appSettings.isComicSourceEnabled("hitomi"))

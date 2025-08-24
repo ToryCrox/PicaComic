@@ -91,6 +91,7 @@ class NhentaiNetwork {
 
   NhentaiComicBrief parseComic(Element comicDom) {
     var img = comicDom.querySelector("a > img")!.attributes["data-src"]!;
+    img = "https:$img";
     var name = comicDom.querySelector("div.caption")!.text;
     var id = comicDom.querySelector("a")!.attributes["href"]!.nums;
     var lang = "Unknown";
@@ -241,6 +242,7 @@ class NhentaiNetwork {
       var cover = document
           .querySelector("div#cover > a > img")!
           .attributes["data-src"]!;
+      cover = "https:$cover";
 
       var title = combineSpans(document.querySelector("h1.title")!);
 
@@ -270,7 +272,7 @@ class NhentaiNetwork {
 
       var thumbnails = <String>[];
       for (var t in document.querySelectorAll("a.gallerythumb > img")) {
-        thumbnails.add(t.attributes["data-src"]!);
+        thumbnails.add("https:${t.attributes["data-src"]!}");
       }
 
       var recommendations = <NhentaiComicBrief>[];
@@ -345,7 +347,7 @@ class NhentaiNetwork {
 
       var galleryData = parseJavaScriptJson(script1);
 
-      String mediaServer = script0.split("media_server: ")[1].split(',')[0];
+      String mediaServer = script0.split("image_cdn_urls: [\"")[1].split('"')[0];
       String mediaId = galleryData["media_id"];
 
       var images = <String>[];
@@ -359,7 +361,7 @@ class NhentaiNetwork {
           _ => "jpg"
         };
         images.add(
-            "https://i$mediaServer.nhentai.net/galleries/$mediaId/${images.length + 1}"
+            "https://$mediaServer/galleries/$mediaId/${images.length + 1}"
             ".$extension");
       }
       return Res(images);

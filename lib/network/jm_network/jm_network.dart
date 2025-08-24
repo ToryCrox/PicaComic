@@ -89,7 +89,7 @@ class JmNetwork {
 
   String get baseUrl => "https://${domains[int.parse(appdata.settings[17])]}";
 
-  static const domainUrl = 'https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt';
+  static const domainUrl = 'https://jmapp03-1308024008.cos.ap-jakarta.myqcloud.com/server-2024.txt';
   static const domainSecret = [100, 105, 111, 115, 102, 106, 99, 107, 119, 112, 113, 112, 100, 102, 106, 107, 118, 110, 113, 81, 106, 115, 105, 107];
 
   static const kJmSecret = '185Hcomic3PAPP7R';
@@ -133,42 +133,45 @@ class JmNetwork {
     loginFromAppdata();
   }
 
-  Future<List<String>?> getApiDomains() async {
+  Future<Res<dynamic>> getApiDomains() async {
     var dio = Dio(
       BaseOptions(
         headers: {
-          "Accept-Encoding": "gzip",
-          "Connection": "Keep-Alive",
-          "User-Agent": "okhttp/3.12.1"
+          ...getBaseHeaders(),
+          "user-agent": ua,
         },
       )
     );
     try {
-      var res = await dio.get(
-        "$domainUrl?time=${DateTime.now().year}${DateTime.now().month}${DateTime.now().day}",
-      );
+      var res = await dio.get(domainUrl);
       var jsonData = json.decode(convertData(
           res.data,
           String.fromCharCodes(domainSecret)
       )) as Map<String, dynamic>;
       var urls = List<String>.from(jsonData['Server']);
-      return urls;
+      return Res(urls);
     } on DioException catch (e) {
       if (kDebugMode) {
         print(e);
+      }
+      LogManager.addLog(LogLevel.error, "Network", "$e");
+      if (e.type == DioExceptionType.badResponse) {
+        return Res.error(e.response!.statusCode.toString());
+      } else {
+        return Res.error(e.toString());
       }
     } catch (e, s) {
       if (kDebugMode) {
         print(e);
       }
       LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      return Res.error(e.toString());
     }
-    return null;
   }
 
   Future<int?> selectDomain() async {
     int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var dio = Dio(getHeader(time, post: true));
+    var dio = Dio(getApiOptions(time, post: true));
     dio.options.validateStatus = (status) {
       return true;
     };
@@ -210,7 +213,7 @@ class JmNetwork {
 
     int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     var dio = CachedNetwork();
-    var options = getHeader(time);
+    var options = getApiOptions(time);
     options.validateStatus = (i) => i == 200 || i == 401;
     try {
       var res = await dio.getJm(url, options, time,
@@ -258,7 +261,7 @@ class JmNetwork {
     try {
       await setNetworkProxy();
       int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      var dio = logDio(getHeader(time, post: true));
+      var dio = logDio(getApiOptions(time, post: true));
       dio.interceptors.add(CookieManager(cookieJar));
       var res = await dio.post(url,
           options: Options(validateStatus: (i) => i == 200 || i == 401),
@@ -854,7 +857,7 @@ class JmNetwork {
   /// 此函数未使用, 因为似乎所有漫画的scramble都一样
   Future<String?> getScramble(String id) async {
     var dio = Dio(
-        getHeader(DateTime.now().millisecondsSinceEpoch ~/ 1000, byte: false))
+        getApiOptions(DateTime.now().millisecondsSinceEpoch ~/ 1000, byte: false))
       ..interceptors.add(LogInterceptor());
     dio.interceptors.add(CookieManager(cookieJar));
     var res = await dio.get(

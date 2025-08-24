@@ -269,9 +269,7 @@ class _JmComicTile extends ComicTile {
   Widget get image => AnimatedImage(
         image: CachedImageProvider(
           getJmCoverUrl(comic.id),
-          headers: {
-            "User-Agent": jmImgUA,
-          },
+          headers: getImgHeaders(),
         ),
         fit: BoxFit.cover,
         height: double.infinity,

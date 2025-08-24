@@ -840,60 +840,62 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   }
 
   Widget buildLoading(BuildContext context) {
-    return Shimmer(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        colorOpacity: 0.5,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 56,
-              child: const BackButton().toAlign(Alignment.centerLeft),
-            ).paddingLeft(8),
-            SizedBox(
-              width: double.infinity,
-              child: buildComicInfo(_logic, context, false),
-            ),
-            const Divider(),
-            SizedBox(
-              width: 100,
-              child: Row(
-                children: [
-                  const SizedBox(
-                    width: 18,
-                  ),
-                  Text(
-                    "信息".tl,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w500, fontSize: 18),
-                  )
-                ],
+    return SingleChildScrollView(
+      child: Shimmer(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          colorOpacity: 0.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 56,
+                child: const BackButton().toAlign(Alignment.centerLeft),
+              ).paddingLeft(8),
+              SizedBox(
+                width: double.infinity,
+                child: buildComicInfo(_logic, context, false),
               ),
-            ).paddingBottom(8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(
-                8,
-                (index) => Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                  child: Container(
-                    width: double.infinity,
-                    height: 32,
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(12),
+              const Divider(),
+              SizedBox(
+                width: 100,
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                    ),
+                    Text(
+                      "信息".tl,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w500, fontSize: 18),
+                    )
+                  ],
+                ),
+              ).paddingBottom(8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: List.generate(
+                  8,
+                  (index) => Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                    child: Container(
+                      width: double.infinity,
+                      height: 32,
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            )
-          ],
-        )).paddingTop(MediaQuery.of(context).padding.top);
+              )
+            ],
+          )).paddingTop(MediaQuery.of(context).padding.top),
+    );
   }
 
   Widget buildTitle(ComicPageLogic<T> logic) {
@@ -1265,8 +1267,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                 buildItem(likeCount ?? "喜欢".tl,
                     isLiked ? Icons.favorite : Icons.favorite_border, onLike!),
               if (openComments != null)
-                buildItem(
-                    commentsCount ?? "评论".tl, Icons.comment_outlined, openComments!),
+                buildItem(commentsCount ?? "评论".tl, Icons.comment_outlined,
+                    openComments!),
               if (searchSimilar != null)
                 buildItem("相似".tl, Icons.search, searchSimilar!),
               if (downloadManager.isExists(downloadedId))
@@ -1791,7 +1793,7 @@ class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
       return InkWell(
         onTap: () => setState(() {
           page = p;
-          if(isSelected) {
+          if (isSelected) {
             selected.remove(id);
             return;
           }
@@ -1854,8 +1856,8 @@ class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
             isAdding = true;
           });
           Res<bool> res = const Res(true);
-          for(var id in selected) {
-            if(addedFolders.contains(id)) {
+          for (var id in selected) {
+            if (addedFolders.contains(id)) {
               continue;
             }
             res = await widget.selectFolderCallback!.call(id, page);
@@ -1917,7 +1919,9 @@ class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
       }
     }
 
-    if (page == 1 && selected.isNotEmpty && selected.every((e) => addedFolders.contains(e))) {
+    if (page == 1 &&
+        selected.isNotEmpty &&
+        selected.every((e) => addedFolders.contains(e))) {
       button = Button.filled(
         onPressed: () {
           context.hideMessages();

@@ -568,14 +568,13 @@ class ImageManager {
       var bytes = <int>[];
       String? ext;
       try {
-        var res = await dio.get<ResponseBody>(url,
-            options: Options(responseType: ResponseType.stream, headers: {
-              "accept-encoding": "gzip, deflate, br, zstd",
-              "Connection": "Keep-Alive",
-              "User-Agent": jmApiUA,
-              "x-requested-with": "com.jiaohua_browser",
-              "referer": '${JmNetwork().baseUrl}/'
-            }));
+        var res = await dio.get<ResponseBody>(
+            url,
+            options: Options(
+                responseType: ResponseType.stream,
+                headers: getImgHeaders()
+            )
+        );
         ext = getExt(res);
         var stream = res.data!.stream;
         await for (var b in stream) {

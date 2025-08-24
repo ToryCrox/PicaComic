@@ -30,7 +30,9 @@ void nhLogin(void Function() onFinished) async{
               NhentaiNetwork().logged = true;
             }
             cookie.domain = ".nhentai.net";
-            cookiesList.add(cookie);
+            if (key != "cf_clearance") {
+              cookiesList.add(cookie);
+            }
           });
           NhentaiNetwork().cookieJar!.saveFromResponse(
               Uri.parse(NhentaiNetwork().baseUrl), cookiesList);
@@ -59,7 +61,9 @@ void nhLogin(void Function() onFinished) async{
               NhentaiNetwork().logged = true;
             }
             cookie.domain = ".nhentai.net";
-            cookiesList.add(cookie);
+            if (key != "cf_clearance") {
+              cookiesList.add(cookie);
+            }
           });
           NhentaiNetwork().cookieJar!.saveFromResponse(
               Uri.parse(NhentaiNetwork().baseUrl), cookiesList);

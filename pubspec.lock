@@ -141,8 +141,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/desktop_webview_window"
-      ref: HEAD
-      resolved-ref: "24576f5251871c13714f1d041515bfae74d591d8"
+      ref: "7801fc5"
+      resolved-ref: "7801fc582ecf5a7351632887891ecf309a7b2583"
       url: "https://github.com/wgh136/flutter_desktop_webview"
     source: git
     version: "0.2.4"
@@ -306,60 +306,74 @@ packages:
   flutter_inappwebview:
     dependency: "direct main"
     description:
-      name: flutter_inappwebview
-      sha256: "3e9a443a18ecef966fb930c3a76ca5ab6a7aafc0c7b5e14a4a850cf107b09959"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "6.0.0"
+      path: flutter_inappwebview
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "6.2.0-beta.3"
   flutter_inappwebview_android:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
       path: flutter_inappwebview_android
-      ref: d89b1d32638b49dfc58c4b7c84153be0c269d057
-      resolved-ref: d89b1d32638b49dfc58c4b7c84153be0c269d057
-      url: "https://github.com/holzgeist/flutter_inappwebview"
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
     source: git
-    version: "1.0.13"
+    version: "1.2.0-beta.3"
   flutter_inappwebview_internal_annotations:
     dependency: transitive
     description:
       name: flutter_inappwebview_internal_annotations
-      sha256: "5f80fd30e208ddded7dbbcd0d569e7995f9f63d45ea3f548d8dd4c0b473fb4c8"
+      sha256: "787171d43f8af67864740b6f04166c13190aa74a1468a1f1f1e9ee5b90c359cd"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "1.1.1"
+    version: "1.2.0"
   flutter_inappwebview_ios:
     dependency: transitive
     description:
-      name: flutter_inappwebview_ios
-      sha256: f363577208b97b10b319cd0c428555cd8493e88b468019a8c5635a0e4312bd0f
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.13"
+      path: flutter_inappwebview_ios
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "1.2.0-beta.3"
   flutter_inappwebview_macos:
     dependency: transitive
     description:
-      name: flutter_inappwebview_macos
-      sha256: b55b9e506c549ce88e26580351d2c71d54f4825901666bd6cfa4be9415bb2636
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.11"
+      path: flutter_inappwebview_macos
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "1.2.0-beta.3"
   flutter_inappwebview_platform_interface:
     dependency: transitive
     description:
-      name: flutter_inappwebview_platform_interface
-      sha256: "545fd4c25a07d2775f7d5af05a979b2cac4fbf79393b0a7f5d33ba39ba4f6187"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.10"
+      path: flutter_inappwebview_platform_interface
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "1.4.0-beta.3"
   flutter_inappwebview_web:
     dependency: transitive
     description:
-      name: flutter_inappwebview_web
-      sha256: d8c680abfb6fec71609a700199635d38a744df0febd5544c5a020bd73de8ee07
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.8"
+      path: flutter_inappwebview_web
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "1.2.0-beta.3"
+  flutter_inappwebview_windows:
+    dependency: transitive
+    description:
+      path: flutter_inappwebview_windows
+      ref: "3ef899b"
+      resolved-ref: "3ef899b3db57c911b080979f1392253b835f98ab"
+      url: "https://github.com/venera-app/flutter_inappwebview"
+    source: git
+    version: "0.7.0-beta.3"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -409,8 +423,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: ade0b9d
-      resolved-ref: ade0b9d67331118c13a2b836684858e251512373
+      ref: "8feae95"
+      resolved-ref: "8feae95df7fb00455df129ad7a0dfec1d0e8d8e4"
       url: "https://github.com/wgh136/flutter_qjs"
     source: git
     version: "0.3.7"
@@ -493,11 +507,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: master
-      resolved-ref: "3f8c4d2cc41002d3ffdb770cab3b62583326ce01"
-      url: "https://github.com/wgh136/image_gallery_saver"
+      ref: "9a51daf"
+      resolved-ref: "9a51dafd118c3be3b392c7dc1b5a2123b71de91d"
+      url: "https://github.com/mahdiramezanii/image_gallery_saver"
     source: git
-    version: "2.0.0"
+    version: "2.0.3"
   image_picker:
     dependency: "direct main"
     description:
@@ -862,8 +876,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "94724a0b"
-      resolved-ref: "94724a0b7f94167fd1ae061f84e14ae04cae5c39"
+      ref: a1255d1
+      resolved-ref: a1255d1b5945aad4b7323303ec2ecdf0c90ffc4c
       url: "https://github.com/wgh136/photo_view"
     source: git
     version: "0.14.0"
@@ -1316,12 +1330,11 @@ packages:
   workmanager:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: b68850768c9adae49472e33b7d4261010783037f
-      url: "https://github.com/wgh136/flutter_workmanager"
-    source: git
-    version: "0.5.1"
+      name: workmanager
+      sha256: "746a50c535af15b6dc225abbd9b52ab272bcd292c535a104c54b5bc02609c38a"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.7.0"
   xdg_directories:
     dependency: transitive
     description:
@@ -1350,11 +1363,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "92b7309e"
-      resolved-ref: "92b7309e6a50e74f923efecd01ca8698f7422930"
+      ref: "64bb624"
+      resolved-ref: "64bb624d1cf37743678dfcb380fe1ed5decccce5"
       url: "https://github.com/wgh136/zip_flutter"
     source: git
-    version: "0.0.1"
+    version: "0.0.12"
 sdks:
   dart: ">=3.5.0 <4.0.0"
-  flutter: ">=3.24.0"
+  flutter: ">=3.27.0"

@@ -22,25 +22,35 @@ class JmSettings extends StatefulWidget {
   State<JmSettings> createState() => _JmSettingsState();
 
   static const builtInApiDomains = <String>[
-    "www.jmapiproxyxxx.vip",
-    "www.cdnblackmyth.club",
-    "www.cdnmhws.cc",
-    "www.cdnmhwscc.org"
+    "www.cdnaspa.vip",
+    "www.cdnaspa.club",
+    "www.cdnplaystation6.vip",
+    "www.cdnplaystation6.cc"
   ];
 
   static void updateApiDomains([bool showLoading = false]) async {
+    var title = "";
+    var msg = "";
+    List<String> domains = builtInApiDomains;
     var controller = showLoading ? showLoadingDialog(App.globalContext!) : null;
-    List<String>? domains = await JmNetwork().getApiDomains();
+    var res = await JmNetwork().getApiDomains();
+    if (res.error) {
+      title += "更新失败".tl;
+      if (res.errorMessage!.isNum) {
+        title += ": ${res.errorMessage!}";
+      }
+      msg += "${"使用内置域名:".tl}\n";
+    } else {
+      title += "更新成功".tl;
+      domains = res.data;
+    }
     controller?.close();
-    var title = domains != null ? "更新成功".tl : "更新失败".tl;
-    var msg = domains != null ? "" : "${"使用内置域名:".tl}\n";
-    domains = domains ?? builtInApiDomains;
     for (String domain in domains) {
         msg += "${"域名".tl}${domains.indexOf(domain) + 1}: $domain\n";
     }
     msg = msg.trim();
     showConfirmDialog(App.globalContext!, title, msg, () {
-      appdata.appSettings.jmApiDomains = domains!;
+      appdata.appSettings.jmApiDomains = domains;
       JmNetwork().loginFromAppdata();
     });
   }
