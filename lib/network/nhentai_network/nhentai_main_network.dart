@@ -189,7 +189,10 @@ class NhentaiNetwork {
 
       var comicDoms = document.querySelectorAll("div.gallery");
 
-      var results = document.querySelector("div#content > h1")!.text;
+      var lastPagination = document
+          .querySelector("section.pagination > a.last")
+          ?.attributes["href"]
+          ?.nums;
 
       Future.microtask(() {
         try {
@@ -206,7 +209,7 @@ class NhentaiNetwork {
       return Res(
           removeNullValue(List.generate(
               comicDoms.length, (index) => parseComic(comicDoms[index]))),
-          subData: (int.parse(results.nums) / comicDoms.length).ceil());
+          subData: lastPagination == null ? 1 : int.parse(lastPagination));
     } catch (e, s) {
       LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
@@ -441,7 +444,10 @@ class NhentaiNetwork {
 
       var comicDoms = document.querySelectorAll("div.gallery");
 
-      var results = document.querySelector("div#content > h1")!.text;
+      var lastPagination = document
+          .querySelector("section.pagination > a.last")
+          ?.attributes["href"]
+          ?.nums;
 
       Future.microtask(() {
         try {
@@ -458,7 +464,7 @@ class NhentaiNetwork {
       return Res(
           removeNullValue(List.generate(
               comicDoms.length, (index) => parseComic(comicDoms[index]))),
-          subData: (int.parse(results.nums) / comicDoms.length).ceil());
+          subData: lastPagination == null ? 1 : int.parse(lastPagination));
     } catch (e, s) {
       LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");

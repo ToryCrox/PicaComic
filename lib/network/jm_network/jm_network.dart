@@ -89,7 +89,11 @@ class JmNetwork {
 
   String get baseUrl => "https://${domains[int.parse(appdata.settings[17])]}";
 
-  static const domainUrl = 'https://jmapp03-1308024008.cos.ap-jakarta.myqcloud.com/server-2024.txt';
+  static const domainUrls = [
+    "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
+    "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
+  ];
+
   static const domainSecret = [100, 105, 111, 115, 102, 106, 99, 107, 119, 112, 113, 112, 100, 102, 106, 107, 118, 110, 113, 81, 106, 115, 105, 107];
 
   static const kJmSecret = '185Hcomic3PAPP7R';
@@ -133,40 +137,71 @@ class JmNetwork {
     loginFromAppdata();
   }
 
-  Future<Res<dynamic>> getApiDomains() async {
-    var dio = Dio(
-      BaseOptions(
-        headers: {
-          ...getBaseHeaders(),
-          "user-agent": ua,
-        },
-      )
+  Future<Res<dynamic>> getAppVersionCode() async {
+    var dio = logDio(
+        BaseOptions(
+          headers: {
+            ...getBaseHeaders(),
+            "Accept-Encoding": "gzip",
+            "user-agent": ua,
+          },
+        )
     );
     try {
-      var res = await dio.get(domainUrl);
+      var res = await dio.get("$baseUrl/static/jmapp3apk/version.json");
+      try {
+        String version = res.data['version'];
+        if (version.isNotEmpty) {
+          return Res(version);
+        } else {
+          return const Res.error("No version code in response.");
+        }
+      } catch (e) {
+        return Res(null, errorMessage: e.toString());
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+      return Res(null, errorMessage: e.toString());
+    }
+  }
+
+  Future<List<String>> tryFetchAndDecrypt(String url) async {
+    var dio = Dio(
+        BaseOptions(
+          headers: {
+            ...getBaseHeaders(),
+            "user-agent": ua,
+          },
+        )
+    );
+    try {
+      var res = await dio.get(url);
       var jsonData = json.decode(convertData(
           res.data,
           String.fromCharCodes(domainSecret)
       )) as Map<String, dynamic>;
-      var urls = List<String>.from(jsonData['Server']);
-      return Res(urls);
-    } on DioException catch (e) {
-      if (kDebugMode) {
-        print(e);
-      }
-      LogManager.addLog(LogLevel.error, "Network", "$e");
-      if (e.type == DioExceptionType.badResponse) {
-        return Res.error(e.response!.statusCode.toString());
-      } else {
-        return Res.error(e.toString());
-      }
+      var domains = List<String>.from(jsonData['Server']);
+      domains = domains.sublist(0, 4);
+      return domains;
     } catch (e, s) {
       if (kDebugMode) {
         print(e);
       }
       LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
-      return Res.error(e.toString());
+      return [];
     }
+  }
+
+  Future<Res<dynamic>> getApiDomains() async {
+    for(String url in domainUrls) {
+      var domains = await tryFetchAndDecrypt(url);
+      if (domains.isNotEmpty) {
+        return Res(domains);
+      }
+    }
+    return const Res.error("Failed to get JM api domains");
   }
 
   Future<int?> selectDomain() async {
@@ -704,6 +739,16 @@ class JmNetwork {
     } finally {
       _performingLogin = false;
       await updateImgUrl(int.parse(appdata.settings[37]) + 1);
+      if (appdata.settings[88] == "1") {
+        var res = await dailyChk();
+        LogManager.addLog(
+            res.error ? LogLevel.error : LogLevel.info,
+            "Network",
+            res.error
+                ? "JM auto check-in failed\n${res.errorMessage}"
+                : "JM auto check-in succeed\n${res.subData}"
+        );
+      }
     }
   }
 
@@ -996,7 +1041,7 @@ class JmNetwork {
       String msg = res.data['msg'];
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
-      } else if (msg.startsWith("今天已經簽到過了")
+      } else if (msg.startsWith("今天")
               || msg.contains("Jcoin")
               || msg.contains("EXP")) {
         return Res(true, subData: msg);

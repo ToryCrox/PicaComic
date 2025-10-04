@@ -22,10 +22,10 @@ class JmSettings extends StatefulWidget {
   State<JmSettings> createState() => _JmSettingsState();
 
   static const builtInApiDomains = <String>[
-    "www.cdnaspa.vip",
-    "www.cdnaspa.club",
-    "www.cdnplaystation6.vip",
-    "www.cdnplaystation6.cc"
+    "www.cdntwice.org",
+    "www.cdnsha.org",
+    "www.cdnaspa.cc",
+    "www.cdnntr.cc"
   ];
 
   static void updateApiDomains([bool showLoading = false]) async {
@@ -36,9 +36,6 @@ class JmSettings extends StatefulWidget {
     var res = await JmNetwork().getApiDomains();
     if (res.error) {
       title += "更新失败".tl;
-      if (res.errorMessage!.isNum) {
-        title += ": ${res.errorMessage!}";
-      }
       msg += "${"使用内置域名:".tl}\n";
     } else {
       title += "更新成功".tl;
@@ -49,8 +46,9 @@ class JmSettings extends StatefulWidget {
         msg += "${"域名".tl}${domains.indexOf(domain) + 1}: $domain\n";
     }
     msg = msg.trim();
-    showConfirmDialog(App.globalContext!, title, msg, () {
+    showConfirmDialog(App.globalContext!, title, msg, () async {
       appdata.appSettings.jmApiDomains = domains;
+      await updateAppVersionCode();
       JmNetwork().loginFromAppdata();
     });
   }
@@ -65,12 +63,21 @@ class JmSettings extends StatefulWidget {
     controller?.close();
     var title = res.success ? "签到成功".tl : "签到失败".tl;
     var msg = res.success ? "${res.subData}".tl : res.errorMessage;
-    showDialogMessage(App.globalContext!, title, msg!);
+    if (showLoading) showDialogMessage(App.globalContext!, title, msg!);
+  }
+
+  static Future<void> updateAppVersionCode() async {
+    var res = await JmNetwork().getAppVersionCode();
+    if (!res.error) {
+      appdata.settings[89] = res.data;
+      appdata.updateSettings();
+    }
   }
 }
 
 class _JmSettingsState extends State<JmSettings> {
   bool autoSelectStream = appdata.settings[15] == "1";
+  bool autoCheckIn = appdata.settings[88] == "1";
 
   @override
   Widget build(BuildContext context) {
@@ -154,9 +161,20 @@ class _JmSettingsState extends State<JmSettings> {
         ),
         ListTile(
           leading: const Icon(Icons.today),
-          title: Text("每日签到".tl),
+          title: Text("自动签到".tl),
+          subtitle: Text("勾选启用, 点击测试".tl),
           onTap: () => JmSettings.daily(true),
-          trailing: const Icon(Icons.arrow_right),
+          trailing: Switch(
+            value: autoCheckIn,
+            onChanged: (b){
+              b ? appdata.settings[88] = "1" : appdata.settings[88] = "0";
+              setState(() {
+                autoCheckIn = b;
+              });
+              appdata.updateSettings();
+              if (autoCheckIn && jm.isLogin) JmSettings.daily(false);
+            },
+          ),
         ),
       ],
     );
