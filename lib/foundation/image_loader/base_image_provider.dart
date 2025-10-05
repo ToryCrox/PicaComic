@@ -83,7 +83,7 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
       }
 
       if(data!.isEmpty) {
-        throw Exception("Empty image data");
+        throw Exception("Empty image data, $this");
       }
 
       try {
@@ -113,7 +113,7 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
     }
   }
 
-  static final _cache = LinkedHashMap<String, Uint8List>();
+  static final _cache = <String, Uint8List>{};
 
   static var _cacheSize = 0;
 

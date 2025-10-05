@@ -14,10 +14,11 @@ extension ScrollExtension on ScrollController {
 }
 
 const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
-  PointerDeviceKind.touch,
   PointerDeviceKind.mouse,
+  PointerDeviceKind.touch,
   PointerDeviceKind.stylus,
   PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.trackpad,
   PointerDeviceKind.unknown
 };
 
@@ -38,7 +39,7 @@ extension ImageExt on ComicReadingPage {
             .copyWith(scrollbars: false, dragDevices: _kTouchLikeDeviceTypes),
         physics: (logic.noScroll || logic.isCtrlPressed || logic.mouseScroll)
             ? const NeverScrollableScrollPhysics()
-            : const ClampingScrollPhysics(),
+            : const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
           final mediaQuery = MediaQuery.of(context);
           double width = mediaQuery.size.width;

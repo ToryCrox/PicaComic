@@ -35,21 +35,8 @@ import 'tools/prefs_helper.dart';
 Future<void> init() async {
   try {
     await App.init();
-    io.File? logFile = io.File("${App.dataPath}/log.txt");
-    if(App.isAndroid) {
-      var externalDirectory = await getExternalStorageDirectory();
-      if (externalDirectory != null) {
-        logFile = io.File("${externalDirectory.path}/log.txt");
-      }
-    }
-    if(App.isIOS) {
-      logFile = null;
-    }
-    if(logFile?.existsSync() ?? false) {
-      await logFile?.delete();
-    }
+    LogManager.init();
     PrefsHelper.init();
-    LogManager.logFile = logFile;
     LogManager.addLog(LogLevel.info, "App Status", "Start initialization.");
     await appdata.readData();
     SingleInstanceCookieJar("${App.dataPath}/cookies.db");

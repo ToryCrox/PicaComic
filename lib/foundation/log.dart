@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/tools/extensions.dart';
+import 'package:pica_comic/tools/throttle.dart';
 
+import 'app.dart';
 import 'logger_pretty_printer.dart';
 
 void log(String content,
@@ -110,14 +113,41 @@ class LogManager {
     return res;
   }
 
-  static File? logFile;
+  static void init() async {
+    File? logFile = File("${App.dataPath}/log.txt");
+    if(App.isAndroid) {
+      var externalDirectory = await getExternalStorageDirectory();
+      if (externalDirectory != null) {
+        logFile = File("${externalDirectory.path}/log.txt");
+      }
+    }
+    if(App.isIOS) {
+      logFile = null;
+    }
+    if(logFile?.existsSync() ?? false) {
+      await logFile?.delete();
+    }
+    print("Log file: ${logFile?.path}");
+    _logFile = logFile;
+  }
+
+  static File? _logFile;
+  static IOSink? _logSink;
+
+  static bool _isWriting = false;
 
   static void writeLog(LogLevel level, String title, String content) {
-    if(logFile != null) {
-      logFile!.writeAsString(
-        "${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n\n",
-        mode: FileMode.append,
-      );
+    IOSink? logSink = _logSink ??= _logFile?.openWrite(mode: FileMode.append);
+    if (logSink == null) {
+      return;
+    }
+    logSink.writeln('${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n');
+    if (!_isWriting) {
+      /// 延迟1秒写入文件
+      Future.delayed(const Duration(seconds: 1), () {
+        logSink.flush();
+        _isWriting = false;
+      });
     }
   }
 }
@@ -135,6 +165,10 @@ class Log {
 
   static void debug(String title, String message) {
     LogManager.addLog(LogLevel.debug, title, message);
+  }
+
+  static void d(String message) {
+    LogManager.addLog(LogLevel.debug, "debug", message);
   }
 
   static void info(String title, String message) {
