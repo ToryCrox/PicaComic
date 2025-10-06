@@ -273,7 +273,7 @@ class HistoryManager {
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
     if (file.existsSync()) {
-      readDataFromJson(jsonDecode(file.readAsStringSync()));
+      readDataFromJson(jsonDecode(await file.readAsString()));
       file.deleteSync();
     }
 

@@ -407,7 +407,7 @@ class LocalFavoritesManager {
     if (file.existsSync()) {
       Map<String, List<FavoriteItem>> allComics = {};
       try {
-        var data = (const JsonDecoder().convert(file.readAsStringSync()))
+        var data = (const JsonDecoder().convert(await file.readAsString()))
             as Map<String, dynamic>;
 
         for (var key in data.keys.toList()) {

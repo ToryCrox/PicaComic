@@ -152,7 +152,7 @@ class DownloadManager with _DownloadDb implements Listenable {
       //await _saveInfo();
     } else {
       try {
-        var json = const JsonDecoder().convert(file.readAsStringSync());
+        var json = const JsonDecoder().convert(await file.readAsString());
         for (var item in json["downloading"]) {
           downloading.add(
               downloadingItemFromMap(item, _onFinish, _onError, _saveInfo));
@@ -169,13 +169,13 @@ class DownloadManager with _DownloadDb implements Listenable {
   Future<void> _initDb() async {
     var oldData = <String, DownloadedItem>{};
     if (!File("$path/download.db").existsSync()) {
-      for (var entry in Directory(path!).listSync()) {
+      for (var entry in await Directory(path!).list().toList()) {
         if (entry is Directory) {
           var infoFile = File("${entry.path}/info.json");
           if (infoFile.existsSync()) {
             var id = entry.name;
-            var json = infoFile.readAsStringSync();
-            var time = infoFile.lastModifiedSync();
+            var json = await infoFile.readAsString();
+            var time = await infoFile.lastModified();
             var comic = _getComicFromJson(id: id, json: json, time: time);
             if (comic != null) {
               infoFile.delete();

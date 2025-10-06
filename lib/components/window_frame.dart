@@ -16,6 +16,7 @@ import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/pages/downloading_page.dart';
 import 'package:window_manager/window_manager.dart';
 import '../pages/local/local_comic_page.dart';
+import '../tools/prefs_helper.dart';
 import 'components.dart';
 
 const _kTitleBarHeight = 36.0;
@@ -691,8 +692,8 @@ class WindowPlacement {
   }
 
   Future<void> writeToFile() async {
-    var file = File("${App.dataPath}/window_placement");
-    await file.writeAsString(jsonEncode({
+    //var file = File("${App.dataPath}/window_placement");
+    PrefsHelper.setString('window_frame', jsonEncode({
       'width': rect.width,
       'height': rect.height,
       'x': rect.topLeft.dx,
@@ -703,11 +704,16 @@ class WindowPlacement {
 
   static Future<WindowPlacement> loadFromFile() async {
     try {
-      var file = File("${App.dataPath}/window_placement");
-      if (!file.existsSync()) {
+      // var file = File("${App.dataPath}/window_placement");
+      // if (!file.existsSync()) {
+      //   return defaultPlacement;
+      // }
+      final jsonString = PrefsHelper.getString('window_frame');
+      //var json = jsonDecode(await file.readAsString());
+      if (jsonString.isEmpty) {
         return defaultPlacement;
       }
-      var json = jsonDecode(await file.readAsString());
+      var json = jsonDecode(jsonString);
       var rect =
           Rect.fromLTWH(json['x'], json['y'], json['width'], json['height']);
       return WindowPlacement(rect, json['isMaximized']);

@@ -3,12 +3,12 @@
 import 'dart:io';
 import 'package:path/path.dart' as Path;
 
-bool execute = true;
+bool execute = false;
 
 /// 整理图片，类似这种 001_4.4_Ayanami_Pixiv_00040.webp， 196_4.5_Nahida_Extra_00883.webp
 /// 分别是 图片编号，图片日期，图片角色, 图片来源(固定是Pixiv, Extra)，图片编号
 Future<void> main() async {
-  final srcDir = Directory(r'D:\temp\[Nyako-奈亜子] 2025.04合集');
+  final srcDir = Directory(r'');
   final destDir = srcDir;
   // key: 目录
   // value: 原始文件路径

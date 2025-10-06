@@ -205,9 +205,15 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         debugPrint("LocalThumbsPage: invalid image file: ${file.path}");
         continue;
       }
-      final userName = nameParts[0];
-      final illustId = nameParts[1];
-      final title = nameParts.sublist(2, nameParts.length - 1).join('_');
+      String userName = nameParts[0];
+      String illustId = nameParts[1];
+      String title = nameParts.sublist(2, nameParts.length - 1).join('_');
+      if (userName.startsWith('[') && !userName.endsWith(']')) {
+        userName = [nameParts[0], nameParts[1]].join('_');
+        illustId = nameParts[2];
+        title = nameParts.sublist(3, nameParts.length - 1).join('_');
+      }
+
       final part = nameParts.last;
       final imageInfo = _PixivImageInfo(
         userName: userName,

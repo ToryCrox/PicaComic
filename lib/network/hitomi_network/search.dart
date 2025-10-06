@@ -177,7 +177,7 @@ class HitomiSearch{
     var key = md5.convert(const Utf8Encoder().convert(url + range.toString()));
     var cacheFile = File("${cachePath.path}${Platform.pathSeparator}hitomi${Platform.pathSeparator}$key");
     if(cacheFile.existsSync()){
-      return cacheFile.readAsBytesSync();
+      return await cacheFile.readAsBytes();
     }
     var res = await dio.get<List<int>>(url, options: Options(
       responseType: ResponseType.bytes,

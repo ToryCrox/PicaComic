@@ -141,8 +141,8 @@ abstract class DownloadingItem with _TransferSpeedMixin {
     if (file.existsSync()) {
       file.deleteSync();
     }
-    file.createSync(recursive: true);
-    file.writeAsBytesSync(res.data!);
+    await file.create(recursive: true);
+    await file.writeAsBytes(res.data!);
   }
 
   /// retry when error
@@ -455,7 +455,7 @@ class _ImageDownloadWrapper {
   Future<void> listen() async {
     final dir = Directory(path);
     if (await dir.exists()) {
-      final files = dir.listSync();
+      final files = await dir.list().toList();
       final file = files.whereType<File>().toList().firstWhereOrNull((e) =>
       Path.basenameWithoutExtension(e.path) == fileBaseName);
       isFinished = file != null;

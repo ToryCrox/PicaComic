@@ -119,7 +119,7 @@ class DiskCache {
     Log.debug(_sTag, 'readCacheString, key: $key');
     final fileInfo = await getFileCache(key);
     if (fileInfo != null) {
-      return utf8.decode(fileInfo.file.readAsBytesSync());
+      return utf8.decode(await fileInfo.file.readAsBytes());
     } else {
       return null;
     }

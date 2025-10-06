@@ -10,7 +10,7 @@ import '../foundation/app.dart';
 Future<String?> getProxy() async {
   if (appdata.settings[58] == "1") {
     final file = File("${App.dataPath}/rule.json");
-    var json = const JsonDecoder().convert(file.readAsStringSync());
+    var json = const JsonDecoder().convert(await file.readAsString());
     return "${InternetAddress.loopbackIPv4.address}:${json["port"]}";
   }
 

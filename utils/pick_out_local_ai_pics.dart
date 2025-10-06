@@ -3,7 +3,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as Path;
 
-bool execute = true;
+bool execute = false;
 
 Future<void> main() async {
   final srcDir = Directory(r'');
@@ -16,11 +16,8 @@ Future<void> main() async {
     }
     String subDirName = Path.basename(subDir.path);
     final dirNameArr = subDirName.split('.');
-    if (dirNameArr.length == 2 && dirNameArr[1].length == 1) {
-      final num = int.tryParse(dirNameArr[1]);
-      if (num != null) {
-        subDirName = '${dirNameArr[0]}.${num.toString().padLeft(2, '0')}';
-      }
+    if (dirNameArr.length == 2) {
+      subDirName = '${dirNameArr[0].padLeft(2, '0')}.${dirNameArr[1].padLeft(2, '0')}';
     }
 
     for (final file in subDir.listSync()) {
