@@ -334,6 +334,13 @@ class ComicReadingPage extends StatelessWidget {
                   logic.jumpToPage(initialPage);
                   logic.haveUsedInitialPage = true;
                 });
+              } else if (logic.readingMethod == ReadingMethod.topToBottomContinuously
+                  && logic.restoreTopToBottomContinuouslyPage) {
+                // Log.d("恢复阅读位置 ${logic.index}");
+                // Future.microtask(() {
+                //   logic.jumpToPage(logic.index);
+                //   logic.restoreTopToBottomContinuouslyPage = false;
+                // });
               }
               //监听音量键
               if (appdata.settings[7] == "1") {

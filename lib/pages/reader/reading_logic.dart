@@ -60,6 +60,8 @@ class ComicReadingPageLogic extends StateController {
 
   bool haveUsedInitialPage = false;
 
+  bool restoreTopToBottomContinuouslyPage = false;
+
   /// 双页模式下是否在第一页时显示单页
   bool get singlePageForFirstScreen => appdata.implicitData[1] == '1';
 
@@ -175,7 +177,7 @@ class ComicReadingPageLogic extends StateController {
     }
   }
 
-  static int _getPage(int initPage) {
+  static int getPage(int initPage) {
     if (appdata.settings[9] == "5" || appdata.settings[9] == "6") {
       return (initPage + 2) ~/ 2;
     } else {
@@ -190,7 +192,7 @@ class ComicReadingPageLogic extends StateController {
       initialPage = 1;
     }
     pageController =
-        PageController(initialPage: _getPage(initialPage));
+        PageController(initialPage: getPage(initialPage));
     _index = _getIndex(initialPage);
     order <= 0 ? order = 1 : order;
     itemScrollListener.itemPositions.addListener(() {

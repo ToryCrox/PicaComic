@@ -432,10 +432,20 @@ class _ReadingSettingsState extends State<ReadingSettings> {
     var logic = StateController.find<ComicReadingPageLogic>();
     logic.tools = false;
     logic.showSettings = false;
-    logic.index = 1;
-    logic.pageController = PageController(initialPage: 1);
+    //logic.index = 1;
+    final index = logic.index;
+    final page = ComicReadingPageLogic.getPage(logic.index);
+    Log.d("setReadingMethod: $value, index: $index, page: $page");
+    logic.pageController = PageController(initialPage: page);
+    logic.restoreTopToBottomContinuouslyPage = true;
     logic.clearPhotoViewControllers();
     logic.update();
+    if (logic.readingMethod ==
+        ReadingMethod.topToBottomContinuously) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        logic.jumpToPage(index);
+      });
+    }
   }
 
   Widget buildReadingMethodSetting() {
