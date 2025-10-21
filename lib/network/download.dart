@@ -586,10 +586,15 @@ extension AddDownloadExt on DownloadManager {
   }
 
   ///添加E-Hentai下载
-  void addEhDownload(Gallery gallery, [int type = 0]) {
+  /// 重复的英语: duplicateEnglishName
+  /// - downloadEps: 下载的章节
+  void addEhDownload(Gallery gallery, [int type = 0, bool duplicate = false]) {
     final id = getGalleryId(gallery.link);
+    if (duplicate) {
+      DownloadManager().deleteWithoutFile([id]);
+    }
     downloading.addLast(
-        EhDownloadingItem(gallery, _onFinish, _onError, _saveInfo, id, type));
+        EhDownloadingItem(gallery, _onFinish, _onError, _saveInfo, id, type, duplicate: duplicate));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -785,6 +790,7 @@ abstract mixin class _DownloadDb {
       delete from download
       where id = ?
     ''', [id]);
+    _cache.remove(id);
   }
 
   DownloadedItem? _getComicWithDb(String id) {

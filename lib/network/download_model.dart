@@ -127,11 +127,13 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 
   int get allowedLoadingNumber => int.tryParse(appdata.settings[79]) ?? 6;
 
+  bool duplicate = false;
+
   DownloadingItem(this.onFinish, this.onError, this.updateInfo, this.id,
-      {required this.type});
+      {required this.type, this.duplicate = false});
 
   Future<void> downloadCover() async {
-    var file = File("$path/cover.jpg");
+    var file = File(Path.join(path, 'cover.jpg'));
     if (file.existsSync()) {
       return;
     }
@@ -160,11 +162,15 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   @mustCallSuper
   FutureOr<void> onStart() {
     if (directory == null) {
-      if(DownloadManager().isExists(id)) {
+      if (DownloadManager().isExists(id)) {
         directory = DownloadManager().getDirectory(id);
       } else {
-      directory = findValidDirectoryName(DownloadManager().path!, title);
-      Directory(path).createSync(recursive: true);
+        String subPath = title;
+        if (duplicate) {
+          subPath = '$title($id)';
+        }
+        directory = findValidDirectoryName(DownloadManager().path!, subPath);
+        Directory(path).createSync(recursive: true);
       }
     }
   }

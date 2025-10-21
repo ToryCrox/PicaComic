@@ -142,13 +142,13 @@ class LogManager {
       return;
     }
     logSink.writeln('${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n');
-    if (!_isWriting) {
-      /// 延迟1秒写入文件
-      Future.delayed(const Duration(seconds: 1), () {
-        logSink.flush();
-        _isWriting = false;
-      });
-    }
+    // if (!_isWriting) {
+    //   /// 延迟1秒写入文件
+    //   Future.delayed(const Duration(seconds: 1), () {
+    //     logSink.flush();
+    //     _isWriting = false;
+    //   });
+    // }
   }
 }
 

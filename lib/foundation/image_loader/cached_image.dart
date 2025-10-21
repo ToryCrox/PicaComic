@@ -12,13 +12,20 @@ class CachedImageProvider
     extends BaseImageProvider<image_provider.CachedImageProvider> {
 
   /// Image provider for normal image.
-  const CachedImageProvider(this.url, {this.headers, this.sourceKey});
+  const CachedImageProvider(this.url,
+      {this.headers, this.sourceKey, bool enableCache = true})
+      : _enableCache = enableCache;
 
   final String url;
 
   final Map<String, String>? headers;
 
   final String? sourceKey;
+
+  final bool _enableCache;
+
+  @override
+  bool get enableCache => _enableCache;
 
   @override
   Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async{

@@ -47,7 +47,7 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
 
       while (data == null && !stop) {
         try {
-          if(_cache.containsKey(key.key)){
+          if(_cache.containsKey(key.key) && enableCache){
             data = _cache[key.key];
           } else {
             data = await load(chunkEvents);
@@ -140,6 +140,8 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
   Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents);
 
   String get key;
+
+  bool get enableCache => true;
 
   @override
   bool operator ==(Object other) {

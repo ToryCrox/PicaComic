@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
@@ -116,7 +117,8 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   @override
   Future<bool> loadFavorite(Gallery data) async {
     return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem())).isNotEmpty;
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem()))
+            .isNotEmpty;
   }
 
   @override
@@ -183,8 +185,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
           int.tryParse(data!.auth!["thumbnailKey"]!.nums) ?? 1);
     } else {
       return ThumbnailsData(
-          List.generate(
-              min(data!.pageSize, int.tryParse(data!.maxPage) ?? 1),
+          List.generate(min(data!.pageSize, int.tryParse(data!.maxPage) ?? 1),
               (_) => data!.auth!["thumbnailKey"]!.split(" ")[0]),
           (page) => EhNetwork().getThumbnails(data!, page),
           int.tryParse(data!.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1);
@@ -209,8 +210,13 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
     }
     return ColoredBox(
       color: context.colorScheme.surfaceContainerHighest,
-      child:
-          EhThumbnailLoader(image: CachedImageProvider(imageUrl), pageSize:data!.pageSize, width: data!.width, index: index),
+      key: ValueKey('$imageUrl#$index'),
+      child: EhThumbnailLoader(
+        image: CachedImageProvider(imageUrl),
+        pageSize: data!.pageSize,
+        width: data!.width,
+        index: index,
+      ),
     );
   }
 
@@ -379,11 +385,12 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
                             .paddingLeft(16),
                         const Divider(),
                         RadioListTile(
-                            value: 0,
-                            groupValue: current,
-                            onChanged: (value) =>
-                                setState(() => current = value as int),
-                            title: Text("普通下载".tl)),
+                          value: 0,
+                          groupValue: current,
+                          onChanged: (value) =>
+                              setState(() => current = value as int),
+                          title: Text("普通下载".tl),
+                        ),
                         ExpansionTile(
                           title: Text("归档下载".tl),
                           shape: Border.all(color: Colors.transparent),
@@ -432,8 +439,8 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
                         ),
                         FilledButton(
                           onPressed: () {
-                            startDownload(current);
                             context.pop();
+                            startDownload(current);
                           },
                           child: Text("确认".tl),
                         ).toCenter()
@@ -448,7 +455,30 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   void startDownload(int type) {
     final id = getGalleryId(data!.link);
     if (downloadManager.isExists(id)) {
-      showToast(message: "已下载".tl);
+      //showToast(message: "已下载".tl);
+      showDialog(context: context, builder: (context){
+        return AlertDialog(
+          title: const Text('已下载？'),
+          content: const Text('是否添加id重复下载？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                downloadManager.addEhDownload(data!, type, true);
+                showToast(message: "已加入下载队列".tl);
+                Navigator.of(context).pop();
+              },
+              child: const Text('是'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('否'),
+            ),
+          ],
+        );
+      });
+
       return;
     }
     for (var i in downloadManager.downloading) {
@@ -540,8 +570,13 @@ class CommentLogic extends StateController {
 }
 
 class EhThumbnailLoader extends StatefulWidget {
-  const EhThumbnailLoader(
-      {required this.image, required this.width, required this.pageSize, required this.index, super.key});
+  const EhThumbnailLoader({
+    required this.image,
+    required this.width,
+    required this.pageSize,
+    required this.index,
+    super.key,
+  });
 
   final ImageProvider image;
 
@@ -578,7 +613,9 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
       return const SizedBox();
     } else {
       return CustomPaint(
-        painter: _EhThumbnailPainter(widget.index, widget.pageSize, widget.width, image!),
+        key: ValueKey('${widget.index}'),
+        painter: _EhThumbnailPainter(
+            widget.index, widget.pageSize, widget.width, image!),
         child: const SizedBox(
           width: double.infinity,
           height: double.infinity,
@@ -587,7 +624,7 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
     }
   }
 
-  void _loadImage() async {
+  Future<void> _loadImage() async {
     final imageStream = widget.image.resolve(ImageConfiguration.empty);
 
     var listener = ImageStreamListener((imageInfo, _) {
@@ -621,7 +658,7 @@ class _EhThumbnailPainter extends CustomPainter {
     final rect = Rect.fromLTRB(0, 0, size.width, size.height);
     final srcRect = Rect.fromLTRB(
         start.toDouble(), 0, end.toDouble(), image.height.toDouble());
-
+    logger.d("#${image.hashCode.toRadixString(16)} $index, start: $start, end: $end");
     canvas.drawImageRect(
       image,
       srcRect,
@@ -632,7 +669,7 @@ class _EhThumbnailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _EhThumbnailPainter oldDelegate) {
-    return image != oldDelegate.image;
+    return image != oldDelegate.image || index != oldDelegate.index;
   }
 }
 

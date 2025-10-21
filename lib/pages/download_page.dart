@@ -248,22 +248,23 @@ class DownloadPage extends StatelessWidget {
               logic.resetSelected(logic.comics.length);
               logic.change();
             });
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          } else {
-            return Scaffold(
-              floatingActionButton: buildFAB(context, logic),
-              body: CustomScrollView(
-                slivers: [
-                  buildAppbar(context, logic),
-                  buildComics(context, logic)
-                ],
-              ),
-            );
+            if (logic.comics.isEmpty) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
           }
+          return Scaffold(
+            floatingActionButton: buildFAB(context, logic),
+            body: CustomScrollView(
+              slivers: [
+                buildAppbar(context, logic),
+                buildComics(context, logic)
+              ],
+            ),
+          );
         });
   }
 
