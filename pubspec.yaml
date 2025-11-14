@@ -102,6 +102,7 @@ dependencies:
   open_file: ^3.5.10
   image_size_getter: ^2.4.0
   scrollview_observer: ^1.26.1
+  event_bus: ^2.0.1
 
 dev_dependencies:
   flutter_test:

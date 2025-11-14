@@ -344,16 +344,22 @@ class DownloadManager with _DownloadDb implements Listenable {
   Future<void> delete(List<String> ids) async {
     for (var id in ids) {
       _deleteFromDb(id);
-      var comic = Directory("$path/${getDirectory(id)}");
-      try {
-        comic.delete(recursive: true);
-      } catch (e) {
-        if (e is PathNotFoundException) {
-          //忽略
-        } else {
-          rethrow;
+      final dirName = getDirectory(id);
+      if (dirName.isNotEmpty) {
+        var comic = Directory("$path/${getDirectory(id)}");
+        try {
+          logger.d('delete comic $comic');
+          comic.delete(recursive: true);
+        } catch (e, s) {
+          logger.e('delete comic error $e', stackTrace: s);
+          if (e is PathNotFoundException) {
+            //忽略
+          } else {
+            rethrow;
+          }
         }
       }
+
     }
   }
 
@@ -751,6 +757,21 @@ abstract mixin class _DownloadDb {
       )
     
     ''');
+    _db!.execute('''
+      create table if not exists category (
+        id text primary key,
+        name text,
+        type int,
+      )
+    ''');
+
+    _db!.execute('''
+      create table if not exists download_category (
+        id text primary key,
+        cate_id text,
+        order int
+      )
+    ''');
   }
 
   void _addToDb(DownloadedItem item, String directory, [DateTime? time]) {
@@ -856,7 +877,7 @@ abstract mixin class _DownloadDb {
       }
       _cache[id] = directory;
     }
-    return directory;
+    return directory ?? '';
   }
 
   String _findAccurateDirectory(String directory) {

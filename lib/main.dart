@@ -187,81 +187,84 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       (context as Element).visitChildren(rebuild);
     }
-    return DynamicColorBuilder(builder: (light, dark) {
-      var (lightColor, darkColor) = _generateColorSchemes(light, dark);
-      return MaterialApp(
-        title: 'Pica Comic',
-        debugShowCheckedModeBanner: false,
-        navigatorKey: App.navigatorKey,
-        theme: ThemeData(
-          colorScheme: lightColor,
-          useMaterial3: true,
-          //fontFamily: App.isWindows ? "font" : "",
-        ),
-        darkTheme: ThemeData(
-          colorScheme: darkColor,
-          useMaterial3: true,
-          //fontFamily: App.isWindows ? "font" : "",
-          brightness: Brightness.dark,
-        ),
-        themeMode: appdata.appSettings.darkMode == 2
-            ? ThemeMode.dark
-            : appdata.appSettings.darkMode == 1
-            ? ThemeMode.light
-            : ThemeMode.system,
-        onGenerateRoute: (settings) => AppPageRoute(
-          builder: (context) => notFirstUse
-              ? (appdata.settings[13] == "1"
-              ? const AuthPage()
-              : const MainPage())
-              : const WelcomePage(),
-        ),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('zh', 'CN'),
-          Locale('zh', 'TW'),
-          Locale('en', 'US')
-        ],
-        scrollBehavior: fixScrollBehavior,
-        builder: (context, widget) {
-          ErrorWidget.builder = (details) {
-            LogManager.addLog(LogLevel.error, "Unhandled Exception",
-                "${details.exception}\n${details.stack}");
-            return Material(
-              child: Center(
-                child: Text(details.exception.toString()),
-              ),
-            );
-          };
-          if (widget != null) {
-            widget = OverlayWidget(widget);
-            if (App.isDesktop) {
-              widget = Shortcuts(
-                shortcuts: {
-                  LogicalKeySet(LogicalKeyboardKey.escape):
-                  VoidCallbackIntent(
-                        () {
-                      if (App.canPop) {
-                        App.globalBack();
-                      } else {
-                        App.mainNavigatorKey?.currentContext?.pop();
-                      }
-                    },
-                  ),
-                },
-                child: WindowFrame(widget),
+    return PopScope(
+      canPop: false,
+      child: DynamicColorBuilder(builder: (light, dark) {
+        var (lightColor, darkColor) = _generateColorSchemes(light, dark);
+        return MaterialApp(
+          title: 'Pica Comic',
+          debugShowCheckedModeBanner: false,
+          navigatorKey: App.navigatorKey,
+          theme: ThemeData(
+            colorScheme: lightColor,
+            useMaterial3: true,
+            //fontFamily: App.isWindows ? "font" : "",
+          ),
+          darkTheme: ThemeData(
+            colorScheme: darkColor,
+            useMaterial3: true,
+            //fontFamily: App.isWindows ? "font" : "",
+            brightness: Brightness.dark,
+          ),
+          themeMode: appdata.appSettings.darkMode == 2
+              ? ThemeMode.dark
+              : appdata.appSettings.darkMode == 1
+              ? ThemeMode.light
+              : ThemeMode.system,
+          onGenerateRoute: (settings) => AppPageRoute(
+            builder: (context) => notFirstUse
+                ? (appdata.settings[13] == "1"
+                ? const AuthPage()
+                : const MainPage())
+                : const WelcomePage(),
+          ),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('zh', 'TW'),
+            Locale('en', 'US')
+          ],
+          scrollBehavior: fixScrollBehavior,
+          builder: (context, widget) {
+            ErrorWidget.builder = (details) {
+              LogManager.addLog(LogLevel.error, "Unhandled Exception",
+                  "${details.exception}\n${details.stack}");
+              return Material(
+                child: Center(
+                  child: Text(details.exception.toString()),
+                ),
               );
+            };
+            if (widget != null) {
+              widget = OverlayWidget(widget);
+              if (App.isDesktop) {
+                widget = Shortcuts(
+                  shortcuts: {
+                    LogicalKeySet(LogicalKeyboardKey.escape):
+                    VoidCallbackIntent(
+                          () {
+                        if (App.canPop) {
+                          App.globalBack();
+                        } else {
+                          App.mainNavigatorKey?.currentContext?.pop();
+                        }
+                      },
+                    ),
+                  },
+                  child: WindowFrame(widget),
+                );
+              }
+              return _SystemUiProvider(widget);
             }
-            return _SystemUiProvider(widget);
-          }
-          throw ('widget is null');
-        },
-      );
-    });
+            throw ('widget is null');
+          },
+        );
+      }),
+    );
   }
 }
 
