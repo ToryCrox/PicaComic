@@ -36,7 +36,7 @@ extension _CachedNetwork on CachedNetwork {
     final key = url;
     var cache = await CacheManager().findCache(key);
     if (cache != null) {
-      var file = File(cache);
+      var file = cache.file;
       return CachedNetworkRes(await file.readAsString(), 200, url);
     }
     options.responseType = ResponseType.bytes;

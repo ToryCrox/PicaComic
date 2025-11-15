@@ -20,6 +20,7 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'base.dart';
@@ -65,6 +66,9 @@ Future<void> init() async {
     await JsEngine().init();
 
     await ComicSource.init();
+
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
 
     await Future.wait([
       downloadManager.init(),

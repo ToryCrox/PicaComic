@@ -761,7 +761,7 @@ abstract mixin class _DownloadDb {
       create table if not exists category (
         id text primary key,
         name text,
-        type int,
+        type int
       )
     ''');
 

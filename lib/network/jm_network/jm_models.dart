@@ -206,7 +206,6 @@ class JmComicInfo with HistoryMixin {
         tags = List<String>.from(map["tags"]),
         works = List<String>.from(map["works"] ?? []),
         actors = List<String>.from(map["actors"] ?? []),
-        relatedComics = [],
         relatedComics = map.optList('relatedComics', (e) => JmComicBrief.fromJson(e)),
         liked = false,
         favorite = false,

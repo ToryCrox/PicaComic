@@ -63,7 +63,7 @@ class ImageManager {
     var cache = await CacheManager().findCache(key);
     if (cache != null) {
       yield DownloadProgress(
-          1, 1, url, cache, null, CacheManager().getType(key));
+          1, 1, url, cache.filePath, null, cache.type);
       loadingItems.remove(url);
       return;
     }
@@ -73,7 +73,6 @@ class ImageManager {
     CachingFile? caching;
 
     try {
-
       final cachingFile = await CacheManager().openWrite(key);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
@@ -119,9 +118,9 @@ class ImageManager {
         yield progress;
         loadingItems[url] = progress;
       }
-      await cachingFile.close();
       var ext = getExt(dioRes);
-      CacheManager().setType(key, ext);
+      cachingFile.fileType = ext;
+      await cachingFile.close();
       yield DownloadProgress(
         imageData.length,
         imageData.length,
@@ -159,7 +158,7 @@ class ImageManager {
     var cache = await CacheManager().findCache(key);
     if (cache != null) {
       yield DownloadProgress(
-          1, 1, key, cache, null, CacheManager().getType(key));
+          1, 1, key, cache.filePath, null, cache.type);
       loadingItems.remove(key);
       return;
     }
@@ -427,10 +426,9 @@ class ImageManager {
           }
         }
       }
-
+      final ext = detectFileType(data).ext.replaceFirst(('.'), '');
+      cachingFile.fileType = ext;
       await cachingFile.close();
-      var ext = detectFileType(data).ext.replaceFirst(('.'), '');
-      CacheManager().setType(key, ext);
       yield DownloadProgress(
         totalBytes,
         totalBytes,
@@ -469,7 +467,7 @@ class ImageManager {
       var cache = await CacheManager().findCache(key);
       if (cache != null) {
         yield DownloadProgress(
-            1, 1, key, cache, null, CacheManager().getType(key));
+            1, 1, key, cache.filePath, null, cache.type);
         loadingItems.remove(key);
         return;
       }
@@ -517,9 +515,9 @@ class ImageManager {
         yield progress;
         loadingItems[image.hash] = progress;
       }
-      await cachingFile.close();
       var ext = getExt(res);
-      CacheManager().setType(key, ext);
+      cachingFile.fileType = ext;
+      await cachingFile.close();
       yield DownloadProgress(currentBytes, currentBytes, url, savePath,
           Uint8List.fromList(data), ext, cachingFile);
     } catch (e) {
@@ -547,7 +545,7 @@ class ImageManager {
     final key = urlWithoutParam;
     var cache = await CacheManager().findCache(key);
     if (cache != null) {
-      yield DownloadProgress(1, 1, url, cache);
+      yield DownloadProgress(1, 1, url, cache.filePath, null, cache.type);
       loadingItems.remove(urlWithoutParam);
       return;
     }
@@ -602,8 +600,9 @@ class ImageManager {
             Uint8List.fromList(bytes), epsId, scrambleId, bookId, savePath);
       }
       await cachingFile.writeBytes(bytes);
+
+      cachingFile.fileType = ext;
       await cachingFile.close();
-      CacheManager().setType(key, ext);
       progress = DownloadProgress(
         bytes.length,
         bytes.length,
@@ -636,7 +635,7 @@ class ImageManager {
 
     var cache = await CacheManager().findCache(cacheKey);
     if (cache != null) {
-      yield DownloadProgress(1, 1, cacheKey, cache);
+      yield DownloadProgress(1, 1, cacheKey, cache.filePath);
       loadingItems.remove(cacheKey);
       return;
     }
@@ -705,7 +704,7 @@ class ImageManager {
       }
 
       var ext = getExt(res);
-      CacheManager().setType(cacheKey, ext);
+      caching.fileType = ext;
       await caching.close();
       var length = result?.length ?? imageData.length;
       yield DownloadProgress(
@@ -754,7 +753,7 @@ class ImageManager {
 
     var cache = await CacheManager().findCache(cacheKey);
     if (cache != null) {
-      yield DownloadProgress(1, 1, cacheKey, cache);
+      yield DownloadProgress(1, 1, cacheKey, cache.filePath);
       loadingItems.remove(cacheKey);
       return;
     }
@@ -840,10 +839,7 @@ class ImageManager {
 
   Future<File?> getFile(String key) async {
     var cache = await CacheManager().findCache(key);
-    if (cache != null) {
-      return File(cache);
-    }
-    return null;
+    return cache?.file;
   }
 
   Future<void> clear() async {

@@ -31,6 +31,7 @@ void main(List<String> args) {
   if (runWebViewTitleBarWidget(args)) {
     return;
   }
+
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     await init();

@@ -24,7 +24,7 @@ class CachedNetwork {
     if (expiredTime != CacheExpiredTime.no) {
       var cache = await CacheManager().findCache(key);
       if (cache != null) {
-        var file = File(cache);
+        var file = cache.file;
         return CachedNetworkRes(await file.readAsString(), 200, url);
       }
     }
