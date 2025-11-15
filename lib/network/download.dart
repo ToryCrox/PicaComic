@@ -757,21 +757,6 @@ abstract mixin class _DownloadDb {
       )
     
     ''');
-    _db!.execute('''
-      create table if not exists category (
-        id text primary key,
-        name text,
-        type int
-      )
-    ''');
-
-    _db!.execute('''
-      create table if not exists download_category (
-        id text primary key,
-        cate_id text,
-        order int
-      )
-    ''');
   }
 
   void _addToDb(DownloadedItem item, String directory, [DateTime? time]) {
