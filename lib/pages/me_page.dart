@@ -179,7 +179,7 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.switch_account),
       title: "账号管理".tl,
-      description: "已登录 @a 个账号".tlParams({"a": accounts.length.toString()}),
+      description: Text("已登录 @a 个账号".tlParams({"a": accounts.length.toString()})),
       onTap: () => showPopUpWidget(App.globalContext!, const AccountsPage()),
       child: Wrap(
         spacing: 8,
@@ -193,8 +193,7 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.download_for_offline),
       title: "已下载".tl,
-      description:
-          "共 @a 部漫画".tlParams({"a": DownloadManager().total.toString()}),
+      description: const _DownloadCountText(),
       onTap: () => context.to(() => const DownloadPage()),
     );
   }
@@ -203,8 +202,8 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.image),
       title: "图片收藏".tl,
-      description:
-          "@a 条图片收藏".tlParams({"a": ImageFavoriteManager.length.toString()}),
+      description: Text(
+          "@a 条图片收藏".tlParams({"a": ImageFavoriteManager.length.toString()})),
       onTap: () => context.to(() => const ImageFavoritesPage()),
     );
   }
@@ -228,7 +227,7 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.build_circle),
       title: "工具".tl,
-      description: "使用工具发现更多漫画".tl,
+      description: Text( "使用工具发现更多漫画".tl),
       onTap: openTool,
       child: Wrap(
         spacing: 8,
@@ -264,7 +263,7 @@ class _MePageCard extends StatelessWidget {
 
   final Widget icon;
   final String title;
-  final String description;
+  final Widget description;
   final VoidCallback onTap;
   final Widget? child;
 
@@ -285,14 +284,45 @@ class _MePageCard extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               mouseCursor: SystemMouseCursors.click,
             ),
-            Text(description)
-                .paddingHorizontal(16)
-                .paddingBottom(16)
-                .paddingTop(8),
+            DefaultTextStyle(
+              style: Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
+              child: description,
+            ).paddingHorizontal(16).paddingBottom(16).paddingTop(8),
             if (child != null) child!
           ],
         ),
       ),
     );
+  }
+}
+
+class _DownloadCountText extends StatefulWidget {
+  const _DownloadCountText();
+
+  @override
+  State<_DownloadCountText> createState() => _DownloadCountTextState();
+}
+
+class _DownloadCountTextState extends State<_DownloadCountText> {
+  String _count = '...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCount();
+  }
+
+  Future<void> _loadCount() async {
+    final count = await DownloadManager().getTotal();
+    if (mounted) {
+      setState(() {
+        _count = count.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text("共 $_count 部漫画".tlParams({"a": _count}));
   }
 }

@@ -132,7 +132,7 @@ class PicDownloadingItem extends DownloadingItem {
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (DownloadManager().isExists(id)) {
+    if (await DownloadManager().isExists(id)) {
       var comic =
           (await DownloadManager().getComicOrNull(id))! as DownloadedComic;
       previous = comic.downloadedEps;

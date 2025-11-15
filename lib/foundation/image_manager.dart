@@ -61,6 +61,7 @@ class ImageManager {
       [Map<String, String>? headers]) async* {
     final key = url;
     var cache = await CacheManager().findCache(key);
+    Log.d("getImage $url: ${cache?.filePath}");
     if (cache != null) {
       yield DownloadProgress(
           1, 1, url, cache.filePath, null, cache.type);

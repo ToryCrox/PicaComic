@@ -231,7 +231,7 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
   }
 
   var downloaded = <int>[];
-  if (DownloadManager().isExists("jm${comic.id}")) {
+  if (await DownloadManager().isExists("jm${comic.id}")) {
     var downloadedComic =
         (await DownloadManager().getComicOrNull("jm${comic.id}"))!
         as DownloadedJmComic;

@@ -452,32 +452,34 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
             ));
   }
 
-  void startDownload(int type) {
+  void startDownload(int type) async {
     final id = getGalleryId(data!.link);
-    if (downloadManager.isExists(id)) {
+    if (await downloadManager.isExists(id)) {
       //showToast(message: "已下载".tl);
-      showDialog(context: context, builder: (context){
-        return AlertDialog(
-          title: const Text('已下载？'),
-          content: const Text('是否添加id重复下载？'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                downloadManager.addEhDownload(data!, type, true);
-                showToast(message: "已加入下载队列".tl);
-                Navigator.of(context).pop();
-              },
-              child: const Text('是'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('否'),
-            ),
-          ],
-        );
-      });
+      showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('已下载？'),
+              content: const Text('是否添加id重复下载？'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    downloadManager.addEhDownload(data!, type, true);
+                    showToast(message: "已加入下载队列".tl);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('是'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('否'),
+                ),
+              ],
+            );
+          });
 
       return;
     }
@@ -658,7 +660,7 @@ class _EhThumbnailPainter extends CustomPainter {
     final rect = Rect.fromLTRB(0, 0, size.width, size.height);
     final srcRect = Rect.fromLTRB(
         start.toDouble(), 0, end.toDouble(), image.height.toDouble());
-    logger.d("#${image.hashCode.toRadixString(16)} $index, start: $start, end: $end");
+    //logger.d("#${image.hashCode.toRadixString(16)} $index, start: $start, end: $end");
     canvas.drawImageRect(
       image,
       srcRect,
@@ -669,7 +671,10 @@ class _EhThumbnailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _EhThumbnailPainter oldDelegate) {
-    return image != oldDelegate.image || index != oldDelegate.index;
+    return image != oldDelegate.image ||
+        index != oldDelegate.index ||
+        pageSize != oldDelegate.pageSize ||
+        width != oldDelegate.width;
   }
 }
 

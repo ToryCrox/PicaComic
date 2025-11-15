@@ -25,8 +25,8 @@ import '../../network/picacg_network/methods.dart';
 import '../../tools/io_tools.dart';
 
 extension LocalFavoritesExt on FavoriteItem {
-  void addDownload() {
-    if (DownloadManager().isExists(toDownloadId())) {
+  Future<void> addDownload() async {
+    if (await DownloadManager().isExists(toDownloadId())) {
       return;
     }
     try {
@@ -343,8 +343,17 @@ class LocalFavoriteTile extends ComicTile {
   static Map<String, File> cache = {};
 
   @override
-  String? get badge =>
-      DownloadManager().isExists(comic.toDownloadId()) ? "已下载".tl : null;
+  Widget? get badge => FutureBuilder<bool>(
+        future: DownloadManager().isExists(comic.toDownloadId()),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.hasData &&
+              snapshot.data!) {
+            return Text("已下载".tl);
+          }
+          return const SizedBox.shrink();
+        },
+      );
 
   @override
   bool get enableLongPressed => _enableLongPressed;
@@ -356,56 +365,76 @@ class LocalFavoriteTile extends ComicTile {
   bool get showFavorite => false;
 
   @override
-  Widget get image => () {
-        if (DownloadManager().isExists(comic.toDownloadId())) {
-          return Image.file(
-            DownloadManager().getCover(comic.toDownloadId()),
-            fit: BoxFit.cover,
-            height: double.infinity,
-            filterQuality: FilterQuality.medium,
-          );
-        } else if (cache[comic.target] == null) {
-          return FutureBuilder<File>(
-            future: LocalFavoritesManager().getCover(comic),
-            builder: (context, file) {
-              Widget child;
-              if (file.hasError) {
-                LogManager.addLog(
-                    LogLevel.error, "Network", file.stackTrace.toString());
-                child = const Center(
-                  child: Icon(Icons.error),
+  Widget get image => FutureBuilder<bool>(
+        future: DownloadManager().isExists(comic.toDownloadId()),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.hasData &&
+              snapshot.data!) {
+            // 漫画已下载，显示下载的封面
+            return FutureBuilder<File>(
+              future: DownloadManager().getCover(comic.toDownloadId()),
+              builder: (context, coverSnapshot) {
+                if (coverSnapshot.hasData) {
+                  return Image.file(
+                    coverSnapshot.data!,
+                    fit: BoxFit.cover,
+                    height: double.infinity,
+                    filterQuality: FilterQuality.medium,
+                  );
+                } else if (coverSnapshot.hasError) {
+                  return const Center(child: Icon(Icons.error));
+                } else {
+                  // 加载中
+                  return const Center(child: CircularProgressIndicator());
+                }
+              },
+            );
+          } else if (cache[comic.target] == null) {
+            // 漫画未下载且没有缓存，从网络获取封面
+            return FutureBuilder<File>(
+              future: LocalFavoritesManager().getCover(comic),
+              builder: (context, file) {
+                Widget child;
+                if (file.hasError) {
+                  LogManager.addLog(
+                      LogLevel.error, "Network", file.stackTrace.toString());
+                  child = const Center(
+                    child: Icon(Icons.error),
+                  );
+                } else if (file.data == null) {
+                  child = ColoredBox(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      child: const SizedBox(
+                        width: double.infinity,
+                        height: double.infinity,
+                      ));
+                } else {
+                  cache[comic.target] = file.data!;
+                  child = Image.file(
+                    file.data!,
+                    fit: BoxFit.cover,
+                    height: double.infinity,
+                    filterQuality: FilterQuality.medium,
+                  );
+                }
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: child,
                 );
-              } else if (file.data == null) {
-                child = ColoredBox(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    child: const SizedBox(
-                      width: double.infinity,
-                      height: double.infinity,
-                    ));
-              } else {
-                cache[comic.target] = file.data!;
-                child = Image.file(
-                  file.data!,
-                  fit: BoxFit.cover,
-                  height: double.infinity,
-                  filterQuality: FilterQuality.medium,
-                );
-              }
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: child,
-              );
-            },
-          );
-        } else {
-          return Image.file(
-            cache[comic.target]!,
-            fit: BoxFit.cover,
-            height: double.infinity,
-            filterQuality: FilterQuality.medium,
-          );
-        }
-      }();
+              },
+            );
+          } else {
+            // 使用缓存的封面
+            return Image.file(
+              cache[comic.target]!,
+              fit: BoxFit.cover,
+              height: double.infinity,
+              filterQuality: FilterQuality.medium,
+            );
+          }
+        },
+      );
 
   BuildContext get context => App.mainNavigatorKey!.currentContext!;
 
@@ -614,8 +643,8 @@ class LocalFavoriteTile extends ComicTile {
             ));
   }
 
-  void readComic() async {
-    if (DownloadManager().isExists(comic.toDownloadId())) {
+  Future<void> readComic() async {
+    if (await DownloadManager().isExists(comic.toDownloadId())) {
       var download =
           await DownloadManager().getComicOrNull(comic.toDownloadId());
       if (download != null) {

@@ -11,6 +11,8 @@ import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 
+const Duration kDefaultCacheExpireDuration = Duration(days: 365);
+
 /// 缓存记录数据类
 class CacheRecord {
   final String key;
@@ -177,7 +179,7 @@ class CacheManager {
     return TypeUtil.parseString(res.first[columnType]);
   }
 
-  Future<void> writeCache(String key, Uint8List data, [int duration = 7 * 24 * 60 * 60 * 1000]) async{
+  Future<void> writeCache(String key, Uint8List data, [Duration duration = kDefaultCacheExpireDuration]) async{
     await _ensureInitialized();
     this.dir++;
     this.dir %= 100;
@@ -190,7 +192,7 @@ class CacheManager {
     // }
     await file.create(recursive: true);
     await file.writeAsBytes(data);
-    var expires = DateTime.now().millisecondsSinceEpoch + duration;
+    var expires = DateTime.now().add( duration).millisecondsSinceEpoch;
     
     await _db!.insert(
       tableCache,
@@ -231,7 +233,7 @@ class CacheManager {
     try {
       Log.debug('CacheManager', 'writeString $key');
       final bytes = Uint8List.fromList(utf8.encode(data));
-      await writeCache(key, bytes, const Duration(days: 180).inMilliseconds);
+      await writeCache(key, bytes);
     } catch (e) {
       Log.error('CacheManager', 'writeString error: $e');
     }
@@ -303,7 +305,7 @@ class CacheManager {
     var records = await getAllExpiredRecords(now);
     
     for(var record in records){
-      var file = File('$cachePath/${record.dir}/${record.name}');
+      var file = record.file;
       if(await file.exists()){
         await file.delete();
       }
@@ -527,8 +529,8 @@ class CachingFile{
     if(_buffer.isNotEmpty){
       await file.writeAsBytes(_buffer, mode: FileMode.append);
     }
-    
-    final expires = DateTime.now().millisecondsSinceEpoch + 7 * 24 * 60 * 60 * 1000;
+
+    final expires = DateTime.now().add(kDefaultCacheExpireDuration).millisecondsSinceEpoch;
     final record = CacheRecord(
       key: key,
       dir: dir,

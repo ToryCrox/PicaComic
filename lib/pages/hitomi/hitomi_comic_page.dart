@@ -191,9 +191,9 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   String get sourceKey => "hitomi";
 }
 
-void _downloadComic(
-    HitomiComic comic, BuildContext context, String cover, String link) {
-  if (downloadManager.isExists(comic.id)) {
+Future<void> _downloadComic(
+    HitomiComic comic, BuildContext context, String cover, String link) async {
+  if (await downloadManager.isExists(comic.id)) {
     showToast(message: "已下载".tl);
     return;
   }

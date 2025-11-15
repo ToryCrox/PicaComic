@@ -50,6 +50,8 @@ abstract class DownloadedItem {
   set comicSize(double? value);
 
   String? directory;
+
+  String? coverPath;
 }
 
 enum DownloadType {
@@ -160,10 +162,10 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   }
 
   @mustCallSuper
-  FutureOr<void> onStart() {
+  FutureOr<void> onStart() async {
     if (directory == null) {
-      if (DownloadManager().isExists(id)) {
-        directory = DownloadManager().getDirectory(id);
+      if (await DownloadManager().isExists(id)) {
+        directory = await DownloadManager().getDirectoryName(id);
       } else {
         String subPath = title;
         if (duplicate) {
@@ -299,12 +301,12 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   }
 
   /// stop downloading
-  void stop() {
+  Future<void> stop() async {
     _runtimeKey++;
     stopRecorder();
     _stopAllTasks();
     notifications.endProgress();
-    if (downloadManager.isExists(id)) {
+    if (await downloadManager.isExists(id)) {
       if (links == null) return;
       var comicPath = "$path/";
       for (var ep in links!.keys.toList()) {

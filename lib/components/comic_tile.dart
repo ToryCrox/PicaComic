@@ -22,7 +22,7 @@ abstract class ComicTile extends StatelessWidget {
 
   String get description;
 
-  String? get badge => null;
+  Widget? get badge => null;
 
   List<String>? get tags => null;
 
@@ -430,7 +430,7 @@ class _ComicDescription extends StatelessWidget {
   final String user;
   final String description;
   final Widget? subDescription;
-  final String? badge;
+  final Widget? badge;
   final List<String>? tags;
   final int maxLines;
 
@@ -522,9 +522,9 @@ class _ComicDescription extends StatelessWidget {
                   color: Theme.of(context).colorScheme.tertiaryContainer,
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
                 ),
-                child: Text(
-                  badge!,
+                child: DefaultTextStyle(
                   style: const TextStyle(fontSize: 12),
+                  child: badge!,
                 ),
               )
           ],
@@ -643,7 +643,7 @@ class NormalComicTile extends ComicTile {
   void onLongTap_() => onLongTap?.call();
 
   @override
-  String? get badge => badgeName;
+  Widget? get badge => badgeName != null ? Text(badgeName!) : null;
 
   @override
   Widget get image => AnimatedImage(

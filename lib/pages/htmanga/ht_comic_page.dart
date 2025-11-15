@@ -48,9 +48,9 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String? get cover => data?.cover ?? comicCover;
 
   @override
-  void download() {
+  void download() async {
     final id = "Ht${data!.id}";
-    if (DownloadManager().isExists(id)) {
+    if (await DownloadManager().isExists(id)) {
       showToast(message: "已下载".tl);
       return;
     }

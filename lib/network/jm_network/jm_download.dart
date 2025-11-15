@@ -167,7 +167,7 @@ class JmDownloadingItem extends DownloadingItem {
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (DownloadManager().isExists(id)) {
+    if (await DownloadManager().isExists(id)) {
       var comic =
           (await DownloadManager().getComicOrNull(id))! as DownloadedJmComic;
       previous = comic.downloadedEps;

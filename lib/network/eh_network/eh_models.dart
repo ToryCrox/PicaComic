@@ -1,6 +1,8 @@
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
+import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 class EhGalleryBrief extends BaseComic{
   @override
@@ -111,6 +113,10 @@ class Gallery with HistoryMixin{
       "favorite": favorite,
       "link": link,
       "maxPage": maxPage,
+      "pageSize": pageSize,
+      "ext": ext,
+      'width': width,
+      'thumbnails': thumbnails,
       "auth": auth
     };
   }
@@ -124,20 +130,16 @@ class Gallery with HistoryMixin{
     stars = json["stars"],
     rating = json["rating"],
     coverPath = json["coverPath"],
-    tags = {},
+    tags = json.optMap('tags').map((k, v) => MapEntry(k, TypeUtil.parseStringList(v))),
     favorite = json["favorite"],
     link = json["link"],
     maxPage = json["maxPage"],
     pageSize = json["pageSize"] ?? 20,
-    thumbnails = [],
+    thumbnails = json.optStringList('thumbnails'),
     ext = json["ext"] ?? "jpg",
     width = json["width"] ?? 100,
-    auth = json["auth"] == null ? null : Map<String,String>.from(json["auth"]),
-    comments = []{
-    for(var key in (json["tags"] as Map<String, dynamic>).keys){
-      tags["key"] = List<String>.from(json["tags"][key]);
-    }
-  }
+    auth = json.optMap('auth').map((k, v) => MapEntry(k, v)),
+    comments = [];
 
   Gallery(
       this.title,

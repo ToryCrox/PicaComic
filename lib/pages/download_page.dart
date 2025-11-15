@@ -154,7 +154,6 @@ extension ReadComic on DownloadedItem {
 }
 
 class DownloadPageLogic extends StateController {
-
   bool isInit = false;
 
   ///是否正在加载
@@ -169,6 +168,7 @@ class DownloadPageLogic extends StateController {
   ///已选择的漫画
   //var selected = <bool>[];
   var selected = <String>{};
+
   List<DownloadedItem> get selectedComics =>
       baseComics.where((element) => selected.contains(element.id)).toList();
 
@@ -178,7 +178,9 @@ class DownloadPageLogic extends StateController {
   var baseComics = <DownloadedItem>[];
 
   bool _searchMode = false;
+
   bool get searchMode => _searchMode;
+
   void updateSearchMode(bool mode) {
     _searchMode = mode;
     updateComics();
@@ -202,7 +204,7 @@ class DownloadPageLogic extends StateController {
   String get allComicSize {
     final sizeMB = comics.fold(0.0,
         (previousValue, element) => previousValue + (element.comicSize ?? 0));
-    if (sizeMB >  1024) {
+    if (sizeMB > 1024) {
       return "${(sizeMB / 1024).toStringAsFixed(2)}GB";
     } else {
       return "${sizeMB.toStringAsFixed(2)}MB";
@@ -256,11 +258,15 @@ class DownloadPageLogic extends StateController {
     if (appdata.settings[26][1] == "1") {
       direction = 'asc';
     }
-    final allComics = DownloadManager().getAll(order, direction);
+    final allComics = await DownloadManager().getAll(order, direction);
+    await Future.wait([
+      for (var comic in allComics)
+        DownloadManager().fillDownloadingItemCover(comic),
+    ]);
     baseComics = allComics;
     updateComics();
     if (isFirstLoad) {
-      await Future.delayed(Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150));
     }
     loading = false;
     update();
@@ -268,7 +274,8 @@ class DownloadPageLogic extends StateController {
 
   @override
   void update([List<Object>? ids]) {
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
       SchedulerBinding.instance.addPostFrameCallback((t) {
         super.update();
       });
@@ -307,10 +314,10 @@ class DownloadPageLogic extends StateController {
     update();
   }
 
-  // void resetSelected(int length) {
-  //   //selected = List.generate(length, (index) => false);
-  //   selectedNum = 0;
-  // }
+// void resetSelected(int length) {
+//   //selected = List.generate(length, (index) => false);
+//   selectedNum = 0;
+// }
 }
 
 class DownloadPage extends StatelessWidget {
@@ -358,7 +365,6 @@ class DownloadPage extends StatelessWidget {
       gridDelegate: SliverGridDelegateWithComics(),
     );
   }
-
 
   Future<void> export(DownloadPageLogic logic) async {
     var comics = logic.selectedComics;
@@ -437,8 +443,7 @@ class DownloadPage extends StatelessWidget {
       fileName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
       await createPdfFromComicWithIsolate(
           title: comic.name,
-          comicPath:
-              "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}",
+          comicPath: await downloadManager.getFullDirectory(comic.id),
           savePath: "${App.cachePath}/$fileName",
           chapters: comic.eps,
           chapterIndexes: comic.downloadedEps);
@@ -480,8 +485,7 @@ class DownloadPage extends StatelessWidget {
           id: item.id,
           name: name,
           author: item.subTitle,
-          imagePath:
-              downloadManager.getCover(item.id, check: true),
+          imagePath: File(item.coverPath ?? ''),
           type: type,
           tag: item.tags,
           onTap: () async {
@@ -512,7 +516,7 @@ class DownloadPage extends StatelessWidget {
             logic.selecting = true;
             logic.update();
           },
-          onSecondaryTap: (details) {
+          onSecondaryTap: (details) async {
             final comic = logic.comics[index];
             showDesktopMenu(App.globalContext!,
                 Offset(details.globalPosition.dx, details.globalPosition.dy), [
@@ -528,7 +532,7 @@ class DownloadPage extends StatelessWidget {
                 onClick: () async {
                   //await Future.delayed(const Duration(milliseconds: 250));
                   var dirPath =
-                      "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
+                      await downloadManager.getFullDirectory(comic.id);
                   App.globalTo(() => LocalThumbsPage(
                         dirPath: dirPath,
                         onItemTap: (index, filePath) async {
@@ -539,20 +543,26 @@ class DownloadPage extends StatelessWidget {
                           int ep = 0;
                           final file = File(filePath);
                           final absPath = file.absolute.path;
-                          if (comic.type == DownloadType.picacg
-                              || comic.type == DownloadType.jm) {
+                          if (comic.type == DownloadType.picacg ||
+                              comic.type == DownloadType.jm) {
                             final fileParent = file.parent;
-                            final fileParentPath = Path.normalize(file.parent.absolute.path);
-                            for(final e in comic.downloadedEps) {
+                            final fileParentPath =
+                                Path.normalize(file.parent.absolute.path);
+                            for (final e in comic.downloadedEps) {
                               final epDirPath = Path.normalize("$dirPath/$e");
                               //debugPrint("epDirPath: $epDirPath, fileParent: $fileParent");
                               if (epDirPath == fileParentPath) {
                                 ep = e;
                                 sFileRelativeFromPath = fileParent.path;
-                                final imageNames = (await fileParent.list(recursive: true).toList())
+                                final imageNames = (await fileParent
+                                        .list(recursive: true)
+                                        .toList())
                                     .where(predictImageFile)
-                                    .sortedByName().map((e) => e.name).toList();
-                                index = imageNames.indexOf(Path.basename(absPath));
+                                    .sortedByName()
+                                    .map((e) => e.name)
+                                    .toList();
+                                index =
+                                    imageNames.indexOf(Path.basename(absPath));
                                 if (index < 0) {
                                   index = 0;
                                 }
@@ -561,7 +571,8 @@ class DownloadPage extends StatelessWidget {
                               }
                             }
                           }
-                          debugPrint("Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
+                          debugPrint(
+                              "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
                           comic.read(initialPage: index, ep: ep);
                         },
                       ));
@@ -581,8 +592,8 @@ class DownloadPage extends StatelessWidget {
               DesktopMenuEntry(
                 text: "删除(不包括文件)".tl,
                 onClick: () {
-                  showConfirmDialog(context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl,
-                      () {
+                  showConfirmDialog(
+                      context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl, () {
                     downloadManager.deleteWithoutFile([item.id]);
                     logic.removeComic(item);
                     logic.update();
@@ -670,19 +681,17 @@ class DownloadPage extends StatelessWidget {
               ),
               DesktopMenuEntry(
                 text: "复制路径".tl,
-                onClick: () {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    var path =
-                        "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
+                onClick: () async {
+                  Future.delayed(const Duration(milliseconds: 300), () async {
+                    var path = await downloadManager.getFullDirectory(comic.id);
                     Clipboard.setData(ClipboardData(text: path));
                   });
                 },
               ),
               DesktopMenuEntry(
                 text: "打开文件".tl,
-                onClick: () {
-                  var path =
-                      "${downloadManager.path}/${downloadManager.getDirectory(comic.id)}";
+                onClick: () async {
+                  var path = await downloadManager.getFullDirectory(comic.id);
                   OpenFile.open(path);
                 },
               ),
@@ -731,7 +740,8 @@ class DownloadPage extends StatelessWidget {
                       TextButton(
                           onPressed: () async {
                             App.globalBack();
-                            var comics = logic.selectedComics.map((e) => e.id).toList();
+                            var comics =
+                                logic.selectedComics.map((e) => e.id).toList();
                             await downloadManager.delete(comics);
                             logic.refresh();
                           },
@@ -763,7 +773,8 @@ class DownloadPage extends StatelessWidget {
     } else {
       return logic.selecting
           ? Text("已选择 @num 个项目".tlParams({"num": logic.selectedNum.toString()}))
-          : Text('${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})');
+          : Text(
+              '${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})');
     }
   }
 
@@ -818,7 +829,7 @@ class DownloadPage extends StatelessWidget {
                       MediaQuery.of(context).size.width - 60,
                       50),
                   items: [
-                    for(var tag in filterTags)
+                    for (var tag in filterTags)
                       PopupMenuItem(
                         child: Text(tag),
                         onTap: () {
@@ -941,9 +952,7 @@ class DownloadPage extends StatelessWidget {
                           Future.delayed(const Duration(milliseconds: 200), () {
                         if (logic.selectedNum != 1) {
                           showToast(message: "请选择一个漫画".tl);
-                        } else {
-
-                        }
+                        } else {}
                       }),
                     ),
                     PopupMenuItem(
@@ -955,7 +964,8 @@ class DownloadPage extends StatelessWidget {
                           if (selected[i]) {
                             await downloadManager.updateComicSize(comics[i]);
                             logic.update();
-                            await Future.delayed(const Duration(milliseconds: 50));
+                            await Future.delayed(
+                                const Duration(milliseconds: 50));
                           }
                         }
                         showToast(message: "更新完成".tl);
@@ -1317,7 +1327,7 @@ class DownloadedComicTile extends ComicTile {
   void onSecondaryTap_(details) => onSecondaryTap(details);
 
   @override
-  String? get badge => type;
+  Widget? get badge => Text(type);
 
   const DownloadedComicTile({
     required this.id,

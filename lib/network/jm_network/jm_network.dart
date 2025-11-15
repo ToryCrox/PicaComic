@@ -64,7 +64,7 @@ extension _CachedNetwork on CachedNetwork {
         "$time${JmNetwork.kJmSecret}"
     );
     if (expiredTime != CacheExpiredTime.no) {
-      await CacheManager().writeCache(key, res.data!, expiredTime.time);
+      await CacheManager().writeCache(key, res.data!, Duration(milliseconds: expiredTime.time));
     }
     return CachedNetworkRes(
         decodedData, res.statusCode, res.realUri.toString());

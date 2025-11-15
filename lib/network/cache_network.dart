@@ -39,7 +39,7 @@ class CachedNetwork {
       throw Exception("Empty data");
     }
     if (expiredTime != CacheExpiredTime.no) {
-      await CacheManager().writeCache(key, res.data!, expiredTime.time);
+      await CacheManager().writeCache(key, res.data!, Duration(milliseconds: expiredTime.time));
     }
     return CachedNetworkRes(utf8.decode(res.data!, allowMalformed: true),
         res.statusCode, res.realUri.toString(), res.headers.map);
@@ -56,7 +56,7 @@ enum CacheExpiredTime {
   long(604800000),
   persistent(0);
 
-  ///过期时间, 单位为微秒
+  ///过期时间, 单位为毫秒
   final int time;
 
   const CacheExpiredTime(this.time);

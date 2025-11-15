@@ -19,7 +19,8 @@ abstract class ReadingData {
 
   Map<String, String>? get eps;
 
-  bool get downloaded => DownloadManager().isExists(downloadId);
+  //Future<bool> get downloaded => DownloadManager().isExists(downloadId);
+  bool _isDownloaded = false;
 
   List<int> downloadedEps = [];
 
@@ -34,7 +35,8 @@ abstract class ReadingData {
   }
 
   Stream<Res<List<String>>> loadEp(int ep) async* {
-    if(downloaded && downloadedEps.isEmpty){
+    _isDownloaded = await DownloadManager().isExists(downloadId);
+    if(_isDownloaded && downloadedEps.isEmpty){
       downloadedEps = (await DownloadManager().getComicOrNull(downloadId))!.downloadedEps;
     }
     if (dirPath.isNotEmpty) {
@@ -45,7 +47,7 @@ abstract class ReadingData {
       } else {
         yield Res(imageFileUriList);
       }
-    } else if (downloaded && checkEpDownloaded(ep)){
+    } else if (_isDownloaded && checkEpDownloaded(ep)){
       final e = hasEp ? ep : 0;
       final downloadDir = await DownloadManager().getImageDirectory(downloadId, e);
       final imageList = await DownloadManager().getAllImageFileList(downloadId, e);
@@ -78,9 +80,10 @@ abstract class ReadingData {
   ///
   /// [page] starts from 0, [ep] starts from 1
   Stream<DownloadProgress> loadImage(int ep, int page, String url, {String? title}) async* {
-    if (downloaded && checkEpDownloaded(ep)) {
+    if (_isDownloaded && checkEpDownloaded(ep)) {
+      final imageFile = await DownloadManager().getImage(downloadId, hasEp ? ep : 0, page);
       yield DownloadProgress(
-          1, 1, "", DownloadManager().getImage(downloadId, hasEp ? ep : 0, page).path);
+          1, 1, "", imageFile.path);
     } else {
       if (title != null) {
         final file = await downloadManager.getDownloadImageOrNull(title, ep, page);
@@ -99,7 +102,7 @@ abstract class ReadingData {
     // url如果是文件的uri
     if (url.startsWith("file://")) {
       return FileImage(File(url.substring(7)));
-    } else if (downloaded && checkEpDownloaded(ep)){
+    } else if (_isDownloaded && checkEpDownloaded(ep)){
       return FileImageProvider(downloadId, hasEp ? ep : 0, page);
     } else {
       return StreamImageProvider(() => loadImage(ep, page, url, title: title), buildImageKey(ep, page, url));

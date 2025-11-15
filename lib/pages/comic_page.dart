@@ -86,7 +86,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       }
     }
     var downloaded = <int>[];
-    if (DownloadManager().isExists(downloadId)) {
+    if (await DownloadManager().isExists(downloadId)) {
       if (eps == null) {
         showToast(message: "已下载".tl);
         return;
@@ -1272,57 +1272,66 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                     openComments!),
               if (searchSimilar != null)
                 buildItem("相似".tl, Icons.search, searchSimilar!),
-              if (downloadManager.isExists(downloadedId))
-                Flyout(
-                  enableTap: true,
-                  navigator: App.navigatorKey.currentState!,
-                  withInkWell: true,
-                  borderRadius: 8,
-                  flyoutBuilder: (context) => FlyoutContent(
-                    title: "从本地下载中删除?".tl,
-                    actions: [
-                      TextButton(
-                        onPressed: () async {
-                          Navigator.of(context).pop();
-                          await downloadManager.delete([downloadedId]);
-                          StateController.findOrNull<DownloadPageLogic>()?.refresh();
-                          showToast(message: "已删除".tl);
-                          logic.update();
-                        },
-                        child: Text("删除".tl),
+              FutureBuilder<bool>(
+                future: downloadManager.isExists(downloadedId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done &&
+                      snapshot.hasData &&
+                      snapshot.data == true) {
+                    return Flyout(
+                      enableTap: true,
+                      navigator: App.navigatorKey.currentState!,
+                      withInkWell: true,
+                      borderRadius: 8,
+                      flyoutBuilder: (context) => FlyoutContent(
+                        title: "从本地下载中删除?".tl,
+                        actions: [
+                          TextButton(
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                              await downloadManager.delete([downloadedId]);
+                              StateController.findOrNull<DownloadPageLogic>()?.refresh();
+                              showToast(message: "已删除".tl);
+                              logic.update();
+                            },
+                            child: Text("删除".tl),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text("取消".tl),
+                          ),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: Text("取消".tl),
+                      child: SizedBox(
+                        height: 72,
+                        width: 64,
+                        child: Column(
+                          children: [
+                            const SizedBox(
+                              height: 12,
+                            ),
+                            Icon(
+                              Icons.delete_outline,
+                              size: 24,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(
+                              height: 8,
+                            ),
+                            Text(
+                              "删除下载".tl,
+                              style: const TextStyle(fontSize: 12),
+                            )
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                  child: SizedBox(
-                    height: 72,
-                    width: 64,
-                    child: Column(
-                      children: [
-                        const SizedBox(
-                          height: 12,
-                        ),
-                        Icon(
-                          Icons.delete_outline,
-                          size: 24,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        Text(
-                          "删除下载".tl,
-                          style: const TextStyle(fontSize: 12),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }
+              ),
               buildItem(
                   "图片收藏".tl, Icons.image, () {
                     context.to(() => ImageFavoritesPage(filterTitle: title!,));

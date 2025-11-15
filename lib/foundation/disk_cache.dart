@@ -148,7 +148,7 @@ class DiskCache {
   static Future<void> writeString(String key, String value) async {
     try {
       final bytes = Uint8List.fromList(utf8.encode(value));
-      Log.debug(_sTag, 'writeCacheString, key: $key, bytes.size: ${bytes.length}');
+      Log.debug(_sTag, 'writeCacheString, key: $key, bytes.size: ${bytes.length}， value: $value');
       await putFileBytes(key, bytes);
     } catch(e) {
       logger.e(e);

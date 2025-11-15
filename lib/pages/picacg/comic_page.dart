@@ -267,7 +267,7 @@ void _downloadComic(
     }
   }
   var downloaded = <int>[];
-  if (DownloadManager().isExists(comic.id)) {
+  if (await DownloadManager().isExists(comic.id)) {
     var downloadedComic = (await DownloadManager().getComicOrNull(comic.id))!
       as DownloadedComic;
     downloaded.addAll(downloadedComic.downloadedEps);

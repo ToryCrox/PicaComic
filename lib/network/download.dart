@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/custom_download_model.dart';
@@ -33,7 +34,6 @@ import 'package:pica_comic/tools/shared_compute.dart';
 import 'package:pica_comic/tools/str_ext.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
-import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
 
@@ -45,7 +45,7 @@ import 'picacg_network/models.dart';
 
 typedef DownloadingCallback = void Function();
 
-class DownloadManager with _DownloadDb implements Listenable {
+class DownloadManager implements Listenable {
   static DownloadManager? cache;
 
   factory DownloadManager() => cache ?? (cache = DownloadManager._create());
@@ -70,8 +70,7 @@ class DownloadManager with _DownloadDb implements Listenable {
   ///是否初始化
   bool _runInit = false;
 
-  @override
-  Database? _db;
+  final DownloadDatabase _db = DownloadDatabase();
 
   final List<VoidCallback> _listeners = [];
 
@@ -138,7 +137,6 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
 
     _runInit = false;
-    _db!.dispose();
     downloading.clear();
     await init();
     return "ok";
@@ -187,9 +185,10 @@ class DownloadManager with _DownloadDb implements Listenable {
                   break;
                 } catch (e) {
                   i++;
-                  if(i > 20) {
+                  if (i > 20) {
                     // it seems that the error is unrelated to the directory name
-                    Log.error("IO", "Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
+                    Log.error("IO",
+                        "Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
                     break;
                   }
                   directory = comic.name + i.toString();
@@ -201,10 +200,9 @@ class DownloadManager with _DownloadDb implements Listenable {
         }
       }
     }
-    _db = sqlite3.open("$path/download.db");
-    _createTable();
+    await _db.init(dbPath: "$path/download.db");
     for (var entry in oldData.entries) {
-      _addToDb(entry.value, entry.key);
+      await _addToDb(entry.value, entry.key);
     }
   }
 
@@ -212,8 +210,6 @@ class DownloadManager with _DownloadDb implements Listenable {
     _runInit = false;
     downloading.forEach((e) => e.stop());
     downloading.clear();
-    _db?.dispose();
-    _db = null;
   }
 
   ///初始化下载管理器
@@ -225,8 +221,8 @@ class DownloadManager with _DownloadDb implements Listenable {
     await _initDb();
   }
 
-
-  static final _saveInfoThrottle = Debounce(duration: const Duration(milliseconds: 10));
+  static final _saveInfoThrottle =
+      Debounce(duration: const Duration(milliseconds: 10));
 
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
@@ -242,11 +238,12 @@ class DownloadManager with _DownloadDb implements Listenable {
       sharedCompute(saveToFile, saveItem);
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
-      Log.debug("IO", "Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
+      Log.debug("IO",
+          "Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
     });
   }
 
-  static Future<void> saveToFile(SaveInfoItem item) async{
+  static Future<void> saveToFile(SaveInfoItem item) async {
     var file = File("${item.path}${pathSep}newDownload.json");
     await file.writeAsString(const JsonEncoder().convert(item.items));
   }
@@ -274,7 +271,7 @@ class DownloadManager with _DownloadDb implements Listenable {
   ///当一个下载任务完成时, 调用此函数
   void _onFinish() async {
     var task = downloading.removeFirst();
-    _addToDb(await task.toDownloadedItem(), task.directory!);
+    await _addToDb(await task.toDownloadedItem(), task.directory!);
     await _saveInfo();
     StateController.findOrNull<DownloadPageLogic>()?.refresh();
     if (downloading.isNotEmpty) {
@@ -343,10 +340,10 @@ class DownloadManager with _DownloadDb implements Listenable {
   ///删除已下载的漫画
   Future<void> delete(List<String> ids) async {
     for (var id in ids) {
-      _deleteFromDb(id);
-      final dirName = getDirectory(id);
-      if (dirName.isNotEmpty) {
-        var comic = Directory("$path/${getDirectory(id)}");
+      await _deleteFromDb(id);
+      final dirPath = await getFullDirectory(id);
+      if (dirPath.isNotEmpty) {
+        var comic = Directory(dirPath);
         try {
           logger.d('delete comic $comic');
           comic.delete(recursive: true);
@@ -359,13 +356,12 @@ class DownloadManager with _DownloadDb implements Listenable {
           }
         }
       }
-
     }
   }
 
   Future<void> deleteWithoutFile(List<String> ids) async {
     for (var id in ids) {
-      _deleteFromDb(id);
+      await _deleteFromDb(id);
     }
   }
 
@@ -375,14 +371,15 @@ class DownloadManager with _DownloadDb implements Listenable {
       if (comic.downloadedEps.length == 1) {
         return "Delete Error: only one downloaded episode";
       }
-      if (Directory("$path/${getDirectory(comic.id)}/${ep + 1}").existsSync()) {
-        Directory("$path/${getDirectory(comic.id)}/${ep + 1}")
+      final fullPath = await getFullDirectory(comic.id);
+      if (Directory("$fullPath/${ep + 1}").existsSync()) {
+        Directory("$fullPath/${ep + 1}")
             .deleteSync(recursive: true);
       }
-      var size = Directory("$path/${getDirectory(comic.id)}").getMBSizeSync();
+      var size = Directory(fullPath).getMBSizeSync();
       comic.downloadedEps.remove(ep);
       comic.comicSize = size;
-      _addToDb(comic, comic.directory ?? getDirectory(comic.id));
+      await _addToDb(comic, comic.directory ?? await getDirectoryName(comic.id));
       return null;
     } catch (e, s) {
       LogManager.addLog(LogLevel.error, "IO", "$e/n$s");
@@ -393,10 +390,11 @@ class DownloadManager with _DownloadDb implements Listenable {
   /// 更新漫画大小
   Future<double> updateComicSize(DownloadedItem comic) async {
     try {
-      final size = Directory("$path/${getDirectory(comic.id)}").getMBSizeSync();
+      final dirPath = await getFullDirectory(comic.id);
+      final size = Directory(dirPath).getMBSizeSync();
       comic.comicSize = size;
       debugPrint("update comic size: ${comic.id} $size");
-      updateSize(comic.id, size);
+      await updateSize(comic.id, size);
       return size;
     } catch (e) {
       LogManager.addLog(LogLevel.error, "IO", e.toString());
@@ -406,25 +404,28 @@ class DownloadManager with _DownloadDb implements Listenable {
 
   /// 获取漫画章节的长度, 适用于有章节的漫画
   Future<int> getEpLength(String id, int ep) async {
-    var directory = Directory("$path/${getDirectory(id)}/$ep");
+    final fullDirPath = await getFullDirectory(id);
+    var directory = Directory("$fullDirPath/$ep");
     var files = directory.list();
     return files.length;
   }
 
   /// 获取漫画的长度, 适用于无章节的漫画
   Future<int> getComicLength(String id) async {
-    var directory = Directory("$path/${getDirectory(id)}");
+    final fullDirPath = await getDirectoryName(id);
+    var directory = Directory(fullDirPath);
     var files = directory.list();
     return await files.length - 1;
   }
 
   ///获取图片, 对于无章节的漫画, ep参数为0
-  File getImage(String id, int ep, int index) {
+  Future<File> getImage(String id, int ep, int index) async {
+    final fullDirPath = await getFullDirectory(id); // 这里需要修改为同步方法或者重构调用处
     String downloadPath;
     if (ep == 0) {
-      downloadPath = "$path/${getDirectory(id)}/";
+      downloadPath = "$fullDirPath/";
     } else {
-      downloadPath = "$path/${getDirectory(id)}/$ep/";
+      downloadPath = "$fullDirPath/$ep/";
     }
     for (var file in Directory(downloadPath).listSync()) {
       if (file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "") ==
@@ -451,10 +452,11 @@ class DownloadManager with _DownloadDb implements Listenable {
 
   Future<String> getImageDirectory(String id, int ep) async {
     String downloadPath;
+    final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/${getDirectory(id)}/";
+      downloadPath = "$path/$dirName/";
     } else {
-      downloadPath = "$path/${getDirectory(id)}/$ep/";
+      downloadPath = "$path/$dirName/$ep/";
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
@@ -465,10 +467,11 @@ class DownloadManager with _DownloadDb implements Listenable {
 
   Future<List<String>> getAllImageFileList(String id, int ep) async {
     String downloadPath;
+    final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/${getDirectory(id)}/";
+      downloadPath = "$path/$dirName/";
     } else {
-      downloadPath = "$path/${getDirectory(id)}/$ep/";
+      downloadPath = "$path/$dirName/$ep/";
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
@@ -476,9 +479,13 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
     final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = downloadPath;
-    return files.where(predictImageFile)
-        .sortedByName().map((e) => e.absolute.path).toList();
+    return files
+        .where(predictImageFile)
+        .sortedByName()
+        .map((e) => e.absolute.path)
+        .toList();
   }
+
 
   Future<List<String>> getAllImagesByDir(String dirPath) async {
     final dir = Directory(dirPath);
@@ -487,20 +494,24 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
     final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = Path.normalize(dirPath);
-    return files.whereType<File>()
+    return files
+        .whereType<File>()
         .where(predictImageFile)
-        .sortedByName().map((e) => e.absolute.path).toList();
+        .sortedByName()
+        .map((e) => e.absolute.path)
+        .toList();
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {
     String downloadPath;
+    final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/${getDirectory(id)}/";
+      downloadPath = "$path/$dirName/";
     } else {
-      downloadPath = "$path/${getDirectory(id)}/$ep/";
+      downloadPath = "$path/$dirName/$ep/";
     }
-    var fileName  = _downloadedFileName["$id$ep$index"];
-    if(fileName != null) {
+    var fileName = _downloadedFileName["$id$ep$index"];
+    if (fileName != null) {
       final file = File(downloadPath + fileName);
       if (await file.exists()) {
         return file;
@@ -508,14 +519,14 @@ class DownloadManager with _DownloadDb implements Listenable {
     }
     await for (var file in Directory(downloadPath).list()) {
       var i = file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "");
-      if(i.isNum) {
-        if(_downloadedFileName.length > 2000) {
+      if (i.isNum) {
+        if (_downloadedFileName.length > 2000) {
           _downloadedFileName.remove(_downloadedFileName.keys.first);
         }
         _downloadedFileName["$id$ep$i"] = file.name;
       }
     }
-    if(_downloadedFileName["$id$ep$index"] == null) {
+    if (_downloadedFileName["$id$ep$index"] == null) {
       throw Exception("File not found");
     }
     return File(downloadPath + _downloadedFileName["$id$ep$index"]!);
@@ -524,18 +535,54 @@ class DownloadManager with _DownloadDb implements Listenable {
   static final _downloadedFileName = <String, String>{};
 
   ///获取封面, 所有漫画源通用
-  File getCover(String id, {bool check = false}) {
-    var file = File("$path/${getDirectory(id)}/cover.jpg");
+  Future<File> getCoverAsync(String id, {bool check = false}) async {
+    final dirName = await getDirectoryName(id);
+    var file = File("$path/$dirName/cover.jpg");
     if (check) {
       const extensions = [".png", ".webp"];
       if (file.existsSync()) {
         return file;
       }
-      file = File("$path/${getDirectory(id)}/cover.webp");
+      file = File("$path/$dirName/cover.webp");
       if (file.existsSync()) {
         return file;
       }
-      file = File("$path/${getDirectory(id)}/cover.png");
+      file = File("$path/$dirName/cover.png");
+      if (file.existsSync()) {
+        return file;
+      }
+    }
+    return file;
+  }
+
+  Future<void> fillDownloadingItemCover(DownloadedItem item) async {
+    final dirPath = Path.join(path ?? '', item.directory ?? '');
+    if (dirPath.isEmpty) {
+      return;
+    }
+    const extensions = ['.jpg', ".png", ".webp"];
+    for (var extension in extensions) {
+      final file = File(Path.join(dirPath, 'cover$extension'));
+      if (await file.exists()) {
+        item.coverPath = file.path;
+        return;
+      }
+    }
+  }
+  
+  Future<File> getCover(String id, {bool check = false})  async {
+    final dirPath = await getFullDirectory(id);
+    var file = File("$dirPath/cover.jpg");
+    if (check) {
+      const extensions = [".png", ".webp"];
+      if (file.existsSync()) {
+        return file;
+      }
+      file = File("$dirPath/cover.webp");
+      if (file.existsSync()) {
+        return file;
+      }
+      file = File("$dirPath/cover.png");
       if (file.existsSync()) {
         return file;
       }
@@ -599,8 +646,9 @@ extension AddDownloadExt on DownloadManager {
     if (duplicate) {
       DownloadManager().deleteWithoutFile([id]);
     }
-    downloading.addLast(
-        EhDownloadingItem(gallery, _onFinish, _onError, _saveInfo, id, type, duplicate: duplicate));
+    downloading.addLast(EhDownloadingItem(
+        gallery, _onFinish, _onError, _saveInfo, id, type,
+        duplicate: duplicate));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -683,160 +731,132 @@ extension AddDownloadExt on DownloadManager {
       isDownloading = true;
     }
   }
-}
 
-DownloadedItem? _getComicFromJson({
-  required String id,
-  required String json,
-  required DateTime time,
-  double? size,
-  String? directory,
-}) {
-  DownloadedItem comic;
-  try {
-    if (id.contains('-')) {
-      comic = CustomDownloadedItem.fromJson(jsonDecode(json));
-    } else if (id.startsWith("jm")) {
-      comic = DownloadedJmComic.fromMap(jsonDecode(json));
-    } else if (id.startsWith("hitomi")) {
-      comic = DownloadedHitomiComic.fromMap(jsonDecode(json));
-    } else if (id.startsWith("nhentai")) {
-      comic = NhentaiDownloadedComic.fromJson(jsonDecode(json));
-    } else if (id.startsWith("Ht")) {
-      comic = DownloadedHtComic.fromJson(jsonDecode(json));
-    } else if (id.isNum) {
-      comic = DownloadedGallery.fromJson(jsonDecode(json));
-    } else {
-      comic = DownloadedComic.fromJson(jsonDecode(json));
+  DownloadedItem? _getComicFromJson({
+    required String id,
+    required String json,
+    required DateTime time,
+    double? size,
+    String? directory,
+  }) {
+    DownloadedItem comic;
+    try {
+      if (id.contains('-')) {
+        comic = CustomDownloadedItem.fromJson(jsonDecode(json));
+      } else if (id.startsWith("jm")) {
+        comic = DownloadedJmComic.fromMap(jsonDecode(json));
+      } else if (id.startsWith("hitomi")) {
+        comic = DownloadedHitomiComic.fromMap(jsonDecode(json));
+      } else if (id.startsWith("nhentai")) {
+        comic = NhentaiDownloadedComic.fromJson(jsonDecode(json));
+      } else if (id.startsWith("Ht")) {
+        comic = DownloadedHtComic.fromJson(jsonDecode(json));
+      } else if (id.isNum) {
+        comic = DownloadedGallery.fromJson(jsonDecode(json));
+      } else {
+        comic = DownloadedComic.fromJson(jsonDecode(json));
+      }
+      comic.time = time;
+      comic.directory = directory;
+      if (size != null && size > 0) {
+        comic.comicSize = size;
+      }
+      return comic;
+    } catch (e, s) {
+      LogManager.addLog(LogLevel.error, "IO",
+          "Failed to get a downloaded comic info:\n$e\n$s");
+      return null;
     }
-    comic.time = time;
-    comic.directory = directory;
-    if (size != null && size > 0) {
-     comic.comicSize = size;
-    }
-    return comic;
-  } catch (e, s) {
-    LogManager.addLog(
-        LogLevel.error, "IO", "Failed to get a downloaded comic info:\n$e\n$s");
-    return null;
-  }
-}
-
-abstract mixin class _DownloadDb {
-  Database? get _db;
-
-  void _createTable() {
-    _db!.execute('''
-      create table if not exists download (
-        id text primary key,
-        title text,
-        subtitle text,
-        time int,
-        directory text,
-        size int,
-        json text
-      )
-    ''');
-    _db!.execute('''
-      create table if not exists local_comic (
-         path text primary key,
-         title  text,
-         subtitle text,
-         json text,
-         size int,
-         cover text
-      )
-    ''');
-    _db!.execute('''
-      create table if not exists local_history (
-        path text primary key,
-        isReversed int,
-        pageIndex int,
-        time int,
-        json text
-      )
-    
-    ''');
   }
 
-  void _addToDb(DownloadedItem item, String directory, [DateTime? time]) {
-    _db!.execute('''
-      insert or replace into download
-      values (?,?,?,?,?,?,?)
-    ''', [
+  Future<void> _addToDb(DownloadedItem item, String directory,
+      [DateTime? time]) async {
+    await _db.addToDownload(
       item.id,
       item.name,
       item.subTitle,
       (time ?? DateTime.now()).millisecondsSinceEpoch,
       directory,
-      item.comicSize,
+      item.comicSize ?? 0,
       jsonEncode(item.toJson()),
-    ]);
-  }
-
-  /// 跟新漫画大小
-  void updateSize(String id, double size) {
-    _db!.execute('''
-      update download
-      set size = ?
-      where id = ?
-    ''', [size, id]);
-  }
-
-  bool isExists(String id) {
-    var result = _db!.select('''
-      select id from download
-      where id = ?
-    ''', [id]);
-    return result.isNotEmpty;
-  }
-
-  void _deleteFromDb(String id) {
-    _db!.execute('''
-      delete from download
-      where id = ?
-    ''', [id]);
-    _cache.remove(id);
-  }
-
-  DownloadedItem? _getComicWithDb(String id) {
-    var result = _db!.select('''
-      select * from download
-      where id = ?
-    ''', [id]);
-    if (result.isEmpty) return null;
-    var data = result.first;
-    return _getComicFromJson(
-      id: data['id'],
-      json: data['json'],
-      time: DateTime.fromMillisecondsSinceEpoch(data['time']),
-      size: data.optDouble('size'),
-      directory: data['directory'],
     );
   }
 
-  int get total {
-    var result = _db!.select('''
-      select count(*) from download
-    ''');
-    return result.first['count(*)'];
+  /// 更新漫画大小
+  Future<void> updateSize(String id, double size) async {
+    await _db.updateDownloadSize(id, size);
+  }
+
+  Future<bool> isExists(String id) async {
+    return await _db.isDownloadExists(id);
+  }
+
+  Future<void> _deleteFromDb(String id) async {
+    await _db.deleteDownload(id);
+    _cache.remove(id);
+  }
+
+  Future<DownloadedItem?> _getComicWithDb(String id) async {
+    final result = await _db.getDownloadById(id);
+    if (result == null) return null;
+
+    return _getComicFromJson(
+      id: result[kDownloadId] as String,
+      json: result[kDownloadJson] as String,
+      time: DateTime.fromMillisecondsSinceEpoch(result[kDownloadTime] as int),
+      size: result[kDownloadSize] is double
+          ? result[kDownloadSize] as double
+          : (result[kDownloadSize] as int).toDouble(),
+      directory: result[kDownloadDirectory] as String?,
+    );
+  }
+
+  // int get total {
+  //   // 注意：这个方法需要异步处理，但在原来代码中是同步的
+  //   // 在实际使用中，需要重构调用此属性的地方改为异步
+  //   throw UnimplementedError('Use getTotal() instead');
+  // }
+
+  Future<int> getTotal() async {
+    return await _db.getDownloadTotalCount();
   }
 
   /// order: time, title, subtitle, size
-  List<DownloadedItem> getAll(
-      [String order = 'time', String direction = 'desc']) {
-    var result = _db!.select('''
-      select * from download
-      order by $order $direction
-    ''');
+  Future<List<DownloadedItem>> getAll(
+      [String order = 'time', String direction = 'desc']) async {
+    String orderBy;
+    switch (order) {
+      case 'time':
+        orderBy = kDownloadTime;
+        break;
+      case 'title':
+        orderBy = kDownloadTitle;
+        break;
+      case 'subtitle':
+        orderBy = kDownloadSubtitle;
+        break;
+      case 'size':
+        orderBy = kDownloadSize;
+        break;
+      default:
+        orderBy = kDownloadTime;
+    }
+
+    final result = await _db.getAllDownloads(
+      orderBy: orderBy,
+      descending: direction == 'desc',
+    );
+
     return result
         .map(
           (e) => _getComicFromJson(
-            id: e['id'],
-            json: e['json'],
-            time: DateTime.fromMillisecondsSinceEpoch(e['time']),
-            size: e.optDouble('size'),
-            directory: e['directory']
+            id: e[kDownloadId] as String,
+            json: e[kDownloadJson] as String,
+            time: DateTime.fromMillisecondsSinceEpoch(e[kDownloadTime] as int),
+            size: e[kDownloadSize] is double
+                ? e[kDownloadSize] as double
+                : (e[kDownloadSize] as int).toDouble(),
+            directory: e[kDownloadDirectory] as String?,
           )!,
         )
         .toList();
@@ -846,23 +866,39 @@ abstract mixin class _DownloadDb {
 
   String getDirectory(String id) {
     var directory = _cache[id];
-    if(directory == null) {
-      var result = _db!.select('''
-      select directory from download
-      where id = ?
-    ''', [id]);
-      if (result.isEmpty) {
+    if (directory == null) {
+      // 注意：这个方法需要异步处理，但在原来代码中是同步的
+      // 在实际使用中，需要重构调用此方法的地方改为异步
+      throw UnimplementedError('Use getDirectoryAsync() instead');
+    }
+    return directory ?? '';
+  }
+
+  Future<String> getDirectoryName(String id) {
+    var directory = _cache[id];
+    if (directory != null && directory.isNotEmpty) {
+      return SynchronousFuture(directory);
+    }
+    return Future.sync(() async {
+      String? directory = await _db.getDownloadDirectory(id);
+      if (directory == null) {
         debugPrint("Failed to get directory for $id");
         return '';
       }
-      directory = result.first['directory'];
-      directory = _findAccurateDirectory(directory!);
-      if(_cache.length > 50) {
+      directory = _findAccurateDirectory(directory);
+      if (_cache.length > 50) {
         _cache.remove(_cache.keys.first);
       }
       _cache[id] = directory;
-    }
-    return directory ?? '';
+      return directory;
+    });
+  }
+
+  Future<String> getFullDirectory(String id) async {
+    return getDirectoryName(id).then((e) {
+      if (e.isEmpty) return '';
+      return Path.join(path ?? '', e);
+    });
   }
 
   String _findAccurateDirectory(String directory) {
@@ -878,29 +914,24 @@ abstract mixin class _DownloadDb {
     required double size,
     required String cover,
   }) async {
-    _db!.execute('''
-      insert or replace into local_comic
-      values (?,?,?,?,?,?)
-    ''', [
-      path,
-      title,
-      subtitle,
-      jsonEncode(json),
-      size,
-      cover,
-    ]);
+    await _db.addLocalComic(
+      path: path,
+      title: title,
+      subtitle: subtitle,
+      json: jsonEncode(json),
+      size: size,
+      cover: cover,
+    );
   }
 
   Future<List<Map<String, dynamic>>> getAllLocal() async {
-    final result = await _db!.select('select * from local_comic');
-    return result;
+    return (await _db.getAllLocalComics())
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   Future<void> deleteLocal(String path) async {
-    _db!.execute('''
-      delete from local_comic
-      where path = ?
-    ''', [path]);
+    await _db.deleteLocalComic(path);
   }
 
   Future<void> addOrUpdateLocalHistory({
@@ -910,30 +941,25 @@ abstract mixin class _DownloadDb {
     required int time,
     Map<String, dynamic> json = const {},
   }) async {
-    _db!.execute('''
-      insert or replace into local_history
-      values (?,?,?,?,?)
-    ''', [
-      path,
-      isReversed ? 1 : 0,
-      pageIndex,
-      time,
-      TypeUtil.parseString(json),
-    ]);
+    await _db.addOrUpdateLocalHistory(
+      path: path,
+      isReversed: isReversed ? 1 : 0,
+      pageIndex: pageIndex,
+      time: time,
+      json: TypeUtil.parseString(json),
+    );
   }
 
   Future<Map<String, dynamic>> getLocalHistory(String path) async {
-    final result = await _db!.select('''
-      select * from local_history
-      where path = ?
-    ''', [path]);
-    if(result.isEmpty) return {};
-    return TypeUtil.parseMap(result.first);
+    final result = await _db.getLocalHistory(path);
+    if (result == null) return {};
+    return TypeUtil.parseMap(result);
   }
 }
 
 class SaveInfoItem {
   final Map<String, dynamic> items;
   final String path;
+
   SaveInfoItem(this.items, this.path);
 }

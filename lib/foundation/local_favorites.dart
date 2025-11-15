@@ -737,7 +737,7 @@ class LocalFavoritesManager {
       return file;
     }
     if (item.coverPath.startsWith("file://")) {
-      var data = DownloadManager()
+      var data = await DownloadManager()
           .getCover(item.coverPath.replaceFirst("file://", ""));
       file.createSync(recursive: true);
       file.writeAsBytesSync(data.readAsBytesSync());

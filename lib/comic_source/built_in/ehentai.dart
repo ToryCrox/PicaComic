@@ -296,7 +296,7 @@ class _EhGalleryTile extends ComicTile {
   String get description => "${gallery.time}  ${gallery.type}";
 
   @override
-  String? get badge => () {
+  Widget? get badge => () {
         String? lang;
         if (gallery.tags.isNotEmpty &&
             gallery.tags[0].substring(0, 4) == "lang") {
@@ -313,7 +313,7 @@ class _EhGalleryTile extends ComicTile {
             lang = lang[0].toUpperCase() + lang.substring(1);
           }
         }
-        return lang;
+        return lang != null ? Text(lang) : null;
       }.call();
 
   @override

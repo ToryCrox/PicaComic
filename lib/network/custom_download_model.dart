@@ -187,7 +187,7 @@ class CustomDownloadingItem extends DownloadingItem {
   @override
   Future<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (DownloadManager().isExists(id)) {
+    if (await DownloadManager().isExists(id)) {
       var comic = await DownloadManager().getComicOrNull(id);
       previous = comic!.downloadedEps;
     }
