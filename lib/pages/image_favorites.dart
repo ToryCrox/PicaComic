@@ -337,8 +337,12 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
 
   @override
   Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async {
-    if (File(image.imagePath).existsSync()) {
-      final filePath = '${App.dataPath}/images/${image.imagePath}';
+    final isLocalFile = image.imagePath.startsWith("file://");
+    Log.d("load image ${image.imagePath}, isLocalFile: $isLocalFile");
+    if (isLocalFile) {
+      return await File(image.imagePath.replaceFirst("file://", ""))
+          .readAsBytes();
+    } else if (File(image.imagePath).existsSync()) {
       return await File("${App.dataPath}/images/${image.imagePath}")
           .readAsBytes();
     } else {

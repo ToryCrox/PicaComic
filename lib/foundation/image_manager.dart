@@ -60,6 +60,17 @@ class ImageManager {
   Stream<DownloadProgress> getImage(final String url,
       [Map<String, String>? headers]) async* {
     final key = url;
+    final isFileUrl = url.startsWith("file://");
+    if (isFileUrl) {
+      final file = File(url.replaceFirst('file://', ''));
+      if (await file.exists()) {
+        yield DownloadProgress(
+            1, 1, url, file.path, await file.readAsBytes(), null);
+        return;
+      } else {
+        throw Exception("File not found ${file.path}");
+      }
+    }
     var cache = await CacheManager().findCache(key);
     Log.d("getImage $url: ${cache?.filePath}");
     if (cache != null) {
@@ -154,6 +165,7 @@ class ImageManager {
     final galleryLink = gallery.link;
     final cacheKey = "$galleryLink$page";
     final gid = getGalleryId(galleryLink);
+    Log.d("getEhImageNew $cacheKey, '$galleryLink");
 
     final key = cacheKey;
     var cache = await CacheManager().findCache(key);
@@ -542,6 +554,11 @@ class ImageManager {
       required String bookId}) async* {
     bookId = bookId.replaceAll(RegExp(r"\..+"), "");
     final urlWithoutParam = url.replaceAll(RegExp(r"\?.+"), "");
+
+    if (url.startsWith('file://')) {
+      final file = File(url.replaceFirst('file://', ''));
+      yield DownloadProgress(1, 1, url, file.path, null, "jpg");
+    }
 
     final key = urlWithoutParam;
     var cache = await CacheManager().findCache(key);
