@@ -12,8 +12,33 @@ import 'history_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'image_favorites.dart';
 
-class MePage extends StatelessWidget {
+class MePage extends StatefulWidget {
   const MePage({super.key});
+
+  @override
+  State<MePage> createState() => _MePageState();
+}
+
+class _MePageState extends State<MePage> {
+  final List<History> _recentHistoryList = [];
+  int _historyCount = 0;
+  int _favoriteCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final recent = await HistoryManager().getRecent();
+    _historyCount = await HistoryManager().count();
+    _favoriteCount = await ImageFavoriteManager.length;
+    setState(() {
+      _recentHistoryList.clear();
+      _recentHistoryList.addAll(recent);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +119,7 @@ class MePage extends StatelessWidget {
   }
 
   Widget buildHistory(BuildContext context) {
-    var history = HistoryManager().getRecent();
+    var history = _recentHistoryList;
     return InkWell(
       onTap: () => context.to(() => const HistoryPage()),
       mouseCursor: SystemMouseCursors.click,
@@ -109,7 +134,7 @@ class MePage extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.history),
-                title: Text("${"历史记录".tl}(${HistoryManager().count()})"),
+                title: Text("${"历史记录".tl}($_historyCount)"),
                 trailing: const Icon(Icons.chevron_right),
                 mouseCursor: SystemMouseCursors.click,
               ),
@@ -179,7 +204,8 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.switch_account),
       title: "账号管理".tl,
-      description: Text("已登录 @a 个账号".tlParams({"a": accounts.length.toString()})),
+      description:
+          Text("已登录 @a 个账号".tlParams({"a": accounts.length.toString()})),
       onTap: () => showPopUpWidget(App.globalContext!, const AccountsPage()),
       child: Wrap(
         spacing: 8,
@@ -203,7 +229,7 @@ class MePage extends StatelessWidget {
       icon: const Icon(Icons.image),
       title: "图片收藏".tl,
       description: Text(
-          "@a 条图片收藏".tlParams({"a": ImageFavoriteManager.length.toString()})),
+          "@a 条图片收藏".tlParams({"a": '$_favoriteCount'})),
       onTap: () => context.to(() => const ImageFavoritesPage()),
     );
   }
@@ -227,7 +253,7 @@ class MePage extends StatelessWidget {
     return _MePageCard(
       icon: const Icon(Icons.build_circle),
       title: "工具".tl,
-      description: Text( "使用工具发现更多漫画".tl),
+      description: Text("使用工具发现更多漫画".tl),
       onTap: openTool,
       child: Wrap(
         spacing: 8,
@@ -285,7 +311,8 @@ class _MePageCard extends StatelessWidget {
               mouseCursor: SystemMouseCursors.click,
             ),
             DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
+              style:
+                  Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
               child: description,
             ).paddingHorizontal(16).paddingBottom(16).paddingTop(8),
             if (child != null) child!

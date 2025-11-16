@@ -2,15 +2,32 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/map_extension.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:synchronized/synchronized.dart';
 
 part "image_favorites.dart";
+
+// 表名常量
+const String kTableHistory = 'history';
+
+// 字段名常量
+const String kHistoryTarget = 'target';
+const String kHistoryTitle = 'title';
+const String kHistorySubtitle = 'subtitle';
+const String kHistoryCover = 'cover';
+const String kHistoryTime = 'time';
+const String kHistoryType = 'type';
+const String kHistoryEp = 'ep';
+const String kHistoryPage = 'page';
+const String kHistoryReadEpisode = 'readEpisode';
+const String kHistoryMaxPage = 'max_page';
 
 abstract mixin class HistoryMixin {
   String get title;
@@ -137,20 +154,20 @@ base class History extends LinkedListEntry<History> {
     return 'NewHistory{type: $type, time: $time, title: $title, subtitle: $subtitle, cover: $cover, ep: $ep, page: $page, target: $target}';
   }
 
-  History.fromRow(Row row)
-      : type = HistoryType(row["type"]),
-        time = DateTime.fromMillisecondsSinceEpoch(row["time"]),
-        title = row["title"],
-        subtitle = row["subtitle"],
-        cover = row["cover"],
-        ep = row["ep"],
-        page = row["page"],
-        target = row["target"],
-        readEpisode = Set<int>.from((row["readEpisode"] as String)
+  History.fromRow(Map<String, dynamic> map)
+      : type = HistoryType(map[kHistoryType]),
+        time = DateTime.fromMillisecondsSinceEpoch(map[kHistoryTime]),
+        title = map[kHistoryTitle],
+        subtitle = map[kHistorySubtitle],
+        cover = map[kHistoryCover],
+        ep = map[kHistoryEp],
+        page = map[kHistoryPage],
+        target = map[kHistoryTarget],
+        readEpisode = Set<int>.from((map[kHistoryReadEpisode] as String)
             .split(',')
             .where((element) => element != "")
             .map((e) => int.parse(e))),
-        maxPage = row["max_page"];
+        maxPage = map[kHistoryMaxPage];
 
   static Future<History> findOrCreate(
     HistoryMixin model, {
@@ -178,18 +195,29 @@ base class History extends LinkedListEntry<History> {
 }
 
 class HistoryManager {
-  static HistoryManager? cache;
+  static HistoryManager instance = HistoryManager._create();
 
-  HistoryManager.create();
+  HistoryManager._create();
 
-  factory HistoryManager() =>
-      cache == null ? (cache = HistoryManager.create()) : cache!;
+  factory HistoryManager() => instance;
 
-  late Database _db;
+  Database? _db;
+  bool _initialized = false;
+  final Lock _lock = Lock();
+  final Completer<Database> _initCompleter = Completer<Database>();
 
-  int get length => _db.select("select count(*) from history;").first[0] as int;
+  Future<Database> get db {
+    final db = _db;
+    if (db != null) {
+      return SynchronousFuture(db);
+    }
+    return _initCompleter.future;
+  }
+  
+  // 数据库版本号
+  static const int _databaseVersion = 1;
 
-  Map<String, bool>? _cachedHistory;
+  final Map<String, bool> _cachedHistory = {};
 
   Future<void> tryUpdateDb() async {
     var file = File("${App.dataPath}/history_temp.db");
@@ -198,17 +226,19 @@ class HistoryManager {
           LogLevel.info, "HistoryManager.tryUpdateDb", "db file not exist");
       return;
     }
-    var db = sqlite3.open(file.path);
-    var newHistory0 = db.select("""
-      select * from history
-      order by time DESC;
-    """);
+    
+    // 使用 sqflite_common_ffi 替代 sqlite3
+    var db = await databaseFactoryFfi.openDatabase(file.path);
+    
+    // 查询历史记录
+    var newHistory0 = await db.query(kTableHistory, orderBy: '$kHistoryTime DESC');
     var newHistory =
         newHistory0.map((element) => History.fromRow(element)).toList();
+        
     if (file.existsSync()) {
       var skips = 0;
       for (var history in newHistory) {
-        if (findSync(history.target) == null) {
+        if (await findSync(history.target) == null) {
           addHistory(history);
           LogManager.addLog(LogLevel.info, "HistoryManager",
               "merge history ${history.target}");
@@ -221,12 +251,15 @@ class HistoryManager {
 
       //import favorite images
       skips = 0;
-      ImageFavoriteManager.init();
-      var newImages0 = db.select("select * from image_favorites;");
-      var newImages = newImages0.map((e) =>
-          ImageFavorite(e["id"], e["cover"], e["title"], e["ep"], e["page"], jsonDecode(e["other"]))).toList();
+      
+      // 查询收藏的图片
+      var newImages0 = await db.query('image_favorites');
+      var newImages = newImages0.map((e) => ImageFavorite(e.optString("id"), e.optString("cover"), e.optString("title"), e.optInt("ep"),
+              e.optInt("page"), jsonDecode(e.optString("other"))))
+          .toList();
+
       for (var image in newImages) {
-        if (ImageFavoriteManager.exist(image.id, image.ep, image.page)) {
+        if (await ImageFavoriteManager.exist(image.id, image.ep, image.page)) {
           skips++;
         } else {
           ImageFavoriteManager.add(image);
@@ -237,47 +270,81 @@ class HistoryManager {
       LogManager.addLog(LogLevel.info, "HistoryManager",
           "merge favorite images, skipped $skips, added ${newImages.length - skips}");
     }
-    db.dispose();
+    
+    // 关闭数据库连接
+    await db.close();
     file.deleteSync();
   }
 
-  Future<void> init() async {
-    _db = sqlite3.open("${App.dataPath}/history.db");
+  /// 确保数据库已初始化
+  Future<void> _ensureInitialized() async {
+    if (_initialized) return;
+    await _lock.synchronized(() async {
+      if (_initialized) return;
+      await _initDatabase();
+    });
+  }
 
-    _db.execute("""
-        create table if not exists history  (
-          target text primary key,
-          title text,
-          subtitle text,
-          cover text,
-          time int,
-          type int,
-          ep int,
-          page int,
-          readEpisode text,
-          max_page int
-        );
-      """);
+  /// 初始化数据库
+  Future<void> _initDatabase() async {
+    // 初始化 sqflite_common_ffi
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    
+    final databasePath = '${App.dataPath}/history.db';
+    LogManager.addLog(LogLevel.info, "HistoryManager", "Database path: $databasePath");
 
-    // 检查是否有max_page字段, 如果没有则添加
-    var res = _db.select("""
-      PRAGMA table_info(history);
-    """);
-    if (res.every((row) => row["name"] != "max_page")) {
-      _db.execute("""
-        alter table history
-        add column max_page int;
-      """);
-    }
+    _db = await databaseFactory.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      ),
+    );
 
+    _initialized = true;
+    _initCompleter.complete(_db);
+    
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
     if (file.existsSync()) {
       readDataFromJson(jsonDecode(await file.readAsString()));
       file.deleteSync();
     }
+  }
 
-    ImageFavoriteManager.init();
+  /// 创建数据库表
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableHistory (
+        $kHistoryTarget TEXT PRIMARY KEY,
+        $kHistoryTitle TEXT,
+        $kHistorySubtitle TEXT,
+        $kHistoryCover TEXT,
+        $kHistoryTime INTEGER,
+        $kHistoryType INTEGER,
+        $kHistoryEp INTEGER,
+        $kHistoryPage INTEGER,
+        $kHistoryReadEpisode TEXT,
+        $kHistoryMaxPage INTEGER
+      )
+    ''');
+
+    await ImageFavoriteManager.createTable(db);
+  }
+
+  /// 升级数据库表
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // 可以在这里添加更多版本升级逻辑
+    if (oldVersion < 1) {
+      await _onCreate(db, newVersion);
+    }
+  }
+
+  Future<void> init() async {
+    // 启动数据库初始化但不等待完成
+    _ensureInitialized();
   }
 
   void readDataFromJson(List<dynamic> json) {
@@ -300,51 +367,65 @@ class HistoryManager {
   ///
   /// This function would be called when user start reading.
   Future<void> addHistory(History newItem) async {
-    var res = _db.select("""
-      select * from history
-      where target == ?;
-    """, [newItem.target]);
+    await _ensureInitialized();
+    final db = _db!;
+    
+    final res = await db.query(
+      kTableHistory,
+      where: '$kHistoryTarget = ?',
+      whereArgs: [newItem.target],
+    );
+    
     if (res.isEmpty) {
-      _db.execute("""
-        insert into history (target, title, subtitle, cover, time, type, ep, page, readEpisode, max_page)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-      """, [
-        newItem.target,
-        newItem.title,
-        newItem.subtitle,
-        newItem.cover,
-        newItem.time.millisecondsSinceEpoch,
-        newItem.type.value,
-        newItem.ep,
-        newItem.page,
-        newItem.readEpisode.join(','),
-        newItem.maxPage
-      ]);
+      await db.insert(
+        kTableHistory,
+        {
+          kHistoryTarget: newItem.target,
+          kHistoryTitle: newItem.title,
+          kHistorySubtitle: newItem.subtitle,
+          kHistoryCover: newItem.cover,
+          kHistoryTime: newItem.time.millisecondsSinceEpoch,
+          kHistoryType: newItem.type.value,
+          kHistoryEp: newItem.ep,
+          kHistoryPage: newItem.page,
+          kHistoryReadEpisode: newItem.readEpisode.join(','),
+          kHistoryMaxPage: newItem.maxPage,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } else {
-      _db.execute("""
-        update history
-        set time = ${DateTime.now().millisecondsSinceEpoch}
-        where target == ?;
-      """, [newItem.target]);
+      await db.update(
+        kTableHistory,
+        {
+          kHistoryTime: DateTime.now().millisecondsSinceEpoch,
+        },
+        where: '$kHistoryTarget = ?',
+        whereArgs: [newItem.target],
+      );
     }
     saveData();
-    updateCache();
+    _cachedHistory[newItem.target] = true;
   }
 
   ///退出阅读器时调用此函数, 修改阅读位置
   Future<void> saveReadHistory(History history,
       [bool updateMePage = true]) async {
-    _db.execute("""
-        update history
-        set time = ${DateTime.now().millisecondsSinceEpoch}, ep = ?, page = ?, readEpisode = ?, max_page = ?
-        where target == ?;
-    """, [
-      history.ep,
-      history.page,
-      history.readEpisode.join(','),
-      history.maxPage,
-      history.target
-    ]);
+    await _ensureInitialized();
+    final db = _db!;
+    
+    await db.update(
+      kTableHistory,
+      {
+        kHistoryTime: DateTime.now().millisecondsSinceEpoch,
+        kHistoryEp: history.ep,
+        kHistoryPage: history.page,
+        kHistoryReadEpisode: history.readEpisode.join(','),
+        kHistoryMaxPage: history.maxPage,
+      },
+      where: '$kHistoryTarget = ?',
+      whereArgs: [history.target],
+    );
+    
     if (updateMePage) {
       scheduleMicrotask(() {
         StateController.findOrNull(tag: "me_page")?.update();
@@ -352,95 +433,119 @@ class HistoryManager {
     }
   }
 
-  void clearHistory() {
-    _db.execute("delete from history;");
-    updateCache();
+  void clearHistory() async {
+    await _ensureInitialized();
+    final db = _db!;
+    await db.delete(kTableHistory);
+    _cachedHistory.clear();
   }
 
   void remove(String id) async {
-    _db.execute("""
-      delete from history
-      where target == '$id';
-    """);
-    updateCache();
+    await _ensureInitialized();
+    final db = _db!;
+    await db.delete(
+      kTableHistory,
+      where: '$kHistoryTarget = ?',
+      whereArgs: [id],
+    );
+    _cachedHistory[id] = false;
   }
 
   Future<History?> find(String target) async {
+    await _ensureInitialized();
     return findSync(target);
   }
 
-  void updateCache() {
-    _cachedHistory = {};
-    var res = _db.select("""
-        select * from history;
-      """);
+  Future<void> updateCache() async {
+    await _ensureInitialized();
+    final db = _db!;
+    final res = await db.query(kTableHistory);
     for (var element in res) {
-      _cachedHistory![element["target"] as String] = true;
+      _cachedHistory[element[kHistoryTarget] as String] = true;
     }
   }
 
-  History? findSync(String target) {
-    if(_cachedHistory == null) {
-      updateCache();
-    }
-    if (!_cachedHistory!.containsKey(target)) {
-      return null;
+  Future<History?> findSync(String target) {
+    // if (_cachedHistory == null) {
+    //   // 不等待updateCache完成，而是直接查询数据库
+    //   return _findDirect(target);
+    // }
+    if (_cachedHistory[target] == false) {
+      return SynchronousFuture(null);
     }
 
-    var res = _db.select("""
-      select * from history
-      where target == ?;
-    """, [target]);
+    return _findDirect(target).then((e) {
+      _cachedHistory[target] = e != null;
+      return e;
+    });
+  }
+  
+  Future<History?> _findDirect(String target) async {
+    // 不等待初始化，因为我们已经在调用函数中确保了初始化
+    await _ensureInitialized();
+    final db = _db!;
+    final res = await db.query(
+      kTableHistory,
+      where: '$kHistoryTarget = ?',
+      whereArgs: [target],
+    );
     if (res.isEmpty) {
       return null;
     }
     return History.fromRow(res.first);
   }
 
-  List<History> getAll() {
-    var res = _db.select("""
-      select * from history
-      order by time DESC;
-    """);
+  Future<List<History>> getAll() async {
+    await _ensureInitialized();
+    final db = _db!;
+    final res = await db.query(
+      kTableHistory,
+      orderBy: '$kHistoryTime DESC',
+    );
     return res.map((element) => History.fromRow(element)).toList();
   }
 
   void vacuum() {
-    _db.execute("""
-      vacuum;
-    """);
+    // sqflite数据库不需要手动执行vacuum
   }
 
   /// 获取最近一周的阅读数据, 用于生成图表, List中的元素是当天阅读的漫画数量
-  List<int> getWeekData(int days) {
-    var res = _db.select("""
-      select * from history
-      where time > ${DateTime.now().add(Duration(days: 1 - days)).millisecondsSinceEpoch}
-      order by time ASC;
-    """);
+  Future<List<int>> getWeekData(int days) async {
+    await _ensureInitialized();
+    final db = _db!;
+    final startTime = DateTime.now().add(Duration(days: 1 - days)).millisecondsSinceEpoch;
+    final res = await db.query(
+      kTableHistory,
+      where: '$kHistoryTime > ?',
+      whereArgs: [startTime],
+      orderBy: '$kHistoryTime ASC',
+    );
+    
     var data = List<int>.filled(days, 0);
     for (var element in res) {
-      var time = DateTime.fromMillisecondsSinceEpoch(element["time"] as int);
+      var time = DateTime.fromMillisecondsSinceEpoch(element[kHistoryTime] as int);
       data[DateTime.now().difference(time).inDays]++;
     }
     return data.reversed.toList();
   }
 
   /// 获取最近阅读的漫画
-  List<History> getRecent() {
-    var res = _db.select("""
-      select * from history
-      order by time DESC
-      limit 20;
-    """);
+  Future<List<History>> getRecent() async {
+    await _ensureInitialized();
+    final db = _db!;
+    final res = await db.query(
+      kTableHistory,
+      orderBy: '$kHistoryTime DESC',
+      limit: 20,
+    );
     return res.map((element) => History.fromRow(element)).toList();
   }
 
   /// 获取历史记录的数量
-  int count() {
-    var res = _db.select("""
-      select count(*) from history;
-    """);
-    return res.first[0] as int;
+  Future<int> count() async {
+    await _ensureInitialized();
+    final db = _db!;
+    final result = await db.rawQuery('SELECT COUNT(*) FROM $kTableHistory');
+    return result.first.values.first as int;
   }
 }

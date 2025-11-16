@@ -1,5 +1,16 @@
 part of "history.dart";
 
+// 表名常量
+const String kTableImageFavorites = 'image_favorites';
+
+// 字段名常量
+const String kImageFavoriteId = 'id';
+const String kImageFavoriteTitle = 'title';
+const String kImageFavoriteCover = 'cover';
+const String kImageFavoriteEp = 'ep';
+const String kImageFavoritePage = 'page';
+const String kImageFavoriteOther = 'other';
+
 // 直接用history.db了, 没必要再加一个favorites.db
 
 class ImageFavorite{
@@ -25,70 +36,97 @@ class ImageFavorite{
 }
 
 class ImageFavoriteManager{
-  static Database get _db => HistoryManager()._db;
+  static Future<Database> get _db => HistoryManager().db;
 
   /// 检查表image_favorites是否存在, 不存在则创建
-  static void init(){
-    _db.execute("CREATE TABLE IF NOT EXISTS image_favorites ("
-        "id TEXT,"
-        "title TEXT NOT NULL,"
-        "cover TEXT NOT NULL,"
-        "ep INTEGER NOT NULL,"
-        "page INTEGER NOT NULL,"
-        "other TEXT NOT NULL,"
-        "PRIMARY KEY (id, ep, page)"
+  static Future<void> createTable(Database db) async {
+    await db.execute("CREATE TABLE IF NOT EXISTS $kTableImageFavorites ("
+        "$kImageFavoriteId TEXT,"
+        "$kImageFavoriteTitle TEXT NOT NULL,"
+        "$kImageFavoriteCover TEXT NOT NULL,"
+        "$kImageFavoriteEp INTEGER NOT NULL,"
+        "$kImageFavoritePage INTEGER NOT NULL,"
+        "$kImageFavoriteOther TEXT NOT NULL,"
+        "PRIMARY KEY ($kImageFavoriteId, $kImageFavoriteEp, $kImageFavoritePage)"
         ");");
   }
 
-  static void add(ImageFavorite favorite){
-    _db.execute("""
-      insert or replace into image_favorites(id, title, cover, ep, page, other)
-      values(?, ?, ?, ?, ?, ?);
-    """, [favorite.id, favorite.title, favorite.imagePath, favorite.ep, favorite.page, jsonEncode(favorite.otherInfo)]);
+  static Future<void> add(ImageFavorite favorite) async {
+    final db = await _db;
+    await db.insert(kTableImageFavorites, {
+      kImageFavoriteId: favorite.id,
+      kImageFavoriteTitle: favorite.title,
+      kImageFavoriteCover: favorite.imagePath,
+      kImageFavoriteEp: favorite.ep,
+      kImageFavoritePage: favorite.page,
+      kImageFavoriteOther: jsonEncode(favorite.otherInfo)
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     Webdav.uploadData();
     Future.microtask(() => StateController.findOrNull(tag: "me_page")?.update());
   }
 
-  static List<ImageFavorite> getAll(){
-    var res = _db.select("select * from image_favorites;");
-    return res.map((e) =>
-        ImageFavorite(e["id"], e["cover"], e["title"], e["ep"], e["page"], jsonDecode(e["other"]))).toList();
+  static Future<List<ImageFavorite>> getAll() async {
+    final db = await _db;
+    var res = await db.query(kTableImageFavorites);
+    return res
+        .map((e) => ImageFavorite(
+            e[kImageFavoriteId] as String,
+            e[kImageFavoriteCover] as String,
+            e[kImageFavoriteTitle] as String,
+            e[kImageFavoriteEp] as int,
+            e[kImageFavoritePage] as int,
+            jsonDecode(e[kImageFavoriteOther] as String)))
+        .toList();
   }
 
-  static List<ImageFavorite> getAllByTitle(String title) {
-    final res = _db.select("""
-      select * from image_favorites
-      where title = ?;
-    """, [title]);
-    return res.map((e) =>
-        ImageFavorite(e["id"], e["cover"], e["title"], e["ep"], e["page"], jsonDecode(e["other"]))).toList();
+  static Future<List<ImageFavorite>> getAllByTitle(String title) async {
+    final db = await _db;
+    final res = await db.query(kTableImageFavorites,
+        where: '$kImageFavoriteTitle = ?', whereArgs: [title]);
+    return res
+        .map((e) => ImageFavorite(
+            e[kImageFavoriteId] as String,
+            e[kImageFavoriteCover] as String,
+            e[kImageFavoriteTitle] as String,
+            e[kImageFavoriteEp] as int,
+            e[kImageFavoritePage] as int,
+            jsonDecode(e[kImageFavoriteOther] as String)))
+        .toList();
   }
 
-  static List<String> getAllTitle() {
-    final res = _db.select("""
-      select distinct title from image_favorites;
-    """);
-    return res.map((e) => e.optString('title')).toList();
+  static Future<List<String>> getAllTitle() async {
+    final db = await _db;
+    final res = await db.query(
+      kTableImageFavorites,
+      columns: [kImageFavoriteTitle],
+      distinct: true,
+    );
+    return res.map((e) => e[kImageFavoriteTitle] as String).toList();
   }
 
-  static void delete(ImageFavorite favorite){
-    _db.execute("""
-      delete from image_favorites
-      where id = ? and ep = ? and page = ?;
-    """, [favorite.id, favorite.ep, favorite.page]);
+  static Future<void> delete(ImageFavorite favorite) async {
+    final db = await _db;
+    await db.delete(
+      kTableImageFavorites,
+      where: '$kImageFavoriteId = ? AND $kImageFavoriteEp = ? AND $kImageFavoritePage = ?',
+      whereArgs: [favorite.id, favorite.ep, favorite.page]
+    );
     Webdav.uploadData();
   }
 
-  static bool exist(String id, int ep, int page) {
-    var res = _db.select("""
-      select * from image_favorites
-      where id = ? and ep = ? and page = ?;
-    """, [id, ep, page]);
-    return res.isEmpty ? false : true;
+  static Future<bool> exist(String id, int ep, int page) async {
+    final db = await _db;
+    var res = await db.query(
+      kTableImageFavorites,
+      where: '$kImageFavoriteId = ? AND $kImageFavoriteEp = ? AND $kImageFavoritePage = ?',
+      whereArgs: [id, ep, page]
+    );
+    return res.isNotEmpty;
   }
 
-  static int get length {
-    var res = _db.select("select count(*) from image_favorites;");
+  static Future<int> get length async {
+    final db = await _db;
+    var res = await db.rawQuery("select count(*) from $kTableImageFavorites;");
     return res.first.values.first! as int;
   }
 }

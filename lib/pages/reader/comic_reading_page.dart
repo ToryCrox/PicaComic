@@ -82,7 +82,7 @@ class ComicReadingPage extends StatelessWidget {
 
   final ReadingData readingData;
 
-  late final History? history = HistoryManager().findSync(readingData.id);
+  //late final History? history = HistoryManager().findSync(readingData.id);
 
   final int initialPage;
 
@@ -201,31 +201,33 @@ class ComicReadingPage extends StatelessWidget {
   }
 
   _updateHistory(ComicReadingPageLogic? logic, bool updateMePage) {
+    final history = readingData.history;
+    if (history == null) return;
     if (readingData.hasEp) {
       if (logic!.order == 1 && logic.index == 1) {
-        history?.ep = 0;
-        history?.page = 0;
+        history.ep = 0;
+        history.page = 0;
       } else {
         if (logic.order == readingData.eps?.length &&
             logic.index == logic.length) {
-          history?.ep = 0;
-          history?.page = 0;
+          history.ep = 0;
+          history.page = 0;
         } else {
-          history?.ep = logic.order;
-          history?.page = logic.index;
+          history.ep = logic.order;
+          history.page = logic.index;
         }
       }
     } else {
       if (logic!.index == 1) {
-        history?.ep = 0;
-        history?.page = 0;
+        history.ep = 0;
+        history.page = 0;
       } else {
-        history?.ep = 1;
-        history?.page = logic.index;
+        history.ep = 1;
+        history.page = logic.index;
       }
     }
-    history!.maxPage = logic.length;
-    HistoryManager().saveReadHistory(history!, updateMePage);
+    history.maxPage = logic.length;
+    HistoryManager().saveReadHistory(history, updateMePage);
   }
 
   bool get useDarkBackground => appdata.appSettings.useDarkBackground;
@@ -280,9 +282,8 @@ class ComicReadingPage extends StatelessWidget {
       // 更新本地收藏
       LocalFavoritesManager().onReadEnd(readingData.favoriteId, readingData.favoriteType);
       // 保存历史记录
-      if (history != null) {
-        _updateHistory(logic, true);
-      }
+      _updateHistory(logic, true);
+
       // 退出全屏
       if (logic.isFullScreen) {
         logic.fullscreen();
@@ -293,7 +294,7 @@ class ComicReadingPage extends StatelessWidget {
       // 更新漫画详情页面
       Future.microtask(() {
         if (BaseComicPage.tagsStack.isNotEmpty) {
-          BaseComicPage.tagsStack.last.updateHistory(history);
+          BaseComicPage.tagsStack.last.updateHistory(readingData.history);
         }
       });
       if (appdata.settings[76] != "0") {
@@ -320,7 +321,7 @@ class ComicReadingPage extends StatelessWidget {
           floatingActionButton: buildEpChangeButton(logic),
           body: StateBuilder<ComicReadingPageLogic>(builder: (logic) {
             if (logic.isLoading) {
-              history?.readEpisode.add(logic.order);
+              //history?.readEpisode.add(logic.order);
               loadInfo(logic);
               return const Center(
                 child: CircularProgressIndicator(),
@@ -682,7 +683,7 @@ class ComicReadingPage extends StatelessWidget {
           logic.index,
           otherInfo,
         );
-        if (!ImageFavoriteManager.exist(id, logic.order, logic.index)) {
+        if (!(await ImageFavoriteManager.exist(id, logic.order, logic.index))) {
           ImageFavoriteManager.add(favorite);
           showToast(message: "已添加至图片收藏".tl);
         } else {

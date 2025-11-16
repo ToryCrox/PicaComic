@@ -30,11 +30,15 @@ abstract class ReadingData {
 
   FavoriteType get favoriteType;
 
+  History? history;
+
   bool checkEpDownloaded(int ep) {
     return !hasEp || downloadedEps.contains(ep-1);
   }
 
   Stream<Res<List<String>>> loadEp(int ep) async* {
+    history ??= await HistoryManager().findSync(id);
+    history?.readEpisode.add(ep);
     _isDownloaded = await DownloadManager().isExists(downloadId);
     if(_isDownloaded && downloadedEps.isEmpty){
       downloadedEps = (await DownloadManager().getComicOrNull(downloadId))!.downloadedEps;

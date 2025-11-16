@@ -48,12 +48,12 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
 
   Future<void> _refresh() async {
     if (_showGroup) {
-      _titles = ImageFavoriteManager.getAllTitle();
+      _titles = await ImageFavoriteManager.getAllTitle();
     } else {
       if (_filterTitle.isNotEmpty) {
-        _imageList = ImageFavoriteManager.getAllByTitle(_filterTitle);
+        _imageList = await ImageFavoriteManager.getAllByTitle(_filterTitle);
       } else {
-        _imageList = ImageFavoriteManager.getAll();
+        _imageList = await ImageFavoriteManager.getAll();
       }
     }
     Log.debug('ImageFavorites', '_imageList $_imageList');

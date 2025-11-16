@@ -249,60 +249,68 @@ abstract class ComicTile extends StatelessWidget {
     var isFavorite = appdata.settings[72] == '1'
         ? LocalFavoritesManager().isExist(comicID!)
         : false;
-    var history = appdata.settings[73] == '1'
-        ? HistoryManager().findSync(comicID!)
-        : null;
-    if (history?.page == 0) {
-      history!.page = 1;
-    }
-
-    if (!isFavorite && history == null) {
+  
+    if (!isFavorite && appdata.settings[73] != '1') {
       return child;
     }
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: child,
-        ),
-        Positioned(
-          left: detailedMode ? 16 : 6,
-          top: 8,
-          child: Container(
-            height: 24,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
+    return FutureBuilder<History?>(
+      future: HistoryManager().find(comicID!),
+      builder: (context, snapshot) {
+        var history = snapshot.data;
+        if (history?.page == 0) {
+          history!.page = 1;
+        }
+
+        if (!isFavorite && history == null) {
+          return child;
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: child,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                if (isFavorite)
-                  Container(
-                    height: 24,
-                    width: 24,
-                    color: Colors.green,
-                    child: const Icon(
-                      Icons.bookmark_rounded,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                if (history != null)
-                  Container(
-                    height: 24,
-                    color: Colors.blue.withOpacity(0.9),
-                    constraints: const BoxConstraints(minWidth: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: CustomPaint(
-                      painter:
-                          _ReadingHistoryPainter(history.page, history.maxPage),
-                    ),
-                  )
-              ],
-            ),
-          ),
-        )
-      ],
+            Positioned(
+              left: detailedMode ? 16 : 6,
+              top: 8,
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Row(
+                  children: [
+                    if (isFavorite)
+                      Container(
+                        height: 24,
+                        width: 24,
+                        color: Colors.green,
+                        child: const Icon(
+                          Icons.bookmark_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    if (history != null)
+                      Container(
+                        height: 24,
+                        color: Colors.blue.withOpacity(0.9),
+                        constraints: const BoxConstraints(minWidth: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: CustomPaint(
+                          painter:
+                              _ReadingHistoryPainter(history.page, history.maxPage),
+                        ),
+                      )
+                  ],
+                ),
+              ),
+            )
+          ],
+        );
+      }
     );
   }
 

@@ -18,7 +18,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  final comics = HistoryManager().getAll();
+  final List<History> comics = [];
   bool searchInit = false;
   bool searchMode = false;
   String keyword = "";
@@ -26,11 +26,25 @@ class _HistoryPageState extends State<HistoryPage> {
   bool isModified = false;
 
   @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  @override
   void dispose() {
     if (isModified) {
       appdata.history.saveData();
     }
     super.dispose();
+  }
+
+  Future<void> _fetchData() async {
+    final list = await HistoryManager().getAll();
+    setState(() {
+      comics.clear();
+      comics.addAll(list);
+    });
   }
 
   Widget buildTitle() {
