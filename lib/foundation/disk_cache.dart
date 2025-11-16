@@ -136,7 +136,7 @@ class DiskCache {
       final Map<String, dynamic> map = TypeUtil.parseMap(str);
       final timeSpent = DateTime.now().millisecondsSinceEpoch - t1;
       logger
-          .d('readCacheModel, key: $key, str: $str, timSpent: ${timeSpent}ms');
+          .d(() => 'readCacheModel, key: $key, str: $str, timSpent: ${timeSpent}ms');
       return map.isNotEmpty ? fromJson(map) : null;
     } catch (e) {
       logger.w('readCacheModel key: $key, e: $e');

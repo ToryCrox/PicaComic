@@ -638,9 +638,11 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
         });
       }
     }, onError: (error, stack) {
-      setState(() {
-        failed = true;
-      });
+      if (mounted) {
+        setState(() {
+          failed = true;
+        });
+      }
     });
 
     imageStream.addListener(listener);
