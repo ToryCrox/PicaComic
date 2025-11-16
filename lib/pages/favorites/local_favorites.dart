@@ -220,7 +220,7 @@ class CreateFolderDialog extends StatelessWidget {
                     return;
                   }
                   var (error, message) =
-                      LocalFavoritesManager().loadFolderData(data);
+                      await LocalFavoritesManager().loadFolderData(data);
                   if (error) {
                     showToast(message: message);
                   } else {
@@ -270,9 +270,7 @@ class RenameFolderDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = TextEditingController(
-      text: before
-    );
+    final controller = TextEditingController(text: before);
     final FocusNode focusNode = FocusNode();
     focusNode.requestFocus();
     return SimpleDialog(
@@ -814,43 +812,52 @@ class LocalFavoriteTile extends ComicTile {
     String? folder;
     showDialog(
         context: App.globalContext!,
-        builder: (context) => SimpleDialog(
-              title: Text("复制到".tl),
-              children: [
-                SizedBox(
-                  width: 280,
-                  height: 132,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: Text("收藏夹".tl),
-                        trailing: Select(
-                          outline: true,
-                          width: 156,
-                          values: LocalFavoritesManager().folderNames,
-                          initialValue: null,
-                          onChange: (i) =>
-                              folder = LocalFavoritesManager().folderNames[i],
-                        ),
+        builder: (context) {
+          return SimpleDialog(
+            title: Text("复制到".tl),
+            children: [
+              SizedBox(
+                width: 280,
+                height: 132,
+                child: Column(
+                  children: [
+                    FutureBuilder<List<String>>(
+                      future: LocalFavoritesManager().folderNames,
+                      builder: (context,  snapshot) {
+                        final folderNames = snapshot.data ?? [];
+                        if (folderNames.isEmpty) return const SizedBox();
+                        return ListTile(
+                          title: Text("收藏夹".tl),
+                          trailing: Select(
+                            outline: true,
+                            width: 156,
+                            values: folderNames,
+                            initialValue: null,
+                            onChange: (i) =>
+                                folder = folderNames[i],
+                          ),
+                        );
+                      }
+                    ),
+                    const Spacer(),
+                    Center(
+                      child: FilledButton(
+                        child: Text("确认".tl),
+                        onPressed: () {
+                          LocalFavoritesManager().addComic(folder!, comic);
+                          App.globalBack();
+                        },
                       ),
-                      const Spacer(),
-                      Center(
-                        child: FilledButton(
-                          child: Text("确认".tl),
-                          onPressed: () {
-                            LocalFavoritesManager().addComic(folder!, comic);
-                            App.globalBack();
-                          },
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ));
+                    ),
+                    const SizedBox(
+                      height: 16,
+                    ),
+                  ],
+                ),
+              )
+            ],
+          );
+        });
   }
 
   @override
@@ -988,42 +995,51 @@ void copyAllTo(String source, List<FavoriteItem> comics) {
       builder: (context) => SimpleDialog(
             title: Text("复制到".tl),
             children: [
-              SizedBox(
-                width: 280,
-                height: 132,
-                child: Column(
-                  children: [
-                    ListTile(
-                      title: Text("收藏夹".tl),
-                      trailing: Select(
-                        outline: true,
-                        width: 156,
-                        values: LocalFavoritesManager().folderNames,
-                        initialValue: null,
-                        onChange: (i) =>
-                            folder = LocalFavoritesManager().folderNames[i],
-                      ),
+              FutureBuilder<List<String>>(
+                future: LocalFavoritesManager().folderNames,
+                builder: (context, snapshot) {
+                  final folderNames = snapshot.data ?? [];
+                  if (folderNames.isEmpty) {
+                    return SizedBox();
+                  }
+                  return SizedBox(
+                    width: 280,
+                    height: 132,
+                    child: Column(
+                      children: [
+                        ListTile(
+                          title: Text("收藏夹".tl),
+                          trailing: Select(
+                            outline: true,
+                            width: 156,
+                            values: folderNames,
+                            initialValue: null,
+                            onChange: (i) =>
+                                folder = folderNames[i],
+                          ),
+                        ),
+                        const Spacer(),
+                        Center(
+                          child: FilledButton(
+                            child: Text("确认".tl),
+                            onPressed: () async {
+                              for (var comic in comics) {
+                                LocalFavoritesManager().addComic(
+                                    folder!,
+                                    await LocalFavoritesManager().getComic(
+                                        source, comic.target, comic.type));
+                              }
+                              App.globalBack();
+                            },
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 16,
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    Center(
-                      child: FilledButton(
-                        child: Text("确认".tl),
-                        onPressed: () {
-                          for (var comic in comics) {
-                            LocalFavoritesManager().addComic(
-                                folder!,
-                                LocalFavoritesManager().getComic(
-                                    source, comic.target, comic.type));
-                          }
-                          App.globalBack();
-                        },
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 16,
-                    ),
-                  ],
-                ),
+                  );
+                }
               )
             ],
           ));
@@ -1042,7 +1058,7 @@ class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
   final _key = GlobalKey();
   var reorderWidgetKey = UniqueKey();
   final _scrollController = ScrollController();
-  late var comics = LocalFavoritesManager().getAllComics(widget.name);
+  late List<FavoriteItem> comics = [];
   double? width;
   bool changed = false;
 
@@ -1058,6 +1074,7 @@ class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
   void initState() {
     width = MediaQuery.of(App.globalContext!).size.width;
     super.initState();
+    _loadData();
   }
 
   @override
@@ -1069,22 +1086,13 @@ class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
     super.dispose();
   }
 
+  Future<void> _loadData() async {
+    comics = await LocalFavoritesManager().getAllComics(widget.name);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    var tiles = List.generate(
-        comics.length,
-        (index) => LocalFavoriteTile(
-              comics[index],
-              widget.name,
-              () {
-                changed = true;
-                setState(() {
-                  comics = LocalFavoritesManager().getAllComics(widget.name);
-                });
-              },
-              false,
-              key: Key(comics[index].target),
-            ));
     return Scaffold(
       appBar: AppBar(title: Text(widget.name)),
       body: Column(
@@ -1114,7 +1122,21 @@ class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
                   children: children,
                 );
               },
-              children: tiles,
+              children: [
+                for (var i = 0; i < comics.length; i++)
+                  LocalFavoriteTile(
+                    comics[i],
+                    widget.name,
+                    () async {
+                      changed = true;
+                      comics = await LocalFavoritesManager()
+                          .getAllComics(widget.name);
+                      setState(() {});
+                    },
+                    false,
+                    key: Key(comics[i].target),
+                  ),
+              ],
             ),
           )
         ],
@@ -1125,7 +1147,7 @@ class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
 
 /// Check the availability of comics in folder
 Future<void> checkFolder(String name) async {
-  var comics = LocalFavoritesManager().getAllComics(name);
+  var comics = await LocalFavoritesManager().getAllComics(name);
   int unavailableNum = 0;
   int networkError = 0;
   int checked = 0;

@@ -146,43 +146,56 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   Widget buildFavoriteDialog(BuildContext context) {
-    String? folder = appdata.settings[51];
-    int? initialFolderIndex =
-        LocalFavoritesManager().folderNames.indexOf(appdata.settings[51]);
-    if (initialFolderIndex == -1) {
-      folder = null;
-      initialFolderIndex = null;
-    }
-    return SimpleDialog(
-      title: Text("添加收藏".tl),
-      children: [
-        ListTile(
-          title: Text("收藏夹".tl),
-          trailing: Select(
-            outline: true,
-            width: 156,
-            values: LocalFavoritesManager().folderNames,
-            initialValue: initialFolderIndex,
-            onChange: (i) => folder = LocalFavoritesManager().folderNames[i],
-          ),
-        ),
-        const SizedBox(
-          height: 16,
-        ),
-        Center(
-          child: FilledButton(
-            child: const Text("确认"),
-            onPressed: () {
-              LocalFavoritesManager().addComic(folder!, favoriteItem!);
-              context.pop();
-            },
-          ),
-        ),
-        const SizedBox(
-          height: 16,
-        ),
-      ],
-    );
+    return FutureBuilder<List<String>>(
+        future: LocalFavoritesManager().folderNames,
+        builder: (context, snapshot) {
+          String? folder = appdata.settings[51];
+          int? initialFolderIndex;
+          List<String> folderNames = [];
+          if (snapshot.hasData) {
+            folderNames = snapshot.data!;
+            initialFolderIndex = folderNames.indexOf(appdata.settings[51]);
+            if (initialFolderIndex == -1) {
+              folder = null;
+              initialFolderIndex = null;
+            }
+          }
+          return SimpleDialog(
+            title: Text("添加收藏".tl),
+            children: [
+              if (folderNames.isNotEmpty)
+                ListTile(
+                  title: Text("收藏夹".tl),
+                  trailing: Select(
+                    outline: true,
+                    width: 156,
+                    values: folderNames,
+                    initialValue: initialFolderIndex,
+                    onChange: (i) => folder = folderNames[i],
+                  ),
+                ),
+              const SizedBox(
+                height: 16,
+              ),
+              Center(
+                child: FilledButton(
+                  child: const Text("确认"),
+                  onPressed: () {
+                    if (folder == null) {
+                      showToast(message: '请选择一个文件夹');
+                      return;
+                    }
+                    LocalFavoritesManager().addComic(folder!, favoriteItem!);
+                    context.pop();
+                  },
+                ),
+              ),
+              const SizedBox(
+                height: 16,
+              ),
+            ],
+          );
+        });
   }
 
   void onTap_();
@@ -249,111 +262,111 @@ abstract class ComicTile extends StatelessWidget {
     var isFavorite = appdata.settings[72] == '1'
         ? LocalFavoritesManager().isExist(comicID!)
         : false;
-  
+
     if (!isFavorite && appdata.settings[73] != '1') {
       return child;
     }
 
     return FutureBuilder<History?>(
-      future: HistoryManager().find(comicID!),
-      builder: (context, snapshot) {
-        var history = snapshot.data;
-        if (history?.page == 0) {
-          history!.page = 1;
-        }
+        future: HistoryManager().find(comicID!),
+        builder: (context, snapshot) {
+          var history = snapshot.data;
+          if (history?.page == 0) {
+            history!.page = 1;
+          }
 
-        if (!isFavorite && history == null) {
-          return child;
-        }
+          if (!isFavorite && history == null) {
+            return child;
+          }
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: child,
-            ),
-            Positioned(
-              left: detailedMode ? 16 : 6,
-              top: 8,
-              child: Container(
-                height: 24,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Row(
-                  children: [
-                    if (isFavorite)
-                      Container(
-                        height: 24,
-                        width: 24,
-                        color: Colors.green,
-                        child: const Icon(
-                          Icons.bookmark_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    if (history != null)
-                      Container(
-                        height: 24,
-                        color: Colors.blue.withOpacity(0.9),
-                        constraints: const BoxConstraints(minWidth: 24),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: CustomPaint(
-                          painter:
-                              _ReadingHistoryPainter(history.page, history.maxPage),
-                        ),
-                      )
-                  ],
-                ),
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: child,
               ),
-            )
-          ],
-        );
-      }
-    );
+              Positioned(
+                left: detailedMode ? 16 : 6,
+                top: 8,
+                child: Container(
+                  height: 24,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Row(
+                    children: [
+                      if (isFavorite)
+                        Container(
+                          height: 24,
+                          width: 24,
+                          color: Colors.green,
+                          child: const Icon(
+                            Icons.bookmark_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      if (history != null)
+                        Container(
+                          height: 24,
+                          color: Colors.blue.withOpacity(0.9),
+                          constraints: const BoxConstraints(minWidth: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: CustomPaint(
+                            painter: _ReadingHistoryPainter(
+                                history.page, history.maxPage),
+                          ),
+                        )
+                    ],
+                  ),
+                ),
+              )
+            ],
+          );
+        });
   }
 
   Widget _buildDetailedMode(BuildContext context) {
     return LayoutBuilder(builder: (context, constrains) {
       final height = constrains.maxHeight - 16;
       return InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap_,
-          onLongPress: enableLongPressed ? onLongTap_ : null,
-          onSecondaryTapDown: onSecondaryTap_,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-            child: Row(
-              children: [
-                Container(
-                    width: height * 0.68,
-                    height: double.infinity,
-                    decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8)),
-                    clipBehavior: Clip.antiAlias,
-                    child: image),
-                SizedBox.fromSize(
-                  size: const Size(16, 5),
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap_,
+        onLongPress: enableLongPressed ? onLongTap_ : null,
+        onSecondaryTapDown: onSecondaryTap_,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+          child: Row(
+            children: [
+              Container(
+                  width: height * 0.68,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8)),
+                  clipBehavior: Clip.antiAlias,
+                  child: image),
+              SizedBox.fromSize(
+                size: const Size(16, 5),
+              ),
+              Expanded(
+                child: _ComicDescription(
+                  //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
+                  title: pages == null
+                      ? title.replaceAll("\n", "")
+                      : "[${pages}P]${title.replaceAll("\n", "")}",
+                  user: subTitle,
+                  description: description,
+                  subDescription: buildSubDescription(context),
+                  badge: badge,
+                  tags: tags,
+                  maxLines: maxLines,
                 ),
-                Expanded(
-                  child: _ComicDescription(
-                    //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
-                    title: pages == null
-                        ? title.replaceAll("\n", "")
-                        : "[${pages}P]${title.replaceAll("\n", "")}",
-                    user: subTitle,
-                    description: description,
-                    subDescription: buildSubDescription(context),
-                    badge: badge,
-                    tags: tags,
-                    maxLines: maxLines,
-                  ),
-                ),
-              ],
-            ),
-          ));
+              ),
+            ],
+          ),
+        ),
+      );
     });
   }
 
@@ -367,12 +380,14 @@ abstract class ComicTile extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-                child: Container(
-                    decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8)),
-                    clipBehavior: Clip.antiAlias,
-                    child: image)),
+              child: Container(
+                decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8)),
+                clipBehavior: Clip.antiAlias,
+                child: image,
+              ),
+            ),
             Positioned(
                 bottom: 0,
                 left: 0,

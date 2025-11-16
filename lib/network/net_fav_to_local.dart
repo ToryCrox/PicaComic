@@ -99,7 +99,7 @@ Future<List<T>> getFavorites<T extends Object>(BuildContext context,
   return comics;
 }
 
-void startConvert<T extends Object>(
+Future startConvert<T extends Object>(
     GetFavoriteFunc<T> getFavoriteFunc,
     Duration? interval,
     BuildContext context,
@@ -111,7 +111,8 @@ void startConvert<T extends Object>(
   List<T> comics = await getFavorites(context, getFavoriteFunc, interval, null);
   var name = folderName;
   int i = 0;
-  while (LocalFavoritesManager().folderNames.contains(name)) {
+  final folderNames = await LocalFavoritesManager().folderNames;
+  while (folderNames.contains(name)) {
     name = folderName + i.toString();
     i++;
   }
@@ -130,14 +131,15 @@ void startConvert<T extends Object>(
 }
 
 void startFolderSync<T extends Object>(
-    BuildContext context, FolderSync folderSync) async {
+    BuildContext context, FolderSync? folderSync) async {
+  if (folderSync == null) return;
   final key = folderSync.key;
   final folderName = folderSync.folderName;
   final syncDataObj = folderSync.syncDataObj;
 
-  final curAllComics = LocalFavoritesManager().getAllComics(folderName);
-  final minValue = LocalFavoritesManager().minValue(folderName);
-  final maxValue = LocalFavoritesManager().maxValue(folderName);
+  final curAllComics = await LocalFavoritesManager().getAllComics(folderName);
+  final minValue = await LocalFavoritesManager().minValue(folderName);
+  final maxValue = await LocalFavoritesManager().maxValue(folderName);
   int addValue = 0;
   final loadComicObj = LoadComicClass();
   final fData = getFavoriteData(key);

@@ -12,22 +12,24 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ListTile(
-          leading: const Icon(Icons.book),
-          title: Text("快速收藏".tl),
-          subtitle: Text("长按收藏按钮执行快速收藏".tl),
-          trailing: Select(
-            initialValue: LocalFavoritesManager()
-                .folderNames
-                .indexOf(appdata.settings[51]),
-            onChange: (i) {
-              appdata.settings[51] =
-              LocalFavoritesManager().folderNames[i];
-              appdata.updateSettings();
-            },
-            values: LocalFavoritesManager().folderNames,
-          ),
-        ),
+        FutureBuilder<List<String>>(
+            future: LocalFavoritesManager().folderNames,
+            builder: (context, snapshot) {
+              final folderNames = snapshot.data ?? [];
+              return ListTile(
+                leading: const Icon(Icons.book),
+                title: Text("快速收藏".tl),
+                subtitle: Text("长按收藏按钮执行快速收藏".tl),
+                trailing: Select(
+                  initialValue: folderNames.indexOf(appdata.settings[51]),
+                  onChange: (i) {
+                    appdata.settings[51] = folderNames[i];
+                    appdata.updateSettings();
+                  },
+                  values: folderNames,
+                ),
+              );
+            }),
         SelectSettingWithAppdata(
           icon: const Icon(Icons.bookmark_add),
           title: "新收藏添加至".tl,

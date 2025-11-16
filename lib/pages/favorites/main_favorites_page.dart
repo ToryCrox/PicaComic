@@ -88,34 +88,35 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
 
   Widget buildPage(BuildContext context) {
     return LayoutBuilder(
-        builder: (context, constrains) => Stack(
-              children: [
-                Positioned(
-                  top: _kSecondaryTopBarHeight,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: buildContent(context),
-                ),
-                AnimatedPositioned(
-                  key: const Key("folders"),
-                  duration: const Duration(milliseconds: 180),
-                  left: 0,
-                  right: 0,
-                  bottom: controller.selectingFolder
-                      ? 0
-                      : constrains.maxHeight - _kSecondaryTopBarHeight,
-                  child: buildFoldersList(
-                      context, constrains.maxHeight - _kSecondaryTopBarHeight),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: buildTopBar(context),
-                ),
-              ],
-            ));
+      builder: (context, constrains) => Stack(
+        children: [
+          Positioned(
+            top: _kSecondaryTopBarHeight,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: buildContent(context),
+          ),
+          AnimatedPositioned(
+            key: const Key("folders"),
+            duration: const Duration(milliseconds: 180),
+            left: 0,
+            right: 0,
+            bottom: controller.selectingFolder
+                ? 0
+                : constrains.maxHeight - _kSecondaryTopBarHeight,
+            child: buildFoldersList(
+                context, constrains.maxHeight - _kSecondaryTopBarHeight),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: buildTopBar(context),
+          ),
+        ],
+      ),
+    );
   }
 
   void multiSelectedMenu() {
@@ -199,10 +200,9 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               message: "全选".tl,
               child: IconButton(
                 icon: const Icon(Icons.select_all),
-                onPressed: () {
-                  controller.selectedComics = LocalFavoritesManager()
-                      .getAllComics(controller.current!)
-                      .toList();
+                onPressed: () async {
+                  controller.selectedComics = await LocalFavoritesManager()
+                      .getAllComics(controller.current!);
                   controller.update();
                 },
               ),
@@ -351,7 +351,9 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                 color: Theme.of(context).colorScheme.secondary,
               ),
               const SizedBox(width: 8),
-              Text(data?.title != null ? data!.title.tl : "未知".tl,),
+              Text(
+                data?.title != null ? data!.title.tl : "未知".tl,
+              ),
             ],
           ),
         );
@@ -360,62 +362,72 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   }
 
   Widget buildLocal() {
-    final folders = LocalFavoritesManager().folderNames;
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithFixedHeight(
-        maxCrossAxisExtent: 260,
-        itemHeight: 48,
-      ),
-      delegate: SliverChildBuilderDelegate((context, index) {
-        final data = folders.elementAt(index);
-        return GestureDetector(
-          onLongPressStart: (details) =>
-              _showMenu(data, details.globalPosition),
-          child: InkWell(
-            onTap: () {
-              controller.current = data;
-              controller.isNetwork = false;
-              controller.selectingFolder = false;
-              controller.update();
-              appdata.implicitData[0] = "0;0;$data";
-              appdata.writeImplicitData();
-            },
-            onSecondaryTapUp: (details) =>
-                _showDesktopMenu(data, details.globalPosition),
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              children: [
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.folder,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    data,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 18,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Text(
-                    LocalFavoritesManager().count(data).toString(),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-            ),
+    return FutureBuilder<List<String>>(
+      future: LocalFavoritesManager().folderNames,
+      builder: (context, snapshot) {
+        final folders = snapshot.data ?? [];
+        return SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedHeight(
+            maxCrossAxisExtent: 260,
+            itemHeight: 48,
           ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final data = folders.elementAt(index);
+            return GestureDetector(
+              onLongPressStart: (details) =>
+                  _showMenu(data, details.globalPosition),
+              child: InkWell(
+                onTap: () {
+                  controller.current = data;
+                  controller.isNetwork = false;
+                  controller.selectingFolder = false;
+                  controller.update();
+                  appdata.implicitData[0] = "0;0;$data";
+                  appdata.writeImplicitData();
+                },
+                onSecondaryTapUp: (details) =>
+                    _showDesktopMenu(data, details.globalPosition),
+                borderRadius: BorderRadius.circular(8),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.folder,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        data,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: FutureBuilder<int>(
+                        future: LocalFavoritesManager().count(data),
+                        builder: (context, snapshot) {
+                          final count = snapshot.data ?? 0;
+                          return Text('$count',
+                            style: const TextStyle(fontSize: 12),
+                          );
+                        }
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            );
+          }, childCount: folders.length),
         );
-      }, childCount: folders.length),
+      },
     );
   }
 
@@ -478,31 +490,36 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
         key: Key(controller.current ?? ""),
       );
     } else {
-      var count = LocalFavoritesManager().count(controller.current!);
-      return ComicsPageView(
-        key: Key(controller.current! + count.toString()),
-        folder: controller.current!,
-        selectedComics: controller.selectedComics,
-        onClick: (key) {
-          if (controller.isSelectingComics) {
-            if (controller.selectedComics.contains(key)) {
-              controller.selectedComics.remove(key);
-            } else {
-              controller.selectedComics.add(key);
-            }
-            controller.update();
-            return true;
-          }
-          return false;
-        },
-        onLongPressed: (key) {
-          if (controller.selectedComics.contains(key)) {
-            controller.selectedComics.remove(key);
-          } else {
-            controller.selectedComics.add(key);
-          }
-          controller.update();
-        },
+      return FutureBuilder<int>(
+        future: LocalFavoritesManager().count(controller.current!),
+        builder: (context, snapshot) {
+          final count = snapshot.data ?? 0;
+          return ComicsPageView(
+            key: Key(controller.current! + count.toString()),
+            folder: controller.current!,
+            selectedComics: controller.selectedComics,
+            onClick: (key) {
+              if (controller.isSelectingComics) {
+                if (controller.selectedComics.contains(key)) {
+                  controller.selectedComics.remove(key);
+                } else {
+                  controller.selectedComics.add(key);
+                }
+                controller.update();
+                return true;
+              }
+              return false;
+            },
+            onLongPressed: (key) {
+              if (controller.selectedComics.contains(key)) {
+                controller.selectedComics.remove(key);
+              } else {
+                controller.selectedComics.add(key);
+              }
+              controller.update();
+            },
+          );
+        }
       );
     }
   }
@@ -560,9 +577,9 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           ),
           PopupMenuItem(
             child: Text("更新漫画信息".tl),
-            onTap: () {
+            onTap: () async {
               App.globalBack();
-              var comics = LocalFavoritesManager().getAllComics(folder);
+              var comics = await LocalFavoritesManager().getAllComics(folder);
               UpdateFavoritesInfoDialog.show(comics, folder);
             },
           ),
@@ -606,8 +623,8 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           }),
       DesktopMenuEntry(
           text: "更新漫画信息".tl,
-          onClick: () {
-            var comics = LocalFavoritesManager().getAllComics(folder);
+          onClick: () async {
+            var comics = await LocalFavoritesManager().getAllComics(folder);
             UpdateFavoritesInfoDialog.show(comics, folder);
           }),
     ]);
@@ -643,7 +660,8 @@ mixin class _LocalFavoritesManager {
     );
     try {
       await exportStringDataAsFile(
-          LocalFavoritesManager().folderToJsonString(folder), "$folder.json");
+          await LocalFavoritesManager().folderToJsonString(folder),
+          "$folder.json");
       controller.close();
     } catch (e, s) {
       controller.close();
@@ -652,8 +670,8 @@ mixin class _LocalFavoritesManager {
     }
   }
 
-  void addDownload(String folder) {
-    for (var comic in LocalFavoritesManager().getAllComics(folder)) {
+  void addDownload(String folder) async {
+    for (var comic in await LocalFavoritesManager().getAllComics(folder)) {
       comic.addDownload();
     }
     showToast(message: "已添加下载任务".tl);
@@ -688,16 +706,15 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
 
   String get folder => widget.folder;
 
-  FolderSync? folderSync() {
-    final folderSyncArr = LocalFavoritesManager()
-        .folderSync
-        .where((element) => element.folderName == folder)
-        .toList();
+  Future<FolderSync?> folderSync() async {
+    final allFolderSync = await LocalFavoritesManager().folderSync;
+    final folderSyncArr =
+        allFolderSync.where((element) => element.folderName == folder).toList();
     if (folderSyncArr.isEmpty) return null;
     return folderSyncArr[0];
   }
 
-  late List<FavoriteItem> comics;
+  late List<FavoriteItem> comics = [];
 
   @override
   void initState() {
@@ -717,7 +734,7 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
 
       location = current;
     });
-    comics = LocalFavoritesManager().getAllComics(folder);
+    _refresh();
     super.initState();
   }
 
@@ -732,14 +749,17 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
     return buildFolderComics(folder);
   }
 
+  Future<void> _refresh() async {
+    comics = await LocalFavoritesManager().getAllComics(folder);
+    setState(() {});
+  }
+
   void rebuild() {
-    setState(() {
-      comics = LocalFavoritesManager().getAllComics(folder);
-    });
+    _refresh();
   }
 
   Future<void> onRefresh(context) async {
-    return startFolderSync(context, folderSync()!);
+    return startFolderSync(context, await folderSync()!);
   }
 
   Widget buildFolderComics(String folder) {
@@ -784,8 +804,9 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
                         folder,
                         () {
                           rebuild();
-                          if(widget.selectedComics.contains(comic)) {
-                            var c = StateController.find<FavoritesPageController>();
+                          if (widget.selectedComics.contains(comic)) {
+                            var c =
+                                StateController.find<FavoritesPageController>();
                             c.selectedComics.remove(comic);
                             c.update();
                           }
@@ -884,7 +905,7 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
 
   @override
   refresh() {
-    comics = LocalFavoritesManager().getAllComics(folder);
+    _refresh();
     update();
   }
 }
@@ -897,7 +918,7 @@ class _FoldersReorderPage extends StatefulWidget {
 }
 
 class _FoldersReorderPageState extends State<_FoldersReorderPage> {
-  var folders = LocalFavoritesManager().folderNames;
+  List<String> folders = [];
   var changed = false;
 
   final reorderKey = UniqueKey();
@@ -910,6 +931,19 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
     int blue = (color.blue + ((255 - color.blue) * lightenValue)).round();
 
     return Color.fromARGB(color.alpha, red, green, blue);
+  }
+
+  Future<void> _loadData() async {
+    folders = await LocalFavoritesManager().folderNames;
+    setState(() {
+      changed = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
   }
 
   @override
@@ -926,31 +960,6 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
 
   @override
   Widget build(BuildContext context) {
-    var tiles = List.generate(
-        folders.length,
-        (index) => MouseRegion(
-              key: ValueKey(folders[index]),
-              cursor: SystemMouseCursors.click,
-              child: Row(
-                children: [
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.folder,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      folders[index],
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-              ),
-            ));
-
     return Scaffold(
       appBar: AppBar(title: Text("排序".tl)),
       body: Column(
@@ -983,7 +992,31 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
                   children: children,
                 );
               },
-              children: tiles,
+              children: [
+                for (var index = 0; index < folders.length; index++)
+                  MouseRegion(
+                    key: ValueKey(folders[index]),
+                    cursor: SystemMouseCursors.click,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.folder,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            folders[index],
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           )
         ],

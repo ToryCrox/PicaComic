@@ -1052,15 +1052,24 @@ class DownloadPage extends StatelessWidget {
                   height: 132,
                   child: Column(
                     children: [
-                      ListTile(
-                        title: Text("收藏夹".tl),
-                        trailing: Select(
-                          width: 156,
-                          values: LocalFavoritesManager().folderNames,
-                          initialValue: null,
-                          onChange: (i) =>
-                              folder = LocalFavoritesManager().folderNames[i],
-                        ),
+                      FutureBuilder<List<String>>(
+                        future: LocalFavoritesManager().folderNames,
+                        builder: (context,  snapshot) {
+                          final folderNames = snapshot.data;
+                          if (folderNames == null) {
+                            return const SizedBox();
+                          }
+                          return ListTile(
+                            title: Text("收藏夹".tl),
+                            trailing: Select(
+                              width: 156,
+                              values: folderNames,
+                              initialValue: null,
+                              onChange: (i) =>
+                                  folder = folderNames[i],
+                            ),
+                          );
+                        }
                       ),
                       const Spacer(),
                       Center(

@@ -24,11 +24,11 @@ class _LocalSearchPageState extends StateWithController<LocalSearchPage> {
 
   final _focusNode = FocusNode();
 
-  void search() {
+  void search() async {
     if (keyword.isEmpty) {
       comics = [];
     } else {
-      comics = LocalFavoritesManager().search(keyword);
+      comics = await LocalFavoritesManager().search(keyword);
     }
   }
 
@@ -102,8 +102,8 @@ class _LocalSearchPageState extends StateWithController<LocalSearchPage> {
                           App.globalContext!,
                           "创建收藏夹".tl,
                           "从当前的搜索结果创建新的收藏夹".tl,
-                              () {
-                            var name = LocalFavoritesManager()
+                              () async {
+                            var name = await LocalFavoritesManager()
                                 .createFolder("search result", true);
                             for (var comic in comics) {
                               LocalFavoritesManager().addComic(name, comic.comic);

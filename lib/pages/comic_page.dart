@@ -601,8 +601,11 @@ class ComicPageLogic<T extends Object> extends StateController {
   int colorIndex = 0;
   bool? favoriteOnPlatform;
 
-  Future<void> get(Future<Res<T>> Function() loadData, Future<T?> Function() loadCacheData,
-      Future<bool> Function(T) loadFavorite, String Function() getId) async {
+  Future<void> get(
+      Future<Res<T>> Function() loadData,
+      Future<T?> Function() loadCacheData,
+      Future<bool> Function(T) loadFavorite,
+      String Function() getId) async {
     final cache = await loadCacheData();
     if (cache != null) {
       data = cache;
@@ -1255,9 +1258,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                   favorite
                       ? Icons.collections_bookmark
                       : Icons.collections_bookmark_outlined,
-                  openFavoritePanel, () {
+                  openFavoritePanel, () async {
                 var folder = appdata.settings[51];
-                if (LocalFavoritesManager().folderNames.contains(folder)) {
+                if ((await LocalFavoritesManager().folderNames)
+                    .contains(folder)) {
                   LocalFavoritesManager()
                       .addComic(folder, toLocalFavoriteItem());
                   showToast(message: "已收藏".tl);
@@ -1273,68 +1277,71 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
               if (searchSimilar != null)
                 buildItem("相似".tl, Icons.search, searchSimilar!),
               FutureBuilder<bool>(
-                future: downloadManager.isExists(downloadedId),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.hasData &&
-                      snapshot.data == true) {
-                    return Flyout(
-                      enableTap: true,
-                      navigator: App.navigatorKey.currentState!,
-                      withInkWell: true,
-                      borderRadius: 8,
-                      flyoutBuilder: (context) => FlyoutContent(
-                        title: "从本地下载中删除?".tl,
-                        actions: [
-                          TextButton(
-                            onPressed: () async {
-                              Navigator.of(context).pop();
-                              await downloadManager.delete([downloadedId]);
-                              StateController.findOrNull<DownloadPageLogic>()?.refresh();
-                              showToast(message: "已删除".tl);
-                              logic.update();
-                            },
-                            child: Text("删除".tl),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: Text("取消".tl),
-                          ),
-                        ],
-                      ),
-                      child: SizedBox(
-                        height: 72,
-                        width: 64,
-                        child: Column(
-                          children: [
-                            const SizedBox(
-                              height: 12,
+                  future: downloadManager.isExists(downloadedId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done &&
+                        snapshot.hasData &&
+                        snapshot.data == true) {
+                      return Flyout(
+                        enableTap: true,
+                        navigator: App.navigatorKey.currentState!,
+                        withInkWell: true,
+                        borderRadius: 8,
+                        flyoutBuilder: (context) => FlyoutContent(
+                          title: "从本地下载中删除?".tl,
+                          actions: [
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.of(context).pop();
+                                await downloadManager.delete([downloadedId]);
+                                StateController.findOrNull<DownloadPageLogic>()
+                                    ?.refresh();
+                                showToast(message: "已删除".tl);
+                                logic.update();
+                              },
+                              child: Text("删除".tl),
                             ),
-                            Icon(
-                              Icons.delete_outline,
-                              size: 24,
-                              color: Theme.of(context).colorScheme.primary,
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: Text("取消".tl),
                             ),
-                            const SizedBox(
-                              height: 8,
-                            ),
-                            Text(
-                              "删除下载".tl,
-                              style: const TextStyle(fontSize: 12),
-                            )
                           ],
                         ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }
-              ),
-              buildItem(
-                  "图片收藏".tl, Icons.image, () {
-                    context.to(() => ImageFavoritesPage(filterTitle: title!,));
+                        child: SizedBox(
+                          height: 72,
+                          width: 64,
+                          child: Column(
+                            children: [
+                              const SizedBox(
+                                height: 12,
+                              ),
+                              Icon(
+                                Icons.delete_outline,
+                                size: 24,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(
+                                height: 8,
+                              ),
+                              Text(
+                                "删除下载".tl,
+                                style: const TextStyle(fontSize: 12),
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }),
+              buildItem("图片收藏".tl, Icons.image, () {
+                context.to(
+                  () => ImageFavoritesPage(
+                    filterTitle: title!,
+                  ),
+                );
               }),
             ],
           ),
@@ -1990,35 +1997,40 @@ class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
 
     Widget local;
 
-    var localFolders = LocalFavoritesManager().folderNames;
-
-    var children = List.generate(localFolders.length,
-        (index) => buildFolder(localFolders[index], localFolders[index], 1));
-    children.add(SizedBox(
-      height: 56,
-      width: double.infinity,
-      child: Center(
-        child: TextButton(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("新建".tl),
-              const SizedBox(
-                width: 4,
-              ),
-              const Icon(Icons.add),
-            ],
-          ),
-          onPressed: () => showDialog(
-                  context: App.globalContext!,
-                  builder: (_) => const CreateFolderDialog())
-              .then((value) => setState(() {})),
-        ),
-      ),
-    ));
     local = SingleChildScrollView(
-      child: Column(
-        children: children,
+      child: FutureBuilder<List<String>>(
+        future: LocalFavoritesManager().folderNames,
+        builder: (context, snapshot) {
+          final localFolders = snapshot.data ?? [];
+          return Column(
+            children: [
+              for (var index = 0; index < localFolders.length; index++)
+                buildFolder(localFolders[index], localFolders[index], 1),
+              SizedBox(
+                height: 56,
+                width: double.infinity,
+                child: Center(
+                  child: TextButton(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text("新建".tl),
+                        const SizedBox(
+                          width: 4,
+                        ),
+                        const Icon(Icons.add),
+                      ],
+                    ),
+                    onPressed: () => showDialog(
+                            context: App.globalContext!,
+                            builder: (_) => const CreateFolderDialog())
+                        .then((value) => setState(() {})),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
 

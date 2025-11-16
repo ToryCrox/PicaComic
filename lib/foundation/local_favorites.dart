@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -19,10 +21,25 @@ import 'package:pica_comic/network/nhentai_network/models.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
 import 'package:pica_comic/pages/favorites/main_favorites_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:synchronized/synchronized.dart';
 import 'dart:io';
 import '../network/base_comic.dart';
 import '../network/webdav.dart';
+
+/// 表名常量
+const String kTableFolderSync = 'folder_sync';
+const String kTableFolderOrder = 'folder_order';
+
+/// folder_sync 表字段常量
+const String kFolderSyncName = 'folder_name';
+const String kFolderSyncTime = 'time';
+const String kFolderSyncKey = 'key';
+const String kFolderSyncData = 'sync_data';
+
+/// folder_order 表字段常量
+const String kFolderOrderName = 'folder_name';
+const String kFolderOrderValue = 'order_value';
 
 String getCurTime() {
   return DateTime.now()
@@ -207,7 +224,7 @@ class FavoriteItem {
         coverPath = json["coverPath"],
         time = json["time"];
 
-  FavoriteItem.fromRow(Row row)
+  FavoriteItem.fromRow(Map row)
       : name = row["name"],
         author = row["author"],
         type = FavoriteType(row["type"]),
@@ -278,6 +295,14 @@ class FolderSync {
   FolderSync(this.folderName, this.key, this.syncData);
 
   Map<String, dynamic> get syncDataObj => jsonDecode(syncData);
+
+  factory FolderSync.fromMap(Map<String, dynamic> map) {
+    return FolderSync(
+      map[kFolderSyncName],
+      map[kFolderSyncKey],
+      map[kFolderSyncData],
+    );
+  }
 }
 
 extension SQL on String {
@@ -292,69 +317,128 @@ class LocalFavoritesManager {
 
   static LocalFavoritesManager? cache;
 
-  late Database _db;
+  Database? _db;
+  bool _initialized = false;
+  final Completer<Database> _initCompleter = Completer<Database>();
+  final Lock _lock = Lock();
 
   Future<void> init() async {
-    _db = sqlite3.open("${App.dataPath}/local_favorite.db");
-    _checkAndCreate();
-    await readData();
+    if (_initialized) return;
+    await _lock.synchronized(() async {
+      if (_initialized) return;
+      
+      final dbPath = "${App.dataPath}/local_favorite.db";
+      final dir = Directory(App.dataPath);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      _db = await databaseFactory.openDatabase(dbPath,
+          options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: _onCreate,
+            onUpgrade: _onUpgrade,
+          ));
+
+      _checkAndCreate();
+      await readData();
+      _initialized = true;
+      _initCompleter.complete(_db);
+    });
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableFolderSync (
+        $kFolderSyncName TEXT PRIMARY KEY,
+        $kFolderSyncTime TEXT,
+        $kFolderSyncKey TEXT,
+        $kFolderSyncData TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableFolderOrder (
+        $kFolderOrderName TEXT PRIMARY KEY,
+        $kFolderOrderValue INT
+      )
+    ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // 根据需要实现升级逻辑
+  }
+
+  /// 确保数据库已初始化并返回数据库实例
+  Future<Database> _getDatabase() {
+    final db = _db;
+    if (db != null) {
+      return SynchronousFuture(db);
+    }
+    return _initCompleter.future;
   }
 
   void _checkAndCreate() async {
-    final tables = _getTablesWithDB();
-    if (!tables.contains('folder_sync')) {
-      _db.execute("""
-      create table folder_sync (
-        folder_name text primary key,
-        time TEXT,
-        key TEXT,
-        sync_data TEXT
-      );
-    """);
+    final db = await _getDatabase();
+    final tables = await _getTablesWithDB(db);
+    if (!tables.contains(kTableFolderSync)) {
+      await db.execute('''
+        CREATE TABLE $kTableFolderSync (
+          $kFolderSyncName TEXT PRIMARY KEY,
+          $kFolderSyncTime TEXT,
+          $kFolderSyncKey TEXT,
+          $kFolderSyncData TEXT
+        )
+      ''');
     }
-    if (!tables.contains('folder_order')) {
-      _db.execute("""
-      create table folder_order (
-        folder_name text primary key,
-        order_value int
-      );
-    """);
+    if (!tables.contains(kTableFolderOrder)) {
+      await db.execute('''
+        CREATE TABLE $kTableFolderOrder (
+          $kFolderOrderName TEXT PRIMARY KEY,
+          $kFolderOrderValue INT
+        )
+      ''');
     }
-    tables.remove('folder_sync');
-    tables.remove('folder_order');
-    if(tables.isEmpty)  return;
+    
+    // 移除系统表
+    tables.remove(kTableFolderSync);
+    tables.remove(kTableFolderOrder);
+    
+    if(tables.isEmpty) return;
+    
+    // 检查表结构是否需要更新
     var testTable = tables.first;
-    // 检查type是否是主键
-    var res = _db.select("""
-      PRAGMA table_info("$testTable");
-    """);
+    // 获取表信息
+    var columns = await db.rawQuery('PRAGMA table_info("$testTable")');
     bool shouldUpdate = false;
-    for (var row in res) {
+    for (var row in columns) {
       if (row["name"] == "type" && row["pk"] == 0) {
         shouldUpdate = true;
         break;
       }
     }
+    
     if (shouldUpdate) {
       for (var table in tables) {
         var tempName = "${table}_dw5d8g2_temp";
-        _db.execute("""
+        // 创建临时表并迁移数据
+        await db.execute('''
           CREATE TABLE "$tempName" AS SELECT * FROM "$table";
           DROP TABLE "$table";
           CREATE TABLE "$table" (
-            target text,
+            target TEXT,
             name TEXT,
             author TEXT,
-            type int,
+            type INT,
             tags TEXT,
             cover_path TEXT,
             time TEXT,
-            display_order int,
-            primary key (target, type)
+            display_order INT,
+            PRIMARY KEY (target, type)
           );
           INSERT INTO "$table" SELECT * FROM "$tempName";
           DROP TABLE "$tempName";
-        """);
+        ''');
       }
     }
   }
@@ -367,12 +451,15 @@ class LocalFavoritesManager {
   }
 
   Future<List<String>> find(String target, FavoriteType type) async {
+    final db = await _getDatabase();
     var res = <String>[];
+    final folderNames = await this.folderNames;
     for (var folder in folderNames) {
-      var rows = _db.select("""
-        select * from "$folder"
-        where target == ? and type == ?;
-      """, [target, type.key]);
+      var rows = await db.query(
+        folder,
+        where: 'target = ? AND type = ?',
+        whereArgs: [target, type.key],
+      );
       if (rows.isNotEmpty) {
         res.add(folder);
       }
@@ -381,12 +468,15 @@ class LocalFavoritesManager {
   }
 
   Future<List<String>> findWithModel(FavoriteItem item) async {
+    final db = await _getDatabase();
     var res = <String>[];
+    final folderNames = await this.folderNames;
     for (var folder in folderNames) {
-      var rows = _db.select("""
-        select * from "$folder"
-        where target == ? and type == ?;
-      """, [item.target, item.type.key]);
+      var rows = await db.query(
+        folder,
+        where: 'target = ? AND type = ?',
+        whereArgs: [item.target, item.type.key],
+      );
       if (rows.isNotEmpty) {
         res.add(folder);
       }
@@ -437,36 +527,38 @@ class LocalFavoritesManager {
       }
     } else if ((file = File("${App.dataPath}/local_favorite_temp.db"))
         .existsSync()) {
-      var tmp_db = sqlite3.open(file.path);
-
-      final folders = tmp_db
-          .select("SELECT name FROM sqlite_master WHERE type='table';")
+      var tmpDbFactory = databaseFactoryFfi;
+      final tmpDb = await tmpDbFactory.openDatabase(file.path);
+      
+      final folders = await tmpDb.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table';");
+      final folderNames = folders
           .map((element) => element["name"] as String)
           .toList();
-      folders.remove('folder_sync');
-      folders.remove('folder_order');
+          
+      folderNames.remove(kTableFolderSync);
+      folderNames.remove(kTableFolderOrder);
       LogManager.addLog(LogLevel.info, "LocalFavoritesManager.readData",
-          "read folders from local database $folders");
+          "read folders from local database $folderNames");
       var folderToOrder = <String, int>{};
-      for (var folder in folders) {
-        var res = tmp_db.select("""
-        select * from folder_order
-        where folder_name == ?;
-      """, [folder]);
+      for (var folder in folderNames) {
+        var res = await tmpDb.query(
+          kTableFolderOrder,
+          where: '$kFolderOrderName = ?',
+          whereArgs: [folder],
+        );
         if (res.isNotEmpty) {
-          folderToOrder[folder] = res.first["order_value"];
+          folderToOrder[folder] = res.first[kFolderOrderValue] as int;
         } else {
           folderToOrder[folder] = 0;
         }
       }
-      folders.sort((a, b) {
+      folderNames.sort((a, b) {
         return folderToOrder[a]! - folderToOrder[b]!;
       });
       var res = <FavoriteItemWithFolderInfo>[];
-      for (final folder in folders) {
-        var comics = tmp_db.select("""
-        select * from "$folder";
-      """);
+      for (final folder in folderNames) {
+        var comics = await tmpDb.query(folder);
         LogManager.addLog(LogLevel.info, "LocalFavoritesManager.readData",
             "read $folder gets ${comics.length} comics");
         res.addAll(comics.map((element) =>
@@ -477,7 +569,7 @@ class LocalFavoritesManager {
         if (!folderNames.contains(comic.folder)) {
           createFolder(comic.folder);
         }
-        if (!comicExists(comic.folder, comic.comic.target, comic.comic.type.key)) {
+        if (!(await comicExists(comic.folder, comic.comic.target, comic.comic.type.key))) {
           addComic(comic.folder, comic.comic);
           LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
               "add comic ${comic.comic.target} to ${comic.folder}");
@@ -487,7 +579,7 @@ class LocalFavoritesManager {
       }
       LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
           "skipped $skips comics, total ${res.length}");
-      tmp_db.dispose();
+      await tmpDb.close();
       file.deleteSync();
     } else {
       LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
@@ -495,26 +587,29 @@ class LocalFavoritesManager {
     }
   }
 
-  List<String> _getTablesWithDB() {
-    final tables = _db
-        .select("SELECT name FROM sqlite_master WHERE type='table';")
+  Future<List<String>> _getTablesWithDB(Database db) async {
+    final tablesResult = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table';");
+    final tables = tablesResult
         .map((element) => element["name"] as String)
         .toList();
     return tables;
   }
 
-  List<String> _getFolderNamesWithDB() {
-    final folders = _getTablesWithDB();
-    folders.remove('folder_sync');
-    folders.remove('folder_order');
+  Future<List<String>> _getFolderNamesWithDB() async {
+    final db = await _getDatabase();
+    final folders = await _getTablesWithDB(db);
+    folders.remove(kTableFolderSync);
+    folders.remove(kTableFolderOrder);
     var folderToOrder = <String, int>{};
     for (var folder in folders) {
-      var res = _db.select("""
-        select * from folder_order
-        where folder_name == ?;
-      """, [folder]);
+      var res = await db.query(
+        kTableFolderOrder,
+        where: '$kFolderOrderName = ?',
+        whereArgs: [folder],
+      );
       if (res.isNotEmpty) {
-        folderToOrder[folder] = res.first["order_value"];
+        folderToOrder[folder] = res.first[kFolderOrderValue] as int;
       } else {
         folderToOrder[folder] = 0;
       }
@@ -525,88 +620,105 @@ class LocalFavoritesManager {
     return folders;
   }
 
-  void updateOrder(Map<String, int> order) {
+  void updateOrder(Map<String, int> order) async {
+    final db = await _getDatabase();
     for (var folder in order.keys) {
-      _db.execute("""
-        insert or replace into folder_order (folder_name, order_value)
-        values (?, ?);
-      """, [folder, order[folder]]);
+      await db.insert(
+        kTableFolderOrder,
+        {
+          kFolderOrderName: folder,
+          kFolderOrderValue: order[folder],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 
-  List<FolderSync> _getFolderSyncWithDB() {
-    return _db
-        .select("SELECT * FROM folder_sync")
-        .map((element) => FolderSync(
-            element['folder_name'], element['key'], element['sync_data']))
-        .toList();
+  Future<List<FolderSync>> _getFolderSyncWithDB() async {
+    final db = await _getDatabase();
+    final result = await db.query(kTableFolderSync);
+    return result.map((element) => FolderSync.fromMap(element)).toList();
   }
 
-  void updateFolderSyncTime(FolderSync folderSync) {
-    _db.execute("""
-      update folder_sync
-      set time = ?
-      where folder_name == ?
-    """, [folderSync.time, folderSync.folderName]);
+  void updateFolderSyncTime(FolderSync folderSync) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableFolderSync,
+      {kFolderSyncTime: folderSync.time},
+      where: '$kFolderSyncName = ?',
+      whereArgs: [folderSync.folderName],
+    );
   }
 
-  void insertFolderSync(FolderSync folderSync) {
-    // 注意 syncData 不能用 toParam, 否则会没法 jsonDecode
-    _db.execute("""
-        insert into folder_sync (folder_name, time, key, sync_data)
-        values ('${folderSync.folderName.toParam}', '${folderSync.time.toParam}', '${folderSync.key.toParam}', 
-          '${folderSync.syncData}');
-      """);
+  void insertFolderSync(FolderSync folderSync) async {
+    final db = await _getDatabase();
+    await db.insert(kTableFolderSync, {
+      kFolderSyncName: folderSync.folderName,
+      kFolderSyncTime: folderSync.time,
+      kFolderSyncKey: folderSync.key,
+      kFolderSyncData: folderSync.syncData,
+    });
   }
 
-  int count(String folderName) {
-    return _db.select("""
-      select count(*) as c
-      from "$folderName"
-    """).first["c"];
+  Future<int> count(String folderName) async {
+    final db = await _getDatabase();
+    final result = await db.rawQuery('SELECT COUNT(*) as c FROM "$folderName"');
+    return result.first["c"] as int;
   }
 
-  List<String> get folderNames => _getFolderNamesWithDB();
+  Future<List<String>> get folderNames async => await _getFolderNamesWithDB();
 
-  List<FolderSync> get folderSync => _getFolderSyncWithDB();
+  Future<List<FolderSync>> get folderSync async => await _getFolderSyncWithDB();
 
-  int maxValue(String folder) {
-    return _db.select("""
-        SELECT MAX(display_order) AS max_value
-        FROM "$folder";
-      """).firstOrNull?["max_value"] ?? 0;
+  Future<int> maxValue(String folder) async {
+    final db = await _getDatabase();
+    final result = await db.rawQuery(
+        'SELECT MAX(display_order) AS max_value FROM "$folder"');
+    return result.firstOrNull?["max_value"] as int? ?? 0;
   }
 
-  int minValue(String folder) {
-    return _db.select("""
-        SELECT MIN(display_order) AS min_value
-        FROM "$folder";
-      """).firstOrNull?["min_value"] ?? 0;
+  Future<int> minValue(String folder) async {
+    final db = await _getDatabase();
+    final result = await db.rawQuery(
+        'SELECT MIN(display_order) AS min_value FROM "$folder"');
+    return result.firstOrNull?["min_value"] as int? ?? 0;
   }
 
-  List<FavoriteItem> getAllComics(String folder) {
-    var rows = _db.select("""
-        select * from "$folder"
-        ORDER BY display_order;
-      """);
+  Future<List<FavoriteItem>> getAllComics(String folder) async {
+    final db = await _getDatabase();
+    var rows = await db.query(folder, orderBy: 'display_order');
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();
   }
 
-  void addTagTo(String folder, String target, String tag) {
-    _db.execute("""
-      update "$folder"
-      set tags = '$tag,' || tags
-      where target == '${target.toParam}'
-    """);
-    saveData();
+  void addTagTo(String folder, String target, String tag) async {
+    final db = await _getDatabase();
+    // 先获取现有标签
+    final result = await db.query(
+      folder,
+      columns: ['tags'],
+      where: 'target = ?',
+      whereArgs: [target],
+    );
+
+    if (result.isNotEmpty) {
+      final existingTags = result.first['tags'] as String;
+      final newTags = '$tag,$existingTags';
+      
+      await db.update(
+        folder,
+        {'tags': newTags},
+        where: 'target = ?',
+        whereArgs: [target],
+      );
+      saveData();
+    }
   }
 
-  List<FavoriteItemWithFolderInfo> allComics() {
+  Future<List<FavoriteItemWithFolderInfo>> allComics() async {
+    final db = await _getDatabase();
     var res = <FavoriteItemWithFolderInfo>[];
-    for (final folder in folderNames) {
-      var comics = _db.select("""
-        select * from "$folder";
-      """);
+    for (final folder in await folderNames) {
+      var comics = await db.query(folder);
       res.addAll(comics.map((element) =>
           FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder)));
     }
@@ -614,11 +726,11 @@ class LocalFavoritesManager {
   }
 
   /// create a folder
-  String createFolder(String name, [bool renameWhenInvalidName = false]) {
+  Future<String> createFolder(String name, [bool renameWhenInvalidName = false]) async {
     if (name.isEmpty) {
       if (renameWhenInvalidName) {
         int i = 0;
-        while (folderNames.contains(i.toString())) {
+        while ((await folderNames).contains(i.toString())) {
           i++;
         }
         name = i.toString();
@@ -626,11 +738,11 @@ class LocalFavoritesManager {
         throw "name is empty!";
       }
     }
-    if (folderNames.contains(name)) {
+    if ((await folderNames).contains(name)) {
       if (renameWhenInvalidName) {
         var prevName = name;
         int i = 0;
-        while (folderNames.contains(i.toString())) {
+        while ((await folderNames).contains(i.toString())) {
           i++;
         }
         name = prevName + i.toString();
@@ -638,36 +750,42 @@ class LocalFavoritesManager {
         throw Exception("Folder is existing");
       }
     }
-    _db.execute("""
-      create table "$name"(
-        target text,
+    
+    final db = await _getDatabase();
+    await db.execute('''
+      CREATE TABLE "$name"(
+        target TEXT,
         name TEXT,
         author TEXT,
-        type int,
+        type INT,
         tags TEXT,
         cover_path TEXT,
         time TEXT,
-        display_order int,
-        primary key (target, type)
-      );
-    """);
+        display_order INT,
+        PRIMARY KEY (target, type)
+      )
+    ''');
     saveData();
     return name;
   }
 
-  bool comicExists(String folder, String target, int type) {
-    var res = _db.select("""
-      select * from "$folder"
-      where target == ? and type == ?;
-    """, [target, type]);
+  Future<bool> comicExists(String folder, String target, int type) async {
+    final db = await _getDatabase();
+    var res = await db.query(
+      folder,
+      where: 'target = ? AND type = ?',
+      whereArgs: [target, type],
+    );
     return res.isNotEmpty;
   }
 
-  FavoriteItem getComic(String folder, String target, FavoriteType type) {
-    var res = _db.select("""
-      select * from "$folder"
-      where target == ? and type == ?;
-    """, [target, type.key]);
+  Future<FavoriteItem> getComic(String folder, String target, FavoriteType type) async {
+    final db = await _getDatabase();
+    var res = await db.query(
+      folder,
+      where: 'target = ? AND type = ?',
+      whereArgs: [target, type.key],
+    );
     if (res.isEmpty) {
       throw Exception("Comic not found");
     }
@@ -679,35 +797,40 @@ class LocalFavoritesManager {
   /// This method will download cover to local, to avoid problems like changing url
   void addComic(String folder, FavoriteItem comic, [int? order]) async {
     _modifiedAfterLastCache = true;
-    if (!folderNames.contains(folder)) {
+    if (!(await folderNames).contains(folder)) {
       throw Exception("Folder does not exists");
     }
-    var res = _db.select("""
-      select * from "$folder"
-      where target == '${comic.target}';
-    """);
+    
+    final db = await _getDatabase();
+    var res = await db.query(
+      folder,
+      where: 'target = ?',
+      whereArgs: [comic.target],
+    );
     if (res.isNotEmpty) {
       return;
     }
+    
+    int displayOrder;
     if (order != null) {
-      _db.execute("""
-        insert into "$folder" (target, name, author, type, tags, cover_path, time, display_order)
-        values ('${comic.target.toParam}', '${comic.name.toParam}', '${comic.author.toParam}', ${comic.type.key}, 
-          '${comic.tags.join(',').toParam}', '${comic.coverPath.toParam}', '${comic.time.toParam}', $order);
-      """);
+      displayOrder = order;
     } else if (appdata.settings[53] == "0") {
-      _db.execute("""
-        insert into "$folder" (target, name, author, type, tags, cover_path, time, display_order)
-        values ('${comic.target.toParam}', '${comic.name.toParam}', '${comic.author.toParam}', ${comic.type.key}, 
-          '${comic.tags.join(',').toParam}', '${comic.coverPath.toParam}', '${comic.time.toParam}', ${maxValue(folder) + 1});
-      """);
+      displayOrder = (await maxValue(folder)) + 1;
     } else {
-      _db.execute("""
-        insert into "$folder" (target, name, author, type, tags, cover_path, time, display_order)
-        values ('${comic.target.toParam}', '${comic.name.toParam}', '${comic.author.toParam}', ${comic.type.key}, 
-          '${comic.tags.join(',').toParam}', '${comic.coverPath.toParam}', '${comic.time.toParam}', ${minValue(folder) - 1});
-      """);
+      displayOrder = (await minValue(folder)) - 1;
     }
+
+    await db.insert(folder, {
+      'target': comic.target,
+      'name': comic.name,
+      'author': comic.author,
+      'type': comic.type.key,
+      'tags': comic.tags.join(','),
+      'cover_path': comic.coverPath,
+      'time': comic.time,
+      'display_order': displayOrder,
+    });
+
     updateUI();
     saveData();
     try {
@@ -761,14 +884,15 @@ class LocalFavoritesManager {
   }
 
   /// delete a folder
-  void deleteFolder(String name) {
+  void deleteFolder(String name) async {
     _modifiedAfterLastCache = true;
-    _db.execute("""
-      delete from folder_sync where folder_name == ?;
-    """, [name]);
-    _db.execute("""
-      drop table "$name";
-    """);
+    final db = await _getDatabase();
+    await db.delete(
+      kTableFolderSync,
+      where: '$kFolderSyncName = ?',
+      whereArgs: [name],
+    );
+    await db.execute('DROP TABLE "$name"');
   }
 
   void checkAndDeleteCover(FavoriteItem item) async {
@@ -783,51 +907,55 @@ class LocalFavoritesManager {
     checkAndDeleteCover(comic);
   }
 
-  void deleteComicWithTarget(String folder, String target, FavoriteType type) {
+  void deleteComicWithTarget(String folder, String target, FavoriteType type) async {
     _modifiedAfterLastCache = true;
-    _db.execute("""
-      delete from "$folder"
-      where target == ? and type == ?;
-    """, [target, type.key]);
+    final db = await _getDatabase();
+    await db.delete(
+      folder,
+      where: 'target = ? AND type = ?',
+      whereArgs: [target, type.key],
+    );
     saveData();
   }
 
   Future<void> clearAll() async {
-    _db.dispose();
+    final db = await _getDatabase();
+    await db.close();
     File("${App.dataPath}/local_favorite.db").deleteSync();
     await init();
     saveData();
   }
 
   void reorder(List<FavoriteItem> newFolder, String folder) async {
-    if (!folderNames.contains(folder)) {
+    if (!(await folderNames).contains(folder)) {
       throw Exception("Failed to reorder: folder not found");
     }
     deleteFolder(folder);
-    createFolder(folder);
+    await createFolder(folder);
     for (int i = 0; i < newFolder.length; i++) {
       addComic(folder, newFolder[i], i);
     }
     updateUI();
   }
 
-  void rename(String before, String after) {
-    if (folderNames.contains(after)) {
+  void rename(String before, String after) async {
+    if ((await folderNames).contains(after)) {
       throw "Name already exists!";
     }
     if (after.contains('"')) {
       throw "Invalid name";
     }
-    _db.execute("""
-      ALTER TABLE "$before"
-      RENAME TO "$after";
-    """);
-    if (folderSync.isNotEmpty) {
-      _db.execute("""
-      UPDATE folder_sync
-      set folder_name = ?
-      where folder_name == ?
-    """, [after, before]);
+    
+    final db = await _getDatabase();
+    await db.execute('ALTER TABLE "$before" RENAME TO "$after"');
+    
+    if ((await folderSync).isNotEmpty) {
+      await db.update(
+        kTableFolderSync,
+        {kFolderSyncName: after},
+        where: '$kFolderSyncName = ?',
+        whereArgs: [before],
+      );
     }
     saveData();
   }
@@ -835,38 +963,35 @@ class LocalFavoritesManager {
   void onReadEnd(String target, FavoriteType type) async {
     _modifiedAfterLastCache = true;
     bool isModified = false;
-    for (final folder in folderNames) {
-      var rows = _db.select("""
-        select * from "$folder"
-        where target == ? and type == ?;
-      """, [target, type.key]);
+    final db = await _getDatabase();
+    for (final folder in await folderNames) {
+      var rows = await db.query(
+        folder,
+        where: 'target = ? AND type = ?',
+        whereArgs: [target, type.key],
+      );
       if (rows.isNotEmpty) {
         isModified = true;
         var newTime = DateTime.now()
             .toIso8601String()
             .replaceFirst("T", " ")
             .substring(0, 19);
-        String updateLocationSql = "";
+            
+        Map<String, dynamic> updates = {'time': newTime};
         if (appdata.settings[54] == "1") {
-          int maxValue = _db.select("""
-            SELECT MAX(display_order) AS max_value
-            FROM "$folder";
-          """).firstOrNull?["max_value"] ?? 0;
-          updateLocationSql = "display_order = ${maxValue + 1},";
+          int maxValue = await this.maxValue(folder);
+          updates['display_order'] = maxValue + 1;
         } else if (appdata.settings[54] == "2") {
-          int minValue = _db.select("""
-            SELECT MIN(display_order) AS min_value
-            FROM "$folder";
-          """).firstOrNull?["min_value"] ?? 0;
-          updateLocationSql = "display_order = ${minValue - 1},";
+          int minValue = await this.minValue(folder);
+          updates['display_order'] = minValue - 1;
         }
-        _db.execute("""
-            UPDATE "$folder"
-            SET 
-              $updateLocationSql
-              time = '$newTime'
-            WHERE target == '${target.toParam}';
-          """);
+        
+        await db.update(
+          folder,
+          updates,
+          where: 'target = ?',
+          whereArgs: [target],
+        );
       }
     }
     if (isModified) {
@@ -875,31 +1000,29 @@ class LocalFavoritesManager {
     saveData();
   }
 
-  String folderToJsonString(String folderName) {
+  Future<String> folderToJsonString(String folderName) async {
+    final db = await _getDatabase();
     var data = <String, dynamic>{};
     data["info"] = "Generated by PicaComic.";
     data["website"] = "https://github.com/Pacalini/PicaComic";
     data["name"] = folderName;
-    var comics = _db
-        .select("select * from \"$folderName\";")
-        .map((element) => FavoriteItem.fromRow(element).toJson())
-        .toList();
-    data["comics"] = comics;
+    var comics = await db.query(folderName);
+    data["comics"] = comics.map((e) => FavoriteItem.fromRow(e).toJson()).toList();
     return const JsonEncoder().convert(data);
   }
 
-  (bool, String) loadFolderData(String dataString) {
+  Future<(bool, String)> loadFolderData(String dataString) async {
     try {
       var data =
           const JsonDecoder().convert(dataString) as Map<String, dynamic>;
       final name_ = data["name"] as String;
       var name = name_;
       int i = 0;
-      while (folderNames.contains(name)) {
+      while ((await folderNames).contains(name)) {
         name = name_ + i.toString();
         i++;
       }
-      createFolder(name);
+      await createFolder(name);
       for (var json in data["comics"]) {
         addComic(name, FavoriteItem.fromJson(json));
       }
@@ -910,16 +1033,18 @@ class LocalFavoritesManager {
     }
   }
 
-  List<FavoriteItemWithFolderInfo> search(String keyword) {
+  Future<List<FavoriteItemWithFolderInfo>> search(String keyword) async {
+    final db = await _getDatabase();
     var keywordList = keyword.split(" ");
     keyword = keywordList.first;
     var comics = <FavoriteItemWithFolderInfo>[];
-    for (var table in folderNames) {
-      keyword = "%$keyword%";
-      var res = _db.select("""
-        SELECT * FROM "$table" 
-        WHERE name LIKE ? OR author LIKE ? OR tags LIKE ?;
-      """, [keyword, keyword, keyword]);
+    for (var table in await folderNames) {
+      var searchTerm = '%$keyword%';
+      var res = await db.query(
+        table,
+        where: 'name LIKE ? OR author LIKE ? OR tags LIKE ?',
+        whereArgs: [searchTerm, searchTerm, searchTerm],
+      );
       for (var comic in res) {
         comics.add(
             FavoriteItemWithFolderInfo(FavoriteItem.fromRow(comic), table));
@@ -948,12 +1073,14 @@ class LocalFavoritesManager {
     return comics;
   }
 
-  void editTags(String target, String folder, List<String> tags) {
-    _db.execute("""
-        update "$folder"
-        set tags = '${tags.join(",")}'
-        where target == '${target.toParam}';
-      """);
+  void editTags(String target, String folder, List<String> tags) async {
+    final db = await _getDatabase();
+    await db.update(
+      folder,
+      {'tags': tags.join(',')},
+      where: 'target = ?',
+      whereArgs: [target],
+    );
   }
 
   final _cachedFavoritedTargets = <String, bool>{};
@@ -967,24 +1094,30 @@ class LocalFavoritesManager {
 
   bool _modifiedAfterLastCache = true;
 
-  void _cacheFavoritedTargets() {
+  void _cacheFavoritedTargets() async {
     _modifiedAfterLastCache = false;
     _cachedFavoritedTargets.clear();
-    for (var folder in folderNames) {
-      var res = _db.select("""
-        select target from "$folder";
-      """);
+    final db = await _getDatabase();
+    for (var folder in await folderNames) {
+      var res = await db.query(folder, columns: ['target']);
       for (var row in res) {
-        _cachedFavoritedTargets[row["target"]] = true;
+        _cachedFavoritedTargets[row["target"] as String] = true;
       }
     }
   }
 
-  void updateInfo(String folder, FavoriteItem comic) {
-    _db.execute("""
-      update "$folder"
-      set name = ?, author = ?, cover_path = ?, tags = ?
-      where target == ? and type == ?;
-    """, [comic.name, comic.author, comic.coverPath, comic.tags.join(","), comic.target, comic.type.key]);
+  void updateInfo(String folder, FavoriteItem comic) async {
+    final db = await _getDatabase();
+    await db.update(
+      folder,
+      {
+        'name': comic.name,
+        'author': comic.author,
+        'cover_path': comic.coverPath,
+        'tags': comic.tags.join(','),
+      },
+      where: 'target = ? AND type = ?',
+      whereArgs: [comic.target, comic.type.key],
+    );
   }
 }
