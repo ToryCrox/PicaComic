@@ -67,14 +67,12 @@ class App {
   }
 
   static off(BuildContext context, Widget Function() page) {
-    LogManager.addLog(LogLevel.info, "App Status",
-        "Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
+    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
     Navigator.of(context).pushReplacement(AppPageRoute(builder: (context) => page()));
   }
 
   static globalOff(Widget Function() page) {
-    LogManager.addLog(LogLevel.info, "App Status",
-        "Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
+    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
     Navigator.of(globalContext!).pushReplacement(AppPageRoute(builder: (context) => page()));
   }
 
@@ -85,8 +83,7 @@ class App {
 
   static Future<T?> to<T extends Object?>(BuildContext context, Widget Function() page,
       [bool enableIOSGesture = true]) {
-    LogManager.addLog(LogLevel.info, "App Status",
-        "Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
+    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
     return Navigator.of(context).push<T>(AppPageRoute(builder: (context) => page()));
   }
 

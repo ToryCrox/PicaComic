@@ -69,10 +69,10 @@ Future<void> setNetworkProxy() async {
   if (proxyHttpOverrides == null) {
     proxyHttpOverrides = ProxyHttpOverrides(proxy);
     HttpOverrides.global = proxyHttpOverrides;
-    Log.info("Network", "Set Proxy $proxy");
+    Log.i("Network Set Proxy $proxy");
   } else if (proxyHttpOverrides!.proxy != proxy) {
     proxyHttpOverrides!.proxy = proxy;
-    Log.info("Network", "Set Proxy $proxy");
+    Log.i("Network Set Proxy $proxy");
   }
 }
 

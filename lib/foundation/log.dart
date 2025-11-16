@@ -6,20 +6,46 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/throttle.dart';
 
+import 'advanced_file_output.dart';
 import 'app.dart';
 import 'logger_pretty_printer.dart';
 
 void log(String content,
     [String title = "debug", LogLevel level = LogLevel.info]) {
-  LogManager.addLog(level, title, content);
+  // 已弃用，使用 Log.d, Log.i, Log.w, Log.e 替代
+  switch (level) {
+    case LogLevel.debug:
+      Log.d('$title $content');
+      break;
+    case LogLevel.info:
+      Log.i('$title $content');
+      break;
+    case LogLevel.warning:
+      Log.w('$title $content');
+      break;
+    case LogLevel.error:
+      Log.e('$title $content');
+      break;
+  }
 }
 
 final excludePaths = [
   'package:pica_comic/foundation/log.dart',
 ];
 final excludeMethods = <String>[];
+final logMemoryOut = MemoryOutput(
+  bufferSize: 500,
+);
 final logger = Logger(
   level: Level.trace,
+  output: MultiOutput([
+    ConsoleOutput(),
+    MAdvancedFileOutput(
+      path: '${App.dataPath}/logger.txt',
+      overrideExisting: true,
+    ),
+    logMemoryOut,
+  ]),
   printer: LoggerPrettyPrinter(
       methodCount: 1,
       printEmojis: false,
@@ -31,13 +57,13 @@ final logger = Logger(
         if (excludeMethods.contains(method)) {
           return true;
         }
+
         /// segment: package:app/src/log/log.dart:96:15
         if (excludePaths.any((e) => segment.contains(e))) {
           return true;
         }
         return false;
-      }
-  ),
+      }),
 );
 
 class LogManager {
@@ -59,47 +85,48 @@ class LogManager {
     print('\x1B[31m$text\x1B[0m');
   }
 
-  static void addLog(LogLevel level, String title, String content, {StackTrace? stackTrace}) {
-    if (!ignoreLimitation && content.length > maxLogLength) {
-      content = "${content.substring(0, maxLogLength)}...";
-    }
-
-    if (kDebugMode) {
-      switch (level) {
-        case LogLevel.error:
-          //printError("$title: $content");
-          logger.e('$title: $content', stackTrace: stackTrace);
-          break;
-        case LogLevel.warning:
-          logger.w("$title: $content");
-          break;
-        case LogLevel.info:
-          logger.i("$title: $content");
-          break;
-        case LogLevel.debug:
-          logger.d("$title: $content");
-          break;
-      }
-    }
-
-    var newLog = Log(level, title, content);
-
-    if (newLog == _logs.lastOrNull) {
-      return;
-    }
-    if (level == LogLevel.debug) {
-      return;
-    }
-
-    _logs.add(newLog);
-    writeLog(level, title, content);
-    if (_logs.length > maxLogNumber) {
-      var res = _logs.remove(
-          _logs.firstWhereOrNull((element) => element.level == LogLevel.info));
-      if (!res) {
-        _logs.removeAt(0);
-      }
-    }
+  static void addLog(LogLevel level, String title, String content,
+      {StackTrace? stackTrace}) {
+    // if (!ignoreLimitation && content.length > maxLogLength) {
+    //   content = "${content.substring(0, maxLogLength)}...";
+    // }
+    //
+    // if (kDebugMode) {
+    //   switch (level) {
+    //     case LogLevel.error:
+    //       //printError("$title: $content");
+    //       logger.e('$title: $content', stackTrace: stackTrace);
+    //       break;
+    //     case LogLevel.warning:
+    //       logger.w("$title: $content");
+    //       break;
+    //     case LogLevel.info:
+    //       logger.i("$title: $content");
+    //       break;
+    //     case LogLevel.debug:
+    //       logger.d("$title: $content");
+    //       break;
+    //   }
+    // }
+    //
+    // var newLog = Log(level, title, content);
+    //
+    // if (newLog == _logs.lastOrNull) {
+    //   return;
+    // }
+    // if (level == LogLevel.debug) {
+    //   return;
+    // }
+    //
+    // _logs.add(newLog);
+    // writeLog(level, title, content);
+    // if (_logs.length > maxLogNumber) {
+    //   var res = _logs.remove(
+    //       _logs.firstWhereOrNull((element) => element.level == LogLevel.info));
+    //   if (!res) {
+    //     _logs.removeAt(0);
+    //   }
+    // }
   }
 
   static void clear() => _logs.clear();
@@ -115,16 +142,16 @@ class LogManager {
 
   static void init() async {
     File? logFile = File("${App.dataPath}/log.txt");
-    if(App.isAndroid) {
+    if (App.isAndroid) {
       var externalDirectory = await getExternalStorageDirectory();
       if (externalDirectory != null) {
         logFile = File("${externalDirectory.path}/log.txt");
       }
     }
-    if(App.isIOS) {
+    if (App.isIOS) {
       logFile = null;
     }
-    if(logFile?.existsSync() ?? false) {
+    if (logFile?.existsSync() ?? false) {
       await logFile?.delete();
     }
     print("Log file: ${logFile?.path}");
@@ -141,7 +168,8 @@ class LogManager {
     if (logSink == null) {
       return;
     }
-    logSink.writeln('${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n');
+    logSink.writeln(
+        '${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n');
     // if (!_isWriting) {
     //   /// 延迟1秒写入文件
     //   Future.delayed(const Duration(seconds: 1), () {
@@ -163,30 +191,40 @@ class Log {
 
   Log(this.level, this.title, this.content);
 
-  static void debug(String title, String message) {
-    LogManager.addLog(LogLevel.debug, title, message);
+  /// Log a message at level [Level.debug].
+  ///
+  /// Corresponds to [Logger.d].
+  static void d(Object message, {Object? error, StackTrace? stackTrace}) {
+    logger.d(message, error: error, stackTrace: stackTrace);
   }
 
-  static void d(String message) {
-    LogManager.addLog(LogLevel.debug, "debug", message);
+  /// Log a message at level [Level.info].
+  ///
+  /// Corresponds to [Logger.i].
+  static void i(Object message, {Object? error, StackTrace? stackTrace}) {
+    logger.i(message, error: error, stackTrace: stackTrace);
   }
 
-  static void info(String title, String message) {
-    LogManager.addLog(LogLevel.info, title, message);
+  /// Log a message at level [Level.warning].
+  ///
+  /// Corresponds to [Logger.w].
+  static void w(Object message, {Object? error, StackTrace? stackTrace}) {
+    logger.w(message, error: error, stackTrace: stackTrace);
   }
 
-  static void warning(String title, String message) {
-    LogManager.addLog(LogLevel.warning, title, message);
-  }
-
-  static void error(String title, String message, {StackTrace? stackTrace}) {
-    LogManager.addLog(LogLevel.error, title, message, stackTrace: stackTrace);
+  /// Log a message at level [Level.error].
+  ///
+  /// Corresponds to [Logger.e].
+  static void e(Object message, {Object? error, StackTrace? stackTrace}) {
+    logger.e(message, error: error, stackTrace: stackTrace);
   }
 
   @override
   bool operator ==(Object other) {
-    if (other is! Log)  return false;
-    return other.level == level && other.title == title && other.content == content;
+    if (other is! Log) return false;
+    return other.level == level &&
+        other.title == title &&
+        other.content == content;
   }
 
   @override

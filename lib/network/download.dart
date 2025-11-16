@@ -156,8 +156,7 @@ class DownloadManager implements Listenable {
               downloadingItemFromMap(item, _onFinish, _onError, _saveInfo));
         }
       } catch (e, s) {
-        LogManager.addLog(LogLevel.error, "IO",
-            "Failed to read downloaded information\n$e\n$s");
+        Log.e("IO Failed to read downloaded information\n$e\n$s");
         // file.deleteSync();
         // await _saveInfo();
       }
@@ -187,8 +186,7 @@ class DownloadManager implements Listenable {
                   i++;
                   if (i > 20) {
                     // it seems that the error is unrelated to the directory name
-                    Log.error("IO",
-                        "Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
+                    Log.e("IO Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
                     break;
                   }
                   directory = comic.name + i.toString();
@@ -238,8 +236,7 @@ class DownloadManager implements Listenable {
       sharedCompute(saveToFile, saveItem);
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
-      Log.debug("IO",
-          "Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
+      Log.d("IO Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
     });
   }
 
@@ -382,7 +379,7 @@ class DownloadManager implements Listenable {
       await _addToDb(comic, comic.directory ?? await getDirectoryName(comic.id));
       return null;
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "IO", "$e/n$s");
+      Log.e("IO $e/n$s");
       return e.toString();
     }
   }
@@ -397,7 +394,7 @@ class DownloadManager implements Listenable {
       await updateSize(comic.id, size);
       return size;
     } catch (e) {
-      LogManager.addLog(LogLevel.error, "IO", e.toString());
+      Log.e("IO ${e.toString()}");
       return 0;
     }
   }
@@ -763,8 +760,7 @@ extension AddDownloadExt on DownloadManager {
       }
       return comic;
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "IO",
-          "Failed to get a downloaded comic info:\n$e\n$s");
+      Log.e("IO Failed to get a downloaded comic info:\n$e\n$s");
       return null;
     }
   }

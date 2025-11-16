@@ -56,7 +56,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
         _imageList = await ImageFavoriteManager.getAll();
       }
     }
-    Log.debug('ImageFavorites', '_imageList $_imageList');
+    Log.d('ImageFavorites _imageList $_imageList');
     setState(() {});
   }
 

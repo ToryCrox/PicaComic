@@ -55,7 +55,7 @@ class Webdav {
     if (!configs[3].endsWith('/') && !configs[3].endsWith('\\')) {
       configs[3] += '/';
     }
-    LogManager.addLog(LogLevel.info, "network", "Uploading Data");
+    Log.i("network Uploading Data");
     var client = newClient(
       configs[0],
       user: configs[1],
@@ -83,8 +83,7 @@ class Webdav {
       await client.writeFromFile(await exportDataToFile(false, "${App.cachePath}/userdata.picadata"),
           "${configs[3]}${appdata.settings[46]}.picadata");
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Sync",
-          "Failed to upload data to webdav server.\n$e\n$s");
+      Log.e("Sync Failed to upload data to webdav server.\n$e\n$s");
       _isOperating = false;
       return false;
     }
@@ -104,7 +103,7 @@ class Webdav {
       if (!configs[3].endsWith('/') && !configs[3].endsWith('\\')) {
         configs[3] += '/';
       }
-      LogManager.addLog(LogLevel.info, "network", "Downloading Data");
+      Log.i("network Downloading Data");
       var client = newClient(
         configs[0],
         user: configs[1],
@@ -126,8 +125,7 @@ class Webdav {
         }
 
         if (!force && maxVersion.toString() == appdata.settings[46]) {
-          LogManager.addLog(LogLevel.info, "Sync",
-              "No updated version of data.\nStop downloading data.");
+          Log.i("Sync No updated version of data.\nStop downloading data.");
           return true;
         }
 
@@ -139,8 +137,7 @@ class Webdav {
         var res = await importData("$cachePath/picadata");
         return res;
       } catch (e, s) {
-        LogManager.addLog(LogLevel.error, "Sync",
-            "Failed to download data from webdav server.\n$e\n$s");
+        Log.e("Sync Failed to download data from webdav server.\n$e\n$s");
         return false;
       }
     } finally {

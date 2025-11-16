@@ -144,7 +144,7 @@ class ImageManager {
       );
     } catch (e, s) {
       caching?.cancel();
-      log("$e\n$s", "Network", LogLevel.error);
+      Log.e("Network $e\n$s");
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
@@ -453,7 +453,7 @@ class ImageManager {
       );
     } catch (e, s) {
       caching?.cancel();
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
@@ -841,7 +841,7 @@ class ImageManager {
       yield DownloadProgress(
           1, 1, url, savePath, result ?? Uint8List.fromList(imageData));
     } catch (e) {
-      Log.error("Network", "Failed to load a image:\nUrl:$url\nError:$e");
+      Log.e("Network Failed to load a image:\nUrl:$url\nError:$e");
       caching?.cancel();
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
@@ -889,10 +889,7 @@ class ImageManager {
     ext ??= url.split('.').last;
     if (!["jpg", "jpeg", "png", "gif", "webp"].contains(ext)) {
       ext = "jpg";
-      LogManager.addLog(
-          LogLevel.warning,
-          "ImageManager",
-          "Unknown image extension: \n"
+      Log.w("ImageManager Unknown image extension: \n"
               "Content-Type: $contentType\n"
               "URL: $url");
     }

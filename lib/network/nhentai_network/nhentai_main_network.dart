@@ -146,7 +146,7 @@ class NhentaiNetwork {
             (index) => parseComic(latest[index + popularDoms.length]))),
       ));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -168,7 +168,7 @@ class NhentaiNetwork {
 
       return const Res(true);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -212,7 +212,7 @@ class NhentaiNetwork {
               comicDoms.length, (index) => parseComic(comicDoms[index]))),
           subData: lastPagination == null ? 1 : int.parse(lastPagination));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -298,7 +298,7 @@ class NhentaiNetwork {
       return Res(NhentaiComic(id, title, subTitle, cover, tags, favorite,
           thumbnails, recommendations, token));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -320,7 +320,7 @@ class NhentaiNetwork {
       }
       return Res(comments);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -370,7 +370,7 @@ class NhentaiNetwork {
       }
       return Res(images);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -396,7 +396,7 @@ class NhentaiNetwork {
               comics.length, (index) => parseComic(comics[index]))),
           subData: lastPagination == null ? 1 : int.parse(lastPagination));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }
@@ -467,7 +467,7 @@ class NhentaiNetwork {
               comicDoms.length, (index) => parseComic(comicDoms[index]))),
           subData: lastPagination == null ? 1 : int.parse(lastPagination));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
     }
   }

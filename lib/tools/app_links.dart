@@ -18,7 +18,7 @@ bool canHandle(String text){
 }
 
 bool handleAppLinks(Uri uri, {bool showMessageWhenError = true}){
-  LogManager.addLog(LogLevel.info, "App Link", "Open Link $uri");
+  Log.i("App Link Open Link $uri");
   var context = App.mainNavigatorKey!.currentContext!;
   switch(uri.host){
     case "e-hentai.org":

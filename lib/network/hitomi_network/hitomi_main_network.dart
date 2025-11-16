@@ -112,7 +112,7 @@ class HiNetwork{
       return Res(HitomiComicBrief(name, type, lang, tags, time, artist, link, cover));
     }
     catch(e, s){
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -129,7 +129,7 @@ class HiNetwork{
       return Res(res.data);
     }
     catch(e, s){
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return Res(null, errorMessage: "$e");
     }
   }

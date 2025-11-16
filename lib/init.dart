@@ -38,7 +38,7 @@ Future<void> init() async {
     await App.init();
     LogManager.init();
     PrefsHelper.init();
-    LogManager.addLog(LogLevel.info, "App Status", "Start initialization.");
+    Log.i("App Status Start initialization.");
     await appdata.readData();
     SingleInstanceCookieJar("${App.dataPath}/cookies.db");
     HttpProxyServer.createConfigFile();
@@ -80,8 +80,7 @@ Future<void> init() async {
     ]);
     CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
   } catch (e, s) {
-    LogManager.addLog(
-        LogLevel.error, "Init", "App initialization failed!\n$e$s");
+    Log.e("Init App initialization failed!\n$e$s");
   }
 }
 
@@ -163,7 +162,7 @@ Future<void> _checkOldData() async {
     }
     await _checkAccountData();
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "Init", "Check old data failed!\n$e$s");
+    Log.e("Init Check old data failed!\n$e$s");
   }
 }
 

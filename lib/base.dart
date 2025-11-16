@@ -273,8 +273,7 @@ class Appdata {
       writeData(false);
       return true;
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Appdata.readDataFromJson",
-          "error reading appdata$e\n$s");
+      Log.e("Appdata.readDataFromJson error reading appdata$e\n$s");
       readData();
       return false;
     }

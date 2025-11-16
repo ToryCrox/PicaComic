@@ -467,7 +467,7 @@ class ComicReadingPageLogic extends StateController {
       }
       final pixels = scrollController.position.pixels;
       final maxScrollExtent = scrollController.position.maxScrollExtent;
-      Log.debug('ReadingLogic', 'autoPageTurning $pixels $maxScrollExtent');
+      Log.d('ReadingLogic autoPageTurning $pixels $maxScrollExtent');
       if (scrollController.position.pixels >=
           scrollController.position.maxScrollExtent) {
         stopAutoPageTurning();
@@ -542,7 +542,7 @@ class ComicReadingPageLogic extends StateController {
   void handleKeyboard(KeyEvent event) {
     bool hasEvent = false;
     if(event is KeyDownEvent || event is KeyRepeatEvent){
-      Log.debug('handleKeyboard', "key: ${event}");
+      Log.d('handleKeyboard key: ${event}');
       bool reverse = appdata.settings[9] == "2" || appdata.settings[9] == "6";
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
@@ -561,9 +561,9 @@ class ComicReadingPageLogic extends StateController {
           break;
       }
     } else if(event is KeyUpEvent){
-      Log.debug('handleKeyboard', "key: ${event}");
+      Log.d('handleKeyboard key: ${event}');
       if ((DateTime.now().millisecondsSinceEpoch - _lastKeyboardTime).abs() < 1000) {
-        Log.info('handleKeyboard', "Keyboard repeat event ignored $event");
+        Log.i('handleKeyboard Keyboard repeat event ignored $event');
         return;
       }
       switch(event.logicalKey) {

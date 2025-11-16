@@ -521,7 +521,7 @@ class LocalFavoritesManager {
           }
         }
       } catch (e, s) {
-        LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+        Log.e("IO $e\n$s");
       } finally {
         file.deleteSync();
       }
@@ -538,8 +538,7 @@ class LocalFavoritesManager {
           
       folderNames.remove(kTableFolderSync);
       folderNames.remove(kTableFolderOrder);
-      LogManager.addLog(LogLevel.info, "LocalFavoritesManager.readData",
-          "read folders from local database $folderNames");
+      Log.i("LocalFavoritesManager.readData read folders from local database $folderNames");
       var folderToOrder = <String, int>{};
       for (var folder in folderNames) {
         var res = await tmpDb.query(
@@ -559,8 +558,7 @@ class LocalFavoritesManager {
       var res = <FavoriteItemWithFolderInfo>[];
       for (final folder in folderNames) {
         var comics = await tmpDb.query(folder);
-        LogManager.addLog(LogLevel.info, "LocalFavoritesManager.readData",
-            "read $folder gets ${comics.length} comics");
+        Log.i("LocalFavoritesManager.readData read $folder gets ${comics.length} comics");
         res.addAll(comics.map((element) =>
             FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder)));
       }
@@ -571,19 +569,16 @@ class LocalFavoritesManager {
         }
         if (!(await comicExists(comic.folder, comic.comic.target, comic.comic.type.key))) {
           addComic(comic.folder, comic.comic);
-          LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
-              "add comic ${comic.comic.target} to ${comic.folder}");
+          Log.i("LocalFavoritesManager add comic ${comic.comic.target} to ${comic.folder}");
         } else {
           skips++;
         }
       }
-      LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
-          "skipped $skips comics, total ${res.length}");
+      Log.i("LocalFavoritesManager skipped $skips comics, total ${res.length}");
       await tmpDb.close();
       file.deleteSync();
     } else {
-      LogManager.addLog(LogLevel.info, "LocalFavoritesManager",
-          "no local favorites db file found");
+      Log.i("LocalFavoritesManager no local favorites db file found");
     }
   }
 
@@ -1028,7 +1023,7 @@ class LocalFavoritesManager {
       }
       return (false, "");
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "IO", "Failed to load data.\n$e\n$s");
+      Log.e("IO Failed to load data.\n$e\n$s");
       return (true, e.toString());
     }
   }

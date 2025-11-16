@@ -81,7 +81,7 @@ class FavoriteDownloading extends DownloadingItem{
       }
     }
     catch(e, s) {
-      Log.error("Download", "$e$s");
+      Log.e("Download $e$s");
       onError?.call();
       return;
     }

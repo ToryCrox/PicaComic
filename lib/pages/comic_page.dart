@@ -577,7 +577,7 @@ class ThumbnailsData {
       current++;
       update();
     } else {
-      Log.error("Network", "Failed to load thumbnails: ${res.errorMessage}");
+      Log.e("Network Failed to load thumbnails: ${res.errorMessage}");
     }
     isGetting = false;
   }

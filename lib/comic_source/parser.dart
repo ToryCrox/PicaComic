@@ -197,7 +197,7 @@ class ComicSourceParser {
                 null))
                 .toList()));
           } catch (e, s) {
-            log("$e\n$s", "Data Analysis", LogLevel.error);
+            Log.e("Data Analysis $e\n$s");
             return Res.error(e.toString());
           }
         };
@@ -211,7 +211,7 @@ class ComicSourceParser {
                         (index) => CustomComic.fromJson(res["comics"][index], _key!)),
                 subData: res["maxPage"]);
           } catch (e, s) {
-            log("$e\n$s", "Network", LogLevel.error);
+            Log.e("Network $e\n$s");
             return Res.error(e.toString());
           }
         };
@@ -310,7 +310,7 @@ class ComicSourceParser {
                       (index) => CustomComic.fromJson(res["comics"][index], _key!)),
               subData: res["maxPage"]);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("Network $e\n$s");
           return Res.error(e.toString());
         }
       });
@@ -330,7 +330,7 @@ class ComicSourceParser {
                 (index) => CustomComic.fromJson(res["comics"][index], _key!)),
             subData: res["maxPage"]);
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("Network $e\n$s");
         return Res.error(e.toString());
       }
     }, rankingData: rankingData);
@@ -363,7 +363,7 @@ class ComicSourceParser {
                 (index) => CustomComic.fromJson(res["comics"][index], _key!)),
             subData: res["maxPage"]);
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("Network $e\n$s");
         return Res.error(e.toString());
       }
     });
@@ -397,7 +397,7 @@ class ComicSourceParser {
             isFavorite: res["isFavorite"],
             subId: res["subId"],));
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("Network $e\n$s");
         return Res.error(e.toString());
       }
     };
@@ -411,7 +411,7 @@ class ComicSourceParser {
         """);
         return Res(List.from(res["images"]));
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("Network $e\n$s");
         return Res.error(e.toString());
       }
     };
@@ -507,7 +507,7 @@ class ComicSourceParser {
           """);
           return const Res(true);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("Network $e\n$s");
           return Res.error(e.toString());
         }
       };
@@ -518,7 +518,7 @@ class ComicSourceParser {
           """);
           return const Res(true);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("Network $e\n$s");
           return Res.error(e.toString());
         }
       };
@@ -550,7 +550,7 @@ class ComicSourceParser {
             )).toList(),
             subData: res["maxPage"]);
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("Network $e\n$s");
         return Res.error(e.toString());
       }
     };
@@ -567,7 +567,7 @@ class ComicSourceParser {
           """);
           return const Res(true);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("Network $e\n$s");
           return Res.error(e.toString());
         }
       }
@@ -605,7 +605,7 @@ class ComicSourceParser {
           ComicSource.sources.$_key.comic.onThumbnailLoad(${jsonEncode(imageKey)})
         """);
       if(res is! Map) {
-        Log.error("Network", "function onThumbnailLoad return invalid data");
+        Log.e("Network function onThumbnailLoad return invalid data");
         throw "function onThumbnailLoad return invalid data";
       }
       return res as Map<String, dynamic>;

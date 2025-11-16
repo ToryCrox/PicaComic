@@ -36,8 +36,7 @@ void main(List<String> args) {
     WidgetsFlutterBinding.ensureInitialized();
     await init();
     FlutterError.onError = (details) {
-      LogManager.addLog(LogLevel.error, "Unhandled Exception",
-          "${details.exception}\n${details.stack}");
+      Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
     };
     notFirstUse = appdata.firstUse[3] == "1";
     setNetworkProxy();
@@ -63,7 +62,7 @@ void main(List<String> args) {
       });
     }
   }, (error, stack) {
-    LogManager.addLog(LogLevel.error, "Unhandled Exception", "$error\n$stack");
+    Log.e("Unhandled Exception $error\n$stack");
   });
 }
 
@@ -232,8 +231,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           scrollBehavior: fixScrollBehavior,
           builder: (context, widget) {
             ErrorWidget.builder = (details) {
-              LogManager.addLog(LogLevel.error, "Unhandled Exception",
-                  "${details.exception}\n${details.stack}");
+              Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
               return Material(
                 child: Center(
                   child: Text(details.exception.toString()),

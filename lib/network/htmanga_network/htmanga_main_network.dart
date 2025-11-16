@@ -154,7 +154,7 @@ class HtmangaNetwork {
       }
       return Res(HtHomePageData(comicsRes, titleRes));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyze", "$e\n$s");
+      Log.e("Data Analyze $e\n$s");
       return Res(null, errorMessage: "解析失败: $e");
     }
   }
@@ -234,7 +234,7 @@ class HtmangaNetwork {
       }
       return Res(comics, subData: pages);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -295,7 +295,7 @@ class HtmangaNetwork {
           HtComicInfo(id, coverPath, name, category, pages, tags, description,
               uploader, avatar, uploadNum, photos));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -312,7 +312,7 @@ class HtmangaNetwork {
           (index) => "https:${photosDom[index].attributes["src"]!}");
       return Res(photos);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -330,7 +330,7 @@ class HtmangaNetwork {
       }
       return Res(images);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -354,7 +354,7 @@ class HtmangaNetwork {
       }
       return Res(data);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -438,7 +438,7 @@ class HtmangaNetwork {
       }
       return Res(comics, subData: pages);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }

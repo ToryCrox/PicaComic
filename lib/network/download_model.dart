@@ -273,7 +273,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
       _stopAllTasks();
     } catch (e, s) {
       if (currentKey != _runtimeKey) return;
-      LogManager.addLog(LogLevel.error, "Download", "$e\n$s");
+      Log.e("Download $e\n$s");
       retry();
     }
   }
@@ -468,7 +468,7 @@ class _ImageDownloadWrapper {
       Path.basenameWithoutExtension(e.path) == fileBaseName);
       isFinished = file != null;
       if (isFinished) {
-        Log.info("DownloadManager", "Found cached image ${file?.path}");
+        Log.i("DownloadManager Found cached image ${file?.path}");
       }
     }
 

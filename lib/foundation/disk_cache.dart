@@ -116,7 +116,7 @@ class DiskCache {
 
   /// 读取缓存文件
   static Future<String?> readString(String key) async {
-    Log.debug(_sTag, 'readCacheString, key: $key');
+    Log.d('$_sTag readCacheString, key: $key');
     final fileInfo = await getFileCache(key);
     if (fileInfo != null) {
       return utf8.decode(await fileInfo.file.readAsBytes());
@@ -148,7 +148,7 @@ class DiskCache {
   static Future<void> writeString(String key, String value) async {
     try {
       final bytes = Uint8List.fromList(utf8.encode(value));
-      Log.debug(_sTag, 'writeCacheString, key: $key, bytes.size: ${bytes.length}， value: $value');
+      Log.d('$_sTag writeCacheString, key: $key, bytes.size: ${bytes.length}， value: $value');
       await putFileBytes(key, bytes);
     } catch(e) {
       logger.e(e);
@@ -218,7 +218,7 @@ class CacheHttpFileService extends FileService {
   @override
   Future<FileServiceResponse> get(String url,
       {Map<String, String>? headers}) async {
-    Log.debug('CacheHttpFileService', 'CacheHttpFileService get, url: $url, headers: $headers');
+    Log.d('CacheHttpFileService CacheHttpFileService get, url: $url, headers: $headers');
     final req = http.Request('GET', Uri.parse(url));
     if (headers != null) {
       req.headers.addAll(headers);

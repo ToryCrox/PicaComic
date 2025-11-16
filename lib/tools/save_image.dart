@@ -36,7 +36,7 @@ void saveImage(File file) async {
         await xFile.saveTo(path);
       }
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Save Image", "$e\n$s");
+      Log.e("Save Image $e\n$s");
     }
   }
 }

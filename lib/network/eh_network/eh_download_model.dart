@@ -206,7 +206,7 @@ class EhDownloadingItem extends DownloadingItem {
         }, onError!);
         _downloader!.start();
       } catch (e, s) {
-        log("$e\n$s", "Download", LogLevel.error);
+        Log.e("Download $e\n$s");
         onError?.call();
         return;
       }
@@ -306,7 +306,7 @@ class _IsolateDownloader {
       } else if (message is _DownloadException) {
         isolate?.kill(priority: Isolate.immediate);
         isolate = null;
-        LogManager.addLog(LogLevel.error, "Download", message.message);
+        Log.e("Download ${message.message}");
         onError();
       }
     });

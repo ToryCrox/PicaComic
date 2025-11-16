@@ -83,7 +83,7 @@ class ComicSource {
               .parse(await entity.readAsString(), entity.absolute.path);
           sources.add(source);
         } catch (e, s) {
-          log("$e\n$s", "ComicSource", LogLevel.error);
+          Log.e("ComicSource $e\n$s");
         }
       }
     }
@@ -191,7 +191,7 @@ class ComicSource {
     final List accountData = data["account"];
     var res = await account!.login!(accountData[0], accountData[1]);
     if (res.error) {
-      Log.error("Failed to re-login", res.errorMessage ?? "Error");
+      Log.e("Failed to re-login ${res.errorMessage ?? "Error"}");
     }
     return !res.error;
   }

@@ -666,7 +666,7 @@ mixin class _LocalFavoritesManager {
     } catch (e, s) {
       controller.close();
       showToast(message: e.toString());
-      log("$e\n$s", "IO", LogLevel.error);
+      Log.e("IO $e\n$s");
     }
   }
 

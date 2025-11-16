@@ -12,8 +12,7 @@ import '../foundation/app.dart';
 class MyLogInterceptor implements Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    LogManager.addLog(LogLevel.error, "Network",
-        "${err.requestOptions.method} ${err.requestOptions.path}\n$err\n${err.response?.data.toString()}");
+    Log.e("Network ${err.requestOptions.method} ${err.requestOptions.path}\n$err\n${err.response?.data.toString()}");
     switch(err.type) {
       case DioExceptionType.badResponse:
         var statusCode = err.response?.statusCode;
@@ -74,12 +73,13 @@ class MyLogInterceptor implements Interceptor {
     } else {
       content = response.data.toString();
     }
-    LogManager.addLog(
-        (response.statusCode != null && response.statusCode! < 400)
-            ? LogLevel.info : LogLevel.error,
-        "Network",
-        "Response ${response.realUri.toString()} ${response.statusCode}\n"
+    if ((response.statusCode != null && response.statusCode! < 400)) {
+      Log.i("Network Response ${response.realUri.toString()} ${response.statusCode}\n"
             "headers:\n$headers\n$content");
+    } else {
+      Log.e("Network Response ${response.realUri.toString()} ${response.statusCode}\n"
+            "headers:\n$headers\n$content");
+    }
     handler.next(response);
   }
 
@@ -145,8 +145,7 @@ class AppHttpAdapter implements HttpClientAdapter{
             }
           }
         }
-        LogManager.addLog(LogLevel.error, "Network",
-            "${o.method} ${o.path}\n$e\nRetrying...");
+        Log.e("Network ${o.method} ${o.path}\n$e\nRetrying...");
         retry++;
         if(retry == 2){
           rethrow;
@@ -158,8 +157,7 @@ class AppHttpAdapter implements HttpClientAdapter{
 
   Future<ResponseBody> fetchOnce(RequestOptions o, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async{
     var options = o.copyWith();
-    LogManager.addLog(LogLevel.info, "Network",
-        "${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}");
+    Log.i("Network ${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}");
     if(appdata.settings[58] == "0"){
       return checkCookie(await adapter!.fetch(options, requestStream, cancelFuture));
     }

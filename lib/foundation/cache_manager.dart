@@ -106,7 +106,7 @@ class CacheManager {
   Future<void> _initDatabase() async {
     final databasesPath = App.dataPath;
     final path = '$databasesPath/$_databaseName';
-    Log.debug('CacheManager', "Cache database path: $path");
+    Log.d("CacheManager Cache database path: $path");
     
     _db = await databaseFactory.openDatabase(
       path,
@@ -231,11 +231,11 @@ class CacheManager {
 
   Future<void> writeString(String key, String data) async {
     try {
-      Log.debug('CacheManager', 'writeString $key');
+      Log.d('CacheManager writeString $key');
       final bytes = Uint8List.fromList(utf8.encode(data));
       await writeCache(key, bytes);
     } catch (e) {
-      Log.error('CacheManager', 'writeString error: $e');
+      Log.e('CacheManager writeString error: $e');
     }
   }
 
@@ -243,21 +243,21 @@ class CacheManager {
     await _ensureInitialized();
     final cache = await findCache(key);
     final filePath = cache?.filePath;
-    Log.debug('CacheManager', 'findCacheModel $key, $filePath');
+    Log.d('CacheManager findCacheModel $key, $filePath');
     if (filePath != null) {
       final file = File(filePath);
-      Log.debug('CacheManager', 'findCache $key, $filePath');
+      Log.d('CacheManager findCache $key, $filePath');
       if (file.existsSync()) {
         try {
           final bytes = await file.readAsBytes();
           final dataStr = utf8.decode(bytes);
-          Log.debug('CacheManager', dataStr);
+          Log.d('CacheManager $dataStr');
           final map = TypeUtil.parseMap(dataStr);
           if (map.isNotEmpty) {
             return factory(map);
           }
         } catch (e) {
-          Log.error('CacheManager', 'read cache error: $e');
+          Log.e('CacheManager read cache error: $e');
         }
       }
     }
@@ -409,7 +409,7 @@ class CacheManager {
       fileSize = await file.length();
       await file.delete();
     }
-    Log.debug('CacheManager', 'delete $key, filePath: ${file.path}, size: $fileSize');
+    Log.d('CacheManager delete $key, filePath: ${file.path}, size: $fileSize');
     await deleteRecord(key);
     if(_currentSize != null) {
       _currentSize = _currentSize! - fileSize;

@@ -222,8 +222,7 @@ class HistoryManager {
   Future<void> tryUpdateDb() async {
     var file = File("${App.dataPath}/history_temp.db");
     if (!file.existsSync()) {
-      LogManager.addLog(
-          LogLevel.info, "HistoryManager.tryUpdateDb", "db file not exist");
+      Log.i("HistoryManager.tryUpdateDb db file not exist");
       return;
     }
     
@@ -240,14 +239,12 @@ class HistoryManager {
       for (var history in newHistory) {
         if (await findSync(history.target) == null) {
           addHistory(history);
-          LogManager.addLog(LogLevel.info, "HistoryManager",
-              "merge history ${history.target}");
+          Log.i("HistoryManager merge history ${history.target}");
         } else {
           skips++;
         }
       }
-      LogManager.addLog(LogLevel.info, "HistoryManager",
-          "merge history, skipped $skips, added ${newHistory.length - skips}");
+      Log.i("HistoryManager merge history, skipped $skips, added ${newHistory.length - skips}");
 
       //import favorite images
       skips = 0;
@@ -263,12 +260,10 @@ class HistoryManager {
           skips++;
         } else {
           ImageFavoriteManager.add(image);
-          LogManager.addLog(LogLevel.info, "HistoryManager",
-              "merge favorite image ep ${image.ep} page ${image.page} @ ${image.id}");
+          Log.i("HistoryManager merge favorite image ep ${image.ep} page ${image.page} @ ${image.id}");
         }
       }
-      LogManager.addLog(LogLevel.info, "HistoryManager",
-          "merge favorite images, skipped $skips, added ${newImages.length - skips}");
+      Log.i("HistoryManager merge favorite images, skipped $skips, added ${newImages.length - skips}");
     }
     
     // 关闭数据库连接
@@ -292,7 +287,7 @@ class HistoryManager {
     databaseFactory = databaseFactoryFfi;
     
     final databasePath = '${App.dataPath}/history.db';
-    LogManager.addLog(LogLevel.info, "HistoryManager", "Database path: $databasePath");
+    Log.i("HistoryManager Database path: $databasePath");
 
     _db = await databaseFactory.openDatabase(
       databasePath,

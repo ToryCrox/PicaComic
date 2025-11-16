@@ -231,7 +231,7 @@ class EhNetwork {
       }
       return Res(null, errorMessage: message ?? "Network Error");
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       String? message;
       if (e.toString() != "null") {
         message = e.toString();
@@ -261,7 +261,7 @@ class EhNetwork {
       ehentai.data['name'] = name?.text ?? '';
       return name != null;
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return false;
     }
   }
@@ -476,7 +476,7 @@ class EhNetwork {
       }
       return Res(g);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -681,7 +681,7 @@ class EhNetwork {
           width,
           subTitle));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -700,7 +700,7 @@ class EhNetwork {
       }
       return Res(resComments);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -749,7 +749,7 @@ class EhNetwork {
       }
       return Res(urls_);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -1083,12 +1083,14 @@ class EhNetwork {
       ));
     }
     catch(e, s){
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s\n${res.data}");
+      Log.e("Network $e\n$s\n${res.data}");
       return Res.error(e.toString());
     }
   }
 
-  Future<Res<ArchiveDownloadInfo>> cancelAndReloadArchiveInfo(ArchiveDownloadInfo info) async{
+
+
+  Future<Res<ArchiveDownloadInfo>> cancelAndReloadArchiveInfo(ArchiveDownloadInfo info) async {
     var url = info.cancelUnlockUrl!;
     var res = await post(url, "invalidate_sessions=1", headers: {
       "content-type": "application/x-www-form-urlencoded",
@@ -1107,12 +1109,14 @@ class EhNetwork {
       var resampleCost = resample.querySelector("div > strong")!.text;
       var resampleSize = resample.querySelector("p > strong")!.text;
       return Res(ArchiveDownloadInfo(originSize, resampleSize,
-          originCost, resampleCost,
-          document.querySelector("form#invalidate_form")?.attributes["action"],
+        originCost, resampleCost,
+        document
+            .querySelector("form#invalidate_form")
+            ?.attributes["action"],
       ));
     }
-    catch(e, s){
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s\n${res.data}");
+    catch (e, s) {
+      Log.e("Network $e\n$s\n${res.data}");
       return Res.error(e.toString());
     }
   }

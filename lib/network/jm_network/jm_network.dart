@@ -189,7 +189,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return [];
     }
   }
@@ -228,7 +228,7 @@ class JmNetwork {
           }
         } catch (e) {
           if (kDebugMode) {
-            LogManager.addLog(LogLevel.error, "Network", "$e");
+            Log.e("Network $e");
           }
         }
       } ();
@@ -283,10 +283,7 @@ class JmNetwork {
         return Res<String>(null, errorMessage: e.toString().split("\n")[1]);
       }
     } catch (e, s) {
-      if (kDebugMode) {
-        print(e);
-      }
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return Res<String>(null, errorMessage: e.toString());
     }
   }
@@ -325,7 +322,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return const Res.error("Network Error");
     }
   }
@@ -338,7 +335,7 @@ class JmNetwork {
       var url = res.data["img_host"];
       appdata.settings[86] = url;
       appdata.updateSettings();
-      LogManager.addLog(LogLevel.info, "Network", "Updated JM Image URL: $url");
+      Log.i("Network Updated JM Image URL: $url");
     } on DioException catch (e) {
       if (kDebugMode) {
         print(e);
@@ -347,7 +344,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
     }
   }
 
@@ -394,7 +391,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -434,7 +431,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -476,7 +473,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return;
     }
   }
@@ -513,7 +510,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -587,7 +584,7 @@ class JmNetwork {
               : (int.parse(res.data["total"]) / res.data["content"].length)
                   .ceil());
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       Future.delayed(const Duration(microseconds: 500),
           () => StateController.find<PreSearchController>().update());
       return Res(null, errorMessage: e.toString());
@@ -611,7 +608,7 @@ class JmNetwork {
       }
       return Res(categories);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -656,7 +653,7 @@ class JmNetwork {
       }
       return Res(comics, subData: pagesCount);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -721,7 +718,7 @@ class JmNetwork {
           int.parse(res.data["comment_total"] ?? "0"),
           epNames));
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -732,7 +729,7 @@ class JmNetwork {
       var i = await selectDomain();
       if (i != null) {
         appdata.settings[17] = i.toString();
-        LogManager.addLog(LogLevel.info, "Network", "Selected JM API Stream ${i + 1}: ${domains[i]}");
+        Log.i("Network Selected JM API Stream ${i + 1}: ${domains[i]}");
       }
     }
     _performingLogin = true;
@@ -751,13 +748,11 @@ class JmNetwork {
       await updateImgUrl(int.parse(appdata.settings[37]) + 1);
       if (appdata.settings[88] == "1") {
         var res = await dailyChk();
-        LogManager.addLog(
-            res.error ? LogLevel.error : LogLevel.info,
-            "Network",
-            res.error
-                ? "JM auto check-in failed\n${res.errorMessage}"
-                : "JM auto check-in succeed\n${res.subData}"
-        );
+        if (res.error) {
+          Log.e("Network JM auto check-in failed\n${res.errorMessage}");
+        } else {
+          Log.i("Network JM auto check-in succeed\n${res.subData}");
+        }
       }
     }
   }
@@ -825,7 +820,7 @@ class JmNetwork {
       if (kDebugMode) {
         print(e);
       }
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -844,7 +839,7 @@ class JmNetwork {
       }
       return Res(folders);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -902,7 +897,7 @@ class JmNetwork {
       }
       return Res(images);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -952,7 +947,7 @@ class JmNetwork {
             : (int.tryParse(res.data["total"]) ?? 1),
       );
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -986,7 +981,7 @@ class JmNetwork {
       }
       return Res(categories);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -1019,7 +1014,10 @@ class JmNetwork {
       }
       return Res(comics);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      if (kDebugMode) {
+        print(e);
+      }
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }

@@ -77,7 +77,7 @@ class PicacgNetwork {
       }
       return Res(null, errorMessage: message);
     } catch (e, stack) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$stack");
+      Log.e("Network $e\n$stack");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -136,7 +136,7 @@ class PicacgNetwork {
       }
       return Res(null, errorMessage: message);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -251,7 +251,7 @@ class PicacgNetwork {
       }
       return Res(c);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -269,7 +269,7 @@ class PicacgNetwork {
           convert.jsonDecode(res.toString()) as Map<String, dynamic>;
       return jsonResponse["addresses"][0];
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return null;
     }
   }
@@ -326,7 +326,7 @@ class PicacgNetwork {
       }
       return Res(comics, subData: pages);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -399,7 +399,7 @@ class PicacgNetwork {
           recommendationRes.data);
       return Res(ci);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$e\n$s");
+      Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -424,7 +424,7 @@ class PicacgNetwork {
         }
       }
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analyse", "$s\n$s");
+      Log.e("Data Analyse $s\n$s");
       return Res(null, errorMessage: e.toString());
     }
     return Res(eps.reversed.toList());
@@ -552,7 +552,7 @@ class PicacgNetwork {
       }
       return Res(comics, subData: pages);
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Data Analysis", "$e\n$s");
+      Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -952,7 +952,7 @@ class PicacgNetwork {
     } on DioException catch (e) {
       return Res(null, errorMessage: e.toString());
     } catch (e, s) {
-      LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+      Log.e("Network $e\n$s");
       return Res(null, errorMessage: e.toString());
     }
   }

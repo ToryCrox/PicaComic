@@ -178,7 +178,7 @@ Future<bool> runningExportComic(ExportComicData data) async {
     zipFile.close();
     return true;
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     return false;
   }
 }
@@ -218,7 +218,7 @@ Future<bool> runningExportComics(List<ExportComicData> datas) async {
     zipFile.close();
     return true;
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     return false;
   }
 }
@@ -244,7 +244,7 @@ Future<void> copyDirectory(Directory source, Directory destination) async {
       }
     }
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     rethrow;
   }
 }
@@ -268,7 +268,7 @@ Future<void> moveDirectory(Directory source, Directory destination) async {
     }
     await source.deleteIgnoreError(recursive: true);
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     rethrow;
   }
 }
@@ -357,7 +357,7 @@ Future<String> exportDataToFile(bool includeDownload, String outPath) async {
       throw Exception(res);
     }
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     rethrow;
   }
   return outPath;
@@ -393,7 +393,7 @@ Future<bool> runExportData(bool includeDownload) async {
 
     dialog.close();
   } catch (e, s) {
-    LogManager.addLog(LogLevel.error, "IO", "$e\n$s");
+    Log.e("IO $e\n$s");
     return false;
   }
   return true;
@@ -416,7 +416,7 @@ Future<bool> importData([String? filePath]) async {
       filePath = file?.path;
     }
     if (filePath == null) {
-      LogManager.addLog(LogLevel.error, "importData", "filePath is null");
+      Log.e("importData filePath is null");
       return false;
     }
   }
@@ -479,7 +479,7 @@ Future<bool> importData([String? filePath]) async {
       (enableCheck ? "1" : "0")
     ]);
   } catch (e, s) {
-    Log.error("importData", "$e\n$s");
+    Log.e("importData $e\n$s");
     return false;
   } finally {
     await ComicSource.reload();
@@ -492,16 +492,12 @@ Future<bool> importData([String? filePath]) async {
       int.parse((json["settings"] as List).elementAtOrNull(46) ?? "1");
   int appVersion = int.parse(appdata.settings[46]);
   if (fileVersion <= appVersion && enableCheck) {
-    LogManager.addLog(
-        LogLevel.info,
-        "Appdata",
-        "The data file version is $fileVersion, while the app data version is "
-            "$appVersion\nStop importing data");
+    Log.i("Appdata The data file version is $fileVersion, while the app data version is "
+        "$appVersion\nStop importing data");
   }
   var dataReadRes = appdata.readDataFromJson(json);
   if (!dataReadRes) {
-    LogManager.addLog(
-        LogLevel.error, "Appdata", "appdata.readDataFromJson(json) failed");
+    Log.e("Appdata appdata.readDataFromJson(json) failed");
     return false;
   }
   await LocalFavoritesManager().readData();

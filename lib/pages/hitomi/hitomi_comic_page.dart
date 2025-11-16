@@ -147,7 +147,7 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
           }
           return Res(images);
         } catch (e, s) {
-          LogManager.addLog(LogLevel.error, "Network", "$e\n$s");
+          Log.e("Network $e\n$s");
           return Res(null, errorMessage: e.toString());
         }
       }, 2);

@@ -524,7 +524,7 @@ Future<void> clearCacheData(BuildContext context) async {
       ],
     );
   });
-  Log.debug('clearCache', 'select $result');
+  Log.d('clearCache select $result');
   if (result == 1) {
     CacheManager().clear();
   } else if (result == 0){
