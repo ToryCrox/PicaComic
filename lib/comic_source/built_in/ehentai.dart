@@ -145,7 +145,7 @@ final ehentai = ComicSource.named(
     allowReLogin: false,
     onLogin: (BuildContext context) async {
       await context.to(() => const EhLoginPage());
-      var cookies = EhNetwork().cookieJar.loadForRequest(Uri.parse("https://e-hentai.org"));
+      var cookies = await EhNetwork().cookieJar.loadForRequest(Uri.parse("https://e-hentai.org"));
       if(!cookies.any((e) => e.name == 'ipb_member_id')) {
         return;
       }

@@ -15,7 +15,7 @@ class _NhSettingsState extends State<NhSettings> {
 
   void deleteAllCookie() async {
     final cookieJar = SingleInstanceCookieJar.instance!;
-    var cookies = cookieJar.loadForRequest(Uri.parse(baseUrl));
+    var cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
     if (cookies.isEmpty) {
       showToast(message: "cookie 为空".tl);
       return;

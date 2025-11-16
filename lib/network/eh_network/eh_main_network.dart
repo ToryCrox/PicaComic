@@ -71,7 +71,7 @@ class EhNetwork {
         Cookie("sp", appdata.settings[75]),
     ];
 
-    var cookies = cookieJar.loadForRequest(Uri.parse(url));
+    var cookies = await cookieJar.loadForRequest(Uri.parse(url));
     
     if(ehentai.isLogin
         && cookies.every((element) => element.name != "ipb_member_id")){

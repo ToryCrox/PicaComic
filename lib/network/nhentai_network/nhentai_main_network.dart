@@ -35,7 +35,8 @@ class NhentaiNetwork {
 
   Future<void> init() async {
     cookieJar = SingleInstanceCookieJar.instance;
-    for (var cookie in cookieJar!.loadForRequest(Uri.parse(baseUrl))) {
+    final cookies = await cookieJar!.loadForRequest(Uri.parse(baseUrl));
+    for (var cookie in cookies) {
       if (cookie.name == "sessionid") {
         logged = true;
       }

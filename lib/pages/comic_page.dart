@@ -626,7 +626,11 @@ class ComicPageLogic<T extends Object> extends StateController {
       }
     } else {
       data = res.data;
-      favorite = await loadFavorite(res.data);
+      thumbnailsData = null;
+      loadFavorite(res.data).then((b) {
+        favorite = b;
+        update();
+      });
     }
     loading = false;
     update();

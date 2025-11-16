@@ -256,7 +256,7 @@ mixin class _JSEngineApi{
     }
   }
 
-  dynamic handleCookieCallback(Map<String, dynamic> data) {
+  dynamic handleCookieCallback(Map<String, dynamic> data) async {
     switch (data["function"]) {
       case "set":
         _cookieJar!.saveFromResponse(
@@ -270,7 +270,7 @@ mixin class _JSEngineApi{
             }).toList());
         return null;
       case "get":
-        var cookies = _cookieJar!.loadForRequest(Uri.parse(data["url"]));
+        var cookies = await _cookieJar!.loadForRequest(Uri.parse(data["url"]));
         return cookies.map((e) => {
           "name": e.name,
           "value": e.value,

@@ -1,78 +1,127 @@
+
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:pica_comic/tools/extensions.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:synchronized/synchronized.dart';
+
+/// 表名常量
+const String kTableCookies = 'cookies';
+
+/// 字段名常量
+const String kCookieName = 'name';
+const String kCookieValue = 'value';
+const String kCookieDomain = 'domain';
+const String kCookiePath = 'path';
+const String kCookieExpires = 'expires';
+const String kCookieSecure = 'secure';
+const String kCookieHttpOnly = 'httpOnly';
 
 class CookieJarSql {
-  late Database _db;
+  Database? _db;
+  bool _initialized = false;
+  final Completer<Database> _initCompleter = Completer<Database>();
+  final Lock _lock = Lock();
 
   final String path;
 
-  CookieJarSql(this.path){
+  CookieJarSql(this.path) {
     init();
   }
 
-  void init() {
-    _db = sqlite3.open(path);
-    _db.execute('''
-      CREATE TABLE IF NOT EXISTS cookies (
-        name TEXT NOT NULL,
-        value TEXT NOT NULL,
-        domain TEXT NOT NULL,
-        path TEXT,
-        expires INTEGER,
-        secure INTEGER,
-        httpOnly INTEGER,
-        PRIMARY KEY (name, domain, path)
-      );
-    ''');
+  Future<void> init() async {
+    if (_initialized) return;
+    await _lock.synchronized(() async {
+      if (_initialized) return;
+
+      // 确保目录存在
+      final dir = Directory(path).parent;
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      _db = await databaseFactoryFfi.openDatabase(path,
+          options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: (db, version) async {
+              await db.execute('''
+                CREATE TABLE IF NOT EXISTS $kTableCookies (
+                  $kCookieName TEXT NOT NULL,
+                  $kCookieValue TEXT NOT NULL,
+                  $kCookieDomain TEXT NOT NULL,
+                  $kCookiePath TEXT,
+                  $kCookieExpires INTEGER,
+                  $kCookieSecure INTEGER,
+                  $kCookieHttpOnly INTEGER,
+                  PRIMARY KEY ($kCookieName, $kCookieDomain, $kCookiePath)
+                );
+              ''');
+            },
+          ));
+
+      _initialized = true;
+      _initCompleter.complete(_db);
+    });
+  }
+
+  /// 确保数据库已初始化并返回数据库实例
+  Future<Database> _getDatabase() {
+    final db = _db;
+    if (db != null) {
+      return SynchronousFuture(db);
+    }
+    return _initCompleter.future;
   }
 
   void saveFromResponse(Uri uri, List<Cookie> cookies) {
-    var current = loadForRequest(uri);
     for (var cookie in cookies) {
-      var currentCookie = current.firstWhereOrNull((element) =>
-          element.name == cookie.name &&
-          (cookie.path == null || cookie.path!.startsWith(element.path!)));
-      if (currentCookie != null) {
-        cookie.domain = currentCookie.domain;
-      }
-      _db.execute('''
-        INSERT OR REPLACE INTO cookies (name, value, domain, path, expires, secure, httpOnly)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-      ''', [
-        cookie.name,
-        cookie.value,
-        cookie.domain ?? uri.host,
-        cookie.path ?? "/",
-        cookie.expires?.millisecondsSinceEpoch,
-        cookie.secure ? 1 : 0,
-        cookie.httpOnly ? 1 : 0
-      ]);
+      _saveCookie(uri, cookie);
     }
   }
 
-  List<Cookie> _loadWithDomain(String domain) {
-    var rows = _db.select('''
-      SELECT name, value, domain, path, expires, secure, httpOnly
-      FROM cookies
-      WHERE domain = ?;
-    ''', [domain]);
+  Future<void> _saveCookie(Uri uri, Cookie cookie) async {
+    final db = await _getDatabase();
+    
+    await db.insert(
+      kTableCookies,
+      {
+        kCookieName: cookie.name,
+        kCookieValue: cookie.value,
+        kCookieDomain: cookie.domain ?? uri.host,
+        kCookiePath: cookie.path ?? "/",
+        kCookieExpires: cookie.expires?.millisecondsSinceEpoch,
+        kCookieSecure: cookie.secure ? 1 : 0,
+        kCookieHttpOnly: cookie.httpOnly ? 1 : 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 
-    return rows
-        .map((row) => Cookie(
-              row["name"] as String,
-              row["value"] as String,
-            )
-              ..domain = row["domain"] as String
-              ..path = row["path"] as String
-              ..expires = row["expires"] == null
-                  ? null
-                  : DateTime.fromMillisecondsSinceEpoch(row["expires"] as int)
-              ..secure = row["secure"] == 1
-              ..httpOnly = row["httpOnly"] == 1)
-        .toList();
+  Future<List<Cookie>> _loadWithDomain(String domain) async {
+    final db = await _getDatabase();
+    
+    final rows = await db.query(
+      kTableCookies,
+      where: '$kCookieDomain = ?',
+      whereArgs: [domain],
+    );
+
+    return rows.map((row) {
+      return Cookie(
+        row[kCookieName] as String,
+        row[kCookieValue] as String,
+      )
+        ..domain = row[kCookieDomain] as String
+        ..path = row[kCookiePath] as String?
+        ..expires = row[kCookieExpires] == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(row[kCookieExpires] as int)
+        ..secure = row[kCookieSecure] == 1
+        ..httpOnly = row[kCookieHttpOnly] == 1;
+    }).toList();
   }
 
   List<String> _getAcceptedDomains(String host) {
@@ -84,28 +133,28 @@ class CookieJarSql {
     return acceptedDomains;
   }
 
-  List<Cookie> loadForRequest(Uri uri) {
+  Future<List<Cookie>> loadForRequest(Uri uri) async {
     // if uri.host is example.example.com, acceptedDomains will be [".example.example.com", ".example.com", "example.com"]
     var acceptedDomains = _getAcceptedDomains(uri.host);
 
     var cookies = <Cookie>[];
     for (var domain in acceptedDomains) {
-      cookies.addAll(_loadWithDomain(domain));
+      cookies.addAll(await _loadWithDomain(domain));
     }
 
     // check expires
-    var expires = cookies.where((cookie) =>
-        cookie.expires != null && cookie.expires!.isBefore(DateTime.now()));
-    for (var cookie in expires) {
-      _db.execute('''
-        DELETE FROM cookies
-        WHERE name = ? AND domain = ? AND path = ?;
-      ''', [cookie.name, cookie.domain, cookie.path]);
+    var now = DateTime.now();
+    var expiredCookies = cookies.where((cookie) =>
+        cookie.expires != null && cookie.expires!.isBefore(now)).toList();
+        
+    // 删除过期的 cookies
+    for (var cookie in expiredCookies) {
+      await _deleteCookie(cookie.name, cookie.domain!, cookie.path ?? "/");
     }
 
     return cookies
         .where((element) =>
-            !expires.contains(element) && _checkPathMatch(uri, element.path))
+            !expiredCookies.contains(element) && _checkPathMatch(uri, element.path))
         .toList();
   }
 
@@ -136,51 +185,65 @@ class CookieJarSql {
     saveFromResponse(uri, cookies);
   }
 
-  String loadForRequestCookieHeader(Uri uri) {
-    var cookies = loadForRequest(uri);
+  Future<String> loadForRequestCookieHeader(Uri uri) async {
+    var cookies = await loadForRequest(uri);
     var map = <String, Cookie>{};
     for (var cookie in cookies) {
-      if(map.containsKey(cookie.name)) {
-        if(cookie.domain![0] != '.' && map[cookie.name]!.domain![0] == '.') {
+      if (map.containsKey(cookie.name)) {
+        if (cookie.domain![0] != '.' && map[cookie.name]!.domain![0] == '.') {
           map[cookie.name] = cookie;
-        } else if(cookie.domain!.length > map[cookie.name]!.domain!.length) {
+        } else if (cookie.domain!.length > map[cookie.name]!.domain!.length) {
           map[cookie.name] = cookie;
         }
       } else {
         map[cookie.name] = cookie;
       }
     }
-    return map.entries.map((cookie) => "${cookie.value.name}=${cookie.value.value}").join("; ");
+    return map.entries
+        .map((cookie) => "${cookie.value.name}=${cookie.value.value}")
+        .join("; ");
   }
 
-  void delete(Uri uri, String name) {
+  Future<void> _deleteCookie(String name, String domain, String path) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableCookies,
+      where: '$kCookieName = ? AND $kCookieDomain = ? AND $kCookiePath = ?',
+      whereArgs: [name, domain, path],
+    );
+  }
+
+  Future<void> delete(Uri uri, String name) async {
     var acceptedDomains = _getAcceptedDomains(uri.host);
     for (var domain in acceptedDomains) {
-      _db.execute('''
-        DELETE FROM cookies
-        WHERE name = ? AND domain = ? AND path = ?;
-      ''', [name, domain, uri.path]);
+      await _deleteCookie(name, domain, uri.path);
     }
   }
 
-  void deleteUri(Uri uri) {
+  Future<void> deleteUri(Uri uri) async {
     var acceptedDomains = _getAcceptedDomains(uri.host);
+    final db = await _getDatabase();
+    
     for (var domain in acceptedDomains) {
-      _db.execute('''
-        DELETE FROM cookies
-        WHERE domain = ?;
-      ''', [domain]);
+      await db.delete(
+        kTableCookies,
+        where: '$kCookieDomain = ?',
+        whereArgs: [domain],
+      );
     }
   }
 
-  void deleteAll() {
-    _db.execute('''
-      DELETE FROM cookies;
-    ''');
+  Future<void> deleteAll() async {
+    final db = await _getDatabase();
+    await db.delete(kTableCookies);
   }
 
-  void dispose() {
-    _db.dispose();
+  Future<void> dispose() async {
+    if (_db != null && _initialized) {
+      await _db!.close();
+      _db = null;
+      _initialized = false;
+    }
   }
 }
 
@@ -199,8 +262,8 @@ class CookieManagerSql extends Interceptor {
   CookieManagerSql(this.cookieJar);
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    var cookies = cookieJar.loadForRequestCookieHeader(options.uri);
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    var cookies = await cookieJar.loadForRequestCookieHeader(options.uri);
     if (cookies.isNotEmpty) {
       options.headers["cookie"] = cookies;
     }

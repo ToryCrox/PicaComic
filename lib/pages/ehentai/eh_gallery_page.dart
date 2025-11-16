@@ -177,18 +177,20 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
 
   @override
   ThumbnailsData? get thumbnailsCreator {
-    if (data?.auth?["thumbnailKey"] != null &&
-        data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
+    final data = this.data;
+    if (data == null) return null;
+    if (data.auth?["thumbnailKey"] != null &&
+        data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
       return ThumbnailsData(
-          data!.thumbnails,
-          (page) => EhNetwork().getThumbnails(data!, page),
-          int.tryParse(data!.auth!["thumbnailKey"]!.nums) ?? 1);
+          data.thumbnails,
+          (page) => EhNetwork().getThumbnails(data, page),
+          int.tryParse(data.auth!["thumbnailKey"]!.nums) ?? 1);
     } else {
       return ThumbnailsData(
-          List.generate(min(data!.pageSize, int.tryParse(data!.maxPage) ?? 1),
-              (_) => data!.auth!["thumbnailKey"]!.split(" ")[0]),
-          (page) => EhNetwork().getThumbnails(data!, page),
-          int.tryParse(data!.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1);
+          List.generate(min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
+              (_) => data.auth!["thumbnailKey"]!.split(" ")[0]),
+          (page) => EhNetwork().getThumbnails(data, page),
+          int.tryParse(data.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1);
     }
   }
 
