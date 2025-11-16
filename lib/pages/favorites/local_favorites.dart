@@ -395,8 +395,7 @@ class LocalFavoriteTile extends ComicTile {
               builder: (context, file) {
                 Widget child;
                 if (file.hasError) {
-                  LogManager.addLog(
-                      LogLevel.error, "Network", file.stackTrace.toString());
+                  Log.e("Network ${file.stackTrace}");
                   child = const Center(
                     child: Icon(Icons.error),
                   );

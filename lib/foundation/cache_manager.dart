@@ -251,7 +251,7 @@ class CacheManager {
         try {
           final bytes = await file.readAsBytes();
           final dataStr = utf8.decode(bytes);
-          Log.d('CacheManager $dataStr');
+          Log.d(() => 'CacheManager $dataStr');
           final map = TypeUtil.parseMap(dataStr);
           if (map.isNotEmpty) {
             return factory(map);

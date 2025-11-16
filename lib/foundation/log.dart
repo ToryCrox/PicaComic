@@ -37,12 +37,13 @@ final logMemoryOut = MemoryOutput(
   bufferSize: 500,
 );
 final logger = Logger(
-  level: Level.trace,
+  level: kReleaseMode ? Level.info : Level.trace,
   output: MultiOutput([
     ConsoleOutput(),
     MAdvancedFileOutput(
       path: '${App.dataPath}/logger.txt',
       overrideExisting: true,
+      level: Level.info,
     ),
     logMemoryOut,
   ]),

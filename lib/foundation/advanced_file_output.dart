@@ -69,7 +69,9 @@ class MAdvancedFileOutput extends LogOutput {
     String Function(DateTime timestamp)? fileNameFormatter,
     int? maxRotatedFilesCount,
     Comparator<File>? fileSorter,
+    Level? level,
   })  : _path = path,
+        _level = level,
         _overrideExisting = overrideExisting,
         _encoding = encoding,
         _maxDelay = maxDelay,
@@ -90,6 +92,7 @@ class MAdvancedFileOutput extends LogOutput {
 
   /// Logs directory path by default, particular log file path if [_maxFileSizeKB] is 0.
   final String _path;
+  final Level? _level;
 
   final bool _overrideExisting;
   final Encoding _encoding;
@@ -158,6 +161,10 @@ class MAdvancedFileOutput extends LogOutput {
 
   @override
   void output(OutputEvent event) {
+    final level = _level;
+    if (level != null && event.level.index < level.index) {
+      return;
+    }
     _buffer.add(event);
     // If event level is present in writeImmediately, flush the complete buffer
     // along with any other possible elements that accumulated since

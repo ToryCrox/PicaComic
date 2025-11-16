@@ -36,7 +36,7 @@ import 'tools/prefs_helper.dart';
 Future<void> init() async {
   try {
     await App.init();
-    LogManager.init();
+    //LogManager.init();
     PrefsHelper.init();
     Log.i("App Status Start initialization.");
     await appdata.readData();

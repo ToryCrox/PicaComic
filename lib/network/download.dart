@@ -342,10 +342,10 @@ class DownloadManager implements Listenable {
       if (dirPath.isNotEmpty) {
         var comic = Directory(dirPath);
         try {
-          logger.d('delete comic $comic');
+          Log.d('delete comic $comic');
           comic.delete(recursive: true);
         } catch (e, s) {
-          logger.e('delete comic error $e', stackTrace: s);
+          Log.e('delete comic error $e', stackTrace: s);
           if (e is PathNotFoundException) {
             //忽略
           } else {

@@ -62,7 +62,7 @@ class DiskCache {
       if (!completer.isCompleted) {
         completer.complete(null);
       }
-      logger.w('first download onError, url: $url, error: $e');
+      Log.w('first download onError, url: $url, error: $e');
     }, onDone: () {}, cancelOnError: true);
     return await completer.future;
   }
@@ -79,7 +79,7 @@ class DiskCache {
           .downloadFile(url, key: key, authHeaders: _getCacheHeader(cacheTime), force: force);
       return HttpCacheFileInfo.fromFileInfo(fileInfo, 0);
     } catch (e) {
-      logger.w('downloadFileToCache, url: $url, error: $e');
+      Log.w('downloadFileToCache, url: $url, error: $e');
       if (e is HttpExceptionWithStatus) {
         return HttpCacheFileInfo.fromError(e.message, e.statusCode);
       } else {
@@ -104,7 +104,7 @@ class DiskCache {
       final fileInfo = await getFileCache(key);
       return await fileInfo?.file.readAsBytes();
     } catch (e) {
-      logger.e(e);
+      Log.e(e);
       return null;
     }
   }
@@ -135,11 +135,10 @@ class DiskCache {
     try {
       final Map<String, dynamic> map = TypeUtil.parseMap(str);
       final timeSpent = DateTime.now().millisecondsSinceEpoch - t1;
-      logger
-          .d(() => 'readCacheModel, key: $key, str: $str, timSpent: ${timeSpent}ms');
+      Log.d(() => 'readCacheModel, key: $key, str: $str, timSpent: ${timeSpent}ms');
       return map.isNotEmpty ? fromJson(map) : null;
     } catch (e) {
-      logger.w('readCacheModel key: $key, e: $e');
+      Log.w('readCacheModel key: $key, e: $e');
       return null;
     }
   }
@@ -148,17 +147,17 @@ class DiskCache {
   static Future<void> writeString(String key, String value) async {
     try {
       final bytes = Uint8List.fromList(utf8.encode(value));
-      Log.d('$_sTag writeCacheString, key: $key, bytes.size: ${bytes.length}， value: $value');
+      Log.d(() => '$_sTag writeCacheString, key: $key, bytes.size: ${bytes.length}， value: $value');
       await putFileBytes(key, bytes);
     } catch(e) {
-      logger.e(e);
+      Log.e(e);
     }
   }
 
   /// 写入缓存文件
   static Future<void> writeModel(String key, Map<String, dynamic> map) async {
     final jsonStr = jsonEncode(map);
-    print('writeModel $jsonStr');
+    Log.d(() =>'writeModel $jsonStr');
     await writeString(key, jsonStr);
   }
 
