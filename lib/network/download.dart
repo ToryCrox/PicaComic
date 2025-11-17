@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -337,14 +338,16 @@ class DownloadManager implements Listenable {
   ///删除已下载的漫画
   Future<void> delete(List<String> ids) async {
     for (var id in ids) {
-      await _deleteFromDb(id);
+      Log.i("IO delete comic: $id");
       final dirPath = await getFullDirectory(id);
+      await _deleteFromDb(id);
       if (dirPath.isNotEmpty) {
         var comic = Directory(dirPath);
         try {
-          Log.d('delete comic $comic');
-          comic.delete(recursive: true);
+          Log.d('delete comic path: $dirPath');
+          await comic.delete(recursive: true);
         } catch (e, s) {
+          showToast(message: 'delete error ${dirPath}');
           Log.e('delete comic error $e', stackTrace: s);
           if (e is PathNotFoundException) {
             //忽略
@@ -352,6 +355,8 @@ class DownloadManager implements Listenable {
             rethrow;
           }
         }
+      } else {
+        Log.w("IO delete comic error: comic not found $id");
       }
     }
   }
