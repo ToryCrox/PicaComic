@@ -39,11 +39,10 @@ final logMemoryOut = MemoryOutput(
 final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
   output: MultiOutput([
-    ConsoleOutput(),
+    if (kDebugMode) ConsoleOutput(),
     MAdvancedFileOutput(
-      path: '${App.dataPath}/logger.txt',
+      path: '${App.dataPath}/logger',
       overrideExisting: true,
-      level: Level.info,
     ),
     logMemoryOut,
   ]),
@@ -52,7 +51,7 @@ final logger = Logger(
       printEmojis: false,
       lineLength: 160,
       printTime: true,
-      colors: !Platform.isIOS,
+      colors: !Platform.isIOS && kDebugMode,
       excludePaths: [],
       excludeFilter: (method, segment) {
         if (excludeMethods.contains(method)) {
@@ -78,13 +77,13 @@ class LogManager {
 
   static bool ignoreLimitation = false;
 
-  static void printWarning(String text) {
-    print('\x1B[33m$text\x1B[0m');
-  }
-
-  static void printError(String text) {
-    print('\x1B[31m$text\x1B[0m');
-  }
+  // static void printWarning(String text) {
+  //   print('\x1B[33m$text\x1B[0m');
+  // }
+  //
+  // static void printError(String text) {
+  //   print('\x1B[31m$text\x1B[0m');
+  // }
 
   static void addLog(LogLevel level, String title, String content,
       {StackTrace? stackTrace}) {
