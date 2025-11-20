@@ -40,10 +40,11 @@ final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
   output: MultiOutput([
     if (kDebugMode) ConsoleOutput(),
-    MAdvancedFileOutput(
-      path: '${App.dataPath}/logger',
-      overrideExisting: true,
-    ),
+    if (!kDebugMode)
+      MAdvancedFileOutput(
+        path: '${App.dataPath}/logger',
+        overrideExisting: true,
+      ),
     logMemoryOut,
   ]),
   printer: LoggerPrettyPrinter(

@@ -74,10 +74,10 @@ class MyLogInterceptor implements Interceptor {
       content = response.data.toString();
     }
     if ((response.statusCode != null && response.statusCode! < 400)) {
-      Log.i("Network Response ${response.realUri.toString()} ${response.statusCode}\n"
+      Log.i(() => "Network Response ${response.realUri.toString()} ${response.statusCode}\n"
             "headers:\n$headers\n$content");
     } else {
-      Log.e("Network Response ${response.realUri.toString()} ${response.statusCode}\n"
+      Log.e(() => "Network Response ${response.realUri.toString()} ${response.statusCode}\n"
             "headers:\n$headers\n$content");
     }
     handler.next(response);
@@ -157,7 +157,7 @@ class AppHttpAdapter implements HttpClientAdapter{
 
   Future<ResponseBody> fetchOnce(RequestOptions o, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async{
     var options = o.copyWith();
-    Log.i("Network ${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}");
+    Log.i(() => "Network ${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}");
     if(appdata.settings[58] == "0"){
       return checkCookie(await adapter!.fetch(options, requestStream, cancelFuture));
     }

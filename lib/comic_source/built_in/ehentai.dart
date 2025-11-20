@@ -572,6 +572,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
         child: Center(
           child: Text(
             title,
+            maxLines: 1,
             style: const TextStyle(fontSize: 14),
           ),
         ),

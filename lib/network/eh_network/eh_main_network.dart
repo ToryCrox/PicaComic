@@ -19,6 +19,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/js.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synchronized/synchronized.dart';
 
 import '../../base.dart';
 import '../http_client.dart';
@@ -725,17 +726,23 @@ class EhNetwork {
     return Res(urlsRes.data[(page - 1) % urlsOnePage]);
   }
 
+
+  final _readerLinkerLocks = <String, Lock>{};
+
   /// page starts from 1
   Future<Res<List<String>>> _getReaderLinks(String link, int page) async {
     String url = link;
     if (page != 1) {
       url = url.contains("?") ? "$url&p=${page - 1}" : "$url?p=${page - 1}";
     }
-    while (loadingReaderLinks.contains(url)) {
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-    loadingReaderLinks.add(url);
-    var res = await request(url);
+    // while (loadingReaderLinks.contains(url)) {
+    //   await Future.delayed(const Duration(milliseconds: 200));
+    // }
+    // loadingReaderLinks.add(url);
+    final lock = _readerLinkerLocks.putIfAbsent(url, () => Lock());
+    final res = await lock.synchronized(()  {
+      return request(url);
+    });
     loadingReaderLinks.remove(url);
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
