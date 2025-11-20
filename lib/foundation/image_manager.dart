@@ -35,18 +35,17 @@ class BadRequestException {
 }
 
 class ImageManager {
-  static ImageManager? cache;
+  static ImageManager instance = ImageManager._create();
 
   ///用于标记正在加载的项目, 避免出现多个异步函数加载同一张图片
-  static Map<String, DownloadProgress> loadingItems = {};
+  //static Map<String, DownloadProgress> loadingItems = {};
 
   /// Image cache manager for reader and download manager
-  factory ImageManager() => cache ??= ImageManager._create();
+  factory ImageManager() => instance;
 
-  static bool get haveTask => loadingItems.isNotEmpty;
+  static bool get haveTask => instance._downloadControllers.isNotEmpty;
 
   static void clearTasks() {
-    loadingItems.clear();
   }
 
   ImageManager._create();
@@ -127,6 +126,7 @@ class ImageManager {
     final cacheKey = key ?? url;
     var cache = await CacheManager().findCache(cacheKey);
     if (cache != null && (await cache.file.exists())) {
+      Log.d(() => "checkFileCache $cacheKey: already cached");
       controller
           .add(DownloadProgress(1, 1, url, cache.filePath, null, cache.type));
       return true;
@@ -553,24 +553,35 @@ class ImageManager {
   ///
   /// 使用hash标识图片
   Stream<DownloadProgress> getHitomiImage(
-      HitomiFile image, String galleryId) async* {
-    await wait(image.hash);
-    loadingItems[image.hash] = DownloadProgress(0, 1, image.hash, "");
+      HitomiFile image, String galleryId) {
+    final controller = StreamController<DownloadProgress>();
+    _putHitomiImageStream(
+      controller: controller,
+      image: image,
+      galleryId: galleryId,
+    );
+    return controller.stream;
+  }
+
+  Future<void> _putHitomiImageStream({
+    required StreamController<DownloadProgress> controller,
+    required HitomiFile image,
+    required String galleryId,
+  }) async {
+    Log.d("Get Hitomi image ${image.hash}");
+    final cacheKey = image.hash;
+    if(await _checkFileCache(controller: controller, url: '', key: cacheKey)) {
+      return;
+    }
+
+    final downloadController = _getOrCreateController(cacheKey, controller);
+
     CachingFile? caching;
-
     try {
-      final key = image.hash;
-      var cache = await CacheManager().findCache(key);
-      if (cache != null) {
-        yield DownloadProgress(1, 1, key, cache.filePath, null, cache.type);
-        loadingItems.remove(key);
-        return;
-      }
-
-      final cachingFile = await CacheManager().openWrite(key);
+      final cachingFile = await CacheManager().openWrite(cacheKey);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
-      yield DownloadProgress(0, 100, key, savePath);
+      downloadController.add(DownloadProgress(0, 100, cacheKey, savePath));
 
       final gg = GG();
       var url = await gg.urlFromUrlFromHash(galleryId, image, 'webp', null);
@@ -607,25 +618,24 @@ class ImageManager {
         currentBytes += b.length;
         var progress = DownloadProgress(
             currentBytes, (expectedBytes ?? currentBytes + 1), url, savePath);
-        yield progress;
-        loadingItems[image.hash] = progress;
+        downloadController.add(progress);
       }
       var ext = getExt(res);
       cachingFile.fileType = ext;
       await cachingFile.close();
-      yield DownloadProgress(currentBytes, currentBytes, url, savePath,
-          Uint8List.fromList(data), ext, cachingFile);
+      downloadController.add(DownloadProgress(currentBytes, currentBytes, url, savePath,
+          Uint8List.fromList(data), ext, cachingFile));
     } catch (e) {
       caching?.cancel();
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
-          throw BadRequestException(e.message.toString());
+          //throw BadRequestException(e.message.toString());
         }
       }
-      rethrow;
+      downloadController.addError(e);
     } finally {
-      loadingItems.remove(image.hash);
+      downloadController.close();
     }
   }
 
@@ -732,17 +742,23 @@ class ImageManager {
   }
 
   Stream<DownloadProgress> getCustomImage(
-      String url, String comicId, String epId, String sourceKey) async* {
+      String url, String comicId, String epId, String sourceKey) {
+    final controller = StreamController<DownloadProgress>();
+    _putCustomImageStream(controller: controller, url: url, comicId: comicId, epId: epId, sourceKey: sourceKey);
+    return controller.stream;
+  }
+  Future<void> _putCustomImageStream({
+     required StreamController<DownloadProgress> controller,
+      required String url, required String comicId, required String epId, required String sourceKey}) async{
     var cacheKey = "$sourceKey$comicId$epId$url";
-    await wait(cacheKey);
-    loadingItems[cacheKey] = DownloadProgress(0, 1, cacheKey, "");
+    Log.d("getCustomImage $url");
 
-    var cache = await CacheManager().findCache(cacheKey);
-    if (cache != null) {
-      yield DownloadProgress(1, 1, cacheKey, cache.filePath);
-      loadingItems.remove(cacheKey);
+    if (await _checkFileCache(controller: controller, url: url)) {
+      controller.close();
       return;
     }
+
+    final downloadController = _getOrCreateController(cacheKey, controller);
 
     CachingFile? caching;
 
@@ -788,8 +804,7 @@ class ImageManager {
           url,
           savePath,
         );
-        yield progress;
-        loadingItems[cacheKey] = progress;
+        downloadController.add(progress);
       }
 
       Uint8List? result;
@@ -811,7 +826,7 @@ class ImageManager {
       caching.fileType = ext;
       await caching.close();
       var length = result?.length ?? imageData.length;
-      yield DownloadProgress(
+      final progress = DownloadProgress(
         length,
         length,
         url,
@@ -819,48 +834,53 @@ class ImageManager {
         result ?? Uint8List.fromList(imageData),
         ext,
       );
+      downloadController.add(progress);
     } catch (e) {
       caching?.cancel();
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
-          throw BadRequestException(e.message.toString());
+         // throw BadRequestException(e.message.toString());
         }
       }
-      rethrow;
+      downloadController.addError(e);
     } finally {
-      loadingItems.remove(cacheKey);
+      downloadController.close();
     }
   }
 
-  Future<void> wait(String cacheKey) {
-    if (loadingItems[cacheKey] == null) {
-      return Future.value();
-    }
-    int timeout = 50;
-    return Future.doWhile(() async {
-      await Future.delayed(const Duration(milliseconds: 300));
-      timeout--;
-      if (timeout == 0) {
-        loadingItems.remove(cacheKey);
-        return false;
-      }
-      return loadingItems[cacheKey] != null;
-    });
-  }
+  // Future<void> wait(String cacheKey) {
+  //   if (loadingItems[cacheKey] == null) {
+  //     return Future.value();
+  //   }
+  //   int timeout = 50;
+  //   return Future.doWhile(() async {
+  //     await Future.delayed(const Duration(milliseconds: 300));
+  //     timeout--;
+  //     if (timeout == 0) {
+  //       loadingItems.remove(cacheKey);
+  //       return false;
+  //     }
+  //     return loadingItems[cacheKey] != null;
+  //   });
+  // }
 
   Stream<DownloadProgress> getCustomThumbnail(String url, String sourceKey,
-      [Map<String, String>? headers]) async* {
-    var cacheKey = "$sourceKey$url";
-    await wait(cacheKey);
-    loadingItems[cacheKey] = DownloadProgress(0, 1, cacheKey, "");
+      [Map<String, String>? headers]) {
+    final controller = StreamController<DownloadProgress>();
+    _putCustomThumbnailStream(controller: controller, url: url, sourceKey: sourceKey, headers: headers);
+    return controller.stream;
+  }
 
-    var cache = await CacheManager().findCache(cacheKey);
-    if (cache != null) {
-      yield DownloadProgress(1, 1, cacheKey, cache.filePath);
-      loadingItems.remove(cacheKey);
+  Future<void> _putCustomThumbnailStream({
+    required StreamController<DownloadProgress> controller,
+    required String url, required String sourceKey, Map<String, String>? headers}) async {
+    var cacheKey = "$sourceKey$url";
+    if (await _checkFileCache(controller: controller, url: url, key: cacheKey)) {
+      controller.close();
       return;
     }
+    final downloadController = _getOrCreateController(cacheKey, controller);
 
     CachingFile? caching;
 
@@ -904,8 +924,7 @@ class ImageManager {
         imageData.addAll(data);
         var progress = DownloadProgress(imageData.length,
             expectedBytes ?? (imageData.length + 1), url, savePath);
-        yield progress;
-        loadingItems[cacheKey] = progress;
+        downloadController.add(progress);
       }
 
       Uint8List? result;
@@ -924,8 +943,9 @@ class ImageManager {
       }
 
       await caching.close();
-      yield DownloadProgress(
+      final progress = DownloadProgress(
           1, 1, url, savePath, result ?? Uint8List.fromList(imageData));
+      downloadController.add(progress);
     } catch (e) {
       Log.e("Network Failed to load a image:\nUrl:$url\nError:$e");
       caching?.cancel();
@@ -935,9 +955,9 @@ class ImageManager {
           throw BadRequestException(e.message.toString());
         }
       }
-      rethrow;
+      downloadController.addError(e);
     } finally {
-      loadingItems.remove(cacheKey);
+      downloadController.close();
     }
   }
 

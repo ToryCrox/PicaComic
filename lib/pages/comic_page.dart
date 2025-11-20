@@ -611,10 +611,12 @@ class ComicPageLogic<T extends Object> extends StateController {
       data = cache;
       loading = false;
       Future.microtask(() => update());
+      _loadHistory(getId);
+      loadFavorite(cache).then((b) {
+        favorite = b;
+        update();
+      });
     }
-    HistoryManager().find(getId()).then((value) {
-      history = value;
-    });
 
     var [res, _] = await Future.wait(
         [loadData(), Future.delayed(const Duration(milliseconds: 100))]);
@@ -627,12 +629,18 @@ class ComicPageLogic<T extends Object> extends StateController {
     } else {
       data = res.data;
       thumbnailsData = null;
+      _loadHistory(getId);
       loadFavorite(res.data).then((b) {
         favorite = b;
         update();
       });
     }
     loading = false;
+    update();
+  }
+
+  Future<void> _loadHistory(ValueGetter<String> getId) async {
+    history = await HistoryManager().find(getId());
     update();
   }
 
