@@ -132,9 +132,6 @@ class MAdvancedFileOutput extends LogOutput {
     return a.lastModifiedSync().compareTo(b.lastModifiedSync());
   }
 
-  Pattern? _lineBreakPattern;
-  List<String> _lineRemoveChars = [];
-
   @override
   Future<void> init() async {
     if (_rotatingFilesMode) {
@@ -150,7 +147,6 @@ class MAdvancedFileOutput extends LogOutput {
         (_) => _updateTargetFile(),
       );
     }
-    _lineRemoveChars = LoggerPrettyPrinter.defaultLevelColors.values.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
 
     _bufferFlushTimer = Timer.periodic(_maxDelay, (_) => _flushBuffer());
     await _openSink();
@@ -178,18 +174,7 @@ class MAdvancedFileOutput extends LogOutput {
   void _flushBuffer() {
     if (_sink == null) return; // Wait until _sink becomes available
     for (final event in _buffer) {
-      final replaceParentheses = _lineBreakPattern;
-      final List<String> lines;
-      if (_lineRemoveChars.isNotEmpty) {
-        lines = event.lines.map((line) {
-          for(final char in _lineRemoveChars) {
-            line = line.replaceAll(char, '');
-          }
-          return line;
-        }).toList();
-      } else {
-        lines = event.lines;
-      }
+      final List<String> lines = event.lines;
       _sink?.writeAll(lines, Platform.isWindows ? '\r\n' : '\n');
       _sink?.writeln();
     }

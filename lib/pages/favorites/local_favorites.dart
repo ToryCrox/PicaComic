@@ -32,8 +32,7 @@ extension LocalFavoritesExt on FavoriteItem {
     try {
       DownloadManager().addFavoriteDownload(this);
     } catch (e) {
-      log("Failed to add a download.\n Missing comic source config file.",
-          "Download", LogLevel.error);
+      Log.e("Failed to add a download.\n Missing comic source config file.");
     }
   }
 

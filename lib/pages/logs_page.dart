@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:logger/logger.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -15,6 +16,8 @@ class LogsPage extends StatefulWidget {
 class _LogsPageState extends State<LogsPage> {
   @override
   Widget build(BuildContext context) {
+    final logs = logMemoryOut.buffer.toList();
+    final colorSchema = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Logs"),
@@ -49,9 +52,10 @@ class _LogsPageState extends State<LogsPage> {
       body: ListView.builder(
         reverse: true,
         controller: ScrollController(),
-        itemCount: LogManager.logs.length,
+        itemCount: logs.length,
         itemBuilder: (context, index){
-          index =  LogManager.logs.length - index - 1;
+          index =  logs.length - index - 1;
+          final logItem = logs[index];
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: SelectionArea(
@@ -60,39 +64,41 @@ class _LogsPageState extends State<LogsPage> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: const BorderRadius.all(Radius.circular(16)),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
-                          child: Text(LogManager.logs[index].title),
-                        ),
-                      ),
+                      // Container(
+                      //   decoration: BoxDecoration(
+                      //     color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      //     borderRadius: const BorderRadius.all(Radius.circular(16)),
+                      //   ),
+                      //   child: Padding(
+                      //     padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
+                      //     child: Text(LogManager.logs[index].title),
+                      //   ),
+                      // ),
                       const SizedBox(width: 3,),
                       Container(
                         decoration: BoxDecoration(
-                          color: [
-                            Theme.of(context).colorScheme.error,
-                            Theme.of(context).colorScheme.errorContainer,
-                            Theme.of(context).colorScheme.primaryContainer
-                          ][LogManager.logs[index].level.index],
+                          color: {
+                            Level.error: colorSchema.error,
+                            Level.warning: colorSchema.errorContainer,
+                            Level.debug: colorSchema.primaryContainer,
+                          }[logItem.level] ?? colorSchema.primaryContainer,
                           borderRadius: const BorderRadius.all(Radius.circular(16)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
                           child: Text(
-                            LogManager.logs[index].level.name,
-                            style: TextStyle(color: LogManager.logs[index].level.index==0?Colors.white:Colors.black),),
+                            logItem.level.name,
+                            style: TextStyle(color: logItem.level == Level.error ? Colors.white: Colors.black),),
                         ),
                       ),
                     ],
                   ),
-                  Text(LogManager.logs[index].content),
-                  Text(LogManager.logs[index].time.toString().replaceAll(RegExp(r"\.\w+"), "")),
+                  //Text(LogManager.logs[index].content),
+                  for (final line in logItem.lines)
+                    Text(line),
+                  Text(logItem.origin.time.toString().replaceAll(RegExp(r"\.\w+"), "")),
                   TextButton(onPressed: (){
-                    Clipboard.setData(ClipboardData(text: LogManager.logs[index].content));
+                    Clipboard.setData(ClipboardData(text: logItem.lines.join('\n')));
                   }, child: Text("复制".tl)),
                   const Divider(),
                 ],

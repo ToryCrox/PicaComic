@@ -167,8 +167,7 @@ class JmRecombine{
     });
 
     _errorPort!.listen((message) {
-      log("Receive error from Isolate#JmRecombine:\n$message", "Image",
-          LogLevel.error);
+      Log.e("Image Receive error from Isolate#JmRecombine:\n$message");
       _handleError();
     });
   }

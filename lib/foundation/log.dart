@@ -10,25 +10,6 @@ import 'advanced_file_output.dart';
 import 'app.dart';
 import 'logger_pretty_printer.dart';
 
-void log(String content,
-    [String title = "debug", LogLevel level = LogLevel.info]) {
-  // 已弃用，使用 Log.d, Log.i, Log.w, Log.e 替代
-  switch (level) {
-    case LogLevel.debug:
-      Log.d('$title $content');
-      break;
-    case LogLevel.info:
-      Log.i('$title $content');
-      break;
-    case LogLevel.warning:
-      Log.w('$title $content');
-      break;
-    case LogLevel.error:
-      Log.e('$title $content');
-      break;
-  }
-}
-
 final excludePaths = [
   'package:pica_comic/foundation/log.dart',
 ];
@@ -38,12 +19,13 @@ final logMemoryOut = MemoryOutput(
 );
 final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
+  filter: ProductionFilter(),
   output: MultiOutput([
     if (kDebugMode) ConsoleOutput(),
     if (!kDebugMode)
       MAdvancedFileOutput(
         path: '${App.dataPath}/logger',
-        overrideExisting: true,
+        overrideExisting: false,
       ),
     logMemoryOut,
   ]),

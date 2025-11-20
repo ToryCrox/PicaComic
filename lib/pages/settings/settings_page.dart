@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/picacg.dart';
@@ -43,19 +44,33 @@ import '../welcome_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 part "reading_settings.dart";
+
 part "picacg_settings.dart";
+
 part "network_setting.dart";
+
 part "multi_pages_filter.dart";
+
 part "local_favorite_settings.dart";
+
 part "jm_settings.dart";
+
 part "hi_settings.dart";
+
 part "ht_settings.dart";
+
 part "explore_settings.dart";
+
 part "eh_settings.dart";
+
 part "nh_settings.dart";
+
 part "comic_source_settings.dart";
+
 part "blocking_keyword_page.dart";
+
 part "app_settings.dart";
+
 part 'components.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -71,14 +86,23 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> implements PopEntry{
+class _SettingsPageState extends State<SettingsPage> implements PopEntry {
   int currentPage = -1;
 
   ColorScheme get colors => Theme.of(context).colorScheme;
 
   bool get enableTwoViews => !UiMode.m1(context);
 
-  final categories = <String>["浏览", "漫画源", "阅读", "外观", "本地收藏", "APP", "网络", "关于"];
+  final categories = <String>[
+    "浏览",
+    "漫画源",
+    "阅读",
+    "外观",
+    "本地收藏",
+    "APP",
+    "网络",
+    "关于"
+  ];
 
   final icons = <IconData>[
     Icons.explore,
@@ -295,8 +319,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         decoration: BoxDecoration(
             color: selected ? colors.primaryContainer : null,
-            borderRadius: BorderRadius.circular(16)
-        ),
+            borderRadius: BorderRadius.circular(16)),
         child: Row(children: [
           Icon(icons[id]),
           const SizedBox(
@@ -405,9 +428,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
                   ),
                   InkWell(
                     borderRadius: const BorderRadius.all(Radius.circular(18)),
-                    onTap: () => showDialogMessage(
-                        context,
-                        "高刷新率模式".tl,
+                    onTap: () => showDialogMessage(context, "高刷新率模式".tl,
                         "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}"),
                     child: const Icon(
                       Icons.info_outline,
@@ -445,6 +466,17 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
   Widget buildAppSettings() {
     return Column(
       children: [
+        if (Platform.isWindows)
+          ListTile(
+              title: const Text('打开Data目录'),
+              leading: const Icon(Icons.folder),
+              onTap: () async {
+                OpenFile.open(App.dataPath);
+              }),
+        ListTile(
+          title: Text("打开Temp".tl),
+        ),
+
         ListTile(
           title: Text("日志".tl),
         ),
@@ -483,9 +515,10 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
         ListTile(
           leading: const Icon(Icons.sd_storage_outlined),
           title: Text("缓存大小限制".tl),
-          subtitle: Text('${bytesLengthToReadableSize(CacheManager().currentSize)}'
-                         ' / '
-                         '${bytesLengthToReadableSize(CacheManager().limitSize)}'),
+          subtitle:
+              Text('${bytesLengthToReadableSize(CacheManager().currentSize)}'
+                  ' / '
+                  '${bytesLengthToReadableSize(CacheManager().limitSize)}'),
           onTap: setCacheLimit,
           trailing: const Icon(Icons.arrow_right),
         ),
@@ -573,7 +606,8 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
           title: Text("下载并行".tl),
           leading: const Icon(Icons.download),
           trailing: Select(
-            initialValue: ["1", "2", "4", "6", "8", "16"].indexOf(appdata.settings[79]),
+            initialValue:
+                ["1", "2", "4", "6", "8", "16"].indexOf(appdata.settings[79]),
             values: const ["1", "2", "4", "6", "8", "16"],
             onChange: (value) {
               appdata.settings[79] = ["1", "2", "4", "6", "8", "16"][value];
@@ -581,22 +615,24 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
             },
           ),
         ),
-        if(App.isAndroid)
+        if (App.isAndroid)
           ListTile(
             title: Text("应用链接".tl),
             subtitle: Text("在系统设置中管理APP支持的链接".tl),
             leading: const Icon(Icons.link),
             trailing: const Icon(Icons.arrow_right),
-            onTap: (){
+            onTap: () {
               const MethodChannel("pica_comic/settings").invokeMethod("link");
             },
           ),
-        if(kDebugMode)
+        if (kDebugMode)
           const ListTile(
             title: Text("Debug"),
             onTap: debug,
           ),
-        Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+        Padding(
+            padding:
+                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
       ],
     );
   }
@@ -611,8 +647,8 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
             child: Container(
               width: 156,
               height: 156,
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20)),
+              decoration:
+                  BoxDecoration(borderRadius: BorderRadius.circular(20)),
               child: const Image(
                 image: AssetImage("images/app_icon_no_bg.png"),
                 filterQuality: FilterQuality.medium,
@@ -658,7 +694,9 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry{
         //       mode: LaunchMode.externalApplication),
         //   trailing: const Icon(Icons.arrow_right),
         // ),
-        Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+        Padding(
+            padding:
+                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
       ],
     );
   }

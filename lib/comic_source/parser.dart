@@ -156,7 +156,7 @@ class ComicSourceParser {
         source.saveData();
         return const Res(true);
       } catch (e, s) {
-        log("$e\n$s", "Network", LogLevel.error);
+        Log.e("NetWork $e\n$s");
         return Res.error(e.toString());
       }
     }
@@ -447,7 +447,7 @@ class ComicSourceParser {
           """);
           return const Res(true);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("Network $e\n$s");
           return Res<bool>.error(e.toString());
         }
       }
@@ -467,7 +467,7 @@ class ComicSourceParser {
                       (index) => CustomComic.fromJson(res["comics"][index], _key!)),
               subData: res["maxPage"]);
         } catch (e, s) {
-          log("$e\n$s", "Network", LogLevel.error);
+          Log.e("NetWork $e\n$s");
           return Res.error(e.toString());
         }
       }
@@ -493,7 +493,7 @@ class ComicSourceParser {
             }
             return Res(Map.from(res["folders"]), subData: subData);
           } catch (e, s) {
-            log("$e\n$s", "Network", LogLevel.error);
+            Log.e("NetWork $e\n$s");
             return Res.error(e.toString());
           }
         }
