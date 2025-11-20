@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -21,7 +22,6 @@ import 'package:pica_comic/tools/file_type.dart';
 import '../base.dart';
 import '../network/eh_network/eh_main_network.dart';
 import '../network/hitomi_network/image.dart';
-import '../network/jm_network/jm_network.dart';
 import '../network/jm_network/headers.dart';
 import '../network/res.dart';
 
@@ -56,39 +56,104 @@ class ImageManager {
 
   int ehgtLoading = 0;
 
-  /// 获取图片, 适用于没有任何限制的图片链接
-  Stream<DownloadProgress> getImage(final String url,
-      [Map<String, String>? headers]) async* {
-    final key = url;
+  /// 缓存下载进度
+  final Map<String, StreamController<DownloadProgress>> _downloadControllers = {};
+
+  /// 连接两个StreamController，传输所有事件（数据、错误、完成）
+  static StreamSubscription<T> _connectStream<T>(
+      StreamController<T> source,
+      StreamController<T> target, {
+        bool cancelOnError = false,
+      }) {
+    return source.stream.listen(
+          (T data) {
+        // 只在目标StreamController未关闭时添加数据
+        if (!target.isClosed) {
+          target.add(data);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        // 只在目标StreamController未关闭时添加错误
+        if (!target.isClosed) {
+          target.addError(error, stackTrace);
+        }
+      },
+      onDone: () {
+        // 只在目标StreamController未关闭时关闭
+        if (!target.isClosed) {
+          target.close();
+        }
+      },
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  Future<bool> _checkFileCache({
+    required StreamController<DownloadProgress> controller,
+    required String url,
+    String? key,
+  }) async {
     final isFileUrl = url.startsWith("file://");
     if (isFileUrl) {
       final file = File(url.replaceFirst('file://', ''));
       if (await file.exists()) {
-        yield DownloadProgress(
-            1, 1, url, file.path, await file.readAsBytes(), null);
-        return;
+        controller.add(DownloadProgress(
+            1, 1, url, file.path, null, null));
       } else {
-        throw Exception("File not found ${file.path}");
+        controller.addError(Exception("File not found ${file.path}"));
       }
+      return true;
     }
-    var cache = await CacheManager().findCache(key);
-    Log.d("getImage $url: ${cache?.filePath}");
-    if (cache != null) {
-      yield DownloadProgress(
-          1, 1, url, cache.filePath, null, cache.type);
-      loadingItems.remove(url);
+    final cacheKey = key ?? url;
+    var cache = await CacheManager().findCache(cacheKey);
+    if (cache != null && (await cache.file.exists())) {
+      controller.add(DownloadProgress(
+          1, 1, url, cache.filePath, null, cache.type));
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /// 获取图片, 适用于没有任何限制的图片链接
+  Stream<DownloadProgress> getImage(final String url,
+      [Map<String, String>? headers]) {
+    final controller = StreamController<DownloadProgress>();
+    _putImageStream(controller: controller, url: url, headers: headers);
+    return controller.stream;
+  }
+
+  /// 1. 先检查文件缓存
+  /// 2. 再检查是否有正在下载的图片
+  /// 3. 下载图片
+  Future<void> _putImageStream({
+    required StreamController<DownloadProgress> controller,
+    required final String url,
+    Map<String, String>? headers,
+  }) async {
+    if (await _checkFileCache(controller: controller, url: url)) {
+      controller.close();
       return;
     }
+    final cacheKey = url;
+    StreamController<DownloadProgress>? downloadController = _downloadControllers[cacheKey];
+    if (downloadController != null) {
+      Log.d("_putImageStream $url: already downloading");
+      _connectStream(downloadController, controller, cancelOnError: true);
+      return;
+    }
+    Log.d("_putImageStream $url");
+    downloadController = StreamController<DownloadProgress>.broadcast();
+    _downloadControllers[cacheKey] = downloadController;
+    _connectStream(downloadController, controller, cancelOnError: true);
 
-    await wait(url);
-    loadingItems[url] = DownloadProgress(0, 1, url, "");
+
     CachingFile? caching;
-
     try {
-      final cachingFile = await CacheManager().openWrite(key);
+      final cachingFile = await CacheManager().openWrite(cacheKey);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
-      yield DownloadProgress(0, 100, url, savePath);
+      downloadController.add(DownloadProgress(0, 100, url, savePath));
       headers = headers ?? {};
       headers["User-Agent"] ??= webUA;
       headers["Connection"] = "Keep-Alive";
@@ -110,7 +175,7 @@ class ImageManager {
       }
       var dioRes = await dio.get<ResponseBody>(realUrl,
           options:
-              Options(responseType: ResponseType.stream, headers: headers));
+          Options(responseType: ResponseType.stream, headers: headers));
       if (dioRes.data == null) {
         throw Exception("Empty Data");
       }
@@ -127,13 +192,12 @@ class ImageManager {
         await cachingFile.writeBytes(res);
         var progress = DownloadProgress(imageData.length,
             (expectedBytes ?? imageData.length + 1), url, savePath);
-        yield progress;
-        loadingItems[url] = progress;
+        downloadController.add(progress);
       }
       var ext = getExt(dioRes);
       cachingFile.fileType = ext;
       await cachingFile.close();
-      yield DownloadProgress(
+      downloadController.add(DownloadProgress(
         imageData.length,
         imageData.length,
         url,
@@ -141,22 +205,26 @@ class ImageManager {
         Uint8List.fromList(imageData),
         ext,
         cachingFile,
-      );
+      ));
     } catch (e, s) {
       caching?.cancel();
       Log.e("Network $e\n$s");
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
-          throw BadRequestException(e.message.toString());
+          downloadController.addError(BadRequestException(e.message.toString()));
+        } else {
+          downloadController.addError(e);
         }
+      } else {
+        downloadController.addError(e);
       }
-      rethrow;
     } finally {
       if (url.contains("ehgt.org") || url.contains("s.exhentai.org")) {
         ehgtLoading--;
       }
-      loadingItems.remove(url);
+      _downloadControllers.remove(cacheKey);
+      downloadController.close();
     }
   }
 
