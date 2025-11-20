@@ -23,11 +23,19 @@ class ComicsPageLogic<T> extends StateController {
 
   bool showFloatingButton = true;
 
-  void get(Future<Res<List<T>>> Function(int) getComics) async {
+  void get(Future<Res<List<T>>> Function(int) getComics, [Future<List<T>> Function()? getComicsCache]) async {
     if (loadingData) return;
     loadingData = true;
     Future.microtask(() => update());
     if (comics == null) {
+      if (getComicsCache != null) {
+        final cacheData = await getComicsCache();
+        if (cacheData.isNotEmpty) {
+          comics = cacheData;
+          loading = false;
+          Future.microtask(() => update());
+        }
+      }
       var res = await getComics(1);
       if (res.error) {
         message = res.errorMessage;
@@ -113,6 +121,9 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   /// 是否居中标题
   bool get centerTitle => true;
 
+  /// 获取缓存数据
+  Future<List<T>> getComicsCache() => SynchronousFuture([]);
+
   /// 获取图片, 参数为页面序号, **从1开始**
   ///
   /// 返回值Res的subData为页面总数
@@ -172,7 +183,7 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
             logic.loading = true;
           }
           if (logic.loading) {
-            logic.get(getComics);
+            logic.get(getComics, getComicsCache);
             return Column(
               children: [
                 if (title != null) const Appbar(title: Text("")),

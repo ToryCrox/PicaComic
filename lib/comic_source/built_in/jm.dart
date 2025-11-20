@@ -5,6 +5,7 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -225,7 +226,16 @@ final jm = ComicSource.named(
     ExplorePageData.named(
       title: "禁漫最新",
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) => JmNetwork().getLatest(page),
+      loadPage: (page) => JmNetwork().getLatest(page).then((e){
+        final data = e.dataOrNull;
+        if (data != null) {
+          DiskCache.writeModelList('jm_latest', data.map((e) => e.toJson()).toList());
+        }
+        return e;
+      }),
+      loadCache: () {
+        return DiskCache.readModelList('jm_latest', (e) => JmComicBrief.fromJson(e));
+      }
     ),
   ],
   idMatcher: RegExp(r"^(\d+|jm\d+)$"),

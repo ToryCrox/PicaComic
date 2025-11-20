@@ -33,6 +33,8 @@ part 'parser.dart';
 /// build comic list, [Res.subData] should be maxPage or null if there is no limit.
 typedef ComicListBuilder = Future<Res<List<BaseComic>>> Function(int page);
 
+typedef ComicListCacheBuilder = Future<List<BaseComic>> Function();
+
 typedef LoginFunction = Future<Res<bool>> Function(String, String);
 
 typedef LoadComicFunc = Future<Res<ComicInfoData>> Function(String id);
@@ -336,6 +338,8 @@ class ExplorePageData {
 
   final ComicListBuilder? loadPage;
 
+  final ComicListCacheBuilder? loadCache;
+
   final Future<Res<List<ExplorePagePart>>> Function()? loadMultiPart;
 
   /// return a `List` contains `List<BaseComic>` or `ExplorePagePart`
@@ -345,12 +349,14 @@ class ExplorePageData {
 
   ExplorePageData(this.title, this.type, this.loadPage, this.loadMultiPart)
       : loadMixed = null,
+        loadCache = null,
         overridePageBuilder = null;
 
   ExplorePageData.named({
     required this.title,
     required this.type,
     this.loadPage,
+    this.loadCache,
     this.loadMultiPart,
     this.loadMixed,
     this.overridePageBuilder,

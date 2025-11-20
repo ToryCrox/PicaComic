@@ -161,6 +161,30 @@ class DiskCache {
     await writeString(key, jsonStr);
   }
 
+
+  static Future<List<T>> readModelList<T>(
+      String key,
+      T Function(Map<String, dynamic> map) fromJson,
+      ) async {
+    final t1 = DateTime.now().millisecondsSinceEpoch;
+    final str = await readString(key);
+    try {
+      final List<dynamic> list = TypeUtil.parseMapList(str);
+      final timeSpent = DateTime.now().millisecondsSinceEpoch - t1;
+      Log.d(() => 'readCacheModel, key: $key, str: $str, timSpent: ${timeSpent}ms');
+      return list.isNotEmpty ? list.map((e) => fromJson(e)).toList() : [];
+    } catch (e) {
+      Log.w('readCacheModel key: $key, e: $e');
+      return [];
+    }
+  }
+
+  static Future<void> writeModelList(String key, List<Map<String, dynamic>> list) async {
+    final jsonStr = jsonEncode(list);
+    Log.d(() =>'writeModelList $jsonStr');
+    await writeString(key, jsonStr);
+  }
+
 }
 
 class DiskCacheManager {

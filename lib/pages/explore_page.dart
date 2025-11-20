@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -210,7 +211,7 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
   }
 
   Widget buildComicList() =>
-      _ComicList(data.loadPage!, tag.toString(), comicSourceKey);
+      _ComicList(data.loadPage!, tag.toString(), comicSourceKey, cacheBuilder: data.loadCache,);
 
   void load() async {
     var res = await data.loadMultiPart!();
@@ -277,15 +278,22 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
 }
 
 class _ComicList extends ComicsPage<BaseComic> {
-  const _ComicList(this.builder, this.tag, this.sourceKey);
+  const _ComicList(this.builder, this.tag, this.sourceKey, {this.cacheBuilder});
 
   @override
   final String tag;
 
   final ComicListBuilder builder;
 
+  final ComicListCacheBuilder? cacheBuilder;
+
   @override
   final String sourceKey;
+
+  @override
+  Future<List<BaseComic>> getComicsCache() {
+    return cacheBuilder?.call() ?? SynchronousFuture([]);
+  }
 
   @override
   Future<Res<List<BaseComic>>> getComics(int i) {
