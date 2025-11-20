@@ -47,6 +47,7 @@ import 'package:pica_comic/tools/save_image.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/tools/type_util.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../foundation/app.dart';
 import '../../foundation/disk_cache.dart';
@@ -236,9 +237,10 @@ class ComicReadingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return StateBuilder<ComicReadingPageLogic>(initState: (logic) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      if (appdata.settings[14] == "1") {
-        setKeepScreenOn();
-      }
+      // if (appdata.settings[14] == "1") {
+      //   setKeepScreenOn();
+      // }
+      WakelockPlus.enable();
       if (appdata.settings[76] == "1") {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
@@ -273,9 +275,10 @@ class ComicReadingPage extends StatelessWidget {
       if (logic.listenVolume != null) {
         logic.listenVolume!.stop();
       }
-      if (appdata.settings[14] == "1") {
-        cancelKeepScreenOn();
-      }
+      // if (appdata.settings[14] == "1") {
+      //   cancelKeepScreenOn();
+      // }
+      WakelockPlus.disable();
       logic.stopAutoPageTurning();
       ComicImage.clear();
       StateController.remove<ComicReadingPageLogic>();

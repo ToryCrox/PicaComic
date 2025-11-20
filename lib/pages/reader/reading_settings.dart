@@ -200,23 +200,23 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             ),
             title: Text("自动翻页时间间隔".tl),
           ),
-          if (App.isAndroid)
-            ListTile(
-              leading: const Icon(Icons.screenshot_outlined),
-              title: Text("保持屏幕常亮".tl),
-              onTap: () {},
-              trailing: Switch(
-                value: keepScreenOn,
-                onChanged: (b) {
-                  b ? setKeepScreenOn() : cancelKeepScreenOn();
-                  b ? appdata.settings[14] = "1" : appdata.settings[14] = "0";
-                  setState(() {
-                    keepScreenOn = b;
-                  });
-                  appdata.writeData();
-                },
-              ),
-            ),
+          // if (App.isAndroid)
+          //   ListTile(
+          //     leading: const Icon(Icons.screenshot_outlined),
+          //     title: Text("保持屏幕常亮".tl),
+          //     onTap: () {},
+          //     trailing: Switch(
+          //       value: keepScreenOn,
+          //       onChanged: (b) {
+          //         b ? setKeepScreenOn() : cancelKeepScreenOn();
+          //         b ? appdata.settings[14] = "1" : appdata.settings[14] = "0";
+          //         setState(() {
+          //           keepScreenOn = b;
+          //         });
+          //         appdata.writeData();
+          //       },
+          //     ),
+          //   ),
           ListTile(
             leading: const Icon(Icons.brightness_4),
             title: Text("深色模式下降低图片亮度".tl),
