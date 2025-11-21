@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 @immutable
 class HtHomePageData {
@@ -10,6 +11,15 @@ class HtHomePageData {
 
   /// 主页
   const HtHomePageData(this.comics, this.links);
+
+  HtHomePageData.fromJson(Map<String, dynamic> json):
+      comics = json.optList("comics", (e) => TypeUtil.parseMapList(e)).map((e) => e.map((e) => HtComicBrief.fromJson(e)).toList()).toList(),
+      links = Map<String, String>.from(json["links"]);
+
+  Map<String, dynamic> toJson() => {
+    "comics": comics.map((e) => e.map((e) => e.toJson()).toList()).toList(),
+    "links": links
+  };
 }
 
 @immutable
@@ -40,6 +50,23 @@ class HtComicBrief extends BaseComic{
 
   @override
   String get title => name;
+
+  HtComicBrief.fromJson(Map<String, dynamic> json):
+      name = json.optString("name"),
+      time = json.optString("time"),
+      image = json.optString("image"),
+      pages = json.optInt("pages"),
+      id = json["id"],
+      favoriteId = json.optString("favoriteId");
+
+  Map<String, dynamic> toJson() => {
+    "name": name,
+    "time": time,
+    "image": image,
+    "pages": pages,
+    "id": id,
+    "favoriteId": favoriteId
+  };
 }
 
 @immutable

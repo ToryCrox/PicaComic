@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -166,6 +167,9 @@ final htManga = ComicSource.named(
         if (homepage.error) {
           return Res.fromErrorRes(homepage);
         }
+        if (homepage.dataOrNull != null) {
+          DiskCache.writeModel('ht_manga_home', homepage.data.toJson());
+        }
         var res = <ExplorePagePart>[];
         for (int i = 0; i < homepage.data.comics.length; i++) {
           var name = homepage.data.links.keys.elementAt(i);
@@ -179,7 +183,20 @@ final htManga = ComicSource.named(
         }
         return Res(res);
       },
-    ),
+        loadMultiPartCache: () async {
+          var homepage = await DiskCache.readModel(
+              'ht_manga_home', HtHomePageData.fromJson);
+          final list = homepage?.comics ?? [];
+          final links = homepage?.links ?? {};
+          return [
+            for(int i = 0; i < list.length; i++)
+              ExplorePagePart(
+                links.keys.elementAt(i),
+                list[i],
+                "category:${links.keys.elementAt(i)}@${links.values.elementAt(i)}",
+              ),
+          ];
+        }),
   ],
   searchPageData: SearchPageData.named(
     loadPage: (keyword, page, options) {

@@ -342,6 +342,8 @@ class ExplorePageData {
 
   final Future<Res<List<ExplorePagePart>>> Function()? loadMultiPart;
 
+  final Future<List<ExplorePagePart>> Function()? loadMultiPartCache;
+
   /// return a `List` contains `List<BaseComic>` or `ExplorePagePart`
   final Future<Res<List<Object>>> Function(int index)? loadMixed;
 
@@ -350,6 +352,7 @@ class ExplorePageData {
   ExplorePageData(this.title, this.type, this.loadPage, this.loadMultiPart)
       : loadMixed = null,
         loadCache = null,
+        loadMultiPartCache = null,
         overridePageBuilder = null;
 
   ExplorePageData.named({
@@ -358,6 +361,7 @@ class ExplorePageData {
     this.loadPage,
     this.loadCache,
     this.loadMultiPart,
+    this.loadMultiPartCache,
     this.loadMixed,
     this.overridePageBuilder,
   });

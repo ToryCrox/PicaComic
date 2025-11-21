@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -183,16 +184,34 @@ final ehentai = ComicSource.named(
       title: "Eh主页",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
-        firstPageLoader: () => EhNetwork().getGalleries(EhNetwork().ehBaseUrl),
+        firstPageLoader: () => EhNetwork().getGalleries(EhNetwork().ehBaseUrl).then((e){
+          if (e.dataOrNull != null) {
+            DiskCache.writeModel('eh_home', e.data.toJson());
+          }
+          return e;
+        }),
       ),
+      loadCache: () async {
+        var data = await DiskCache.readModel('eh_home', (e) => Galleries.fromJson(e));
+        return data?.galleries ?? [];
+      },
     ),
     ExplorePageData.named(
       title: "Eh热门",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
         firstPageLoader: () =>
-            EhNetwork().getGalleries("${EhNetwork().ehBaseUrl}/popular"),
+            EhNetwork().getGalleries("${EhNetwork().ehBaseUrl}/popular").then((e) {
+              if (e.dataOrNull != null) {
+                DiskCache.writeModel('eh_popular', e.data.toJson());
+              }
+              return e;
+            }),
       ),
+      loadCache: () async {
+        var data = await DiskCache.readModel('eh_popular', (e) => Galleries.fromJson(e));
+        return data?.galleries ?? [];
+      },
     ),
   ],
   searchPageData: SearchPageData.named(

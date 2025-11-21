@@ -33,6 +33,31 @@ class EhGalleryBrief extends BaseComic{
 
   @override
   bool get enableTagsTranslation => true;
+
+  EhGalleryBrief.fromJson(Map<String, dynamic> json):
+    title = json.optString('title'),
+    type = json.optString('type'),
+    time = json.optString('time'),
+    uploader = json.optString('uploader'),
+    stars = json.optDouble('stars'),
+    coverPath = json.optString('coverPath'),
+    tags = json.optStringList('tags'),
+    link = json.optString('link'),
+    pages = json.optInt('pages');
+
+  Map<String, dynamic> toJson() {
+    return {
+      "title": title,
+      "type": type,
+      "time": time,
+      "uploader": uploader,
+      "stars": stars,
+      "coverPath": coverPath,
+      "tags": tags,
+      "link": link,
+      "pages": pages
+    };
+  }
 }
 
 class Galleries{
@@ -40,6 +65,19 @@ class Galleries{
   String? next;//下一页的链接
   EhGalleryBrief operator[](int index)=>galleries[index];
   int get length => galleries.length;
+
+  Galleries();
+
+  Galleries.fromJson(Map<String, dynamic> json):
+    galleries = json.optMapList('galleries').map((e) => EhGalleryBrief.fromJson(e)).toList(),
+    next = json.optString('next');
+
+  Map<String, dynamic> toJson() {
+    return {
+      "galleries": galleries.map((e) => e.toJson()).toList(),
+      "next": next
+    };
+  }
 }
 
 class Comment{

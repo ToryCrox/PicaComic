@@ -214,6 +214,17 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
       _ComicList(data.loadPage!, tag.toString(), comicSourceKey, cacheBuilder: data.loadCache,);
 
   void load() async {
+    final loadCache = data.loadMultiPartCache;
+    if (loadCache != null) {
+      final cache = await loadCache();
+      if (cache.isNotEmpty) {
+        parts = cache;
+        setState(() {
+          loading = false;
+        });
+      }
+    }
+
     var res = await data.loadMultiPart!();
     loading = false;
     if (mounted) {

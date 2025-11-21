@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -118,11 +119,31 @@ final picacg = ComicSource.named(
         if (res1.error) {
           return Res.fromErrorRes(res1);
         }
+        DiskCache.writeModelList('pica_radom_comic', res0.data.map((e) => e.toJson()).toList());
+        DiskCache.writeModelList('pica_radom_latest', res1.data.map((e) => e.toJson()).toList());
         return Res([
           ExplorePagePart("随机".tl, res0.data, "category:random"),
           ExplorePagePart("最新".tl, res1.data, "category:latest"),
         ]);
       },
+      loadMultiPartCache: () async {
+          var [res0, res1] = await Future.wait(
+            [
+              DiskCache.readModelList(
+                  'pica_radom_comic', ComicItemBrief.fromJson),
+              DiskCache.readModelList(
+                  'pica_radom_latest', ComicItemBrief.fromJson),
+            ],
+          );
+          if (res0.isNotEmpty || res1.isNotEmpty) {
+            return [
+              ExplorePagePart("随机".tl, res0, "category:random"),
+              ExplorePagePart("最新".tl, res1, "category:latest"),
+            ];
+          } else {
+            return [];
+          }
+        }
     ),
   ],
   categoryComicsData: CategoryComicsData.named(

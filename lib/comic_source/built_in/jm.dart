@@ -212,6 +212,9 @@ final jm = ComicSource.named(
         if (homePageData.error) {
           return Res.fromErrorRes(homePageData);
         }
+        if (homePageData.dataOrNull != null) {
+          DiskCache.writeModel('jm_home_page', homePageData.data.toJson());
+        }
         var res = <ExplorePagePart>[];
         for (var part in homePageData.data.items) {
           res.add(ExplorePagePart(
@@ -222,13 +225,27 @@ final jm = ComicSource.named(
         }
         return Res(res);
       },
+      loadMultiPartCache: () async {
+        var homePageData = await DiskCache.readModel('jm_home_page', (e) => HomePageData.fromJson(e));
+        if (homePageData == null) {
+          return [];
+        }
+        return [
+          for(var part in homePageData.items)
+            ExplorePagePart(
+              part.name,
+              part.comics,
+              'category:${part.name}@${part.id}',
+            )
+        ];
+      }
     ),
     ExplorePageData.named(
       title: "禁漫最新",
       type: ExplorePageType.multiPageComicList,
       loadPage: (page) => JmNetwork().getLatest(page).then((e){
         final data = e.dataOrNull;
-        if (data != null) {
+        if (data != null && page == 1) {
           DiskCache.writeModelList('jm_latest', data.map((e) => e.toJson()).toList());
         }
         return e;

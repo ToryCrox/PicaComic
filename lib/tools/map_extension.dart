@@ -48,7 +48,7 @@ extension ExtendedMap on Map<dynamic, dynamic> {
     return TypeUtil.parseStringList(this[key]);
   }
 
-  List<Map<String, dynamic>> optMayList(String key) {
+  List<Map<String, dynamic>> optMapList(String key) {
     return TypeUtil.parseMapList(this[key]);
   }
 

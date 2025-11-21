@@ -8,6 +8,15 @@ class HomePageData {
   List<HomePageItem> items;
 
   HomePageData(this.items);
+
+  HomePageData.fromJson(Map<String, dynamic> json)
+      : items = json.optList("items", (e) => HomePageItem.fromJson(e));
+
+  Map<String, dynamic> toJson() {
+    return {
+      "items": items.map((e) => e.toJson()).toList()
+    };
+  }
 }
 
 class HomePageItem {
@@ -17,6 +26,21 @@ class HomePageItem {
   List<JmComicBrief> comics;
 
   HomePageItem(this.name, this.id, this.comics, this.category);
+
+  HomePageItem.fromJson(Map<String, dynamic> json)
+      : name = json.optString("name"),
+        id = json.optString("id"),
+        category = json.optBool("category"),
+        comics = json.optList("comics", (e) => JmComicBrief.fromJson(e));
+
+  Map<String, dynamic> toJson() {
+    return {
+      "name": name,
+      "id": id,
+      "category": category,
+      "comics": comics.map((e) => e.toJson()).toList()
+    };
+  }
 }
 
 class JmComicBrief extends BaseComic {
