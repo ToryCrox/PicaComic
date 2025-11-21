@@ -134,7 +134,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
 
   @override
   void initState() {
-    currentPage = widget.initialPage;
+    currentPage = widget.initialPage > -1 ? widget.initialPage : 5;
     gestureRecognizer = HorizontalDragGestureRecognizer(debugOwner: this)
       ..onUpdate = ((details) => setState(() => offset += details.delta.dx))
       ..onEnd = (details) async {
