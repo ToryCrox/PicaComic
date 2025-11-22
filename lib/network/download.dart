@@ -221,7 +221,7 @@ class DownloadManager implements Listenable {
   }
 
   static final _saveInfoThrottle =
-      Debounce(duration: const Duration(milliseconds: 10));
+      Debounce(duration: const Duration(milliseconds: 200));
 
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
@@ -237,7 +237,6 @@ class DownloadManager implements Listenable {
       sharedCompute(saveToFile, saveItem);
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
-      Log.d("IO Saved download information in ${DateTime.now().difference(t1).inMilliseconds}ms");
     });
   }
 

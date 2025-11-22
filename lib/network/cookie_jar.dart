@@ -8,6 +8,8 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 
+import '../foundation/log.dart';
+
 /// 表名常量
 const String kTableCookies = 'cookies';
 
@@ -76,9 +78,10 @@ class CookieJarSql {
     return _initCompleter.future;
   }
 
-  void saveFromResponse(Uri uri, List<Cookie> cookies) {
+  Future<void> saveFromResponse(Uri uri, List<Cookie> cookies) async {
     for (var cookie in cookies) {
-      _saveCookie(uri, cookie);
+      Log.d("CookieJarSql: save cookie ${cookie.name}, ${cookie.value}, domain: ${cookie.domain}");
+      await _saveCookie(uri, cookie);
     }
   }
 
@@ -141,6 +144,7 @@ class CookieJarSql {
     for (var domain in acceptedDomains) {
       cookies.addAll(await _loadWithDomain(domain));
     }
+    Log.d("CookieJarSql: load cookies for request $uri, acceptedDomains: $acceptedDomains, cookies: $cookies");
 
     // check expires
     var now = DateTime.now();
@@ -178,11 +182,11 @@ class CookieJarSql {
     return uri.path.startsWith(cookiePath);
   }
 
-  void saveFromResponseCookieHeader(Uri uri, List<String> cookieHeader) {
+  Future<void> saveFromResponseCookieHeader(Uri uri, List<String> cookieHeader) async {
     var cookies = cookieHeader
         .map((header) => Cookie.fromSetCookieValue(header))
         .toList();
-    saveFromResponse(uri, cookies);
+    await saveFromResponse(uri, cookies);
   }
 
   Future<String> loadForRequestCookieHeader(Uri uri) async {

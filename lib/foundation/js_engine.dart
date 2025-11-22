@@ -293,7 +293,7 @@ mixin class _JSEngineApi {
                 })
             .toList();
       case "delete":
-        clearCookies([data["url"]]);
+        await clearCookies([data["url"]]);
         return null;
     }
   }
@@ -303,11 +303,11 @@ mixin class _JSEngineApi {
     _elements.clear();
   }
 
-  void clearCookies(List<String> domains) async {
+  Future<void> clearCookies(List<String> domains) async {
     for (var domain in domains) {
       var uri = Uri.tryParse(domain);
       if (uri == null) continue;
-      _cookieJar!.deleteUri(uri);
+      await _cookieJar!.deleteUri(uri);
     }
   }
 

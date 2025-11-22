@@ -156,10 +156,10 @@ final ehentai = ComicSource.named(
       }
       ehentai.saveData();
     },
-    logout: () {
+    logout: () async {
       var ehentai = ComicSource.find('ehentai')!;
-      EhNetwork().cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
-      EhNetwork().cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
+      await EhNetwork().cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
+      await EhNetwork().cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
       ehentai.data['name'] = '';
     },
     infoItems: [

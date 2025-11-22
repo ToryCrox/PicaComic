@@ -97,13 +97,13 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
   var url = e.url;
   var uri = Uri.parse(url);
 
-  void saveCookies(Map<String, String> cookies) {
+  Future<void> saveCookies(Map<String, String> cookies) async {
     var domain = uri.host;
     var splits = domain.split('.');
     if (splits.length > 1) {
       domain = ".${splits[splits.length - 2]}.${splits[splits.length - 1]}";
     }
-    SingleInstanceCookieJar.instance!.saveFromResponse(
+    await SingleInstanceCookieJar.instance!.saveFromResponse(
       uri,
       List<io.Cookie>.generate(cookies.length, (index) {
         var cookie = io.Cookie(
@@ -130,7 +130,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
           if(cookiesMap['cf_clearance'] == null) {
             return;
           }
-          saveCookies(cookiesMap);
+          await saveCookies(cookiesMap);
           controller.close();
           onFinished();
         }
@@ -156,7 +156,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
             if(cookiesMap['cf_clearance'] == null) {
               return;
             }
-            saveCookies(cookiesMap);
+            await saveCookies(cookiesMap);
             App.globalBack();
           }
         },
@@ -167,7 +167,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
             appdata.writeImplicitData();
           }
           var cookiesMap = await controller.getCookies(url) ?? {};
-          saveCookies(cookiesMap);
+          await saveCookies(cookiesMap);
         },
       ),
     );

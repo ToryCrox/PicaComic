@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/app_dio.dart';
@@ -89,7 +90,7 @@ class EhNetwork {
       }
     }
 
-    cookieJar.saveFromResponse(Uri.parse(url), shouldAdd);
+    await cookieJar.saveFromResponse(Uri.parse(url), shouldAdd);
 
     var res = "";
     for (var cookie in cookies) {
@@ -259,6 +260,7 @@ class EhNetwork {
 
       var html = parse(res.data);
       var name = html.querySelector("div#userlinks > p.home > b > a");
+      Log.d("name: ${name?.text}");
       ehentai.data['name'] = name?.text ?? '';
       return name != null;
     } catch (e, s) {
@@ -1144,7 +1146,8 @@ class EhNetwork {
           .querySelector("a")
           ?.attributes["href"];
       if (link == null) {
-        return const Res.error("Failed to get download link");
+        showToast(message: 'download error ${res.dataOrNull}');
+        return Res.error("Failed to get download link, ${res.data}");
       }
       var res2 = await logDio().get<String>(link);
       document = parse(res2.data);

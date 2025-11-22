@@ -34,7 +34,7 @@ void nhLogin(void Function() onFinished) async{
               cookiesList.add(cookie);
             }
           });
-          NhentaiNetwork().cookieJar!.saveFromResponse(
+          await NhentaiNetwork().cookieJar!.saveFromResponse(
               Uri.parse(NhentaiNetwork().baseUrl), cookiesList);
           onFinished();
           controller.close();
@@ -65,7 +65,7 @@ void nhLogin(void Function() onFinished) async{
               cookiesList.add(cookie);
             }
           });
-          NhentaiNetwork().cookieJar!.saveFromResponse(
+          await NhentaiNetwork().cookieJar!.saveFromResponse(
               Uri.parse(NhentaiNetwork().baseUrl), cookiesList);
           onFinished();
           App.globalBack();
