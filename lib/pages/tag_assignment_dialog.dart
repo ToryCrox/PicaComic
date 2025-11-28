@@ -5,6 +5,8 @@ import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
 
+import '../foundation/log.dart';
+
 /// 标签分配对话框
 class TagAssignmentDialog extends StatefulWidget {
   final List<String> comicIds;
@@ -21,7 +23,8 @@ class TagAssignmentDialog extends StatefulWidget {
 class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     with SingleTickerProviderStateMixin {
   List<DownloadTag> allTags = [];
-  Set<int> selectedTagIds = {};
+  final  _originalTagIds = <int>{};
+  final selectedTagIds = <int>{};
   bool loading = true;
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
@@ -44,17 +47,33 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   Future<void> _loadTags() async {
     setState(() => loading = true);
 
+    // 获取所有有漫画的共同标签(用于显示初始状态)
+    if (widget.comicIds.isNotEmpty) {
+      final comicTags =
+      await downloadManager.getCommonComicTags(widget.comicIds);
+      final ids = comicTags.map((e) => e.id).toSet();
+      selectedTagIds.clear();
+      selectedTagIds.addAll(ids);
+      selectedTagIds.addAll(comicTags.map((e) => e.id));
+      _originalTagIds.clear();
+      _originalTagIds.addAll(ids);
+    }
+
     // 获取所有标签,按updated_time倒序
     final tags = await downloadManager.getAllTags();
     // 标签已经按sort_order排序,我们需要按updated_time倒序
-    tags.sort((a, b) => b.updatedTime.compareTo(a.updatedTime));
-
-    // 获取第一个漫画的标签(用于显示初始状态)
-    if (widget.comicIds.isNotEmpty) {
-      final firstComicTags =
-          await downloadManager.getComicTags(widget.comicIds.first);
-      selectedTagIds = firstComicTags.map((e) => e.id).toSet();
-    }
+    tags.sort((a, b) {
+      final hasA = selectedTagIds.contains(a.id);
+      final hasB = selectedTagIds.contains(b.id);
+      if (hasA && hasB) {
+        return b.updatedTime.compareTo(a.updatedTime);
+      } else if (hasA) {
+        return -1;
+      } else if (hasB) {
+        return 1;
+      }
+      return b.updatedTime.compareTo(a.updatedTime);
+    });
 
     setState(() {
       allTags = tags;
@@ -89,24 +108,22 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
   Future<void> _applyTags() async {
     try {
+      final addTags = selectedTagIds.difference(_originalTagIds);
+      final removeTags = _originalTagIds.difference(selectedTagIds);
+      Log.d('selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
+      Log.d("添加标签: $addTags, 删除标签: $removeTags");
+
       // 为所有选中的漫画设置标签
       for (var comicId in widget.comicIds) {
-        // 获取当前漫画的标签
-        final currentTags = await downloadManager.getComicTags(comicId);
-        final currentTagIds = currentTags.map((e) => e.id).toSet();
 
         // 添加新标签
-        for (var tagId in selectedTagIds) {
-          if (!currentTagIds.contains(tagId)) {
-            await downloadManager.addTagToComic(comicId, tagId);
-          }
+        for (var tagId in addTags) {
+          await downloadManager.addTagToComic(comicId, tagId);
         }
 
         // 移除取消选中的标签
-        for (var tagId in currentTagIds) {
-          if (!selectedTagIds.contains(tagId)) {
-            await downloadManager.removeTagFromComic(comicId, tagId);
-          }
+        for (var tagId in removeTags) {
+          await downloadManager.removeTagFromComic(comicId, tagId);
         }
       }
 

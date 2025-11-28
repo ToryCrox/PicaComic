@@ -1020,6 +1020,11 @@ extension AddDownloadExt on DownloadManager {
     return maps.map((map) => DownloadTag.fromMap(map)).toList();
   }
 
+  Future<List<DownloadTag>> getCommonComicTags(List<String> comicIds) async {
+    final maps = await _db.getCommonComicTags(comicIds);
+    return maps.map((map) => DownloadTag.fromMap(map)).toList();
+  }
+
   /// 获取所有漫画的标签映射
   Future<Map<String, List<String>>> getAllComicTagsMap() async {
     return await _db.getAllComicTags();

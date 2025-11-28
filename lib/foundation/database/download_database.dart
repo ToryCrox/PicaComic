@@ -518,6 +518,18 @@ class DownloadDatabase {
     ''', [comicId]);
   }
 
+  /// 获取漫画都有的标签
+  Future<List<Map<String, Object?>>> getCommonComicTags(List<String> comicIds) async {
+    final db = await _getDatabase();
+    return await db.rawQuery('''
+      SELECT t.* FROM $kTableTags t
+      INNER JOIN $kTableComicTags ct ON t.$kTagId = ct.$kComicTagsTagId
+      WHERE ct.$kComicTagsComicId IN (${comicIds.map((e) => '?').join(',')})
+      GROUP BY t.$kTagId
+      HAVING COUNT(t.$kTagId) = ?
+    ''', [...comicIds, comicIds.length]);
+  }
+
   /// 获取标签下的所有漫画ID
   Future<List<String>> getComicIdsByTag(int tagId) async {
     final db = await _getDatabase();
