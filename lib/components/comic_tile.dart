@@ -24,6 +24,8 @@ abstract class ComicTile extends StatelessWidget {
 
   Widget? get badge => null;
 
+  List<String> get primaryTags => [];
+
   List<String>? get tags => null;
 
   int get maxLines => 2;
@@ -359,6 +361,7 @@ abstract class ComicTile extends StatelessWidget {
                   description: description,
                   subDescription: buildSubDescription(context),
                   badge: badge,
+                  primaryTags: primaryTags,
                   tags: tags,
                   maxLines: maxLines,
                 ),
@@ -440,28 +443,33 @@ abstract class ComicTile extends StatelessWidget {
 }
 
 class _ComicDescription extends StatelessWidget {
-  const _ComicDescription(
-      {required this.title,
-      required this.user,
-      required this.description,
-      this.subDescription,
-      this.badge,
-      this.maxLines = 2,
-      this.tags});
+  const _ComicDescription({
+    required this.title,
+    required this.user,
+    required this.description,
+    this.subDescription,
+    this.badge,
+    this.maxLines = 2,
+    this.tags,
+    this.primaryTags = const [],
+  });
 
   final String title;
   final String user;
   final String description;
   final Widget? subDescription;
   final Widget? badge;
+  final List<String> primaryTags;
   final List<String>? tags;
   final int maxLines;
 
   @override
   Widget build(BuildContext context) {
-    if (tags != null) {
-      tags!.removeWhere((element) => element.removeAllBlank == "");
+    final tags = this.tags ?? [];
+    if (tags.isNotEmpty) {
+      tags.removeWhere((element) => element.removeAllBlank == "");
     }
+    final primaryTags = this.primaryTags;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -483,7 +491,7 @@ class _ComicDescription extends StatelessWidget {
         const SizedBox(
           height: 4,
         ),
-        if (tags != null)
+        if (tags.isNotEmpty || primaryTags.isNotEmpty)
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) => Padding(
@@ -491,30 +499,50 @@ class _ComicDescription extends StatelessWidget {
                 child: Wrap(
                   runAlignment: WrapAlignment.start,
                   clipBehavior: Clip.antiAlias,
+                  runSpacing: 4,
+                  spacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.end,
                   children: [
-                    for (var s in tags!)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 0, 4, 3),
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
-                          decoration: BoxDecoration(
-                            color: s == "Unavailable"
-                                ? Theme.of(context).colorScheme.errorContainer
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .secondaryContainer,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: Text(
-                            s,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12),
+                    for (var s in primaryTags)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary,
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(8)),
+                        ),
+                        child: Text(
+                          s,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme.onPrimary,
                           ),
                         ),
-                      )
+                      ),
+                    for (var s in tags)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                        decoration: BoxDecoration(
+                          color: s == "Unavailable"
+                              ? Theme.of(context).colorScheme.errorContainer
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer,
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(8)),
+                        ),
+                        child: Text(
+                          s,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                   ],
                 ),
               ),

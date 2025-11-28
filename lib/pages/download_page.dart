@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:collection/collection.dart';
@@ -184,9 +185,9 @@ class DownloadPageLogic extends StateController {
 
   bool get searchMode => _searchMode;
 
-  void updateSearchMode(bool mode) {
+  Future<void> updateSearchMode(bool mode) async {
     _searchMode = mode;
-    updateComics();
+    await updateComics();
     update();
   }
 
@@ -229,16 +230,16 @@ class DownloadPageLogic extends StateController {
     }
   }
 
-  void updateKeyword(String keyword) {
+  void updateKeyword(String keyword) async {
     if (_keyword != keyword || !_searchMode) {
       _keyword = keyword;
       _searchMode = true;
-      updateComics();
+      await updateComics();
       update();
     }
   }
 
-  void updateComics() async {
+  Future<void> updateComics() async {
     comics.clear();
 
     // 如果有标签筛选，先按标签过滤
@@ -253,9 +254,11 @@ class DownloadPageLogic extends StateController {
     if (_keyword == "" || !searchMode) {
       comics.addAll(filteredComics);
     } else {
+      final keyword = _keyword.toLowerCase();
       for (var element in filteredComics) {
-        if (element.name.toLowerCase().contains(_keyword.toLowerCase()) ||
-            element.subTitle.toLowerCase().contains(_keyword.toLowerCase())) {
+        if (element.name.toLowerCase().contains(keyword) ||
+            element.subTitle.toLowerCase().contains(keyword)
+            || getAllTags(element).any((e) => e.toLowerCase().contains(keyword))) {
           comics.add(element);
         }
       }
@@ -263,13 +266,13 @@ class DownloadPageLogic extends StateController {
   }
 
   /// 更新标签筛选
-  void updateTagFilter(int? tagId) {
+  Future<void> updateTagFilter(int? tagId) async {
     if (tagId == selectedTagId) {
       selectedTagId = null;
     } else {
       selectedTagId = tagId;
     }
-    updateComics();
+    await updateComics();
     update();
   }
 
@@ -281,6 +284,24 @@ class DownloadPageLogic extends StateController {
   }
 
   Map<String, List<String>> comicUserTags = {};
+
+  List<String> getUserTags(DownloadedItem item) {
+    return comicUserTags[item.id] ?? [];
+  }
+
+  List<String> getOriginalTags(DownloadedItem item) {
+    final userTags = getUserTags(item);
+    final originalTags = item.tags.map((e) => e.translateTagsToCN);
+    if (userTags.isEmpty) {
+      return originalTags.toList();
+    } else {
+      return originalTags.whereNot((e) => userTags.contains(e)).toList();
+    }
+  }
+
+  List<String> getAllTags(DownloadedItem item) {
+    return [...getOriginalTags(item), ...getUserTags(item)];
+  }
 
   @override
   void refresh() {
@@ -312,7 +333,7 @@ class DownloadPageLogic extends StateController {
     ]);
     baseComics = allComics;
     comicUserTags = await downloadManager.getAllComicTagsMap();
-    updateComics();
+    await updateComics();
     if (isFirstLoad) {
       await Future.delayed(const Duration(milliseconds: 150));
     }
@@ -488,7 +509,8 @@ class DownloadPage extends StatelessWidget {
           author: item.subTitle,
           imagePath: File(item.coverPath ?? ''),
           type: type,
-          tag: [...(logic.comicUserTags[item.id] ?? []), ...item.tags],
+          primaryTags: logic.getUserTags(item),
+          tag: logic.getOriginalTags(item),
           onTap: () async {
             if (logic.selecting) {
               if (logic.selected.contains(comic.id)) {
@@ -1390,6 +1412,9 @@ class DownloadedComicTile extends ComicTile {
   final String author;
   final String name;
   final String type;
+
+  @override
+  final List<String> primaryTags;
   final List<String> tag;
   final void Function() onTap;
   final void Function() onLongTap;
@@ -1441,6 +1466,7 @@ class DownloadedComicTile extends ComicTile {
     required this.onSecondaryTap,
     required this.type,
     required this.tag,
+    this.primaryTags = const [],
     super.key,
   });
 }
