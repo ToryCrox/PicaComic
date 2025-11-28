@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// 标签分类枚举
 enum TagCategory {
   none(0, '未分类'),
@@ -16,6 +18,21 @@ enum TagCategory {
       (e) => e.value == value,
       orElse: () => TagCategory.none,
     );
+  }
+
+  Color get color {
+    switch (this) {
+      case TagCategory.author:
+        return Colors.pinkAccent;
+      case TagCategory.work:
+        return Colors.blueAccent;
+      case TagCategory.character:
+        return Colors.greenAccent;
+      case TagCategory.manga:
+        return Colors.orangeAccent;
+      default:
+        return Colors.grey;
+    }
   }
 }
 

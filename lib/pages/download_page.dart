@@ -33,6 +33,7 @@ import 'package:pica_comic/tools/pdf.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:open_file/open_file.dart';
+import 'package:pica_comic/network/models/download_tag.dart';
 
 import '../components/components.dart';
 import '../foundation/app.dart';
@@ -368,6 +369,17 @@ class DownloadPageLogic extends StateController {
   String getTagName(int tagId) {
     return _tagInfoMap[tagId]?.name ?? "";
   }
+
+  void sortByCategory() {
+    expandTags = true;
+    allTags.sort((a, b) {
+      if (a.category != b.category) {
+        return a.category.compareTo(b.category);
+      }
+      return a.sortOrder.compareTo(b.sortOrder);
+    });
+    update();
+  }
 }
 
 class DownloadPage extends StatelessWidget {
@@ -425,114 +437,111 @@ class DownloadPage extends StatelessWidget {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "标签筛选".tl,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          logic.expandTags = !logic.expandTags;
-                          logic.update();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: Icon(
-                            logic.expandTags
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ReorderableWrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    onReorder: (oldIndex, newIndex) async {
-                      // 乐观更新
-                      final item = logic.allTags.removeAt(oldIndex);
-                      logic.allTags.insert(newIndex, item);
-                      logic.update();
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: ReorderableWrap(
+                spacing: 4,
+                runSpacing: 4,
+                onReorder: (oldIndex, newIndex) async {
+                  if (oldIndex >= logic.allTags.length ||
+                      newIndex > logic.allTags.length) {
+                    return;
+                  }
+                  // 乐观更新
+                  final item = logic.allTags.removeAt(oldIndex);
+                  logic.allTags.insert(newIndex, item);
+                  logic.update();
 
-                      // 更新数据库
-                      try {
-                        for (int i = 0; i < logic.allTags.length; i++) {
-                          await downloadManager.updateTagSortOrder(
-                              logic.allTags[i].id, i);
-                        }
-                      } catch (e) {
-                        // 如果失败，重新加载
-                        logic.refresh();
-                      }
-                    },
-                    children: [
-                      for (var tag in tags)
-                        InkWell(
-                          key: ValueKey(tag.id),
-                          onTap: () => logic.updateTagFilter(tag.id),
+                  // 更新数据库
+                  try {
+                    for (int i = 0; i < logic.allTags.length; i++) {
+                      await downloadManager.updateTagSortOrder(
+                          logic.allTags[i].id, i);
+                    }
+                  } catch (e) {
+                    // 如果失败，重新加载
+                    logic.refresh();
+                  }
+                },
+                children: [
+                  for (var tag in tags)
+                    InkWell(
+                      key: ValueKey(tag.id),
+                      onTap: () => logic.updateTagFilter(tag.id),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: logic.selectedTagId == tag.id
+                              ? Theme.of(context).colorScheme.primary
+                              : TagCategory.fromValue(tag.category)
+                                  .color
+                                  .withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: logic.selectedTagId == tag.id
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .secondaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                              border: logic.selectedTagId == tag.id
-                                  ? null
-                                  : Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .outline
-                                          .withOpacity(0.3),
-                                    ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  tag.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: logic.selectedTagId == tag.id
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .onPrimary
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSecondaryContainer,
-                                  ),
+                          border: logic.selectedTagId == tag.id
+                              ? null
+                              : Border.all(
+                                  color:
+                                      TagCategory.fromValue(tag.category).color,
+                                  width: 1,
                                 ),
-                                if (tag.category != 0) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: _getTagColor(tag.category),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                        ),
+                        child: Text(
+                          tag.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: logic.selectedTagId == tag.id
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                    ],
+                      ),
+                    ),
+                  GestureDetector(
+                    onLongPress: () {},
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        logic.expandTags = !logic.expandTags;
+                        logic.update();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          logic.expandTags
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onLongPress: () {},
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => logic.sortByCategory(),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        margin: const EdgeInsets.only(left: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.category,
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -542,21 +551,6 @@ class DownloadPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getTagColor(int category) {
-    switch (category) {
-      case 1: // author
-        return Colors.pinkAccent;
-      case 2: // work
-        return Colors.blueAccent;
-      case 3: // character
-        return Colors.greenAccent;
-      case 4: // manga
-        return Colors.orangeAccent;
-      default:
-        return Colors.grey;
-    }
   }
 
   Widget buildComics(BuildContext context, DownloadPageLogic logic) {
