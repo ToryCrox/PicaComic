@@ -326,8 +326,18 @@ class ComicReadingPage extends StatelessWidget {
             if (logic.isLoading) {
               //history?.readEpisode.add(logic.order);
               loadInfo(logic);
-              return const Center(
-                child: CircularProgressIndicator(),
+              return const SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BackButton(),
+                    Expanded(
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  ],
+                ),
               );
             } else if (logic.urls.isNotEmpty) {
               if (logic.readingMethod ==

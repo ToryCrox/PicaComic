@@ -16,6 +16,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/download_model.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
+import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -181,6 +182,8 @@ class DownloadPageLogic extends StateController {
 
   var baseComics = <DownloadedItem>[];
 
+  final Map<int, DownloadTag> _tagInfoMap = {};
+
   bool _searchMode = false;
 
   bool get searchMode => _searchMode;
@@ -333,12 +336,19 @@ class DownloadPageLogic extends StateController {
     ]);
     baseComics = allComics;
     comicUserTags = await downloadManager.getAllComicTagsMap();
+    final allTags = await downloadManager.getAllTags();
+    _tagInfoMap.clear();
+    _tagInfoMap.addAll(allTags.groupFoldBy((e) => e.id, (g, t) => t));
     await updateComics();
-    if (isFirstLoad) {
-      await Future.delayed(const Duration(milliseconds: 150));
-    }
+    // if (isFirstLoad) {
+    //   await Future.delayed(const Duration(milliseconds: 150));
+    // }
     loading = false;
     update();
+  }
+
+  String getTagName(int tagId) {
+    return _tagInfoMap[tagId]?.name ?? "";
   }
 }
 
@@ -809,10 +819,18 @@ class DownloadPage extends StatelessWidget {
         },
       );
     } else {
+      String suffix = '';
+      if (logic.selectedTagId != null) {
+        final tagName = logic.getTagName(logic.selectedTagId ?? 0);
+        if (tagName.isNotEmpty) {
+          suffix = ' [$tagName]';
+        }
+      }
       return logic.selecting
-          ? Text("已选择 @num 个项目".tlParams({"num": logic.selectedNum.toString()}))
+          ? Text("已选择 @num 个项目$suffix"
+              .tlParams({"num": logic.selectedNum.toString()}))
           : Text(
-              '${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})');
+              '${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})$suffix');
     }
   }
 
@@ -840,20 +858,14 @@ class DownloadPage extends StatelessWidget {
                   Navigator.pop(context);
                 }
               },
-              icon: const Icon(Icons.arrow_back)),
+              icon: const Icon(Icons.arrow_back),
+            ),
       title: buildTitle(context, logic),
       actions: buildActions(context, logic),
     );
   }
 
   List<Widget> buildActions(BuildContext context, DownloadPageLogic logic) {
-    final filterTags = [
-      'CunnyFunky',
-      'iroheki',
-      'Nyako',
-      'NFFA',
-      'RainySHST',
-    ];
     return [
       // 标签筛选按钮
       if (!logic.selecting && !logic.searchMode)
@@ -915,33 +927,6 @@ class DownloadPage extends StatelessWidget {
                 // 应用标签筛选
                 logic.updateTagFilter(tagId);
               }
-            },
-          ),
-        ),
-      if (!logic.selecting)
-        Tooltip(
-          message: "过滤常用标签".tl,
-          child: IconButton(
-            icon: const Icon(Icons.filter_alt_sharp),
-            onPressed: () {
-              showMenu(
-                  context: context,
-                  position: RelativeRect.fromLTRB(
-                      MediaQuery.of(context).size.width - 300,
-                      50,
-                      MediaQuery.of(context).size.width - 60,
-                      50),
-                  items: [
-                    for (var tag in filterTags)
-                      PopupMenuItem(
-                        child: Text(tag),
-                        onTap: () {
-                          logic.textFieldController.text = tag;
-                          logic.updateKeyword(tag);
-                          logic.update();
-                        },
-                      ),
-                  ]);
             },
           ),
         ),
