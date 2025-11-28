@@ -708,13 +708,13 @@ class DownloadPage extends StatelessWidget {
                   logic.update();
                 },
               ),
-              DesktopMenuEntry(
-                text: "过滤同作者".tl,
-                onClick: () async {
-                  logic.textFieldController.text = comic.subTitle;
-                  logic.updateKeyword(comic.subTitle);
-                },
-              ),
+              // DesktopMenuEntry(
+              //   text: "过滤同作者".tl,
+              //   onClick: () async {
+              //     logic.textFieldController.text = comic.subTitle;
+              //     logic.updateKeyword(comic.subTitle);
+              //   },
+              // ),
               DesktopMenuEntry(
                 text: "管理标签".tl,
                 onClick: () async {
@@ -839,17 +839,22 @@ class DownloadPage extends StatelessWidget {
 
   Widget buildAppbar(BuildContext context, DownloadPageLogic logic) {
     Widget? leading;
-    if (!showBack) {
-      leading = null ;
-    } else if (logic.selecting) {
+    if (logic.selecting || logic.selectedTagId != null || logic.searchMode) {
       leading = IconButton(
-          onPressed: () {
+        onPressed: () {
+          if (logic.selecting) {
             logic.selecting = false;
             logic.selected.clear();
             logic.update();
-          },
-          icon: const Icon(Icons.close));
-    } else {
+          } else if (logic.selectedTagId != null) {
+            logic.updateTagFilter(null);
+          } else if (logic.searchMode) {
+            logic.updateSearchMode(false);
+          }
+        },
+        icon: const Icon(Icons.close),
+      );
+    } else if (showBack) {
       leading = IconButton(
         onPressed: () {
           if (logic.selectedTagId != null) {
@@ -1054,14 +1059,14 @@ class DownloadPage extends StatelessWidget {
                         },
                       ),
                     ),
-                    PopupMenuItem(
-                      child: Text("导出".tl),
-                      onTap: () => exportSelectedComic(context, logic),
-                    ),
-                    PopupMenuItem(
-                      child: Text("导出为pdf".tl),
-                      onTap: () => exportAsPdf(null, logic),
-                    ),
+                    // PopupMenuItem(
+                    //   child: Text("导出".tl),
+                    //   onTap: () => exportSelectedComic(context, logic),
+                    // ),
+                    // PopupMenuItem(
+                    //   child: Text("导出为pdf".tl),
+                    //   onTap: () => exportAsPdf(null, logic),
+                    // ),
                     PopupMenuItem(
                       child: Text("查看漫画详情".tl),
                       onTap: () =>

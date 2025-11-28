@@ -736,7 +736,7 @@ class WindowPlacement {
   static Timer? timer;
 
   static void loop() async {
-    timer ??= Timer.periodic(const Duration(milliseconds: 100), (timer) async {
+    timer ??= Timer.periodic(const Duration(milliseconds: 500), (timer) async {
       var placement = await WindowPlacement.current;
       if (!validate(placement.rect)) {
         return;
