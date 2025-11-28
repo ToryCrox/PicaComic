@@ -27,6 +27,9 @@ const String kTagId = 'id';
 const String kTagName = 'name';
 const String kTagCoverComicId = 'cover_comic_id';
 const String kTagCreatedTime = 'created_time';
+const String kTagSortOrder = 'sort_order';
+const String kTagUpdatedTime = 'updated_time';
+const String kTagCategory = 'category';
 
 /// comic_tags 表字段常量
 const String kComicTagsComicId = 'comic_id';
@@ -73,7 +76,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 2,
+            version: 3,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
           ));
@@ -93,6 +96,15 @@ class DownloadDatabase {
     if (oldVersion < 2) {
       await _createTagTables(db);
     }
+    if (oldVersion < 3) {
+      // 为tags表添加新字段
+      await db.execute(
+          'ALTER TABLE $kTableTags ADD COLUMN $kTagSortOrder INTEGER DEFAULT 0');
+      await db.execute(
+          'ALTER TABLE $kTableTags ADD COLUMN $kTagUpdatedTime INTEGER DEFAULT 0');
+      await db.execute(
+          'ALTER TABLE $kTableTags ADD COLUMN $kTagCategory INTEGER DEFAULT 0');
+    }
   }
 
   /// 创建标签相关表
@@ -104,6 +116,9 @@ class DownloadDatabase {
         $kTagName TEXT UNIQUE NOT NULL,
         $kTagCoverComicId TEXT,
         $kTagCreatedTime INTEGER,
+        $kTagSortOrder INTEGER DEFAULT 0,
+        $kTagUpdatedTime INTEGER DEFAULT 0,
+        $kTagCategory INTEGER DEFAULT 0,
         FOREIGN KEY ($kTagCoverComicId) REFERENCES $kTableDownload($kDownloadId) ON DELETE SET NULL
       )
     ''');
@@ -358,12 +373,22 @@ class DownloadDatabase {
   // ==================== Tag Management Methods ====================
 
   /// 创建标签
-  Future<int> createTag(String name, {String? coverComicId}) async {
+  Future<int> createTag(String name,
+      {String? coverComicId, int category = 0}) async {
     final db = await _getDatabase();
+    // 获取当前最大的排序值
+    final result = await db
+        .rawQuery('SELECT MAX($kTagSortOrder) as maxOrder FROM $kTableTags');
+    final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
     return await db.insert(kTableTags, {
       kTagName: name,
       kTagCoverComicId: coverComicId,
-      kTagCreatedTime: DateTime.now().millisecondsSinceEpoch,
+      kTagCreatedTime: now,
+      kTagSortOrder: maxOrder + 1,
+      kTagUpdatedTime: now,
+      kTagCategory: category,
     });
   }
 
@@ -372,7 +397,7 @@ class DownloadDatabase {
     final db = await _getDatabase();
     return await db.query(
       kTableTags,
-      orderBy: '$kTagCreatedTime DESC',
+      orderBy: '$kTagSortOrder ASC, $kTagCreatedTime DESC',
     );
   }
 
@@ -419,7 +444,7 @@ class DownloadDatabase {
     );
   }
 
-  /// 为漫画添加标签（自动设置封面）
+  /// 为漫画添加标签(自动设置封面并更新时间)
   Future<void> addTagToComic(String comicId, int tagId) async {
     final db = await _getDatabase();
 
@@ -437,7 +462,15 @@ class DownloadDatabase {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
-    // 如果标签没有封面，自动设置当前漫画为封面
+    // 更新标签的updated_time
+    await db.update(
+      kTableTags,
+      {kTagUpdatedTime: DateTime.now().millisecondsSinceEpoch},
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+
+    // 如果标签没有封面,自动设置当前漫画为封面
     if (!hasCover) {
       await updateTagCover(tagId, comicId);
     }
@@ -514,6 +547,55 @@ class DownloadDatabase {
       kTableComicTags,
       where: '$kComicTagsComicId = ?',
       whereArgs: [comicId],
+    );
+  }
+
+  /// 更新标签排序
+  Future<void> updateTagSortOrder(int tagId, int sortOrder) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableTags,
+      {kTagSortOrder: sortOrder},
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+  }
+
+  /// 批量更新标签排序
+  Future<void> updateTagsSortOrder(List<int> tagIds) async {
+    final db = await _getDatabase();
+    for (int i = 0; i < tagIds.length; i++) {
+      await db.update(
+        kTableTags,
+        {kTagSortOrder: i},
+        where: '$kTagId = ?',
+        whereArgs: [tagIds[i]],
+      );
+    }
+  }
+
+  /// 更新标签分类
+  Future<void> updateTagCategory(int tagId, int category) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableTags,
+      {
+        kTagCategory: category,
+        kTagUpdatedTime: DateTime.now().millisecondsSinceEpoch,
+      },
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+  }
+
+  /// 按分类获取标签
+  Future<List<Map<String, Object?>>> getTagsByCategory(int category) async {
+    final db = await _getDatabase();
+    return await db.query(
+      kTableTags,
+      where: '$kTagCategory = ?',
+      whereArgs: [category],
+      orderBy: '$kTagSortOrder ASC, $kTagCreatedTime DESC',
     );
   }
 

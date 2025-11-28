@@ -1,16 +1,43 @@
+/// 标签分类枚举
+enum TagCategory {
+  none(0, '未分类'),
+  author(1, '作者'),
+  work(2, '作品'),
+  character(3, '角色'),
+  manga(4, '漫画');
+
+  final int value;
+  final String label;
+
+  const TagCategory(this.value, this.label);
+
+  static TagCategory fromValue(int value) {
+    return TagCategory.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => TagCategory.none,
+    );
+  }
+}
+
 /// 标签模型
 class DownloadTag {
   final int id;
   final String name;
   final String? coverComicId;
   final DateTime createdTime;
+  final int sortOrder;
+  final DateTime updatedTime;
+  final TagCategory category;
 
   DownloadTag({
     required this.id,
     required this.name,
     this.coverComicId,
     required this.createdTime,
-  });
+    this.sortOrder = 0,
+    DateTime? updatedTime,
+    this.category = TagCategory.none,
+  }) : updatedTime = updatedTime ?? createdTime;
 
   /// 从数据库Map创建DownloadTag对象
   factory DownloadTag.fromMap(Map<String, Object?> map) {
@@ -21,6 +48,11 @@ class DownloadTag {
       createdTime: DateTime.fromMillisecondsSinceEpoch(
         map['created_time'] as int,
       ),
+      sortOrder: (map['sort_order'] as int?) ?? 0,
+      updatedTime: map['updated_time'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['updated_time'] as int)
+          : null,
+      category: TagCategory.fromValue((map['category'] as int?) ?? 0),
     );
   }
 
@@ -31,11 +63,15 @@ class DownloadTag {
       'name': name,
       'cover_comic_id': coverComicId,
       'created_time': createdTime.millisecondsSinceEpoch,
+      'sort_order': sortOrder,
+      'updated_time': updatedTime.millisecondsSinceEpoch,
+      'category': category.value,
     };
   }
 
   @override
-  String toString() => 'DownloadTag(id: $id, name: $name)';
+  String toString() =>
+      'DownloadTag(id: $id, name: $name, category: ${category.label})';
 
   @override
   bool operator ==(Object other) {

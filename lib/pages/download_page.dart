@@ -257,8 +257,8 @@ class DownloadPageLogic extends StateController {
       final keyword = _keyword.toLowerCase();
       for (var element in filteredComics) {
         if (element.name.toLowerCase().contains(keyword) ||
-            element.subTitle.toLowerCase().contains(keyword)
-            || getAllTags(element).any((e) => e.toLowerCase().contains(keyword))) {
+            element.subTitle.toLowerCase().contains(keyword) ||
+            getAllTags(element).any((e) => e.toLowerCase().contains(keyword))) {
           comics.add(element);
         }
       }
@@ -907,8 +907,12 @@ class DownloadPage extends StatelessWidget {
           message: "标签管理".tl,
           child: IconButton(
             icon: const Icon(Icons.label_outline),
-            onPressed: () {
-              App.globalTo(() => const TagManagementPage());
+            onPressed: () async {
+              final tagId = await App.globalTo(() => const TagManagementPage());
+              if (tagId != null && tagId is int) {
+                // 应用标签筛选
+                logic.updateTagFilter(tagId);
+              }
             },
           ),
         ),

@@ -964,8 +964,10 @@ extension AddDownloadExt on DownloadManager {
   // ==================== Tag Management Methods ====================
 
   /// 创建标签
-  Future<int> createTag(String name, {String? coverComicId}) async {
-    return await _db.createTag(name, coverComicId: coverComicId);
+  Future<int> createTag(String name,
+      {String? coverComicId, int category = 0}) async {
+    return await _db.createTag(name,
+        coverComicId: coverComicId, category: category);
   }
 
   /// 获取所有标签
@@ -1036,6 +1038,27 @@ extension AddDownloadExt on DownloadManager {
   /// 清除漫画的所有标签
   Future<void> clearComicTags(String comicId) async {
     await _db.clearComicTags(comicId);
+  }
+
+  /// 更新标签排序
+  Future<void> updateTagSortOrder(int tagId, int sortOrder) async {
+    await _db.updateTagSortOrder(tagId, sortOrder);
+  }
+
+  /// 批量更新标签排序
+  Future<void> updateTagsSortOrder(List<int> tagIds) async {
+    await _db.updateTagsSortOrder(tagIds);
+  }
+
+  /// 更新标签分类
+  Future<void> updateTagCategory(int tagId, int category) async {
+    await _db.updateTagCategory(tagId, category);
+  }
+
+  /// 按分类获取标签
+  Future<List<DownloadTag>> getTagsByCategory(int category) async {
+    final maps = await _db.getTagsByCategory(category);
+    return maps.map((map) => DownloadTag.fromMap(map)).toList();
   }
 }
 

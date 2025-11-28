@@ -5,6 +5,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 class TagManagementPage extends StatefulWidget {
@@ -32,7 +33,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
     for (var tag in tagData) {
       final count = await downloadManager.getTagComicCount(tag.id);
 
-      // 如果有封面漫画ID，获取其封面路径
+      // 如果有封面漫画ID,获取其封面路径
       String? coverPath;
       if (tag.coverComicId != null) {
         final comic =
@@ -45,6 +46,8 @@ class _TagManagementPageState extends State<TagManagementPage> {
         name: tag.name,
         coverPath: coverPath,
         comicCount: count,
+        category: tag.category.value,
+        sortOrder: tag.sortOrder,
       ));
     }
 
@@ -56,34 +59,71 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
   Future<void> _createTag() async {
     final controller = TextEditingController();
+    int selectedCategory = 0;
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("创建标签".tl),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: "标签名称".tl,
-            border: const OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text("创建标签".tl),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: "标签名称".tl,
+                  border: const OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                value: selectedCategory,
+                decoration: InputDecoration(
+                  labelText: "分类".tl,
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                      value: 0, child: Text(TagCategory.none.label)),
+                  DropdownMenuItem(
+                      value: 1, child: Text(TagCategory.author.label)),
+                  DropdownMenuItem(
+                      value: 2, child: Text(TagCategory.work.label)),
+                  DropdownMenuItem(
+                      value: 3, child: Text(TagCategory.character.label)),
+                  DropdownMenuItem(
+                      value: 4, child: Text(TagCategory.manga.label)),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() {
+                      selectedCategory = value;
+                    });
+                  }
+                },
+              ),
+            ],
           ),
-          autofocus: true,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text("取消".tl),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text("确认".tl),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text("取消".tl),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text("确认".tl),
-          ),
-        ],
       ),
     );
 
     if (result == true && controller.text.isNotEmpty) {
       try {
-        await downloadManager.createTag(controller.text);
+        await downloadManager.createTag(controller.text,
+            category: selectedCategory);
         showToast(message: "标签创建成功".tl);
         _loadTags();
       } catch (e) {
@@ -132,18 +172,90 @@ class _TagManagementPageState extends State<TagManagementPage> {
     }
   }
 
+  Future<void> _changeCategory(TagInfo tag) async {
+    int selectedCategory = tag.category;
+
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("修改分类".tl),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<int>(
+              title: Text(TagCategory.none.label),
+              value: 0,
+              groupValue: selectedCategory,
+              onChanged: (value) {
+                Navigator.pop(context, value);
+              },
+            ),
+            RadioListTile<int>(
+              title: Text(TagCategory.author.label),
+              value: 1,
+              groupValue: selectedCategory,
+              onChanged: (value) {
+                Navigator.pop(context, value);
+              },
+            ),
+            RadioListTile<int>(
+              title: Text(TagCategory.work.label),
+              value: 2,
+              groupValue: selectedCategory,
+              onChanged: (value) {
+                Navigator.pop(context, value);
+              },
+            ),
+            RadioListTile<int>(
+              title: Text(TagCategory.character.label),
+              value: 3,
+              groupValue: selectedCategory,
+              onChanged: (value) {
+                Navigator.pop(context, value);
+              },
+            ),
+            RadioListTile<int>(
+              title: Text(TagCategory.manga.label),
+              value: 4,
+              groupValue: selectedCategory,
+              onChanged: (value) {
+                Navigator.pop(context, value);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("取消".tl),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result != tag.category) {
+      try {
+        await downloadManager.updateTagCategory(tag.id, result);
+        showToast(message: "分类修改成功".tl);
+        _loadTags();
+      } catch (e) {
+        showToast(message: "分类修改失败: $e".tl);
+      }
+    }
+  }
+
   Future<void> _changeCover(TagInfo tag) async {
-    // \u83b7\u53d6\u8be5\u6807\u7b7e\u4e0b\u7684\u6f2b\u753b
+    // 获取该标签下的漫画
     final comicIds = await downloadManager.getComicIdsByTag(tag.id);
     if (comicIds.isEmpty) {
-      showToast(message: "\u8be5\u6807\u7b7e\u4e0b\u6ca1\u6709\u6f2b\u753b".tl);
+      showToast(message: "该标签下没有漫画".tl);
       return;
     }
 
-    // \u663e\u793a\u5bf9\u8bdd\u6846\u9009\u62e9\u5c01\u9762
+    // 显示对话框选择封面
     final comics = await downloadManager.getAll('time', 'desc');
     final tagComics = comics.where((c) => comicIds.contains(c.id)).toList();
-    for (var comic in tagComics){
+    for (var comic in tagComics) {
       await comic.fillDownloadingItemCover();
     }
 
@@ -152,7 +264,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
     final selectedComic = await showDialog<DownloadedItem>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("\u9009\u62e9\u5c01\u9762".tl),
+        title: Text("选择封面".tl),
         content: SizedBox(
           width: 400,
           height: 500,
@@ -194,7 +306,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("\u53d6\u6d88".tl),
+            child: Text("取消".tl),
           ),
         ],
       ),
@@ -202,7 +314,6 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (selectedComic != null) {
       try {
-        // 使用漫画ID而不是路径
         await downloadManager.updateTagCover(tag.id, selectedComic.id);
         showToast(message: "封面更新成功".tl);
         _loadTags();
@@ -217,7 +328,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text("删除标签".tl),
-        content: Text("确定要删除标签 \"${tag.name}\" 吗？".tl),
+        content: Text("确定要删除标签 \"${tag.name}\" 吗?".tl),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -240,6 +351,15 @@ class _TagManagementPageState extends State<TagManagementPage> {
         showToast(message: "标签删除失败: $e".tl);
       }
     }
+  }
+
+  void _onTagTap(TagInfo tag) {
+    // 返回下载页面并应用标签筛选
+    Navigator.pop(context, tag.id);
+  }
+
+  String _getCategoryLabel(int category) {
+    return TagCategory.fromValue(category).label;
   }
 
   @override
@@ -284,81 +404,180 @@ class _TagManagementPageState extends State<TagManagementPage> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  itemCount: tags.length,
+              : GridView.builder(
                   padding: const EdgeInsets.all(8),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.5,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: tags.length,
                   itemBuilder: (context, index) {
                     final tag = tags[index];
                     return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      child: ListTile(
-                        leading: tag.coverPath != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Image.file(
-                                  File(tag.coverPath!),
-                                  width: 50,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.label, size: 50),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => _onTagTap(tag),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 封面区域
+                            Expanded(
+                              flex: 2,
+                              child: tag.coverPath != null
+                                  ? Image.file(
+                                      File(tag.coverPath!),
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        child:
+                                            const Icon(Icons.label, size: 48),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      child: const Center(
+                                        child: Icon(Icons.label, size: 48),
+                                      ),
+                                    ),
+                            ),
+                            // 信息区域
+                            Expanded(
+                              flex: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            tag.name,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primaryContainer,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  _getCategoryLabel(
+                                                      tag.category),
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onPrimaryContainer,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                "${tag.comicCount} ${"本".tl}",
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .outline,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'rename':
+                                            _renameTag(tag);
+                                            break;
+                                          case 'category':
+                                            _changeCategory(tag);
+                                            break;
+                                          case 'cover':
+                                            _changeCover(tag);
+                                            break;
+                                          case 'delete':
+                                            _deleteTag(tag);
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          value: 'rename',
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.edit, size: 20),
+                                              const SizedBox(width: 8),
+                                              Text("重命名".tl),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'category',
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.category,
+                                                  size: 20),
+                                              const SizedBox(width: 8),
+                                              Text("修改分类".tl),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'cover',
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.image, size: 20),
+                                              const SizedBox(width: 8),
+                                              Text("更改封面".tl),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.delete,
+                                                  size: 20),
+                                              const SizedBox(width: 8),
+                                              Text("删除".tl),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              )
-                            : const Icon(Icons.label, size: 50),
-                        title: Text(
-                          tag.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Text("${tag.comicCount} ${"本漫画".tl}"),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'rename':
-                                _renameTag(tag);
-                                break;
-                              case 'cover':
-                                _changeCover(tag);
-                                break;
-                              case 'delete':
-                                _deleteTag(tag);
-                                break;
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'rename',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.edit),
-                                  const SizedBox(width: 8),
-                                  Text("重命名".tl),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'cover',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.image),
-                                  const SizedBox(width: 8),
-                                  Text("更改封面".tl),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.delete),
-                                  const SizedBox(width: 8),
-                                  Text("删除".tl),
-                                ],
                               ),
                             ),
                           ],
@@ -376,11 +595,15 @@ class TagInfo {
   final String name;
   final String? coverPath;
   final int comicCount;
+  final int category;
+  final int sortOrder;
 
   TagInfo({
     required this.id,
     required this.name,
     this.coverPath,
     required this.comicCount,
+    this.category = 0,
+    this.sortOrder = 0,
   });
 }

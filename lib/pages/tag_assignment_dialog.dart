@@ -18,31 +18,40 @@ class TagAssignmentDialog extends StatefulWidget {
   State<TagAssignmentDialog> createState() => _TagAssignmentDialogState();
 }
 
-class _TagAssignmentDialogState extends State<TagAssignmentDialog> {
+class _TagAssignmentDialogState extends State<TagAssignmentDialog>
+    with SingleTickerProviderStateMixin {
   List<DownloadTag> allTags = [];
   Set<int> selectedTagIds = {};
   bool loading = true;
   final TextEditingController _newTagController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  late TabController _tabController;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 6, vsync: this);
     _loadTags();
   }
 
   @override
   void dispose() {
     _newTagController.dispose();
+    _searchController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _loadTags() async {
     setState(() => loading = true);
 
-    // 获取所有标签
+    // 获取所有标签,按updated_time倒序
     final tags = await downloadManager.getAllTags();
+    // 标签已经按sort_order排序,我们需要按updated_time倒序
+    tags.sort((a, b) => b.updatedTime.compareTo(a.updatedTime));
 
-    // 获取第一个漫画的标签（用于显示初始状态）
+    // 获取第一个漫画的标签(用于显示初始状态)
     if (widget.comicIds.isNotEmpty) {
       final firstComicTags =
           await downloadManager.getComicTags(widget.comicIds.first);
@@ -113,13 +122,72 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog> {
     }
   }
 
+  List<DownloadTag> _getFilteredTags(int? category) {
+    var tags = allTags;
+
+    // 按分类筛选
+    if (category != null) {
+      tags = tags.where((tag) => tag.category.value == category).toList();
+    }
+
+    // 按搜索关键词筛选
+    if (_searchQuery.isNotEmpty) {
+      tags = tags
+          .where((tag) =>
+              tag.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+
+    return tags;
+  }
+
+  Widget _buildTagList(int? category) {
+    final tags = _getFilteredTags(category);
+
+    if (tags.isEmpty) {
+      return Center(
+        child: Text(
+          "暂无标签".tl,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.outline,
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: tags.length,
+      itemBuilder: (context, index) {
+        final tag = tags[index];
+        final tagId = tag.id;
+        final tagName = tag.name;
+        final isSelected = selectedTagIds.contains(tagId);
+
+        return CheckboxListTile(
+          title: Text(tagName),
+          subtitle: Text(tag.category.label),
+          value: isSelected,
+          onChanged: (value) {
+            setState(() {
+              if (value == true) {
+                selectedTagIds.add(tagId);
+              } else {
+                selectedTagIds.remove(tagId);
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text("管理标签".tl),
       content: SizedBox(
-        width: 400,
-        height: 500,
+        width: 500,
+        height: 600,
         child: loading
             ? const Center(child: CircularProgressIndicator())
             : Column(
@@ -146,42 +214,61 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  // 标签列表
+                  const SizedBox(height: 12),
+                  // 搜索框
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: "搜索标签".tl,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // TabBar
+                  TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabs: [
+                      Tab(text: "全部".tl),
+                      Tab(text: TagCategory.none.label),
+                      Tab(text: TagCategory.author.label),
+                      Tab(text: TagCategory.work.label),
+                      Tab(text: TagCategory.character.label),
+                      Tab(text: TagCategory.manga.label),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // TabBarView
                   Expanded(
-                    child: allTags.isEmpty
-                        ? Center(
-                            child: Text(
-                              "暂无标签，请先创建标签".tl,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: allTags.length,
-                            itemBuilder: (context, index) {
-                              final tag = allTags[index];
-                              final tagId = tag.id;
-                              final tagName = tag.name;
-                              final isSelected = selectedTagIds.contains(tagId);
-
-                              return CheckboxListTile(
-                                title: Text(tagName),
-                                value: isSelected,
-                                onChanged: (value) {
-                                  setState(() {
-                                    if (value == true) {
-                                      selectedTagIds.add(tagId);
-                                    } else {
-                                      selectedTagIds.remove(tagId);
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildTagList(null), // 全部
+                        _buildTagList(TagCategory.none.value),
+                        _buildTagList(TagCategory.author.value),
+                        _buildTagList(TagCategory.work.value),
+                        _buildTagList(TagCategory.character.value),
+                        _buildTagList(TagCategory.manga.value),
+                      ],
+                    ),
                   ),
                 ],
               ),
