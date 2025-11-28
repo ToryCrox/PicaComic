@@ -52,6 +52,10 @@ abstract class DownloadedItem {
   String? directory;
 
   String? coverPath;
+
+  Future<void> fillDownloadingItemCover() async {
+    await downloadManager.fillDownloadingItemCover(this);
+  }
 }
 
 enum DownloadType {

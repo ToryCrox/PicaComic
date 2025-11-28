@@ -1,20 +1,18 @@
-import 'dart:math';
+import 'dart:io';
+import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as Path;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/network/app_dio.dart';
-import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/custom_download_model.dart';
+import 'package:pica_comic/foundation/local_favorites.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/download_model.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
@@ -22,34 +20,39 @@ import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
+import 'package:pica_comic/pages/tag_assignment_dialog.dart';
+import 'package:pica_comic/pages/tag_management_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
-import 'package:pica_comic/foundation/ui_mode.dart';
-import 'package:pica_comic/tools/iterable_extension.dart';
 import 'package:pica_comic/tools/pdf.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
-import 'package:pica_comic/pages/downloading_page.dart';
-import 'package:pica_comic/pages/ehentai/eh_gallery_page.dart';
-import 'package:pica_comic/pages/hitomi/hitomi_comic_page.dart';
-import 'package:pica_comic/pages/jm/jm_comic_page.dart';
-import 'package:pica_comic/pages/nhentai/comic_page.dart';
-import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/eh_network/eh_download_model.dart';
-import 'package:pica_comic/network/jm_network/jm_download.dart';
-import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
-import 'dart:io';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/components/components.dart';
+import 'package:open_file/open_file.dart';
 
+import '../components/components.dart';
+import '../foundation/app.dart';
+import '../foundation/state_controller.dart';
+import '../foundation/ui_mode.dart';
+import '../network/app_dio.dart';
+import '../network/base_comic.dart';
+import '../network/custom_download_model.dart';
+import '../network/eh_network/eh_download_model.dart';
+import '../network/hitomi_network/hitomi_download_model.dart';
+import '../network/jm_network/jm_download.dart';
+import '../network/picacg_network/picacg_download_model.dart';
+import 'downloading_page.dart';
+import 'ehentai/eh_gallery_page.dart';
+import 'hitomi/hitomi_comic_page.dart';
 import 'htmanga/ht_comic_page.dart';
+import 'jm/jm_comic_page.dart';
 import 'local/local_thumbs_page.dart';
+import 'nhentai/comic_page.dart';
 
 extension ReadComic on DownloadedItem {
   void read({int? ep, int? initialPage}) async {
-    final comic = this;
+    var comic = this;
     if (comic.type == DownloadType.picacg) {
       var history =
           await History.findOrCreate((comic as DownloadedComic).comicItem);
@@ -191,6 +194,9 @@ class DownloadPageLogic extends StateController {
 
   String _keyword = "";
 
+  /// 当前选中的标签筛选
+  int? selectedTagId;
+
   final textFieldController = TextEditingController();
 
   // void change() {
@@ -211,32 +217,73 @@ class DownloadPageLogic extends StateController {
     }
   }
 
-  // void find() {
-  //   if (keyword == keyword_) {
-  //     return;
-  //   }
-  //   keyword_ = keyword;
-  //   comics.clear();
-  //   if (keyword == "") {
-  //     comics.addAll(baseComics);
-  //   } else {
-  //     for (var element in baseComics) {
-  //       if (element.name.toLowerCase().contains(keyword.toLowerCase()) ||
-  //           element.subTitle.toLowerCase().contains(keyword.toLowerCase())) {
-  //         comics.add(element);
-  //       }
-  //     }
-  //   }
-  //   //resetSelected(comics.length);
-  // }
+  @override
+  void update([List<Object>? ids]) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((t) {
+        super.update();
+      });
+    } else {
+      super.update();
+    }
+  }
+
+  void updateKeyword(String keyword) {
+    if (_keyword != keyword || !_searchMode) {
+      _keyword = keyword;
+      _searchMode = true;
+      updateComics();
+      update();
+    }
+  }
+
+  void updateComics() async {
+    comics.clear();
+
+    // 如果有标签筛选，先按标签过滤
+    List<DownloadedItem> filteredComics = baseComics;
+    if (selectedTagId != null) {
+      final comicIds = await downloadManager.getComicIdsByTag(selectedTagId!);
+      filteredComics =
+          baseComics.where((e) => comicIds.contains(e.id)).toList();
+    }
+
+    // 再按关键词过滤
+    if (_keyword == "" || !searchMode) {
+      comics.addAll(filteredComics);
+    } else {
+      for (var element in filteredComics) {
+        if (element.name.toLowerCase().contains(_keyword.toLowerCase()) ||
+            element.subTitle.toLowerCase().contains(_keyword.toLowerCase())) {
+          comics.add(element);
+        }
+      }
+    }
+  }
+
+  /// 更新标签筛选
+  void updateTagFilter(int? tagId) {
+    if (tagId == selectedTagId) {
+      selectedTagId = null;
+    } else {
+      selectedTagId = tagId;
+    }
+    updateComics();
+    update();
+  }
+
+  void removeComic(DownloadedItem comic) {
+    comics.remove(comic);
+    baseComics.remove(comic);
+    selected.remove(comic.id);
+    update();
+  }
+
+  Map<String, List<String>> comicUserTags = {};
 
   @override
   void refresh() {
-    //searchMode = false;
-    //selecting = false;
-    //selectedNum = 0;
-    // selected.clear();
-    // comics.clear();
     _loadComics();
   }
 
@@ -264,6 +311,7 @@ class DownloadPageLogic extends StateController {
         DownloadManager().fillDownloadingItemCover(comic),
     ]);
     baseComics = allComics;
+    comicUserTags = await downloadManager.getAllComicTagsMap();
     updateComics();
     if (isFirstLoad) {
       await Future.delayed(const Duration(milliseconds: 150));
@@ -271,53 +319,6 @@ class DownloadPageLogic extends StateController {
     loading = false;
     update();
   }
-
-  @override
-  void update([List<Object>? ids]) {
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      SchedulerBinding.instance.addPostFrameCallback((t) {
-        super.update();
-      });
-    } else {
-      super.update();
-    }
-  }
-
-  void updateKeyword(String keyword) {
-    if (_keyword != keyword || !_searchMode) {
-      _keyword = keyword;
-      _searchMode = true;
-      updateComics();
-      update();
-    }
-  }
-
-  void updateComics() {
-    comics.clear();
-    if (_keyword == "" || !searchMode) {
-      comics.addAll(baseComics);
-    } else {
-      for (var element in baseComics) {
-        if (element.name.toLowerCase().contains(_keyword.toLowerCase()) ||
-            element.subTitle.toLowerCase().contains(_keyword.toLowerCase())) {
-          comics.add(element);
-        }
-      }
-    }
-  }
-
-  void removeComic(DownloadedItem comic) {
-    comics.remove(comic);
-    baseComics.remove(comic);
-    selected.remove(comic.id);
-    update();
-  }
-
-// void resetSelected(int length) {
-//   //selected = List.generate(length, (index) => false);
-//   selectedNum = 0;
-// }
 }
 
 class DownloadPage extends StatelessWidget {
@@ -487,7 +488,7 @@ class DownloadPage extends StatelessWidget {
           author: item.subTitle,
           imagePath: File(item.coverPath ?? ''),
           type: type,
-          tag: item.tags,
+          tag: [...(logic.comicUserTags[item.id] ?? []), ...item.tags],
           onTap: () async {
             if (logic.selecting) {
               if (logic.selected.contains(comic.id)) {
@@ -680,6 +681,21 @@ class DownloadPage extends StatelessWidget {
                 },
               ),
               DesktopMenuEntry(
+                text: "管理标签".tl,
+                onClick: () async {
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => TagAssignmentDialog(
+                      comicIds: [comic.id],
+                    ),
+                  );
+                  if (result == true) {
+                    logic.refresh();
+                  }
+                },
+              ),
+              DesktopMenuEntry(
                 text: "复制路径".tl,
                 onClick: () async {
                   Future.delayed(const Duration(milliseconds: 300), () async {
@@ -815,6 +831,65 @@ class DownloadPage extends StatelessWidget {
       'RainySHST',
     ];
     return [
+      // 标签筛选按钮
+      if (!logic.selecting && !logic.searchMode)
+        Tooltip(
+          message: "标签筛选".tl,
+          child: IconButton(
+            icon: Icon(
+              Icons.label,
+              color: logic.selectedTagId != null
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            onPressed: () async {
+              final tags = await downloadManager.getAllTags();
+              if (!context.mounted) return;
+
+              showMenu<int?>(
+                context: context,
+                position: RelativeRect.fromLTRB(
+                  MediaQuery.of(context).size.width - 200,
+                  80,
+                  MediaQuery.of(context).size.width - 20,
+                  0,
+                ),
+                items: [
+                  for (var tag in tags)
+                    PopupMenuItem<int?>(
+                      value: tag.id,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.label,
+                            color: logic.selectedTagId == tag.id
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(tag.name),
+                        ],
+                      ),
+                      onTap: () {
+                        logic.updateTagFilter(tag.id);
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      // 标签管理按钮
+      if (!logic.selecting && !logic.searchMode)
+        Tooltip(
+          message: "标签管理".tl,
+          child: IconButton(
+            icon: const Icon(Icons.label_outline),
+            onPressed: () {
+              App.globalTo(() => const TagManagementPage());
+            },
+          ),
+        ),
       if (!logic.selecting)
         Tooltip(
           message: "过滤常用标签".tl,
@@ -939,6 +1014,25 @@ class DownloadPage extends StatelessWidget {
                       },
                     ),
                     PopupMenuItem(
+                      child: Text("管理标签".tl),
+                      onTap: () => Future.delayed(
+                        const Duration(milliseconds: 200),
+                        () async {
+                          final result = await showDialog<bool>(
+                            context: App.globalContext!,
+                            builder: (context) => TagAssignmentDialog(
+                              comicIds: logic.selectedComics
+                                  .map((e) => e.id)
+                                  .toList(),
+                            ),
+                          );
+                          if (result == true) {
+                            logic.refresh();
+                          }
+                        },
+                      ),
+                    ),
+                    PopupMenuItem(
                       child: Text("导出".tl),
                       onTap: () => exportSelectedComic(context, logic),
                     ),
@@ -1053,24 +1147,22 @@ class DownloadPage extends StatelessWidget {
                   child: Column(
                     children: [
                       FutureBuilder<List<String>>(
-                        future: LocalFavoritesManager().folderNames,
-                        builder: (context,  snapshot) {
-                          final folderNames = snapshot.data;
-                          if (folderNames == null) {
-                            return const SizedBox();
-                          }
-                          return ListTile(
-                            title: Text("收藏夹".tl),
-                            trailing: Select(
-                              width: 156,
-                              values: folderNames,
-                              initialValue: null,
-                              onChange: (i) =>
-                                  folder = folderNames[i],
-                            ),
-                          );
-                        }
-                      ),
+                          future: LocalFavoritesManager().folderNames,
+                          builder: (context, snapshot) {
+                            final folderNames = snapshot.data;
+                            if (folderNames == null) {
+                              return const SizedBox();
+                            }
+                            return ListTile(
+                              title: Text("收藏夹".tl),
+                              trailing: Select(
+                                width: 156,
+                                values: folderNames,
+                                initialValue: null,
+                                onChange: (i) => folder = folderNames[i],
+                              ),
+                            );
+                          }),
                       const Spacer(),
                       Center(
                         child: FilledButton(

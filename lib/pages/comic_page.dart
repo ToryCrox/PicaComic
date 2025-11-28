@@ -1094,12 +1094,25 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       text = "未知".tl;
     }
 
+    final labelText = enableTranslationToCN
+        ? (title
+            ? text.translateTagsCategoryToCN
+            : TagsTranslation.translationTagWithNamespace(text, key))
+        : text;
+
     List<PopupMenuEntry<dynamic>> buildPopMenus() {
       return [
         PopupMenuItem(
           child: Text("复制".tl),
           onTap: () {
             Clipboard.setData(ClipboardData(text: (text)));
+            showToast(message: "已复制".tl);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("复制中文".tl),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: (labelText)));
             showToast(message: "已复制".tl);
           },
         ),
@@ -1180,12 +1193,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             elevation: 0,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-              child: enableTranslationToCN
-                  ? (title
-                      ? label(text.translateTagsCategoryToCN)
-                      : label(TagsTranslation.translationTagWithNamespace(
-                          text, key)))
-                  : label(text),
+              child: label(labelText),
             ),
           ),
         ),

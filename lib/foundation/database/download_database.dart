@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 
@@ -11,6 +10,8 @@ import 'package:synchronized/synchronized.dart';
 const String kTableDownload = 'download';
 const String kTableLocalComic = 'local_comic';
 const String kTableLocalHistory = 'local_history';
+const String kTableTags = 'tags';
+const String kTableComicTags = 'comic_tags';
 
 /// download 表字段常量
 const String kDownloadId = 'id';
@@ -20,6 +21,16 @@ const String kDownloadTime = 'time';
 const String kDownloadDirectory = 'directory';
 const String kDownloadSize = 'size';
 const String kDownloadJson = 'json';
+
+/// tags 表字段常量
+const String kTagId = 'id';
+const String kTagName = 'name';
+const String kTagCoverComicId = 'cover_comic_id';
+const String kTagCreatedTime = 'created_time';
+
+/// comic_tags 表字段常量
+const String kComicTagsComicId = 'comic_id';
+const String kComicTagsTagId = 'tag_id';
 
 /// local_comic 表字段常量
 const String kLocalComicPath = 'path';
@@ -62,7 +73,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 1,
+            version: 2,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
           ));
@@ -79,8 +90,34 @@ class DownloadDatabase {
 
   /// 升级数据库
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // 根据需要实现升级逻辑
-    // 目前版本为1，无需特殊处理
+    if (oldVersion < 2) {
+      await _createTagTables(db);
+    }
+  }
+
+  /// 创建标签相关表
+  Future<void> _createTagTables(Database db) async {
+    // 创建 tags 表 - 使用漫画ID作为封面引用
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableTags (
+        $kTagId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $kTagName TEXT UNIQUE NOT NULL,
+        $kTagCoverComicId TEXT,
+        $kTagCreatedTime INTEGER,
+        FOREIGN KEY ($kTagCoverComicId) REFERENCES $kTableDownload($kDownloadId) ON DELETE SET NULL
+      )
+    ''');
+
+    // 创建 comic_tags 表
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableComicTags (
+        $kComicTagsComicId TEXT NOT NULL,
+        $kComicTagsTagId INTEGER NOT NULL,
+        PRIMARY KEY ($kComicTagsComicId, $kComicTagsTagId),
+        FOREIGN KEY ($kComicTagsComicId) REFERENCES $kTableDownload($kDownloadId) ON DELETE CASCADE,
+        FOREIGN KEY ($kComicTagsTagId) REFERENCES $kTableTags($kTagId) ON DELETE CASCADE
+      )
+    ''');
   }
 
   /// 创建所有表
@@ -120,6 +157,9 @@ class DownloadDatabase {
         $kLocalHistoryJson TEXT
       )
     ''');
+
+    // 创建标签相关表
+    await _createTagTables(db);
   }
 
   /// 修改表结构的方法示例
@@ -154,15 +194,18 @@ class DownloadDatabase {
     String json,
   ) async {
     final db = await _getDatabase();
-    await db.insert(kTableDownload, {
-      kDownloadId: id,
-      kDownloadTitle: title,
-      kDownloadSubtitle: subtitle,
-      kDownloadTime: time,
-      kDownloadDirectory: directory,
-      kDownloadSize: size,
-      kDownloadJson: json,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        kTableDownload,
+        {
+          kDownloadId: id,
+          kDownloadTitle: title,
+          kDownloadSubtitle: subtitle,
+          kDownloadTime: time,
+          kDownloadDirectory: directory,
+          kDownloadSize: size,
+          kDownloadJson: json,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 更新下载项大小
@@ -251,14 +294,17 @@ class DownloadDatabase {
     required String cover,
   }) async {
     final db = await _getDatabase();
-    await db.insert(kTableLocalComic, {
-      kLocalComicPath: path,
-      kLocalComicTitle: title,
-      kLocalComicSubtitle: subtitle,
-      kLocalComicJson: json,
-      kLocalComicSize: size,
-      kLocalComicCover: cover,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        kTableLocalComic,
+        {
+          kLocalComicPath: path,
+          kLocalComicTitle: title,
+          kLocalComicSubtitle: subtitle,
+          kLocalComicJson: json,
+          kLocalComicSize: size,
+          kLocalComicCover: cover,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 获取所有本地漫画
@@ -286,13 +332,16 @@ class DownloadDatabase {
     required String json,
   }) async {
     final db = await _getDatabase();
-    await db.insert(kTableLocalHistory, {
-      kLocalHistoryPath: path,
-      kLocalHistoryIsReversed: isReversed,
-      kLocalHistoryPageIndex: pageIndex,
-      kLocalHistoryTime: time,
-      kLocalHistoryJson: json,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        kTableLocalHistory,
+        {
+          kLocalHistoryPath: path,
+          kLocalHistoryIsReversed: isReversed,
+          kLocalHistoryPageIndex: pageIndex,
+          kLocalHistoryTime: time,
+          kLocalHistoryJson: json,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 获取本地阅读历史
@@ -304,6 +353,168 @@ class DownloadDatabase {
       whereArgs: [path],
     );
     return result.isEmpty ? null : result.first;
+  }
+
+  // ==================== Tag Management Methods ====================
+
+  /// 创建标签
+  Future<int> createTag(String name, {String? coverComicId}) async {
+    final db = await _getDatabase();
+    return await db.insert(kTableTags, {
+      kTagName: name,
+      kTagCoverComicId: coverComicId,
+      kTagCreatedTime: DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// 获取所有标签
+  Future<List<Map<String, Object?>>> getAllTags() async {
+    final db = await _getDatabase();
+    return await db.query(
+      kTableTags,
+      orderBy: '$kTagCreatedTime DESC',
+    );
+  }
+
+  /// 根据ID获取标签
+  Future<Map<String, Object?>?> getTagById(int tagId) async {
+    final db = await _getDatabase();
+    final result = await db.query(
+      kTableTags,
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+    return result.isEmpty ? null : result.first;
+  }
+
+  /// 更新标签名称
+  Future<void> updateTagName(int tagId, String newName) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableTags,
+      {kTagName: newName},
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+  }
+
+  /// 更新标签封面（使用漫画ID）
+  Future<void> updateTagCover(int tagId, String coverComicId) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableTags,
+      {kTagCoverComicId: coverComicId},
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+  }
+
+  /// 删除标签
+  Future<void> deleteTag(int tagId) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableTags,
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
+    );
+  }
+
+  /// 为漫画添加标签（自动设置封面）
+  Future<void> addTagToComic(String comicId, int tagId) async {
+    final db = await _getDatabase();
+
+    // 检查标签是否已有封面
+    final tag = await getTagById(tagId);
+    final hasCover = tag != null && tag[kTagCoverComicId] != null;
+
+    // 添加标签关联
+    await db.insert(
+      kTableComicTags,
+      {
+        kComicTagsComicId: comicId,
+        kComicTagsTagId: tagId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    // 如果标签没有封面，自动设置当前漫画为封面
+    if (!hasCover) {
+      await updateTagCover(tagId, comicId);
+    }
+  }
+
+  /// 获取所有漫画的标签
+  Future<Map<String, List<String>>> getAllComicTags() async {
+    final db = await _getDatabase();
+    final results = await db.rawQuery('''
+      SELECT ct.$kComicTagsComicId, t.$kTagName
+      FROM $kTableComicTags ct
+      JOIN $kTableTags t ON ct.$kComicTagsTagId = t.$kTagId
+    ''');
+
+    final map = <String, List<String>>{};
+    for (var row in results) {
+      final comicId = row[kComicTagsComicId] as String;
+      final tagName = row[kTagName] as String;
+      if (!map.containsKey(comicId)) {
+        map[comicId] = [];
+      }
+      map[comicId]!.add(tagName);
+    }
+    return map;
+  }
+
+  /// 从漫画移除标签
+  Future<void> removeTagFromComic(String comicId, int tagId) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableComicTags,
+      where: '$kComicTagsComicId = ? AND $kComicTagsTagId = ?',
+      whereArgs: [comicId, tagId],
+    );
+  }
+
+  /// 获取漫画的所有标签
+  Future<List<Map<String, Object?>>> getComicTags(String comicId) async {
+    final db = await _getDatabase();
+    return await db.rawQuery('''
+      SELECT t.* FROM $kTableTags t
+      INNER JOIN $kTableComicTags ct ON t.$kTagId = ct.$kComicTagsTagId
+      WHERE ct.$kComicTagsComicId = ?
+      ORDER BY t.$kTagName
+    ''', [comicId]);
+  }
+
+  /// 获取标签下的所有漫画ID
+  Future<List<String>> getComicIdsByTag(int tagId) async {
+    final db = await _getDatabase();
+    final result = await db.query(
+      kTableComicTags,
+      columns: [kComicTagsComicId],
+      where: '$kComicTagsTagId = ?',
+      whereArgs: [tagId],
+    );
+    return result.map((e) => e[kComicTagsComicId] as String).toList();
+  }
+
+  /// 获取标签下的漫画数量
+  Future<int> getTagComicCount(int tagId) async {
+    final db = await _getDatabase();
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as count FROM $kTableComicTags
+      WHERE $kComicTagsTagId = ?
+    ''', [tagId]);
+    return result.first['count'] as int;
+  }
+
+  /// 清除漫画的所有标签
+  Future<void> clearComicTags(String comicId) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableComicTags,
+      where: '$kComicTagsComicId = ?',
+      whereArgs: [comicId],
+    );
   }
 
   /// 关闭数据库连接

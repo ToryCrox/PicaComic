@@ -1,25 +1,19 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/comic_source/comic_source.dart';
-import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
-import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/custom_download_model.dart';
 import 'package:pica_comic/network/download_model.dart';
-import 'package:pica_comic/network/eh_network/eh_download_model.dart';
+import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/favorite_download.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
+import 'package:pica_comic/network/hitomi_network/hitomi_models.dart' as hitomi;
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
@@ -38,9 +32,15 @@ import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
 
+import '../comic_source/comic_source.dart';
+import '../components/components.dart';
+import '../foundation/local_favorites.dart';
 import '../tools/debounce.dart';
 import '../tools/image_utils.dart';
 import '../tools/throttle.dart';
+import 'custom_download_model.dart';
+import 'eh_network/eh_download_model.dart';
+import 'hitomi_network/hitomi_models.dart';
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
 
@@ -187,7 +187,8 @@ class DownloadManager implements Listenable {
                   i++;
                   if (i > 20) {
                     // it seems that the error is unrelated to the directory name
-                    Log.e("IO Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
+                    Log.e(
+                        "IO Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
                     break;
                   }
                   directory = comic.name + i.toString();
@@ -374,13 +375,13 @@ class DownloadManager implements Listenable {
       }
       final fullPath = await getFullDirectory(comic.id);
       if (Directory("$fullPath/${ep + 1}").existsSync()) {
-        Directory("$fullPath/${ep + 1}")
-            .deleteSync(recursive: true);
+        Directory("$fullPath/${ep + 1}").deleteSync(recursive: true);
       }
       var size = Directory(fullPath).getMBSizeSync();
       comic.downloadedEps.remove(ep);
       comic.comicSize = size;
-      await _addToDb(comic, comic.directory ?? await getDirectoryName(comic.id));
+      await _addToDb(
+          comic, comic.directory ?? await getDirectoryName(comic.id));
       return null;
     } catch (e, s) {
       Log.e("IO $e/n$s");
@@ -487,7 +488,6 @@ class DownloadManager implements Listenable {
         .toList();
   }
 
-
   Future<List<String>> getAllImagesByDir(String dirPath) async {
     final dir = Directory(dirPath);
     if (!(await dir.exists())) {
@@ -570,8 +570,8 @@ class DownloadManager implements Listenable {
       }
     }
   }
-  
-  Future<File> getCover(String id, {bool check = false})  async {
+
+  Future<File> getCover(String id, {bool check = false}) async {
     final dirPath = await getFullDirectory(id);
     var file = File("$dirPath/cover.jpg");
     if (check) {
@@ -811,6 +811,11 @@ extension AddDownloadExt on DownloadManager {
     );
   }
 
+  /// 根据ID获取已下载的漫画
+  Future<DownloadedItem?> getDownloadedItemById(String id) async {
+    return await _getComicWithDb(id);
+  }
+
   // int get total {
   //   // 注意：这个方法需要异步处理，但在原来代码中是同步的
   //   // 在实际使用中，需要重构调用此属性的地方改为异步
@@ -954,6 +959,83 @@ extension AddDownloadExt on DownloadManager {
     final result = await _db.getLocalHistory(path);
     if (result == null) return {};
     return TypeUtil.parseMap(result);
+  }
+
+  // ==================== Tag Management Methods ====================
+
+  /// 创建标签
+  Future<int> createTag(String name, {String? coverComicId}) async {
+    return await _db.createTag(name, coverComicId: coverComicId);
+  }
+
+  /// 获取所有标签
+  Future<List<DownloadTag>> getAllTags() async {
+    final maps = await _db.getAllTags();
+    return maps.map((map) => DownloadTag.fromMap(map)).toList();
+  }
+
+  /// 根据ID获取标签
+  Future<DownloadTag?> getTagById(int tagId) async {
+    final map = await _db.getTagById(tagId);
+    return map != null ? DownloadTag.fromMap(map) : null;
+  }
+
+  /// 重命名标签
+  Future<void> renameTag(int tagId, String newName) async {
+    await _db.updateTagName(tagId, newName);
+  }
+
+  /// 更新标签封面（使用漫画ID）
+  Future<void> updateTagCover(int tagId, String coverComicId) async {
+    await _db.updateTagCover(tagId, coverComicId);
+  }
+
+  /// 删除标签
+  Future<void> deleteTag(int tagId) async {
+    await _db.deleteTag(tagId);
+  }
+
+  /// 为漫画添加标签
+  Future<void> addTagToComic(String comicId, int tagId) async {
+    await _db.addTagToComic(comicId, tagId);
+  }
+
+  /// 为漫画添加多个标签
+  Future<void> addTagsToComic(String comicId, List<int> tagIds) async {
+    for (var tagId in tagIds) {
+      await _db.addTagToComic(comicId, tagId);
+    }
+  }
+
+  /// 从漫画移除标签
+  Future<void> removeTagFromComic(String comicId, int tagId) async {
+    await _db.removeTagFromComic(comicId, tagId);
+  }
+
+  /// 获取漫画的所有标签
+  Future<List<DownloadTag>> getComicTags(String comicId) async {
+    final maps = await _db.getComicTags(comicId);
+    return maps.map((map) => DownloadTag.fromMap(map)).toList();
+  }
+
+  /// 获取所有漫画的标签映射
+  Future<Map<String, List<String>>> getAllComicTagsMap() async {
+    return await _db.getAllComicTags();
+  }
+
+  /// 获取标签下的所有漫画ID
+  Future<List<String>> getComicIdsByTag(int tagId) async {
+    return await _db.getComicIdsByTag(tagId);
+  }
+
+  /// 获取标签下的漫画数量
+  Future<int> getTagComicCount(int tagId) async {
+    return await _db.getTagComicCount(tagId);
+  }
+
+  /// 清除漫画的所有标签
+  Future<void> clearComicTags(String comicId) async {
+    await _db.clearComicTags(comicId);
   }
 }
 
