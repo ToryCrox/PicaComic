@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
+import 'package:reorderables/reorderables.dart';
 import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -201,6 +202,12 @@ class DownloadPageLogic extends StateController {
   /// 当前选中的标签筛选
   int? selectedTagId;
 
+  /// 是否展开标签
+  bool expandTags = false;
+
+  /// 所有标签
+  List<TagInfo> allTags = [];
+
   final textFieldController = TextEditingController();
 
   // void change() {
@@ -234,6 +241,7 @@ class DownloadPageLogic extends StateController {
   }
 
   void updateKeyword(String keyword) async {
+    textFieldController.text = keyword;
     if (_keyword != keyword || !_searchMode) {
       _keyword = keyword;
       _searchMode = true;
@@ -339,6 +347,16 @@ class DownloadPageLogic extends StateController {
     final allTags = await downloadManager.getAllTags();
     _tagInfoMap.clear();
     _tagInfoMap.addAll(allTags.groupFoldBy((e) => e.id, (g, t) => t));
+    this.allTags = allTags
+        .map((e) => TagInfo(
+              id: e.id,
+              name: e.name,
+              comicCount: 0, // 暂时不需要
+              category: e.category.value,
+              sortOrder: e.sortOrder,
+            ))
+        .toList();
+    this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     await updateComics();
     // if (isFirstLoad) {
     //   await Future.delayed(const Duration(milliseconds: 150));
@@ -353,7 +371,6 @@ class DownloadPageLogic extends StateController {
 }
 
 class DownloadPage extends StatelessWidget {
-
   const DownloadPage({Key? key, this.showBack = true}) : super(key: key);
 
   final bool showBack;
@@ -379,14 +396,167 @@ class DownloadPage extends StatelessWidget {
           }
           return Scaffold(
             floatingActionButton: buildFAB(context, logic),
-            body: CustomScrollView(
-              slivers: [
-                buildAppbar(context, logic),
-                buildComics(context, logic)
+            appBar: buildAppbar(context, logic),
+            body: Column(
+              children: [
+                if (!logic.selecting) _buildTagFilter(context, logic),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [buildComics(context, logic)],
+                  ),
+                ),
               ],
             ),
           );
         });
+  }
+
+  Widget _buildTagFilter(BuildContext context, DownloadPageLogic logic) {
+    var tags = logic.allTags;
+    if (!logic.expandTags && tags.length > 20) {
+      tags = tags.sublist(0, 20);
+    }
+    return Material(
+      elevation: 1,
+      surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "标签筛选".tl,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          logic.expandTags = !logic.expandTags;
+                          logic.update();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Icon(
+                            logic.expandTags
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ReorderableWrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    onReorder: (oldIndex, newIndex) async {
+                      // 乐观更新
+                      final item = logic.allTags.removeAt(oldIndex);
+                      logic.allTags.insert(newIndex, item);
+                      logic.update();
+
+                      // 更新数据库
+                      try {
+                        for (int i = 0; i < logic.allTags.length; i++) {
+                          await downloadManager.updateTagSortOrder(
+                              logic.allTags[i].id, i);
+                        }
+                      } catch (e) {
+                        // 如果失败，重新加载
+                        logic.refresh();
+                      }
+                    },
+                    children: [
+                      for (var tag in tags)
+                        InkWell(
+                          key: ValueKey(tag.id),
+                          onTap: () => logic.updateTagFilter(tag.id),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: logic.selectedTagId == tag.id
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .secondaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                              border: logic.selectedTagId == tag.id
+                                  ? null
+                                  : Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outline
+                                          .withOpacity(0.3),
+                                    ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  tag.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: logic.selectedTagId == tag.id
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimary
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSecondaryContainer,
+                                  ),
+                                ),
+                                if (tag.category != 0) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: _getTagColor(tag.category),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getTagColor(int category) {
+    switch (category) {
+      case 1: // author
+        return Colors.pinkAccent;
+      case 2: // work
+        return Colors.blueAccent;
+      case 3: // character
+        return Colors.greenAccent;
+      case 4: // manga
+        return Colors.orangeAccent;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget buildComics(BuildContext context, DownloadPageLogic logic) {
@@ -524,6 +694,16 @@ class DownloadPage extends StatelessWidget {
           type: type,
           primaryTags: logic.getUserTags(item),
           tag: logic.getOriginalTags(item),
+          onTagTap: (tag) => logic.updateKeyword(tag),
+          onPrimaryTagTap: (tag) async {
+            // find tag id by name
+            final tagId = logic.allTags
+                .firstWhereOrNull((element) => element.name == tag)
+                ?.id;
+            if (tagId != null) {
+              logic.updateTagFilter(tagId);
+            }
+          },
           onTap: () async {
             if (logic.selecting) {
               if (logic.selected.contains(comic.id)) {
@@ -837,7 +1017,8 @@ class DownloadPage extends StatelessWidget {
     }
   }
 
-  Widget buildAppbar(BuildContext context, DownloadPageLogic logic) {
+  PreferredSizeWidget buildAppbar(
+      BuildContext context, DownloadPageLogic logic) {
     Widget? leading;
     if (logic.selecting || logic.selectedTagId != null || logic.searchMode) {
       leading = IconButton(
@@ -868,9 +1049,9 @@ class DownloadPage extends StatelessWidget {
         icon: const Icon(Icons.arrow_back),
       );
     }
-    return SliverAppbar(
-      radius: UiMode.m1(context) ? 0 : 16,
-      color: logic.selecting
+    return Appbar(
+      // radius: UiMode.m1(context) ? 0 : 16,
+      backgroundColor: logic.selecting
           ? Theme.of(context).colorScheme.primaryContainer
           : null,
       leading: leading,
@@ -881,56 +1062,7 @@ class DownloadPage extends StatelessWidget {
 
   List<Widget> buildActions(BuildContext context, DownloadPageLogic logic) {
     return [
-      // 标签筛选按钮
-      if (!logic.selecting && !logic.searchMode)
-        Tooltip(
-          message: "标签筛选".tl,
-          child: IconButton(
-            icon: Icon(
-              Icons.label,
-              color: logic.selectedTagId != null
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-            onPressed: () async {
-              final tags = await downloadManager.getAllTags();
-              if (!context.mounted) return;
-
-              showMenu<int?>(
-                context: context,
-                position: RelativeRect.fromLTRB(
-                  MediaQuery.of(context).size.width - 200,
-                  80,
-                  MediaQuery.of(context).size.width - 20,
-                  0,
-                ),
-                items: [
-                  for (var tag in tags)
-                    PopupMenuItem<int?>(
-                      value: tag.id,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.label,
-                            color: logic.selectedTagId == tag.id
-                                ? Theme.of(context).colorScheme.primary
-                                : null,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(tag.name),
-                        ],
-                      ),
-                      onTap: () {
-                        logic.updateTagFilter(tag.id);
-                      },
-                    ),
-                ],
-              );
-            },
-          ),
-        ),
-      // 标签管理按钮
-      if (!logic.selecting && !logic.searchMode)
+      if (!logic.selecting)
         Tooltip(
           message: "标签管理".tl,
           child: IconButton(
@@ -944,7 +1076,7 @@ class DownloadPage extends StatelessWidget {
             },
           ),
         ),
-      if (!logic.selecting && !logic.searchMode)
+      if (!logic.selecting)
         Tooltip(
           message: "排序".tl,
           child: IconButton(
@@ -1424,6 +1556,8 @@ class DownloadedComicTile extends ComicTile {
   final void Function() onTap;
   final void Function() onLongTap;
   final void Function(TapDownDetails details) onSecondaryTap;
+  final void Function(String tag)? onTagTap;
+  final void Function(String tag)? onPrimaryTagTap;
 
   @override
   List<String>? get tags => tag
@@ -1472,6 +1606,8 @@ class DownloadedComicTile extends ComicTile {
     required this.type,
     required this.tag,
     this.primaryTags = const [],
+    this.onTagTap,
+    this.onPrimaryTagTap,
     super.key,
   });
 }

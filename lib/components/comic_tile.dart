@@ -40,6 +40,12 @@ abstract class ComicTile extends StatelessWidget {
 
   List<ComicTileMenuOption>? get addonMenuOptions => null;
 
+  /// Callback when a tag is tapped
+  void Function(String tag)? get onTagTap => null;
+
+  /// Callback when a primary tag is tapped
+  void Function(String tag)? get onPrimaryTagTap => null;
+
   /// Comic ID, used to identify a comic.
   String? get comicID => null;
 
@@ -364,6 +370,8 @@ abstract class ComicTile extends StatelessWidget {
                   primaryTags: primaryTags,
                   tags: tags,
                   maxLines: maxLines,
+                  onTagTap: onTagTap,
+                  onPrimaryTagTap: onPrimaryTagTap,
                 ),
               ),
             ],
@@ -452,6 +460,8 @@ class _ComicDescription extends StatelessWidget {
     this.maxLines = 2,
     this.tags,
     this.primaryTags = const [],
+    this.onTagTap,
+    this.onPrimaryTagTap,
   });
 
   final String title;
@@ -462,6 +472,8 @@ class _ComicDescription extends StatelessWidget {
   final List<String> primaryTags;
   final List<String>? tags;
   final int maxLines;
+  final void Function(String tag)? onTagTap;
+  final void Function(String tag)? onPrimaryTagTap;
 
   @override
   Widget build(BuildContext context) {
@@ -504,43 +516,48 @@ class _ComicDescription extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.end,
                   children: [
                     for (var s in primaryTags)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary,
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(8)),
-                        ),
-                        child: Text(
-                          s,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme.onPrimary,
+                      InkWell(
+                        onTap: () => onPrimaryTagTap?.call(s),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius:
+                                const BorderRadius.all(Radius.circular(8)),
+                          ),
+                          child: Text(
+                            s,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
                           ),
                         ),
                       ),
                     for (var s in tags)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
-                        decoration: BoxDecoration(
-                          color: s == "Unavailable"
-                              ? Theme.of(context).colorScheme.errorContainer
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .secondaryContainer,
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(8)),
-                        ),
-                        child: Text(
-                          s,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
+                      InkWell(
+                        onTap: () => onTagTap?.call(s),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                          decoration: BoxDecoration(
+                            color: s == "Unavailable"
+                                ? Theme.of(context).colorScheme.errorContainer
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer,
+                            borderRadius:
+                                const BorderRadius.all(Radius.circular(8)),
+                          ),
+                          child: Text(
+                            s,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       ),
                   ],
