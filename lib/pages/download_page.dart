@@ -832,7 +832,9 @@ class DownloadPage extends StatelessWidget {
               icon: const Icon(Icons.close))
           : IconButton(
               onPressed: () {
-                if (logic.searchMode) {
+                if (logic.selectedTagId != null) {
+                  logic.updateTagFilter(null);
+                } else if (logic.searchMode) {
                   logic.updateSearchMode(false);
                 } else {
                   Navigator.pop(context);

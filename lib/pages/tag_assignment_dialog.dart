@@ -23,7 +23,6 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   List<DownloadTag> allTags = [];
   Set<int> selectedTagIds = {};
   bool loading = true;
-  final TextEditingController _newTagController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   String _searchQuery = '';
@@ -37,7 +36,6 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
   @override
   void dispose() {
-    _newTagController.dispose();
     _searchController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -65,13 +63,13 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   }
 
   Future<void> _createNewTag() async {
-    if (_newTagController.text.isEmpty) return;
+    if (_searchController.text.isEmpty) return;
 
     try {
-      final tagId = await downloadManager.createTag(_newTagController.text);
+      final tagId = await downloadManager.createTag(_searchController.text);
       final newTag = DownloadTag(
         id: tagId,
-        name: _newTagController.text,
+        name: _searchController.text,
         coverComicId: null,
         createdTime: DateTime.now(),
       );
@@ -79,7 +77,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       setState(() {
         allTags.insert(0, newTag);
         selectedTagIds.add(tagId);
-        _newTagController.clear();
+        _searchController.clear();
+        _searchQuery = '';
       });
 
       showToast(message: "标签创建成功".tl);
@@ -192,46 +191,34 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  // 新建标签输入框
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newTagController,
-                          decoration: InputDecoration(
-                            labelText: "新建标签".tl,
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onSubmitted: (_) => _createNewTag(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: _createNewTag,
-                        tooltip: "创建".tl,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // 搜索框
+                  // 搜索/新建标签输入框
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      labelText: "搜索标签".tl,
+                      labelText: "搜索或创建标签".tl,
+                      hintText: "输入标签名称".tl,
                       border: const OutlineInputBorder(),
                       isDense: true,
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  _searchController.clear();
-                                  _searchQuery = '';
-                                });
-                              },
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: _createNewTag,
+                                  tooltip: "创建新标签".tl,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                ),
+                              ],
                             )
                           : null,
                     ),
@@ -239,6 +226,13 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
                       setState(() {
                         _searchQuery = value;
                       });
+                    },
+                    onSubmitted: (_) {
+                      // 如果有匹配的标签,不创建;否则创建新标签
+                      final filteredTags = _getFilteredTags(null);
+                      if (filteredTags.isEmpty && _searchQuery.isNotEmpty) {
+                        _createNewTag();
+                      }
                     },
                   ),
                   const SizedBox(height: 12),
