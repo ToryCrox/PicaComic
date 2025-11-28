@@ -353,7 +353,10 @@ class DownloadPageLogic extends StateController {
 }
 
 class DownloadPage extends StatelessWidget {
-  const DownloadPage({Key? key}) : super(key: key);
+
+  const DownloadPage({Key? key, this.showBack = true}) : super(key: key);
+
+  final bool showBack;
 
   @override
   Widget build(BuildContext context) {
@@ -835,31 +838,37 @@ class DownloadPage extends StatelessWidget {
   }
 
   Widget buildAppbar(BuildContext context, DownloadPageLogic logic) {
+    Widget? leading;
+    if (!showBack) {
+      leading = null ;
+    } else if (logic.selecting) {
+      leading = IconButton(
+          onPressed: () {
+            logic.selecting = false;
+            logic.selected.clear();
+            logic.update();
+          },
+          icon: const Icon(Icons.close));
+    } else {
+      leading = IconButton(
+        onPressed: () {
+          if (logic.selectedTagId != null) {
+            logic.updateTagFilter(null);
+          } else if (logic.searchMode) {
+            logic.updateSearchMode(false);
+          } else {
+            Navigator.maybePop(context);
+          }
+        },
+        icon: const Icon(Icons.arrow_back),
+      );
+    }
     return SliverAppbar(
       radius: UiMode.m1(context) ? 0 : 16,
       color: logic.selecting
           ? Theme.of(context).colorScheme.primaryContainer
           : null,
-      leading: logic.selecting
-          ? IconButton(
-              onPressed: () {
-                logic.selecting = false;
-                logic.selected.clear();
-                logic.update();
-              },
-              icon: const Icon(Icons.close))
-          : IconButton(
-              onPressed: () {
-                if (logic.selectedTagId != null) {
-                  logic.updateTagFilter(null);
-                } else if (logic.searchMode) {
-                  logic.updateSearchMode(false);
-                } else {
-                  Navigator.pop(context);
-                }
-              },
-              icon: const Icon(Icons.arrow_back),
-            ),
+      leading: leading,
       title: buildTitle(context, logic),
       actions: buildActions(context, logic),
     );

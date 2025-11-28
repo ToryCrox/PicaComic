@@ -4,6 +4,8 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/network/webdav.dart';
+import 'package:pica_comic/pages/download_page.dart';
+import 'package:pica_comic/pages/local/local_comic_page.dart';
 import 'package:pica_comic/tools/app_links.dart';
 import 'package:pica_comic/tools/background_service.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -87,6 +89,8 @@ class MainPageState extends State<MainPage> {
           key: Key(appdata.appSettings.explorePages.length.toString()),
         ),
         const AllCategoryPage(),
+        const DownloadPage(showBack: false),
+        const LocalComicPage(),
       ];
 
   void _login() {
@@ -229,7 +233,18 @@ class MainPageState extends State<MainPage> {
         PaneItemEntry(
             label: '分类'.tl,
             icon: Icons.account_tree_outlined,
-            activeIcon: Icons.account_tree),
+            activeIcon: Icons.account_tree,
+        ),
+        PaneItemEntry(
+          label: '下载'.tl,
+          icon: Icons.download_outlined,
+          activeIcon: Icons.download,
+        ),
+        PaneItemEntry(
+          label: '本地'.tl,
+          icon: Icons.local_library_outlined,
+          activeIcon: Icons.local_library,
+        ),
       ],
       paneActions: [
         PaneActionEntry(
