@@ -352,7 +352,8 @@ class DownloadPageLogic extends StateController {
         .map((e) => TagInfo(
               id: e.id,
               name: e.name,
-              comicCount: 0, // 暂时不需要
+              comicCount: 0,
+              // 暂时不需要
               category: e.category.value,
               sortOrder: e.sortOrder,
             ))
@@ -370,10 +371,13 @@ class DownloadPageLogic extends StateController {
     return _tagInfoMap[tagId]?.name ?? "";
   }
 
+  bool _isSortByCategory = false;
+
   void sortByCategory() {
     expandTags = true;
+    _isSortByCategory = !_isSortByCategory;
     allTags.sort((a, b) {
-      if (a.category != b.category) {
+      if (a.category != b.category && _isSortByCategory) {
         return a.category.compareTo(b.category);
       }
       return a.sortOrder.compareTo(b.sortOrder);
@@ -390,37 +394,38 @@ class DownloadPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StateBuilder<DownloadPageLogic>(
-        init: DownloadPageLogic(),
-        builder: (logic) {
-          if (!logic.isInit) {
-            logic.isInit = true;
-            logic._loadComics();
-          }
-          if (logic.loading && logic.comics.isEmpty) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text("下载"),
-              ),
-              body: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
+      init: DownloadPageLogic(),
+      builder: (logic) {
+        if (!logic.isInit) {
+          logic.isInit = true;
+          logic._loadComics();
+        }
+        if (logic.loading && logic.comics.isEmpty) {
           return Scaffold(
-            floatingActionButton: buildFAB(context, logic),
-            appBar: buildAppbar(context, logic),
-            body: Column(
-              children: [
-                if (!logic.selecting) _buildTagFilter(context, logic),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [buildComics(context, logic)],
-                  ),
-                ),
-              ],
+            appBar: AppBar(
+              title: Text("下载"),
+            ),
+            body: const Center(
+              child: CircularProgressIndicator(),
             ),
           );
-        });
+        }
+        return Scaffold(
+          floatingActionButton: buildFAB(context, logic),
+          appBar: buildAppbar(context, logic),
+          body: Column(
+            children: [
+              if (!logic.selecting) _buildTagFilter(context, logic),
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [buildComics(context, logic)],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTagFilter(BuildContext context, DownloadPageLogic logic) {
@@ -1042,7 +1047,10 @@ class DownloadPage extends StatelessWidget {
         },
         icon: const Icon(Icons.arrow_back),
       );
+    } else {
+      leading = const SizedBox.shrink();
     }
+    Log.d("selecting: ${logic.selecting}, tagId: ${logic.selectedTagId}, searchMode: ${logic.searchMode}, leading: $leading");
     return Appbar(
       // radius: UiMode.m1(context) ? 0 : 16,
       backgroundColor: logic.selecting

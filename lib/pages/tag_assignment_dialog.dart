@@ -30,10 +30,19 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   late TabController _tabController;
   String _searchQuery = '';
 
+  // 当前标签分类
+  TagCategory? get _currentCategory {
+    final index = _tabController.index;
+    if (index == 0) {
+      return null;
+    }
+    return TagCategory.values[index - 1];
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: TagCategory.values.length + 1, vsync: this);
     _loadTags();
   }
 
@@ -85,12 +94,14 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     if (_searchController.text.isEmpty) return;
 
     try {
-      final tagId = await downloadManager.createTag(_searchController.text);
+      final currentCategory = _currentCategory ?? TagCategory.none;
+      final tagId = await downloadManager.createTag(_searchController.text, category: currentCategory.value);
       final newTag = DownloadTag(
         id: tagId,
         name: _searchController.text,
         coverComicId: null,
         createdTime: DateTime.now(),
+        category: currentCategory,
       );
 
       setState(() {
@@ -259,11 +270,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
                     isScrollable: true,
                     tabs: [
                       Tab(text: "全部".tl),
-                      Tab(text: TagCategory.none.label),
-                      Tab(text: TagCategory.author.label),
-                      Tab(text: TagCategory.work.label),
-                      Tab(text: TagCategory.character.label),
-                      Tab(text: TagCategory.manga.label),
+                      for (final category in TagCategory.values)
+                        Tab(text: category.label),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -273,11 +281,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
                       controller: _tabController,
                       children: [
                         _buildTagList(null), // 全部
-                        _buildTagList(TagCategory.none.value),
-                        _buildTagList(TagCategory.author.value),
-                        _buildTagList(TagCategory.work.value),
-                        _buildTagList(TagCategory.character.value),
-                        _buildTagList(TagCategory.manga.value),
+                        for (final category in TagCategory.values)
+                          _buildTagList(category.value),
                       ],
                     ),
                   ),

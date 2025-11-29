@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 /// 标签分类枚举
 enum TagCategory {
-  none(0, '未分类'),
   author(1, '作者'),
   work(2, '作品'),
   character(3, '角色'),
-  manga(4, '漫画');
+  manga(4, '漫画'),
+  none(0, '未分类');
 
   final int value;
   final String label;

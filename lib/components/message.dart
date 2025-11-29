@@ -125,21 +125,21 @@ void showDialogMessage(BuildContext context, String title, String message) {
 void showConfirmDialog(BuildContext context, String title, String content,
     void Function() onConfirm) {
   showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(content),
-            actions: [
-              TextButton(
-                  onPressed: () => App.back(context), child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () {
-                    App.back(context);
-                    onConfirm();
-                  },
-                  child: Text("确认".tl)),
-            ],
-          ));
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(content),
+      actions: [
+        TextButton(onPressed: () => App.back(context), child: Text("取消".tl)),
+        TextButton(
+            onPressed: () {
+              App.back(context);
+              onConfirm();
+            },
+            child: Text("确认".tl)),
+      ],
+    ),
+  );
 }
 
 class LoadingDialogController {
