@@ -348,16 +348,23 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _onReorder(ReorderedListFunction reorderedListFunction) async {
-    final reorderedTags = reorderedListFunction(tags) as List<TagInfo>;
+    // 只有在没有筛选条件时才允许拖动排序
+    if (_keyword.isNotEmpty || _selectedCategory != 0) {
+      return;
+    }
 
+    final reorderedTags = reorderedListFunction(_filteredTags) as List<TagInfo>;
+
+    // 立即更新UI
     setState(() {
+      _filteredTags = reorderedTags;
       tags = reorderedTags;
     });
 
-    // 更新所有标签的排序顺序
+    // 更新所有标签的排序顺序到数据库
     try {
-      for (int i = 0; i < tags.length; i++) {
-        await downloadManager.updateTagSortOrder(tags[i].id, i);
+      for (int i = 0; i < reorderedTags.length; i++) {
+        await downloadManager.updateTagSortOrder(reorderedTags[i].id, i);
       }
     } catch (e) {
       showToast(message: "排序更新失败: $e".tl);

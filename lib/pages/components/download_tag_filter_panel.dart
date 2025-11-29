@@ -41,7 +41,11 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
   // Categories to show in tabs
   final _categories = TagCategory.values;
 
-  final Map<int, TagInfo> _allTags = {};
+  // 使用List存储所有标签,便于排序
+  List<TagInfo> _allTags = [];
+  
+  // 缓存每个tab的显示列表,key为tab索引
+  final Map<int, List<TagInfo>> _displayTagsByTab = {};
 
   @override
   void initState() {
@@ -51,8 +55,25 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
       for (var i = 0; i < _tabController.length + 1; i++)
         ScrollController(),
     ]);
-    for (var tag in widget.tags) {
-      _allTags[tag.id] = tag;
+    _allTags = List.from(widget.tags);
+    _updateAllDisplayTags();
+  }
+  
+  // 更新所有tab的显示列表
+  void _updateAllDisplayTags() {
+    // Tab 0: 全部标签,按 sortOrder 排序
+    final allTagsList = List<TagInfo>.from(_allTags);
+    allTagsList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    _displayTagsByTab[0] = allTagsList;
+    
+    // 其他tab: 按分类过滤,按 categorySortOrder 排序
+    for (int i = 0; i < _categories.length; i++) {
+      final category = _categories[i];
+      final categoryTags = _allTags
+          .where((t) => t.category == category.value)
+          .toList();
+      categoryTags.sort((a, b) => a.categorySortOrder.compareTo(b.categorySortOrder));
+      _displayTagsByTab[i + 1] = categoryTags;
     }
   }
 
@@ -81,11 +102,9 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
             child: TabBarView(
               controller: _tabController,
               children: [
-                KeepAliveWrapper(child: _buildTagGrid(0, null)), // All
+                _buildTagGrid(0, null), // All
                 for (int i = 0; i < _categories.length; i++)
-                  KeepAliveWrapper(
-                    child: _buildTagGrid(i + 1, _categories[i]),
-                  ),
+                  _buildTagGrid(i + 1, _categories[i]),
               ],
             ),
           ),
@@ -132,32 +151,14 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
   }
 
   Widget _buildTagGrid(int pageIndex, TagCategory? category) {
-    final allTags = _allTags;
-    // Filter tags
-    List<TagInfo> displayTags;
-    if (category == null) {
-      displayTags = List.of(allTags.values);
-      displayTags.sort(
-        (a, b) => a.sortOrder.compareTo(b.sortOrder),
-      );
-    } else {
-      displayTags = allTags.values.where((t) => t.category == category.value).toList();
-      displayTags.sort(
-        (a, b) => a.categorySortOrder.compareTo(b.categorySortOrder),
-      );
-    }
+    // 从缓存中获取该tab的显示列表
+    final displayTags = _displayTagsByTab[pageIndex] ?? [];
 
     if (displayTags.isEmpty) {
       return Center(
         child: Text("无标签".tl),
       );
     }
-    Log.d((){
-      return {
-        "name": '_buildTagGrid',
-        'displayTags': displayTags.map((e) => e.toMap()).toList(),
-      };
-    });
 
     final scrollController = _scrollControllers[pageIndex];
     return ReorderableBuilder(
@@ -165,38 +166,46 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
       onReorder: (reorderedListFunction) async {
         final reorderedTags =
             reorderedListFunction(displayTags) as List<TagInfo>;
-        Log.d("Reordered tags: $reorderedTags");
+        Log.d("Reordered tags: ${reorderedTags.map((e) => e.name).toList()}");
 
-        // Update UI immediately (optimistic update)
-        // We can't update the parent's list directly, but we can update the local display
-        // However, since we are using ReorderableBuilder which manages its own state for the drag,
-        // we need to persist the change to the database and then reload or notify parent.
+        // 立即更新缓存的显示列表
+        setState(() {
+          _displayTagsByTab[pageIndex] = reorderedTags;
+        });
 
-        // Update database
+        // 更新数据库
         try {
-          await Future.wait([
-            for (int i = 0; i < reorderedTags.length; i++)
-              Future.sync(() async {
-                final tag = reorderedTags[i];
-                final tagId = tag.id;
-                final newOrder = i;
-                Log.d("Updating tag $tagId ${tag.name} sort order to $i");
-                if (category == null) {
-                  _allTags[tagId] = tag.copyWith(sortOrder: newOrder);
-                  await downloadManager.updateTagSortOrder(tag.id, newOrder);
-                } else {
-                  _allTags[tagId] = tag.copyWith(categorySortOrder: newOrder);
-                  await downloadManager.updateTagCategorySortOrder(tag.id, newOrder);
-                }
-              }),
-          ]);
+          if (category == null) {
+            // 全部标签tab,更新 sortOrder
+            for (int i = 0; i < reorderedTags.length; i++) {
+              final tag = reorderedTags[i];
+              await downloadManager.updateTagSortOrder(tag.id, i);
+              // 同时更新 _allTags 中的对应标签
+              final index = _allTags.indexWhere((t) => t.id == tag.id);
+              if (index != -1) {
+                _allTags[index] = tag.copyWith(sortOrder: i);
+              }
+            }
+          } else {
+            // 分类tab,更新 categorySortOrder
+            for (int i = 0; i < reorderedTags.length; i++) {
+              final tag = reorderedTags[i];
+              await downloadManager.updateTagCategorySortOrder(tag.id, i);
+              // 同时更新 _allTags 中的对应标签
+              final index = _allTags.indexWhere((t) => t.id == tag.id);
+              if (index != -1) {
+                _allTags[index] = tag.copyWith(categorySortOrder: i);
+              }
+            }
+          }
 
-          // Notify parent to reload tags
-          // Since we don't have a callback for reload, we can try to find the logic
+          // 通知父组件刷新
           StateController.findOrNull<DownloadPageLogic>()?.refresh();
         } catch (e) {
           Log.e('onReorder $e');
-          // Handle error
+          // 出错时重新加载
+          _updateAllDisplayTags();
+          setState(() {});
         }
       },
       enableDraggable: true,
