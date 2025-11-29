@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
@@ -23,7 +25,7 @@ class TagAssignmentDialog extends StatefulWidget {
 class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     with SingleTickerProviderStateMixin {
   List<DownloadTag> allTags = [];
-  final  _originalTagIds = <int>{};
+  final _originalTagIds = <int>{};
   final selectedTagIds = <int>{};
   bool loading = true;
   final TextEditingController _searchController = TextEditingController();
@@ -42,7 +44,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: TagCategory.values.length + 1, vsync: this);
+    _tabController =
+        TabController(length: TagCategory.values.length + 1, vsync: this);
     _loadTags();
   }
 
@@ -59,7 +62,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     // 获取所有有漫画的共同标签(用于显示初始状态)
     if (widget.comicIds.isNotEmpty) {
       final comicTags =
-      await downloadManager.getCommonComicTags(widget.comicIds);
+          await downloadManager.getCommonComicTags(widget.comicIds);
       final ids = comicTags.map((e) => e.id).toSet();
       selectedTagIds.clear();
       selectedTagIds.addAll(ids);
@@ -95,7 +98,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
     try {
       final currentCategory = _currentCategory ?? TagCategory.none;
-      final tagId = await downloadManager.createTag(_searchController.text, category: currentCategory.value);
+      final tagId = await downloadManager.createTag(_searchController.text,
+          category: currentCategory.value);
       final newTag = DownloadTag(
         id: tagId,
         name: _searchController.text,
@@ -121,12 +125,12 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     try {
       final addTags = selectedTagIds.difference(_originalTagIds);
       final removeTags = _originalTagIds.difference(selectedTagIds);
-      Log.d('selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
+      Log.d(
+          'selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
       Log.d("添加标签: $addTags, 删除标签: $removeTags");
 
       // 为所有选中的漫画设置标签
       for (var comicId in widget.comicIds) {
-
         // 添加新标签
         for (var tagId in addTags) {
           await downloadManager.addTagToComic(comicId, tagId);
@@ -190,22 +194,58 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
         final tagName = tag.name;
         final isSelected = selectedTagIds.contains(tagId);
 
-        return CheckboxListTile(
-          title: Text(tagName),
-          subtitle: Text(tag.category.label),
-          value: isSelected,
-          onChanged: (value) {
-            setState(() {
-              if (value == true) {
-                selectedTagIds.add(tagId);
-              } else {
-                selectedTagIds.remove(tagId);
-              }
-            });
+        return FutureBuilder<String?>(
+          future: _getTagCoverPath(tag),
+          builder: (context, snapshot) {
+            return CheckboxListTile(
+              title: Text(tagName),
+              subtitle: Text(tag.category.label),
+              secondary: snapshot.hasData && snapshot.data != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.file(
+                        File(snapshot.data!),
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: tag.category.color.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(Icons.label_outline, size: 20),
+                    ),
+              value: isSelected,
+              onChanged: (value) {
+                setState(() {
+                  if (value == true) {
+                    selectedTagIds.add(tagId);
+                  } else {
+                    selectedTagIds.remove(tagId);
+                  }
+                });
+              },
+            );
           },
         );
       },
     );
+  }
+
+  Future<String?> _getTagCoverPath(DownloadTag tag) async {
+    if (tag.coverComicId == null) return null;
+
+    final comic =
+        await downloadManager.getDownloadedItemById(tag.coverComicId!);
+    if (comic != null) {
+      await comic.fillDownloadingItemCover();
+      return comic.coverPath;
+    }
+    return null;
   }
 
   @override
