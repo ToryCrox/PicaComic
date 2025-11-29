@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/state_controller.dart';
 import 'package:pica_comic/network/download.dart';
@@ -9,6 +10,7 @@ import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
+import '../../components/keep_alive_wrapper.dart';
 import '../../foundation/log.dart';
 
 class DownloadTagFilterPanel extends StatefulWidget {
@@ -34,21 +36,32 @@ class DownloadTagFilterPanel extends StatefulWidget {
 class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _scrollController = ScrollController();
+  final List<ScrollController> _scrollControllers = [];
 
   // Categories to show in tabs
   final _categories = TagCategory.values;
+
+  final Map<int, TagInfo> _allTags = {};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _categories.length + 1, vsync: this);
+    _scrollControllers.addAll([
+      for (var i = 0; i < _tabController.length + 1; i++)
+        ScrollController(),
+    ]);
+    for (var tag in widget.tags) {
+      _allTags[tag.id] = tag;
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _scrollController.dispose();
+    for (var controller in _scrollControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -68,8 +81,11 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTagGrid(null), // All
-                for (var category in _categories) _buildTagGrid(category),
+                KeepAliveWrapper(child: _buildTagGrid(0, null)), // All
+                for (int i = 0; i < _categories.length; i++)
+                  KeepAliveWrapper(
+                    child: _buildTagGrid(i + 1, _categories[i]),
+                  ),
               ],
             ),
           ),
@@ -115,19 +131,20 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     );
   }
 
-  Widget _buildTagGrid(TagCategory? category) {
+  Widget _buildTagGrid(int pageIndex, TagCategory? category) {
+    final allTags = _allTags;
     // Filter tags
-    var displayTags = widget.tags;
-    if (category != null) {
-      displayTags =
-          widget.tags.where((t) => t.category == category.value).toList();
-      // Sort by category sort order if available, otherwise by default sort order
-      // Note: TagInfo currently has sortOrder. We might need to update TagInfo to include categorySortOrder
-      // But for now, let's assume the list passed in is already sorted or we sort it here.
-      // Since we want independent sorting, we should rely on the order in the list if possible,
-      // or re-sort if we have the data.
-      // Given TagInfo in download_page.dart doesn't have categorySortOrder yet, we should update it.
-      // For now, we'll just use the list as is, assuming the parent provides it correctly or we implement reordering here.
+    List<TagInfo> displayTags;
+    if (category == null) {
+      displayTags = List.of(allTags.values);
+      displayTags.sort(
+        (a, b) => a.sortOrder.compareTo(b.sortOrder),
+      );
+    } else {
+      displayTags = allTags.values.where((t) => t.category == category.value).toList();
+      displayTags.sort(
+        (a, b) => a.categorySortOrder.compareTo(b.categorySortOrder),
+      );
     }
 
     if (displayTags.isEmpty) {
@@ -135,12 +152,20 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
         child: Text("无标签".tl),
       );
     }
+    Log.d((){
+      return {
+        "name": '_buildTagGrid',
+        'displayTags': displayTags.map((e) => e.toMap()).toList(),
+      };
+    });
 
+    final scrollController = _scrollControllers[pageIndex];
     return ReorderableBuilder(
-      scrollController: _scrollController,
+      scrollController: scrollController,
       onReorder: (reorderedListFunction) async {
         final reorderedTags =
             reorderedListFunction(displayTags) as List<TagInfo>;
+        Log.d("Reordered tags: $reorderedTags");
 
         // Update UI immediately (optimistic update)
         // We can't update the parent's list directly, but we can update the local display
@@ -149,19 +174,22 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
 
         // Update database
         try {
-          if (category == null || category == TagCategory.none) {
-            // Updating global sort order
-            for (int i = 0; i < reorderedTags.length; i++) {
-              await DownloadManager()
-                  .updateTagSortOrder(reorderedTags[i].id, i);
-            }
-          } else {
-            // Updating category sort order
-            for (int i = 0; i < reorderedTags.length; i++) {
-              await DownloadManager()
-                  .updateTagCategorySortOrder(reorderedTags[i].id, i);
-            }
-          }
+          await Future.wait([
+            for (int i = 0; i < reorderedTags.length; i++)
+              Future.sync(() async {
+                final tag = reorderedTags[i];
+                final tagId = tag.id;
+                final newOrder = i;
+                Log.d("Updating tag $tagId ${tag.name} sort order to $i");
+                if (category == null) {
+                  _allTags[tagId] = tag.copyWith(sortOrder: newOrder);
+                  await downloadManager.updateTagSortOrder(tag.id, newOrder);
+                } else {
+                  _allTags[tagId] = tag.copyWith(categorySortOrder: newOrder);
+                  await downloadManager.updateTagCategorySortOrder(tag.id, newOrder);
+                }
+              }),
+          ]);
 
           // Notify parent to reload tags
           // Since we don't have a callback for reload, we can try to find the logic
@@ -175,7 +203,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
       children: displayTags.map((tag) => _buildTagItem(tag)).toList(),
       builder: (children) {
         return GridView(
-          controller: _scrollController,
+          controller: scrollController,
           padding: const EdgeInsets.all(8),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 80,

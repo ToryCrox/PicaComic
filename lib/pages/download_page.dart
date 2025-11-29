@@ -43,6 +43,7 @@ import '../network/eh_network/eh_download_model.dart';
 import '../network/hitomi_network/hitomi_download_model.dart';
 import '../network/jm_network/jm_download.dart';
 import '../network/picacg_network/picacg_download_model.dart';
+import '../tools/type_util.dart';
 import 'downloading_page.dart';
 import 'ehentai/eh_gallery_page.dart';
 import 'hitomi/hitomi_comic_page.dart';
@@ -524,6 +525,7 @@ class DownloadPage extends StatelessWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  constraints: const BoxConstraints(maxWidth: 1000),
                   backgroundColor: Colors.transparent,
                   builder: (context) => DownloadTagFilterPanel(
                     tags: logic.allTags,
@@ -1639,4 +1641,57 @@ class TagInfo {
     this.sortOrder = 0,
     this.categorySortOrder = 0,
   });
+
+  TagInfo copyWith({
+    int? id,
+    String? name,
+    String? coverPath,
+    int? comicCount,
+    int? category,
+    int? sortOrder,
+    int? categorySortOrder,
+  }) {
+    return TagInfo(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      coverPath: coverPath ?? this.coverPath,
+      comicCount: comicCount ?? this.comicCount,
+      category: category ?? this.category,
+      sortOrder: sortOrder ?? this.sortOrder,
+      categorySortOrder: categorySortOrder ?? this.categorySortOrder,
+    );
+  }
+
+
+
+  @override
+  String toString() {
+    return 'TagInfo{id: $id, name: $name, coverPath: $coverPath, comicCount: $comicCount, category: $category, sortOrder: $sortOrder, categorySortOrder: $categorySortOrder}';
+  }
+
+  factory TagInfo.fromMap(Map<String, dynamic> map) {
+    return TagInfo(
+      id: TypeUtil.parseInt(map['id']),
+      name: TypeUtil.parseString(map['name']),
+      coverPath: map['cover_path'] == null
+          ? null
+          : TypeUtil.parseString(map['cover_path']),
+      comicCount: TypeUtil.parseInt(map['comic_count']),
+      category: TypeUtil.parseInt(map['category']),
+      sortOrder: TypeUtil.parseInt(map['sort_order']),
+      categorySortOrder: TypeUtil.parseInt(map['category_sort_order']),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'cover_path': coverPath,
+      'comic_count': comicCount,
+      'category': category,
+      'sort_order': sortOrder,
+      'category_sort_order': categorySortOrder,
+    };
+  }
 }
