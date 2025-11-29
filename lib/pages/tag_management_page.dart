@@ -19,7 +19,10 @@ class TagManagementPage extends StatefulWidget {
 
 class _TagManagementPageState extends State<TagManagementPage> {
   List<TagInfo> tags = [];
+  List<TagInfo> _filteredTags = [];
   bool loading = true;
+  String _keyword = "";
+  int _selectedCategory = 0; // 0 for all
 
   final _scrollController = ScrollController();
 
@@ -60,7 +63,22 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     setState(() {
       tags = tagList;
+      _updateFilteredTags();
       loading = false;
+    });
+  }
+
+  void _updateFilteredTags() {
+    setState(() {
+      _filteredTags = tags.where((tag) {
+        if (_selectedCategory != 0 && tag.category != _selectedCategory) {
+          return false;
+        }
+        if (_keyword.isNotEmpty && !tag.name.contains(_keyword)) {
+          return false;
+        }
+        return true;
+      }).toList();
     });
   }
 
@@ -361,8 +379,38 @@ class _TagManagementPageState extends State<TagManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("标签管理".tl),
+        title: TextField(
+          decoration: InputDecoration(
+            hintText: "搜索标签".tl,
+            border: InputBorder.none,
+          ),
+          onChanged: (value) {
+            _keyword = value;
+            _updateFilteredTags();
+          },
+        ),
         actions: [
+          PopupMenuButton<int>(
+            initialValue: _selectedCategory,
+            icon: const Icon(Icons.filter_list),
+            tooltip: "筛选分类".tl,
+            onSelected: (value) {
+              _selectedCategory = value;
+              _updateFilteredTags();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 0,
+                child: Text("全部".tl),
+              ),
+              for (var category in TagCategory.values)
+                if (category != TagCategory.none)
+                  PopupMenuItem(
+                    value: category.value,
+                    child: Text(category.label),
+                  ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _createTag,
@@ -372,7 +420,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
       ),
       body: loading && tags.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : tags.isEmpty
+          : _filteredTags.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -402,7 +450,9 @@ class _TagManagementPageState extends State<TagManagementPage> {
               : ReorderableBuilder(
                   scrollController: _scrollController,
                   onReorder: _onReorder,
-                  children: tags.map((tag) => _buildTagItem(tag)).toList(),
+                  enableDraggable: _keyword.isEmpty && _selectedCategory == 0,
+                  children:
+                      _filteredTags.map((tag) => _buildTagItem(tag)).toList(),
                   builder: (children) {
                     return GridView(
                       controller: _scrollController,

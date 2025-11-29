@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
-import 'package:reorderables/reorderables.dart';
 import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -33,9 +31,8 @@ import 'package:pica_comic/tools/pdf.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:open_file/open_file.dart';
-import 'package:pica_comic/network/models/download_tag.dart';
-
 import '../components/components.dart';
+import '../pages/components/download_tag_filter_panel.dart';
 import '../foundation/app.dart';
 import '../foundation/state_controller.dart';
 import '../foundation/ui_mode.dart';
@@ -241,7 +238,8 @@ class DownloadPageLogic extends StateController {
     }
   }
 
-  Future<void> updateKeyword(String keyword, {bool updateTextField = true}) async {
+  Future<void> updateKeyword(String keyword,
+      {bool updateTextField = true}) async {
     if (updateTextField) {
       textFieldController.text = keyword;
     }
@@ -355,11 +353,28 @@ class DownloadPageLogic extends StateController {
               id: e.id,
               name: e.name,
               comicCount: 0,
-              // 暂时不需要
               category: e.category.value,
               sortOrder: e.sortOrder,
+              categorySortOrder: e.categorySortOrder,
+              coverPath: _tagInfoMap[e.id]?.coverComicId != null
+                  ? _tagInfoMap[e.id]!
+                      .coverComicId! // This is comic ID, we need path. logic.
+                  : null,
             ))
         .toList();
+
+    // Fill cover paths
+    for (var tag in this.allTags) {
+      if (_tagInfoMap[tag.id]?.coverComicId != null) {
+        final comicId = _tagInfoMap[tag.id]!.coverComicId!;
+        final comic = baseComics.firstWhereOrNull((e) => e.id == comicId);
+        if (comic != null) {
+          tag.coverPath = comic.coverPath;
+        }
+      }
+    }
+
+    this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     await updateComics();
     // if (isFirstLoad) {
@@ -432,128 +447,102 @@ class DownloadPage extends StatelessWidget {
 
   Widget _buildTagFilter(BuildContext context, DownloadPageLogic logic) {
     var tags = logic.allTags;
-    if (!logic.expandTags && tags.length > 20) {
+
+    // If selected tag is not in the first 20, move it to the front for display
+    if (logic.selectedTagId != null) {
+      final selectedIndex = tags.indexWhere((t) => t.id == logic.selectedTagId);
+      if (selectedIndex >= 20) {
+        final selectedTag = tags[selectedIndex];
+        tags = [
+          selectedTag,
+          ...tags.sublist(0, 19),
+        ];
+      } else if (tags.length > 20) {
+        tags = tags.sublist(0, 20);
+      }
+    } else if (tags.length > 20) {
       tags = tags.sublist(0, 20);
     }
+
     return Material(
       elevation: 1,
       surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
-        child: Column(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: ReorderableWrap(
-                spacing: 4,
-                runSpacing: 4,
-                onReorder: (oldIndex, newIndex) async {
-                  if (oldIndex >= logic.allTags.length ||
-                      newIndex > logic.allTags.length) {
-                    return;
-                  }
-                  // 乐观更新
-                  final item = logic.allTags.removeAt(oldIndex);
-                  logic.allTags.insert(newIndex, item);
-                  logic.update();
-
-                  // 更新数据库
-                  try {
-                    for (int i = 0; i < logic.allTags.length; i++) {
-                      await downloadManager.updateTagSortOrder(
-                          logic.allTags[i].id, i);
-                    }
-                  } catch (e) {
-                    // 如果失败，重新加载
-                    logic.refresh();
-                  }
-                },
-                children: [
-                  for (var tag in tags)
-                    InkWell(
-                      key: ValueKey(tag.id),
-                      onTap: () => logic.updateTagFilter(tag.id),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: logic.selectedTagId == tag.id
-                              ? Theme.of(context).colorScheme.primary
-                              : TagCategory.fromValue(tag.category)
-                                  .color
-                                  .withOpacity(0.2),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var tag in tags)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: InkWell(
+                          key: ValueKey(tag.id),
+                          onTap: () => logic.updateTagFilter(tag.id),
                           borderRadius: BorderRadius.circular(8),
-                          border: logic.selectedTagId == tag.id
-                              ? null
-                              : Border.all(
-                                  color:
-                                      TagCategory.fromValue(tag.category).color,
-                                  width: 1,
-                                ),
-                        ),
-                        child: Text(
-                          tag.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: logic.selectedTagId == tag.id
-                                ? Theme.of(context).colorScheme.onPrimary
-                                : Theme.of(context).colorScheme.onSurface,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: logic.selectedTagId == tag.id
+                                  ? Theme.of(context).colorScheme.primary
+                                  : TagCategory.fromValue(tag.category)
+                                      .color
+                                      .withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: logic.selectedTagId == tag.id
+                                  ? null
+                                  : Border.all(
+                                      color: TagCategory.fromValue(tag.category)
+                                          .color,
+                                      width: 1,
+                                    ),
+                            ),
+                            child: Text(
+                              tag.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: logic.selectedTagId == tag.id
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  GestureDetector(
-                    onLongPress: () {},
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        logic.expandTags = !logic.expandTags;
-                        logic.update();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          logic.expandTags
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onLongPress: () {},
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => logic.sortByCategory(),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        margin: const EdgeInsets.only(left: 4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.category,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const Divider(height: 1),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => DownloadTagFilterPanel(
+                    tags: logic.allTags,
+                    selectedTagId: logic.selectedTagId,
+                    onTagSelected: (id) {
+                      logic.updateTagFilter(id);
+                      Navigator.pop(context);
+                    },
+                    onClose: () => Navigator.pop(context),
+                    onManageTags: () {
+                      Navigator.pop(context);
+                      App.globalTo(() => const TagManagementPage());
+                    },
+                  ),
+                );
+              },
+              icon: const Icon(Icons.keyboard_arrow_down),
+              tooltip: "展开标签".tl,
+            ),
           ],
         ),
       ),
@@ -1049,7 +1038,8 @@ class DownloadPage extends StatelessWidget {
     } else {
       leading = const SizedBox.shrink();
     }
-    Log.d("selecting: ${logic.selecting}, tagId: ${logic.selectedTagId}, searchMode: ${logic.searchMode}, leading: $leading");
+    Log.d(
+        "selecting: ${logic.selecting}, tagId: ${logic.selectedTagId}, searchMode: ${logic.searchMode}, leading: $leading");
     return Appbar(
       // radius: UiMode.m1(context) ? 0 : 16,
       backgroundColor: logic.selecting
@@ -1560,7 +1550,6 @@ class DownloadedComicTile extends ComicTile {
   final void Function(String tag)? onTagTap;
   final void Function(String tag)? onPrimaryTagTap;
 
-  @override
   List<String>? get tags => tag
       .map((e) => App.locale.languageCode == "zh" ? e.translateTagsToCN : e)
       .toList();
@@ -1630,4 +1619,24 @@ void _toComicInfoPage(DownloadedItem comic) {
   } else if (comic is CustomDownloadedItem) {
     context.to(() => ComicPage(sourceKey: comic.sourceKey, id: comic.comicId));
   }
+}
+
+class TagInfo {
+  final int id;
+  final String name;
+  String? coverPath;
+  final int comicCount;
+  final int category;
+  final int sortOrder;
+  final int categorySortOrder;
+
+  TagInfo({
+    required this.id,
+    required this.name,
+    this.coverPath,
+    required this.comicCount,
+    this.category = 0,
+    this.sortOrder = 0,
+    this.categorySortOrder = 0,
+  });
 }

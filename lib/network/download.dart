@@ -1055,6 +1055,11 @@ extension AddDownloadExt on DownloadManager {
     await _db.updateTagsSortOrder(tagIds);
   }
 
+  /// 更新标签分类排序
+  Future<void> updateTagCategorySortOrder(int tagId, int sortOrder) async {
+    await _db.updateTagCategorySortOrder(tagId, sortOrder);
+  }
+
   /// 更新标签分类
   Future<void> updateTagCategory(int tagId, int category) async {
     await _db.updateTagCategory(tagId, category);

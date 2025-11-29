@@ -21,7 +21,6 @@ enum TagCategory {
       orElse: () => TagCategory.none,
     );
   }
-
 }
 
 /// 标签模型
@@ -33,6 +32,7 @@ class DownloadTag {
   final int sortOrder;
   final DateTime updatedTime;
   final TagCategory category;
+  final int categorySortOrder;
 
   DownloadTag({
     required this.id,
@@ -42,6 +42,7 @@ class DownloadTag {
     this.sortOrder = 0,
     DateTime? updatedTime,
     this.category = TagCategory.none,
+    this.categorySortOrder = 0,
   }) : updatedTime = updatedTime ?? createdTime;
 
   /// 从数据库Map创建DownloadTag对象
@@ -58,6 +59,7 @@ class DownloadTag {
           ? DateTime.fromMillisecondsSinceEpoch(map['updated_time'] as int)
           : null,
       category: TagCategory.fromValue((map['category'] as int?) ?? 0),
+      categorySortOrder: (map['category_sort_order'] as int?) ?? 0,
     );
   }
 
@@ -71,6 +73,7 @@ class DownloadTag {
       'sort_order': sortOrder,
       'updated_time': updatedTime.millisecondsSinceEpoch,
       'category': category.value,
+      'category_sort_order': categorySortOrder,
     };
   }
 

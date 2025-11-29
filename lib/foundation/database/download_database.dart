@@ -30,6 +30,7 @@ const String kTagCreatedTime = 'created_time';
 const String kTagSortOrder = 'sort_order';
 const String kTagUpdatedTime = 'updated_time';
 const String kTagCategory = 'category';
+const String kTagCategorySortOrder = 'category_sort_order';
 
 /// comic_tags 表字段常量
 const String kComicTagsComicId = 'comic_id';
@@ -76,7 +77,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 3,
+            version: 4,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
           ));
@@ -105,6 +106,10 @@ class DownloadDatabase {
       await db.execute(
           'ALTER TABLE $kTableTags ADD COLUMN $kTagCategory INTEGER DEFAULT 0');
     }
+    if (oldVersion < 4) {
+      await db.execute(
+          'ALTER TABLE $kTableTags ADD COLUMN $kTagCategorySortOrder INTEGER DEFAULT 0');
+    }
   }
 
   /// 创建标签相关表
@@ -119,6 +124,7 @@ class DownloadDatabase {
         $kTagSortOrder INTEGER DEFAULT 0,
         $kTagUpdatedTime INTEGER DEFAULT 0,
         $kTagCategory INTEGER DEFAULT 0,
+        $kTagCategorySortOrder INTEGER DEFAULT 0,
         FOREIGN KEY ($kTagCoverComicId) REFERENCES $kTableDownload($kDownloadId) ON DELETE SET NULL
       )
     ''');
@@ -389,6 +395,7 @@ class DownloadDatabase {
       kTagSortOrder: maxOrder + 1,
       kTagUpdatedTime: now,
       kTagCategory: category,
+      kTagCategorySortOrder: maxOrder + 1,
     });
   }
 
@@ -519,7 +526,8 @@ class DownloadDatabase {
   }
 
   /// 获取漫画都有的标签
-  Future<List<Map<String, Object?>>> getCommonComicTags(List<String> comicIds) async {
+  Future<List<Map<String, Object?>>> getCommonComicTags(
+      List<String> comicIds) async {
     final db = await _getDatabase();
     return await db.rawQuery('''
       SELECT t.* FROM $kTableTags t
@@ -607,7 +615,18 @@ class DownloadDatabase {
       kTableTags,
       where: '$kTagCategory = ?',
       whereArgs: [category],
-      orderBy: '$kTagSortOrder ASC, $kTagCreatedTime DESC',
+      orderBy: '$kTagCategorySortOrder ASC, $kTagCreatedTime DESC',
+    );
+  }
+
+  /// 更新标签分类排序
+  Future<void> updateTagCategorySortOrder(int tagId, int sortOrder) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableTags,
+      {kTagCategorySortOrder: sortOrder},
+      where: '$kTagId = ?',
+      whereArgs: [tagId],
     );
   }
 
