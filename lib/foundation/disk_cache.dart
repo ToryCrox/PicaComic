@@ -118,11 +118,17 @@ class DiskCache {
   static Future<String?> readString(String key) async {
     Log.d('$_sTag readCacheString, key: $key');
     final fileInfo = await getFileCache(key);
-    if (fileInfo != null) {
-      return utf8.decode(await fileInfo.file.readAsBytes());
-    } else {
+    try {
+      if (fileInfo != null) {
+        return utf8.decode(await fileInfo.file.readAsBytes());
+      } else {
+        return null;
+      }
+    } catch (e) {
+      Log.e(e);
       return null;
     }
+
   }
 
   /// 读取缓存文件

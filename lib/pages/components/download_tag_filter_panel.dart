@@ -161,68 +161,74 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     }
 
     final scrollController = _scrollControllers[pageIndex];
-    return ReorderableBuilder(
-      scrollController: scrollController,
-      onReorder: (reorderedListFunction) async {
-        final reorderedTags =
-            reorderedListFunction(displayTags) as List<TagInfo>;
-        Log.d("Reordered tags: ${reorderedTags.map((e) => e.name).toList()}");
 
-        // 立即更新缓存的显示列表
-        setState(() {
-          _displayTagsByTab[pageIndex] = reorderedTags;
-        });
+    return SingleChildScrollView(
+      controller: scrollController,
+      child: ReorderableBuilder(
+        key: ValueKey('reorderable_$pageIndex'),
+        scrollController: scrollController,
+        enableDraggable: true,
+        onReorder: (reorderedListFunction) async {
+          final reorderedTags =
+              reorderedListFunction(displayTags) as List<TagInfo>;
+          Log.d("Reordered tags: ${reorderedTags.map((e) => e.name).toList()}");
 
-        // 更新数据库
-        try {
-          if (category == null) {
-            // 全部标签tab,更新 sortOrder
-            for (int i = 0; i < reorderedTags.length; i++) {
-              final tag = reorderedTags[i];
-              await downloadManager.updateTagSortOrder(tag.id, i);
-              // 同时更新 _allTags 中的对应标签
-              final index = _allTags.indexWhere((t) => t.id == tag.id);
-              if (index != -1) {
-                _allTags[index] = tag.copyWith(sortOrder: i);
+          // 立即更新缓存的显示列表
+          setState(() {
+            _displayTagsByTab[pageIndex] = reorderedTags;
+          });
+
+          // 更新数据库
+          try {
+            if (category == null) {
+              // 全部标签tab,更新 sortOrder
+              for (int i = 0; i < reorderedTags.length; i++) {
+                final tag = reorderedTags[i];
+                await downloadManager.updateTagSortOrder(tag.id, i);
+                // 同时更新 _allTags 中的对应标签
+                final index = _allTags.indexWhere((t) => t.id == tag.id);
+                if (index != -1) {
+                  _allTags[index] = tag.copyWith(sortOrder: i);
+                }
+              }
+            } else {
+              // 分类tab,更新 categorySortOrder
+              for (int i = 0; i < reorderedTags.length; i++) {
+                final tag = reorderedTags[i];
+                await downloadManager.updateTagCategorySortOrder(tag.id, i);
+                // 同时更新 _allTags 中的对应标签
+                final index = _allTags.indexWhere((t) => t.id == tag.id);
+                if (index != -1) {
+                  _allTags[index] = tag.copyWith(categorySortOrder: i);
+                }
               }
             }
-          } else {
-            // 分类tab,更新 categorySortOrder
-            for (int i = 0; i < reorderedTags.length; i++) {
-              final tag = reorderedTags[i];
-              await downloadManager.updateTagCategorySortOrder(tag.id, i);
-              // 同时更新 _allTags 中的对应标签
-              final index = _allTags.indexWhere((t) => t.id == tag.id);
-              if (index != -1) {
-                _allTags[index] = tag.copyWith(categorySortOrder: i);
-              }
-            }
+
+            // 通知父组件刷新
+            StateController.findOrNull<DownloadPageLogic>()?.refresh();
+          } catch (e) {
+            Log.e('onReorder $e');
+            // 出错时重新加载
+            _updateAllDisplayTags();
+            setState(() {});
           }
-
-          // 通知父组件刷新
-          StateController.findOrNull<DownloadPageLogic>()?.refresh();
-        } catch (e) {
-          Log.e('onReorder $e');
-          // 出错时重新加载
-          _updateAllDisplayTags();
-          setState(() {});
-        }
-      },
-      enableDraggable: true,
-      children: displayTags.map((tag) => _buildTagItem(tag)).toList(),
-      builder: (children) {
-        return GridView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(8),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 80,
-            childAspectRatio: 0.8,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          children: children,
-        );
-      },
+        },
+        children: displayTags.map((tag) => _buildTagItem(tag)).toList(),
+        builder: (children) {
+          return GridView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 80,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            children: children,
+          );
+        },
+      ),
     );
   }
 
