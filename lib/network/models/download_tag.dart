@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 /// 标签分类枚举
 enum TagCategory {
-  author(1, '作者'),
-  work(2, '作品'),
-  character(3, '角色'),
-  manga(4, '漫画'),
-  none(0, '未分类');
+  author(1, '作者', Colors.pinkAccent),
+  work(2, '作品', Colors.blueAccent),
+  character(3, '角色', Colors.greenAccent),
+  special(5, '特点', Colors.deepPurple),
+  manga(4, '漫画', Colors.orangeAccent),
+  none(0, '未分类', Colors.grey);
 
   final int value;
   final String label;
+  final Color color;
 
-  const TagCategory(this.value, this.label);
+  const TagCategory(this.value, this.label, this.color);
 
   static TagCategory fromValue(int value) {
     return TagCategory.values.firstWhere(
@@ -20,20 +22,6 @@ enum TagCategory {
     );
   }
 
-  Color get color {
-    switch (this) {
-      case TagCategory.author:
-        return Colors.pinkAccent;
-      case TagCategory.work:
-        return Colors.blueAccent;
-      case TagCategory.character:
-        return Colors.greenAccent;
-      case TagCategory.manga:
-        return Colors.orangeAccent;
-      default:
-        return Colors.grey;
-    }
-  }
 }
 
 /// 标签模型
