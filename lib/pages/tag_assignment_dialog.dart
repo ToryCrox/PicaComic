@@ -268,6 +268,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
                   TabBar(
                     controller: _tabController,
                     isScrollable: true,
+                    tabAlignment: TabAlignment.center,
                     tabs: [
                       Tab(text: "全部".tl),
                       for (final category in TagCategory.values)

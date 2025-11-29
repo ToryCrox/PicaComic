@@ -241,8 +241,10 @@ class DownloadPageLogic extends StateController {
     }
   }
 
-  void updateKeyword(String keyword) async {
-    textFieldController.text = keyword;
+  Future<void> updateKeyword(String keyword, {bool updateTextField = true}) async {
+    if (updateTextField) {
+      textFieldController.text = keyword;
+    }
     if (_keyword != keyword || !_searchMode) {
       _keyword = keyword;
       _searchMode = true;
@@ -988,16 +990,13 @@ class DownloadPage extends StatelessWidget {
 
   Widget buildTitle(BuildContext context, DownloadPageLogic logic) {
     if (logic.searchMode && !logic.selecting) {
-      final FocusNode focusNode = FocusNode();
-      focusNode.requestFocus();
       bool focus = logic.searchMode;
       return TextField(
-        focusNode: focus ? focusNode : null,
         decoration:
             InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
         controller: logic.textFieldController,
         onChanged: (s) {
-          logic.updateKeyword(s.toLowerCase());
+          logic.updateKeyword(s.toLowerCase(), updateTextField: false);
         },
       );
     } else {

@@ -189,46 +189,15 @@ class _TagManagementPageState extends State<TagManagementPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RadioListTile<int>(
-              title: Text(TagCategory.none.label),
-              value: 0,
-              groupValue: selectedCategory,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-            RadioListTile<int>(
-              title: Text(TagCategory.author.label),
-              value: 1,
-              groupValue: selectedCategory,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-            RadioListTile<int>(
-              title: Text(TagCategory.work.label),
-              value: 2,
-              groupValue: selectedCategory,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-            RadioListTile<int>(
-              title: Text(TagCategory.character.label),
-              value: 3,
-              groupValue: selectedCategory,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-            RadioListTile<int>(
-              title: Text(TagCategory.manga.label),
-              value: 4,
-              groupValue: selectedCategory,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
+            for (final category in TagCategory.values)
+              RadioListTile<int>(
+                title: Text(category.label),
+                value: category.value,
+                groupValue: selectedCategory,
+                onChanged: (value) {
+                  Navigator.pop(context, value);
+                },
+              ),
           ],
         ),
         actions: [
@@ -401,7 +370,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
           ),
         ],
       ),
-      body: loading
+      body: loading && tags.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : tags.isEmpty
               ? Center(
