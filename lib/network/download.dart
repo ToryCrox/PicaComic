@@ -1025,6 +1025,63 @@ extension AddDownloadExt on DownloadManager {
     final maps = await _db.getTagsByCategory(category);
     return maps.map((map) => DownloadTag.fromMap(map)).toList();
   }
+
+  // ==================== Directory Rename Methods ====================
+
+  /// 根据漫画信息生成新的目录名
+  String generateDirectoryName(DownloadedItem item) {
+    String sanitizedTitle = sanitizeFileName(item.name);
+    return '[${item.type.name}][${item.id}]$sanitizedTitle';
+  }
+
+  /// 重命名漫画目录
+  /// 返回 null 表示成功,返回错误信息表示失败
+  Future<String?> renameComicDirectory(
+      String id, String newDirectoryName) async {
+    try {
+      // 获取当前目录名
+      final oldDirectoryName = await getDirectoryName(id);
+      if (oldDirectoryName.isEmpty) {
+        return '未找到漫画目录';
+      }
+
+      // 如果目录名相同,不需要重命名
+      if (oldDirectoryName == newDirectoryName) {
+        return null;
+      }
+
+      // 构建完整路径
+      final oldPath = Path.join(path!, oldDirectoryName);
+      final newPath = Path.join(path!, newDirectoryName);
+
+      // 检查旧目录是否存在
+      final oldDir = Directory(oldPath);
+      if (!await oldDir.exists()) {
+        return '源目录不存在: $oldPath';
+      }
+
+      // 检查新目录是否已存在
+      final newDir = Directory(newPath);
+      if (await newDir.exists()) {
+        return '目标目录已存在: $newPath';
+      }
+
+      // 执行重命名
+      await oldDir.rename(newPath);
+
+      final result = await _db.updateDownloadDirectory(id, newDirectoryName);
+      if (!result) {
+        return '更新数据库失败';
+      }
+      // 更新缓存
+      _cache[id] = newDirectoryName;
+
+      return null;
+    } catch (e, s) {
+      Log.e('重命名目录失败: $e', stackTrace: s);
+      return '重命名失败: $e';
+    }
+  }
 }
 
 class SaveInfoItem {

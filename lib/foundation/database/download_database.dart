@@ -233,6 +233,18 @@ class DownloadDatabase {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  /// 更新目录
+  Future<bool> updateDownloadDirectory(String id, String directory) async {
+    final db = await _getDatabase();
+    final result = await db.update(
+      kTableDownload,
+      {kDownloadDirectory: directory},
+      where: '$kDownloadId = ?',
+      whereArgs: [id],
+    );
+    return result > 0;
+  }
+
   /// 更新下载项大小
   Future<void> updateDownloadSize(String id, double size) async {
     final db = await _getDatabase();

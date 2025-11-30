@@ -23,6 +23,7 @@ import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/tag_management_page.dart';
+import 'package:pica_comic/pages/rename_download_dialog.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
@@ -1036,8 +1037,6 @@ class DownloadPage extends StatelessWidget {
     } else {
       leading = const SizedBox.shrink();
     }
-    Log.d(() =>
-        "selecting: ${logic.selecting}, tagId: ${logic.selectedTagId}, searchMode: ${logic.searchMode}, leading: $leading");
     return Appbar(
       // radius: UiMode.m1(context) ? 0 : 16,
       backgroundColor: logic.selecting
@@ -1177,6 +1176,25 @@ class DownloadPage extends StatelessWidget {
                           if (result == true) {
                             logic.refresh();
                           }
+                        },
+                      ),
+                    ),
+                    PopupMenuItem(
+                      child: Text("重命名下载目录".tl),
+                      onTap: () => Future.delayed(
+                        const Duration(milliseconds: 200),
+                        () async {
+                          await showDialog(
+                            context: App.globalContext!,
+                            builder: (context) => RenameDownloadDialog(
+                              comics: logic.selectedComics,
+                              onComplete: () {
+                                logic.selecting = false;
+                                logic.selected.clear();
+                                logic.refresh();
+                              },
+                            ),
+                          );
                         },
                       ),
                     ),

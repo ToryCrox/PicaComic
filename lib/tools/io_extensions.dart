@@ -3,68 +3,68 @@ import 'dart:io';
 
 import 'package:pica_comic/tools/extensions.dart';
 
-extension FileSystemEntityExt on FileSystemEntity{
+extension FileSystemEntityExt on FileSystemEntity {
   String get name {
     var path = this.path;
-    if(path.endsWith('/') || path.endsWith('\\')){
-      path = path.substring(0, path.length-1);
+    if (path.endsWith('/') || path.endsWith('\\')) {
+      path = path.substring(0, path.length - 1);
     }
 
     int i = path.length - 1;
 
-    while(i >= 0 && path[i] != '\\' && path[i] != '/'){
+    while (i >= 0 && path[i] != '\\' && path[i] != '/') {
       i--;
     }
 
-    return path.substring(i+1);
+    return path.substring(i + 1);
   }
 
-  Future<void> deleteIgnoreError({bool recursive = false}) async{
-    try{
+  Future<void> deleteIgnoreError({bool recursive = false}) async {
+    try {
       await delete(recursive: recursive);
-    }catch(e){
+    } catch (e) {
       // ignore
     }
   }
 }
 
-extension FileExtension on File{
+extension FileExtension on File {
   /// Get file size information in MB
-  double getMBSizeSync(){
+  double getMBSizeSync() {
     var bytes = lengthSync();
-    return bytes/1024/1024;
+    return bytes / 1024 / 1024;
   }
 
   String get extension => path.split('.').last;
 }
 
-extension DirectoryExtension on Directory{
+extension DirectoryExtension on Directory {
   /// Get directory size information in MB
   ///
   /// if directory is not exist, return 0;
-  double getMBSizeSync(){
-    if(!existsSync()) return 0;
+  double getMBSizeSync() {
+    if (!existsSync()) return 0;
     double total = 0;
-    for(var f in listSync(recursive: true)){
-      if(FileSystemEntity.typeSync(f.path)==FileSystemEntityType.file){
-        total += File(f.path).lengthSync()/1024/1024;
+    for (var f in listSync(recursive: true)) {
+      if (FileSystemEntity.typeSync(f.path) == FileSystemEntityType.file) {
+        total += File(f.path).lengthSync() / 1024 / 1024;
       }
     }
     return total;
   }
 
-  Future<int> get size async{
-    if(!existsSync()) return 0;
+  Future<int> get size async {
+    if (!existsSync()) return 0;
     int total = 0;
-    for(var f in listSync(recursive: true)){
-      if(FileSystemEntity.typeSync(f.path)==FileSystemEntityType.file){
+    for (var f in listSync(recursive: true)) {
+      if (FileSystemEntity.typeSync(f.path) == FileSystemEntityType.file) {
         total += await File(f.path).length();
       }
     }
     return total;
   }
 
-  Directory renameX(String newName){
+  Directory renameX(String newName) {
     newName = sanitizeFileName(newName);
     return renameSync(path.replaceLast(name, newName));
   }
@@ -72,21 +72,75 @@ extension DirectoryExtension on Directory{
 
 String sanitizeFileName(String fileName) {
   const maxLength = 255;
+
+  // Windows 保留文件名
+  const reservedNames = [
+    'CON',
+    'PRN',
+    'AUX',
+    'NUL',
+    'COM1',
+    'COM2',
+    'COM3',
+    'COM4',
+    'COM5',
+    'COM6',
+    'COM7',
+    'COM8',
+    'COM9',
+    'LPT1',
+    'LPT2',
+    'LPT3',
+    'LPT4',
+    'LPT5',
+    'LPT6',
+    'LPT7',
+    'LPT8',
+    'LPT9'
+  ];
+
+  // 替换非法字符为空格
   final invalidChars = RegExp(r'[<>:"/\\|?*]');
-  final sanitizedFileName = fileName.replaceAll(invalidChars, ' ');
-  var trimmedFileName = sanitizedFileName.trim();
-  if (trimmedFileName.isEmpty) {
+  var sanitizedFileName = fileName.replaceAll(invalidChars, ' ');
+
+  // 合并连续空格为单个空格
+  sanitizedFileName = sanitizedFileName.replaceAll(RegExp(r'\s+'), ' ');
+
+  // 移除开头和结尾的空格和点号
+  sanitizedFileName = sanitizedFileName.trim();
+  while (sanitizedFileName.startsWith('.') || sanitizedFileName.endsWith('.')) {
+    if (sanitizedFileName.startsWith('.')) {
+      sanitizedFileName = sanitizedFileName.substring(1);
+    }
+    if (sanitizedFileName.endsWith('.')) {
+      sanitizedFileName =
+          sanitizedFileName.substring(0, sanitizedFileName.length - 1);
+    }
+    sanitizedFileName = sanitizedFileName.trim();
+  }
+
+  if (sanitizedFileName.isEmpty) {
     throw Exception('Invalid File Name: Empty length.');
   }
-  while(true){
-    final bytes = utf8.encode(trimmedFileName);
+
+  // 检查是否为 Windows 保留文件名
+  final upperName = sanitizedFileName.toUpperCase();
+  if (reservedNames.contains(upperName)) {
+    sanitizedFileName = '_$sanitizedFileName';
+  }
+
+  // 限制长度(考虑 UTF-8 编码)
+  while (true) {
+    final bytes = utf8.encode(sanitizedFileName);
     if (bytes.length > maxLength) {
-      trimmedFileName = trimmedFileName.substring(0, trimmedFileName.length-1);
-    }else{
+      sanitizedFileName =
+          sanitizedFileName.substring(0, sanitizedFileName.length - 1);
+    } else {
       break;
     }
   }
-  return trimmedFileName;
+
+  return sanitizedFileName;
 }
 
 String findValidDirectoryName(String path, String directory) {

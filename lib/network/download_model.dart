@@ -176,9 +176,11 @@ abstract class DownloadingItem with _TransferSpeedMixin {
       if (await DownloadManager().isExists(id)) {
         directory = await DownloadManager().getDirectoryName(id);
       } else {
-        String subPath = title;
+        // 生成新的目录名格式: [type][id]title
+        String sanitizedTitle = sanitizeFileName(title);
+        String subPath = '[${type.name}][$id]$sanitizedTitle';
         if (duplicate) {
-          subPath = '$title($id)';
+          subPath = '[${type.name}][$id]$sanitizedTitle($id)';
         }
         directory = findValidDirectoryName(DownloadManager().path!, subPath);
         Directory(path).createSync(recursive: true);
