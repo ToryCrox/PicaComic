@@ -22,11 +22,11 @@ const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
   PointerDeviceKind.unknown
 };
 
-
 extension ImageExt on ComicReadingPage {
   /// build comic image
   Widget buildComicView(
-      ComicReadingPageLogic logic, BuildContext context, String target, {bool isShowSelectImage = false}) {
+      ComicReadingPageLogic logic, BuildContext context, String target,
+      {bool isShowSelectImage = false}) {
     ScrollExtension.futurePosition = null;
     Widget buildType4() {
       return ScrollablePositionedList.builder(
@@ -56,13 +56,15 @@ extension ImageExt on ComicReadingPage {
               final originHeight = size.height / mediaQuery.devicePixelRatio;
               final sRatio = width / height;
               final oRadio = size.height / size.width;
-              if (oRadio <= 1) { // width > height
+              if (oRadio <= 1) {
+                // width > height
                 if (originWidth > width) {
                   imageWidth = width;
                 } else {
                   imageWidth = originWidth;
                 }
-              } else if (oRadio > 1){ // 高比宽大， 宽度最大为3000
+              } else if (oRadio > 1) {
+                // 高比宽大， 宽度最大为3000
                 final mmWidth = (2560 / mediaQuery.devicePixelRatio);
                 final maxWidth = mmWidth > width ? width : mmWidth;
                 if (originWidth > maxWidth) {
@@ -80,7 +82,9 @@ extension ImageExt on ComicReadingPage {
               hasOriginSize = false;
             }
           }
-          if (!hasOriginSize && height / width < 1 && appdata.settings[43] == "1") {
+          if (!hasOriginSize &&
+              height / width < 1 &&
+              appdata.settings[43] == "1") {
             imageWidth = min(height / 0.8, 2160 / mediaQuery.devicePixelRatio);
           }
 
@@ -120,7 +124,9 @@ extension ImageExt on ComicReadingPage {
     }
 
     final decoration = BoxDecoration(
-      color: useDarkBackground ? Colors.black : Theme.of(context).colorScheme.surface,
+      color: useDarkBackground
+          ? Colors.black
+          : Theme.of(context).colorScheme.surface,
     );
 
     Widget buildType123() {
@@ -137,8 +143,9 @@ extension ImageExt on ComicReadingPage {
             imageProvider = createImageProvider(type, logic, index - 1, target);
           } else {
             return PhotoViewGalleryPageOptions.customChild(
-                scaleStateController: PhotoViewScaleStateController(),
-                child: const SizedBox(),);
+              scaleStateController: PhotoViewScaleStateController(),
+              child: const SizedBox(),
+            );
           }
 
           precacheComicImage(logic, context, index, target);
@@ -172,7 +179,10 @@ extension ImageExt on ComicReadingPage {
                         child: Center(
                           child: Text(
                             error.toString(),
-                            style: TextStyle(color: appdata.appSettings.useDarkBackground ? Colors.white : null),
+                            style: TextStyle(
+                                color: appdata.appSettings.useDarkBackground
+                                    ? Colors.white
+                                    : null),
                             maxLines: 3,
                           ),
                         ),
@@ -245,19 +255,17 @@ extension ImageExt on ComicReadingPage {
       );
     }
 
-    Widget buildComicImageOrEmpty({
-      required int imageIndex,
-      required BoxFit fit,
-      required Alignment alignment
-    }) {
-      if(imageIndex < 0 || imageIndex >= logic.urls.length){
+    Widget buildComicImageOrEmpty(
+        {required int imageIndex,
+        required BoxFit fit,
+        required Alignment alignment}) {
+      if (imageIndex < 0 || imageIndex >= logic.urls.length) {
         return const SizedBox();
       }
 
       return ComicImage(
         key: ValueKey(imageIndex),
-        image: createImageProvider(
-            type, logic, imageIndex, target),
+        image: createImageProvider(type, logic, imageIndex, target),
         fit: fit,
         alignment: alignment,
       );
@@ -266,9 +274,9 @@ extension ImageExt on ComicReadingPage {
     Widget buildType56() {
       int calcItemCount() {
         int count = logic.urls.length ~/ 2;
-        if(logic.urls.length % 2 != 0) {
+        if (logic.urls.length % 2 != 0) {
           count++;
-        } else if(logic.singlePageForFirstScreen) {
+        } else if (logic.singlePageForFirstScreen) {
           count++;
         }
         return count + 2;
@@ -289,17 +297,14 @@ extension ImageExt on ComicReadingPage {
           logic.photoViewControllers[index] ??= PhotoViewController();
 
           int firstImage = index * 2 - 2;
-          if(firstImage % 2 != 0) {
+          if (firstImage % 2 != 0) {
             firstImage++;
           }
-          if(logic.singlePageForFirstScreen) {
+          if (logic.singlePageForFirstScreen) {
             firstImage--;
           }
-          var images = <int>[
-            firstImage,
-            firstImage+1
-          ];
-          if(logic.readingMethod == ReadingMethod.twoPageReversed) {
+          var images = <int>[firstImage, firstImage + 1];
+          if (logic.readingMethod == ReadingMethod.twoPageReversed) {
             images = images.reversed.toList();
           }
 
@@ -334,7 +339,8 @@ extension ImageExt on ComicReadingPage {
             logic.jumpToLastChapter();
           } else if (i == calcItemCount() - 1) {
             if (!logic.data.hasEp || logic.order == logic.data.eps?.length) {
-              logic.pageController.jumpByDeviceType(logic.pageController.page!.round() - 1);
+              logic.pageController
+                  .jumpByDeviceType(logic.pageController.page!.round() - 1);
               return;
             }
             logic.jumpToNextChapter();
@@ -376,7 +382,9 @@ extension ImageExt on ComicReadingPage {
           child: SizedBox(
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
-              child: buildType4()));
+              child: buildType4(),
+          ),
+      );
     } else {
       body = buildType56();
     }
@@ -398,7 +406,7 @@ extension ImageExt on ComicReadingPage {
             logic.photoViewController.updateMultiple(
                 position: logic.photoViewController.position -
                     Offset(0, pointerSignal.scrollDelta.dy));
-          } else if (!App.isMacOS){
+          } else if (!App.isMacOS) {
             logic.scrollController.smoothTo(pointerSignal.scrollDelta.dy);
           }
         }
@@ -417,7 +425,10 @@ extension ImageExt on ComicReadingPage {
           //   }
           // }
         },
-        onPointerDown: (details) => logic.mouseScroll = false,
+        onPointerDown: (details) {
+          logic.mouseScroll = false;
+          logic.update();
+        },
         child: NotificationListener<ScrollUpdateNotification>(
           child: body,
           onNotification: (notification) {
@@ -449,8 +460,8 @@ extension ImageExt on ComicReadingPage {
   /// create a image provider
   ImageProvider createImageProvider(
       ReadingType type, ComicReadingPageLogic logic, int index, String target) {
-
-    return logic.data.createImageProvider(logic.order, index, logic.urls[index]);
+    return logic.data
+        .createImageProvider(logic.order, index, logic.urls[index]);
   }
 
   /// check current location of [PageView], update location when it is out of range.

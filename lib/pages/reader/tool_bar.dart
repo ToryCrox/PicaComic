@@ -233,7 +233,7 @@ extension ToolBar on ComicReadingPage {
           logic.readingMethod != ReadingMethod.topToBottom) {
         yield Positioned(
           left: 12,
-          top: MediaQuery.of(context).size.height / 2 - 25,
+          top: MediaQuery.sizeOf(context).height / 2 - 25,
           child: Button.icon(
             icon: const Icon(Icons.keyboard_arrow_left),
             onPressed: () {
@@ -256,7 +256,7 @@ extension ToolBar on ComicReadingPage {
           logic.readingMethod != ReadingMethod.topToBottom) {
         yield Positioned(
           right: 12,
-          top: MediaQuery.of(context).size.height / 2 - 25,
+          top: MediaQuery.sizeOf(context).height / 2 - 25,
           child: Button.icon(
             icon: const Icon(Icons.keyboard_arrow_right),
             onPressed: () {
@@ -275,16 +275,16 @@ extension ToolBar on ComicReadingPage {
           ),
         );
       }
-      yield Positioned(
-        left: 4,
-        top: 4 + MediaQuery.of(context).padding.top,
-        child: IconButton(
-          iconSize: 24,
-          icon: const Icon(Icons.close),
-          onPressed: () => App.globalBack(),
-        ),
-      );
     }
+    yield Positioned(
+      left: 4,
+      top: 4 + MediaQuery.paddingOf(context).top,
+      child: IconButton(
+        iconSize: 24,
+        icon: const Icon(Icons.close),
+        onPressed: () => App.globalBack(),
+      ),
+    );
   }
 
   ///构建顶部工具栏
