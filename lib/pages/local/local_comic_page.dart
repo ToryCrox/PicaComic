@@ -147,6 +147,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(titleText),
+          leading: const BackButton(),
           actions: [
             if (parentPath != null)
               IconButton(
