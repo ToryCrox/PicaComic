@@ -80,7 +80,7 @@ class CookieJarSql {
 
   Future<void> saveFromResponse(Uri uri, List<Cookie> cookies) async {
     for (var cookie in cookies) {
-      Log.d("CookieJarSql: save cookie ${cookie.name}, ${cookie.value}, domain: ${cookie.domain}");
+      Log.d(() => "CookieJarSql: save cookie ${cookie.name}, ${cookie.value}, domain: ${cookie.domain}");
       await _saveCookie(uri, cookie);
     }
   }
@@ -144,7 +144,7 @@ class CookieJarSql {
     for (var domain in acceptedDomains) {
       cookies.addAll(await _loadWithDomain(domain));
     }
-    Log.d("CookieJarSql: load cookies for request $uri, acceptedDomains: $acceptedDomains, cookies: $cookies");
+    Log.d(() => "CookieJarSql: load cookies for request $uri, acceptedDomains: $acceptedDomains, cookies: $cookies");
 
     // check expires
     var now = DateTime.now();

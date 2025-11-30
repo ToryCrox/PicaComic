@@ -80,6 +80,10 @@ class DownloadDatabase {
             version: 4,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
+            onOpen: (db) async {
+              // 启用外键约束支持,确保 ON DELETE CASCADE 生效
+              await db.execute('PRAGMA foreign_keys = ON');
+            },
           ));
 
       _initialized = true;

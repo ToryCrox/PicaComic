@@ -1036,7 +1036,7 @@ class DownloadPage extends StatelessWidget {
     } else {
       leading = const SizedBox.shrink();
     }
-    Log.d(
+    Log.d(() =>
         "selecting: ${logic.selecting}, tagId: ${logic.selectedTagId}, searchMode: ${logic.searchMode}, leading: $leading");
     return Appbar(
       // radius: UiMode.m1(context) ? 0 : 16,

@@ -116,7 +116,7 @@ class DiskCache {
 
   /// 读取缓存文件
   static Future<String?> readString(String key) async {
-    Log.d('$_sTag readCacheString, key: $key');
+    Log.d(() => '$_sTag readCacheString, key: $key');
     final fileInfo = await getFileCache(key);
     try {
       if (fileInfo != null) {

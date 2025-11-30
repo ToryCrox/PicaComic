@@ -409,7 +409,7 @@ class CacheManager {
       fileSize = await file.length();
       await file.delete();
     }
-    Log.d('CacheManager delete $key, filePath: ${file.path}, size: $fileSize');
+    Log.d(() => 'CacheManager delete $key, filePath: ${file.path}, size: $fileSize');
     await deleteRecord(key);
     if(_currentSize != null) {
       _currentSize = _currentSize! - fileSize;

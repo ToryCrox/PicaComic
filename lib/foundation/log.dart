@@ -17,9 +17,10 @@ final excludeMethods = <String>[];
 final logMemoryOut = MemoryOutput(
   bufferSize: 500,
 );
+final logFilter = ProductionFilter();
 final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
-  filter: ProductionFilter(),
+  filter: logFilter,
   output: MultiOutput([
     if (kDebugMode) ConsoleOutput(),
     if (!kDebugMode)
