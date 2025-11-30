@@ -536,59 +536,14 @@ class DownloadManager implements Listenable {
   static final _downloadedFileName = <String, String>{};
 
   ///获取封面, 所有漫画源通用
-  Future<File> getCoverAsync(String id, {bool check = false}) async {
+  Future<File> getCoverAsync(String id) async {
     final dirName = await getDirectoryName(id);
-    var file = File("$path/$dirName/cover.jpg");
-    if (check) {
-      const extensions = [".png", ".webp"];
-      if (file.existsSync()) {
-        return file;
-      }
-      file = File("$path/$dirName/cover.webp");
-      if (file.existsSync()) {
-        return file;
-      }
-      file = File("$path/$dirName/cover.png");
-      if (file.existsSync()) {
-        return file;
-      }
-    }
-    return file;
+    return File("$path/$dirName/cover.webp");
   }
 
-  Future<void> fillDownloadingItemCover(DownloadedItem item) async {
-    final dirPath = Path.join(path ?? '', item.directory ?? '');
-    if (dirPath.isEmpty) {
-      return;
-    }
-    const extensions = ['.jpg', ".png", ".webp"];
-    for (var extension in extensions) {
-      final file = File(Path.join(dirPath, 'cover$extension'));
-      if (await file.exists()) {
-        item.coverPath = file.path;
-        return;
-      }
-    }
-  }
-
-  Future<File> getCover(String id, {bool check = false}) async {
+  Future<File> getCover(String id) async {
     final dirPath = await getFullDirectory(id);
-    var file = File("$dirPath/cover.jpg");
-    if (check) {
-      const extensions = [".png", ".webp"];
-      if (file.existsSync()) {
-        return file;
-      }
-      file = File("$dirPath/cover.webp");
-      if (file.existsSync()) {
-        return file;
-      }
-      file = File("$dirPath/cover.png");
-      if (file.existsSync()) {
-        return file;
-      }
-    }
-    return file;
+    return File("$dirPath/cover.webp");
   }
 }
 

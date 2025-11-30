@@ -46,7 +46,6 @@ class _TagManagementPageState extends State<TagManagementPage> {
         final comic =
             await downloadManager.getDownloadedItemById(tag.coverComicId!);
         if (comic != null) {
-          await comic.fillDownloadingItemCover();
           coverPath = comic.coverPath;
         }
       }
@@ -249,9 +248,6 @@ class _TagManagementPageState extends State<TagManagementPage> {
     // 显示对话框选择封面
     final comics = await downloadManager.getAll('time', 'desc');
     final tagComics = comics.where((c) => comicIds.contains(c.id)).toList();
-    for (var comic in tagComics) {
-      await comic.fillDownloadingItemCover();
-    }
 
     if (!mounted) return;
 

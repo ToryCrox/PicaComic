@@ -340,10 +340,6 @@ class DownloadPageLogic extends StateController {
       direction = 'asc';
     }
     final allComics = await DownloadManager().getAll(order, direction);
-    await Future.wait([
-      for (var comic in allComics)
-        DownloadManager().fillDownloadingItemCover(comic),
-    ]);
     baseComics = allComics;
     comicUserTags = await downloadManager.getAllComicTagsMap();
     final allTags = await downloadManager.getAllTags();
@@ -1661,8 +1657,6 @@ class TagInfo {
       categorySortOrder: categorySortOrder ?? this.categorySortOrder,
     );
   }
-
-
 
   @override
   String toString() {

@@ -12,6 +12,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/file_type.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/tools/image_utils.dart';
 
 import '../base.dart';
 import 'app_dio.dart';
@@ -51,10 +52,12 @@ abstract class DownloadedItem {
 
   String? directory;
 
-  String? coverPath;
-
-  Future<void> fillDownloadingItemCover() async {
-    await downloadManager.fillDownloadingItemCover(this);
+  /// 获取封面路径
+  String? get coverPath {
+    if (directory == null) return null;
+    final downloadPath = DownloadManager().path;
+    if (downloadPath == null) return null;
+    return Path.join(downloadPath, directory!, 'cover.webp');
   }
 }
 
@@ -139,7 +142,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
       {required this.type, this.duplicate = false});
 
   Future<void> downloadCover() async {
-    var file = File(Path.join(path, 'cover.jpg'));
+    var file = File(Path.join(path, 'cover.webp'));
     if (file.existsSync()) {
       return;
     }
@@ -150,7 +153,9 @@ abstract class DownloadingItem with _TransferSpeedMixin {
       file.deleteSync();
     }
     await file.create(recursive: true);
-    await file.writeAsBytes(res.data!);
+    // 将图片数据转换为webp格式
+    final webpData = await convertImageToWebp(res.data!);
+    await file.writeAsBytes(webpData);
   }
 
   /// retry when error
@@ -284,13 +289,13 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 
   void _stopAllTasks() {
     var shouldRemove = <String>[];
-    for(var entry in _downloading.entries) {
-      if(!entry.value.isFinished) {
+    for (var entry in _downloading.entries) {
+      if (!entry.value.isFinished) {
         entry.value.cancel();
         shouldRemove.add(entry.key);
       }
     }
-    for(var key in shouldRemove) {
+    for (var key in shouldRemove) {
       _downloading.remove(key);
     }
   }
@@ -369,7 +374,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
       });
     }
     directory = map["directory"];
-    if(map["finishedTasks"] != null) {
+    if (map["finishedTasks"] != null) {
       var finishedTasks = List<String>.from(map["finishedTasks"]);
       for (var task in finishedTasks) {
         _downloading[task] = _ImageDownloadWrapper.finished();
@@ -456,20 +461,20 @@ class _ImageDownloadWrapper {
     listen();
   }
 
-  _ImageDownloadWrapper.finished():
-    streamCreator = null,
-    path = "",
-    fileBaseName = "",
-    onReceiveData = null,
-    onFinished = null,
-    isFinished = true;
+  _ImageDownloadWrapper.finished()
+      : streamCreator = null,
+        path = "",
+        fileBaseName = "",
+        onReceiveData = null,
+        onFinished = null,
+        isFinished = true;
 
   Future<void> listen() async {
     final dir = Directory(path);
     if (await dir.exists()) {
       final files = await dir.list().toList();
-      final file = files.whereType<File>().toList().firstWhereOrNull((e) =>
-      Path.basenameWithoutExtension(e.path) == fileBaseName);
+      final file = files.whereType<File>().toList().firstWhereOrNull(
+          (e) => Path.basenameWithoutExtension(e.path) == fileBaseName);
       isFinished = file != null;
       if (isFinished) {
         Log.i("DownloadManager Found cached image ${file?.path}");
@@ -481,7 +486,7 @@ class _ImageDownloadWrapper {
       try {
         var last = 0;
         await for (var progress in stream) {
-          if(_canceled) {
+          if (_canceled) {
             for (var c in completers) {
               c.complete(this);
             }

@@ -242,7 +242,6 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     final comic =
         await downloadManager.getDownloadedItemById(tag.coverComicId!);
     if (comic != null) {
-      await comic.fillDownloadingItemCover();
       return comic.coverPath;
     }
     return null;
