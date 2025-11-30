@@ -845,7 +845,6 @@ extension AddDownloadExt on DownloadManager {
         debugPrint("Failed to get directory for $id");
         return '';
       }
-      directory = _findAccurateDirectory(directory);
       if (_cache.length > 50) {
         _cache.remove(_cache.keys.first);
       }
@@ -859,10 +858,6 @@ extension AddDownloadExt on DownloadManager {
       if (e.isEmpty) return '';
       return Path.join(path ?? '', e);
     });
-  }
-
-  String _findAccurateDirectory(String directory) {
-    return sanitizeFileName(directory);
   }
 
   /// 添加一个本地的漫画
@@ -1067,7 +1062,17 @@ extension AddDownloadExt on DownloadManager {
       }
 
       // 执行重命名
-      await oldDir.rename(newPath);
+      try {
+        await oldDir.rename(newPath);
+      } catch (e) {
+        if (await newDir.exists()) {
+          if ((await newDir.list().length) == 0) {
+            await newDir.delete();
+          } else {
+            rethrow;
+          }
+        }
+      }
 
       final result = await _db.updateDownloadDirectory(id, newDirectoryName);
       if (!result) {

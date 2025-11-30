@@ -144,13 +144,12 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              SelectableText(
                                 '原: ${task.oldName}',
                                 style: const TextStyle(fontSize: 12),
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
+                              SelectableText(
                                 '新: ${task.newName}',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -158,10 +157,9 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
                                   fontWeight: FontWeight.bold,
                                 ),
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                               if (task.errorMessage != null)
-                                Text(
+                                SelectableText(
                                   task.errorMessage!,
                                   style: TextStyle(
                                     fontSize: 12,
