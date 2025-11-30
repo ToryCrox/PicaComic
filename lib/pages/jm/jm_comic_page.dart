@@ -231,10 +231,8 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
   }
 
   var downloaded = <int>[];
-  if (await DownloadManager().isExists("jm${comic.id}")) {
-    var downloadedComic =
-        (await DownloadManager().getComicOrNull("jm${comic.id}"))!
-        as DownloadedJmComic;
+  final downloadedComic = await DownloadManager().getComicOrNull("jm${comic.id}");
+  if (downloadedComic != null) {
     downloaded.addAll(downloadedComic.downloadedEps);
   }
 

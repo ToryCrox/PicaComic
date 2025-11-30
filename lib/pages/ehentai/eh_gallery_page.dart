@@ -457,32 +457,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   void startDownload(int type) async {
     final id = getGalleryId(data!.link);
     if (await downloadManager.isExists(id)) {
-      //showToast(message: "已下载".tl);
-      showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('已下载？'),
-              content: const Text('是否添加id重复下载？'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    downloadManager.addEhDownload(data!, type, true);
-                    showToast(message: "已加入下载队列".tl);
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('是'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('否'),
-                ),
-              ],
-            );
-          });
-
+      showToast(message: "已下载".tl);
       return;
     }
     for (var i in downloadManager.downloading) {

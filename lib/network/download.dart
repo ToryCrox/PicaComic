@@ -373,15 +373,14 @@ class DownloadManager implements Listenable {
       if (comic.downloadedEps.length == 1) {
         return "Delete Error: only one downloaded episode";
       }
-      final fullPath = await getFullDirectory(comic.id);
+      final fullPath = Path.join(path ?? '', comic.directory);
       if (Directory("$fullPath/${ep + 1}").existsSync()) {
         Directory("$fullPath/${ep + 1}").deleteSync(recursive: true);
       }
       var size = Directory(fullPath).getMBSizeSync();
       comic.downloadedEps.remove(ep);
       comic.comicSize = size;
-      await _addToDb(
-          comic, comic.directory ?? await getDirectoryName(comic.id));
+      await _addToDb(comic, comic.directory);
       return null;
     } catch (e, s) {
       Log.e("IO $e/n$s");
@@ -392,7 +391,7 @@ class DownloadManager implements Listenable {
   /// 更新漫画大小
   Future<double> updateComicSize(DownloadedItem comic) async {
     try {
-      final dirPath = await getFullDirectory(comic.id);
+      final dirPath = Path.join(path ?? '', comic.directory);
       final size = Directory(dirPath).getMBSizeSync();
       comic.comicSize = size;
       debugPrint("update comic size: ${comic.id} $size");
@@ -414,7 +413,7 @@ class DownloadManager implements Listenable {
 
   /// 获取漫画的长度, 适用于无章节的漫画
   Future<int> getComicLength(String id) async {
-    final fullDirPath = await getDirectoryName(id);
+    final fullDirPath = await getFullDirectory(id);
     var directory = Directory(fullDirPath);
     var files = directory.list();
     return await files.length - 1;
@@ -597,14 +596,10 @@ extension AddDownloadExt on DownloadManager {
   ///添加E-Hentai下载
   /// 重复的英语: duplicateEnglishName
   /// - downloadEps: 下载的章节
-  void addEhDownload(Gallery gallery, [int type = 0, bool duplicate = false]) {
+  void addEhDownload(Gallery gallery, [int type = 0]) {
     final id = getGalleryId(gallery.link);
-    if (duplicate) {
-      DownloadManager().deleteWithoutFile([id]);
-    }
-    downloading.addLast(EhDownloadingItem(
-        gallery, _onFinish, _onError, _saveInfo, id, type,
-        duplicate: duplicate));
+    downloading.addLast(
+        EhDownloadingItem(gallery, _onFinish, _onError, _saveInfo, id, type));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -713,7 +708,7 @@ extension AddDownloadExt on DownloadManager {
         comic = DownloadedComic.fromJson(jsonDecode(json));
       }
       comic.time = time;
-      comic.directory = directory;
+      comic.directory = directory ?? "";
       if (size != null && size > 0) {
         comic.comicSize = size;
       }
@@ -762,7 +757,7 @@ extension AddDownloadExt on DownloadManager {
       size: result[kDownloadSize] is double
           ? result[kDownloadSize] as double
           : (result[kDownloadSize] as int).toDouble(),
-      directory: result[kDownloadDirectory] as String?,
+      directory: result[kDownloadDirectory] as String? ?? "",
     );
   }
 

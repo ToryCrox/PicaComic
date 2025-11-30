@@ -637,7 +637,7 @@ class DownloadPage extends StatelessWidget {
       fileName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
       await createPdfFromComicWithIsolate(
           title: comic.name,
-          comicPath: await downloadManager.getFullDirectory(comic.id),
+          comicPath: comic.directoryPath,
           savePath: "${App.cachePath}/$fileName",
           chapters: comic.eps,
           chapterIndexes: comic.downloadedEps);
@@ -736,8 +736,7 @@ class DownloadPage extends StatelessWidget {
                 text: "图片列表".tl,
                 onClick: () async {
                   //await Future.delayed(const Duration(milliseconds: 250));
-                  var dirPath =
-                      await downloadManager.getFullDirectory(comic.id);
+                  var dirPath = comic.directoryPath;
                   App.globalTo(() => LocalThumbsPage(
                         dirPath: dirPath,
                         onItemTap: (index, filePath) async {
@@ -903,7 +902,7 @@ class DownloadPage extends StatelessWidget {
                 text: "复制路径".tl,
                 onClick: () async {
                   Future.delayed(const Duration(milliseconds: 300), () async {
-                    var path = await downloadManager.getFullDirectory(comic.id);
+                    var path = comic.directoryPath;
                     Clipboard.setData(ClipboardData(text: path));
                   });
                 },
@@ -911,7 +910,7 @@ class DownloadPage extends StatelessWidget {
               DesktopMenuEntry(
                 text: "打开文件".tl,
                 onClick: () async {
-                  var path = await downloadManager.getFullDirectory(comic.id);
+                  var path = comic.directoryPath;
                   OpenFile.open(path);
                 },
               ),

@@ -50,14 +50,19 @@ abstract class DownloadedItem {
 
   set comicSize(double? value);
 
-  String? directory;
+  String directory = "";
+
+  String get directoryPath {
+    final downloadPath = downloadManager.path;
+    if (downloadPath == null) return '';
+    return Path.join(downloadPath, directory);
+  }
 
   /// 获取封面路径
   String? get coverPath {
-    if (directory == null) return null;
-    final downloadPath = DownloadManager().path;
+    final downloadPath = downloadManager.path;
     if (downloadPath == null) return null;
-    return Path.join(downloadPath, directory!, 'cover.webp');
+    return Path.join(downloadPath, directory, 'cover.webp');
   }
 }
 
@@ -139,7 +144,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   bool duplicate = false;
 
   DownloadingItem(this.onFinish, this.onError, this.updateInfo, this.id,
-      {required this.type, this.duplicate = false});
+      {required this.type});
 
   Future<void> downloadCover() async {
     var file = File(Path.join(path, 'cover.webp'));
@@ -179,9 +184,6 @@ abstract class DownloadingItem with _TransferSpeedMixin {
         // 生成新的目录名格式: [type][id]title
         String sanitizedTitle = sanitizeFileName(title);
         String subPath = '[${type.name}][$id]$sanitizedTitle';
-        if (duplicate) {
-          subPath = '[${type.name}][$id]$sanitizedTitle($id)';
-        }
         directory = findValidDirectoryName(DownloadManager().path!, subPath);
         Directory(path).createSync(recursive: true);
       }

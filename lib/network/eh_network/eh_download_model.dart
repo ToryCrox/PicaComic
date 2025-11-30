@@ -81,7 +81,6 @@ class EhDownloadingItem extends DownloadingItem {
     super.id,
     this.downloadType, {
     super.type = DownloadType.ehentai,
-    super.duplicate,
   });
 
   ///画廊模型
