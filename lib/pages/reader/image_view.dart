@@ -361,29 +361,29 @@ extension ImageExt on ComicReadingPage {
     } else if (appdata.settings[9] == "4") {
       logic.photoViewControllers[0] ??= PhotoViewController();
       body = PhotoView.customChild(
-          backgroundDecoration: decoration,
-          key: Key(logic.order.toString()),
-          minScale: 1.0,
-          maxScale: 2.5,
-          strictScale: true,
-          controller: logic.photoViewControllers[0],
-          onScaleEnd: (context, detail, value) {
-            var prev = logic.currentScale;
-            logic.currentScale = value.scale ?? 1.0;
-            if ((prev <= 1.05 && logic.currentScale > 1.05) ||
-                (prev > 1.05 && logic.currentScale <= 1.05)) {
-              logic.update();
-            }
-            if (appdata.settings[43] != "1") {
-              return false;
-            }
-            return updateLocation(context, logic.photoViewController);
-          },
-          child: SizedBox(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
-              child: buildType4(),
-          ),
+        backgroundDecoration: decoration,
+        key: Key(logic.order.toString()),
+        minScale: 1.0,
+        maxScale: 2.5,
+        strictScale: true,
+        controller: logic.photoViewControllers[0],
+        onScaleEnd: (context, detail, value) {
+          var prev = logic.currentScale;
+          logic.currentScale = value.scale ?? 1.0;
+          if ((prev <= 1.05 && logic.currentScale > 1.05) ||
+              (prev > 1.05 && logic.currentScale <= 1.05)) {
+            logic.update();
+          }
+          if (appdata.settings[43] != "1") {
+            return false;
+          }
+          return updateLocation(context, logic.photoViewController);
+        },
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height,
+          child: buildType4(),
+        ),
       );
     } else {
       body = buildType56();
@@ -392,6 +392,8 @@ extension ImageExt on ComicReadingPage {
     void onPointerSignal(PointerSignalEvent pointerSignal) {
       logic.mouseScroll = pointerSignal.kind == PointerDeviceKind.mouse;
       if (pointerSignal is PointerScrollEvent && !logic.isCtrlPressed) {
+        // 滚轮滚动, 触发防抖暂停
+        logic.wheelScroll();
         if (logic.readingMethod != ReadingMethod.topToBottomContinuously) {
           pointerSignal.scrollDelta.dy > 0
               ? logic.jumpToNextPage()
@@ -427,30 +429,57 @@ extension ImageExt on ComicReadingPage {
         },
         onPointerDown: (details) {
           logic.mouseScroll = false;
+          // 用户开始交互, 暂停自动翻页
+          logic.userInteracting = true;
+          logic.pauseAutoPageTurning();
           logic.update();
         },
-        child: NotificationListener<ScrollUpdateNotification>(
+        onPointerUp: (details) {
+          // 用户停止交互, 尝试恢复自动翻页
+          logic.userInteracting = false;
+          if (!logic.scrollController.position.isScrollingNotifier.value) {
+            logic.resumeAutoPageTurning();
+          }
+        },
+        onPointerCancel: (details) {
+          // 交互取消, 尝试恢复自动翻页
+          logic.userInteracting = false;
+          if (!logic.scrollController.position.isScrollingNotifier.value) {
+            logic.resumeAutoPageTurning();
+          }
+        },
+        child: NotificationListener<ScrollNotification>(
           child: body,
           onNotification: (notification) {
-            TapController.lastScrollTime = DateTime.now();
-            // update floating button
-            var length = logic.data.eps?.length ?? 1;
-            if (!logic.scrollController.hasClients) return false;
-            if (logic.scrollController.position.pixels -
-                        logic.scrollController.position.minScrollExtent <=
-                    0 &&
-                logic.order != 0) {
-              logic.showFloatingButton(-1);
-            } else if (logic.scrollController.position.pixels -
-                        logic.scrollController.position.maxScrollExtent >=
-                    0 &&
-                logic.order < length) {
-              logic.showFloatingButton(1);
-            } else {
-              logic.showFloatingButton(0);
+            if (notification is ScrollStartNotification &&
+                notification.dragDetails != null) {
+              logic.pauseAutoPageTurning();
             }
+            if (notification is ScrollEndNotification) {
+              logic.resumeAutoPageTurning();
+            }
+            if (notification is ScrollUpdateNotification) {
+              TapController.lastScrollTime = DateTime.now();
+              // update floating button
+              var length = logic.data.eps?.length ?? 1;
+              if (!logic.scrollController.hasClients) return false;
+              if (logic.scrollController.position.pixels -
+                          logic.scrollController.position.minScrollExtent <=
+                      0 &&
+                  logic.order != 0) {
+                logic.showFloatingButton(-1);
+              } else if (logic.scrollController.position.pixels -
+                          logic.scrollController.position.maxScrollExtent >=
+                      0 &&
+                  logic.order < length) {
+                logic.showFloatingButton(1);
+              } else {
+                logic.showFloatingButton(0);
+              }
 
-            return true;
+              return true;
+            }
+            return false;
           },
         ),
       ),
