@@ -578,76 +578,6 @@ class DownloadPage extends StatelessWidget {
     }
   }
 
-  void downloadFont() async {
-    bool canceled = false;
-    var cancelToken = CancelToken();
-    var controller = showLoadingDialog(
-      App.globalContext!,
-      onCancel: () {
-        canceled = true;
-        cancelToken.cancel();
-      },
-      barrierDismissible: false,
-      allowCancel: true,
-      message: "Downloading",
-    );
-    var dio = logDio();
-    try {
-      await dio.download(
-        "https://raw.githubusercontent.com/Pacalini/PicaComic/master/fonts/NotoSansSC-Regular.ttf",
-        "${App.dataPath}/font.ttf",
-        cancelToken: cancelToken,
-      );
-    } catch (e) {
-      showToast(message: "下载失败".tl);
-      controller.close();
-      return;
-    }
-    if (!canceled) {
-      controller.close();
-      showToast(message: "下载完成".tl);
-    }
-  }
-
-  void exportAsPdf(DownloadedItem? comic, DownloadPageLogic logic) async {
-    if (comic == null) {
-      for (var a in logic.comics) {
-        final c = logic.comics.firstWhereOrNull((e) => e.id == a);
-        if (c != null) {
-          comic = c;
-        }
-      }
-    }
-    if (comic == null) {
-      showToast(message: "请选择一个漫画".tl);
-      return;
-    }
-    var file = File("${App.dataPath}/font.ttf");
-    if (!App.isWindows && !await file.exists()) {
-      showConfirmDialog(App.globalContext!, "缺少字体".tl,
-          "需要下载字体文件(10.1MB), 是否继续?".tl, downloadFont);
-    } else {
-      bool canceled = false;
-      var controller = showLoadingDialog(
-        App.globalContext!,
-        onCancel: () => canceled = true,
-        allowCancel: false,
-      );
-      var fileName = "${comic.name}.pdf";
-      fileName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
-      await createPdfFromComicWithIsolate(
-          title: comic.name,
-          comicPath: comic.directoryPath,
-          savePath: "${App.cachePath}/$fileName",
-          chapters: comic.eps,
-          chapterIndexes: comic.downloadedEps);
-      if (!canceled) {
-        controller.close();
-        await exportPdf("${App.cachePath}/$fileName");
-      }
-    }
-  }
-
   Widget buildItem(BuildContext context, DownloadPageLogic logic, int index) {
     final item = logic.comics[index];
     bool selected = logic.selected.contains(item.id);
@@ -671,10 +601,13 @@ class DownloadPage extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       child: Container(
         decoration: BoxDecoration(
-            color: selected
-                ? Theme.of(context).colorScheme.surfaceContainerHighest
-                : Colors.transparent,
-            borderRadius: const BorderRadius.all(Radius.circular(16))),
+          color: selected
+              ? Theme.of(context).colorScheme.surfaceContainerHighest
+              : Colors.transparent,
+          borderRadius: const BorderRadius.all(
+            Radius.circular(16),
+          ),
+        ),
         child: DownloadedComicTile(
           id: item.id,
           name: name,
@@ -722,203 +655,143 @@ class DownloadPage extends StatelessWidget {
             logic.update();
           },
           onSecondaryTap: (details) async {
-            final comic = logic.comics[index];
-            showDesktopMenu(App.globalContext!,
-                Offset(details.globalPosition.dx, details.globalPosition.dy), [
-              DesktopMenuEntry(
-                text: "阅读".tl,
-                onClick: () async {
-                  //await Future.delayed(const Duration(milliseconds: 250));
-                  logic.comics[index].read();
-                },
-              ),
-              DesktopMenuEntry(
-                text: "图片列表".tl,
-                onClick: () async {
-                  //await Future.delayed(const Duration(milliseconds: 250));
-                  var dirPath = comic.directoryPath;
-                  App.globalTo(() => LocalThumbsPage(
-                        dirPath: dirPath,
-                        onItemTap: (index, filePath) async {
-                          if (index <= 0) {
-                            comic.read();
-                            return;
-                          }
-                          int ep = 0;
-                          final file = File(filePath);
-                          final absPath = file.absolute.path;
-                          if (comic.type == DownloadType.picacg ||
-                              comic.type == DownloadType.jm) {
-                            final fileParent = file.parent;
-                            final fileParentPath =
-                                Path.normalize(file.parent.absolute.path);
-                            for (final e in comic.downloadedEps) {
-                              final epDirPath = Path.normalize("$dirPath/$e");
-                              //debugPrint("epDirPath: $epDirPath, fileParent: $fileParent");
-                              if (epDirPath == fileParentPath) {
-                                ep = e;
-                                sFileRelativeFromPath = fileParent.path;
-                                final imageNames = (await fileParent
-                                        .list(recursive: true)
-                                        .toList())
-                                    .where(predictImageFile)
-                                    .sortedByName()
-                                    .map((e) => e.name)
-                                    .toList();
-                                index =
-                                    imageNames.indexOf(Path.basename(absPath));
-                                if (index < 0) {
-                                  index = 0;
-                                }
-                                index += 1;
-                                break;
-                              }
-                            }
-                          }
-                          debugPrint(
-                              "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
-                          comic.read(initialPage: index, ep: ep);
-                        },
-                      ));
-                },
-              ),
-              DesktopMenuEntry(
-                text: "删除".tl,
-                onClick: () {
-                  showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl,
-                      () {
-                    final comic = logic.comics[index];
-                    downloadManager.delete([comic.id]);
-                    logic.removeComic(comic);
-                  });
-                },
-              ),
-              DesktopMenuEntry(
-                text: "删除(不包括文件)".tl,
-                onClick: () {
-                  showConfirmDialog(
-                      context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl, () {
-                    downloadManager.deleteWithoutFile([item.id]);
-                    logic.removeComic(item);
-                    logic.update();
-                  });
-                },
-              ),
-              // DesktopMenuEntry(
-              //   text: "导出".tl,
-              //   onClick: () =>
-              //       Future.delayed(const Duration(milliseconds: 200), () {
-              //     Future<void>.delayed(
-              //       const Duration(milliseconds: 200),
-              //       () => showDialog(
-              //         context: App.globalContext!,
-              //         barrierDismissible: false,
-              //         barrierColor: Colors.black26,
-              //         builder: (context) => SimpleDialog(
-              //           children: [
-              //             SizedBox(
-              //               width: 200,
-              //               height: 200,
-              //               child: Center(
-              //                 child: SizedBox(
-              //                   width: 50,
-              //                   height: 80,
-              //                   child: Column(
-              //                     children: [
-              //                       const SizedBox(
-              //                         height: 10,
-              //                       ),
-              //                       const CircularProgressIndicator(),
-              //                       const SizedBox(
-              //                         height: 9,
-              //                       ),
-              //                       Text("打包中".tl)
-              //                     ],
-              //                   ),
-              //                 ),
-              //               ),
-              //             )
-              //           ],
-              //         ),
-              //       ),
-              //     );
-              //     Future<void>.delayed(const Duration(milliseconds: 500),
-              //         () async {
-              //       var res = await exportComic(logic.comics[index].id,
-              //           logic.comics[index].name, logic.comics[index].eps);
-              //       App.globalBack();
-              //       if (res) {
-              //         //忽视
-              //       } else {
-              //         showToast(message: "导出失败".tl);
-              //       }
-              //     });
-              //   }),
-              // ),
-              // DesktopMenuEntry(
-              //   text: "导出为pdf".tl,
-              //   onClick: () {
-              //     exportAsPdf(logic.comics[index], logic);
-              //   },
-              // ),
-              DesktopMenuEntry(
-                text: "查看漫画详情".tl,
-                onClick: () {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    toComicInfoPage(logic.comics[index]);
-                  });
-                },
-              ),
-              DesktopMenuEntry(
-                text: "更新文件大小".tl,
-                onClick: () async {
-                  await downloadManager.updateComicSize(comic);
-                  logic.update();
-                },
-              ),
-              // DesktopMenuEntry(
-              //   text: "过滤同作者".tl,
-              //   onClick: () async {
-              //     logic.textFieldController.text = comic.subTitle;
-              //     logic.updateKeyword(comic.subTitle);
-              //   },
-              // ),
-              DesktopMenuEntry(
-                text: "管理标签".tl,
-                onClick: () async {
-                  await Future.delayed(const Duration(milliseconds: 300));
-                  final result = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => TagAssignmentDialog(
-                      comicIds: [comic.id],
-                    ),
-                  );
-                  if (result == true) {
-                    logic.refresh();
-                  }
-                },
-              ),
-              DesktopMenuEntry(
-                text: "复制路径".tl,
-                onClick: () async {
-                  Future.delayed(const Duration(milliseconds: 300), () async {
-                    var path = comic.directoryPath;
-                    Clipboard.setData(ClipboardData(text: path));
-                  });
-                },
-              ),
-              DesktopMenuEntry(
-                text: "打开文件".tl,
-                onClick: () async {
-                  var path = comic.directoryPath;
-                  OpenFile.open(path);
-                },
-              ),
-            ]);
+            _onTileSecondaryTap(context, details, index, logic);
           },
         ),
       ),
     );
+  }
+
+  Future<void> _onTileSecondaryTap(BuildContext context, TapDownDetails details,
+      int index, DownloadPageLogic logic) async {
+    final comic = logic.comics[index];
+    showDesktopMenu(App.globalContext!,
+        Offset(details.globalPosition.dx, details.globalPosition.dy), [
+      DesktopMenuEntry(
+        text: "阅读".tl,
+        onClick: () async {
+          //await Future.delayed(const Duration(milliseconds: 250));
+          logic.comics[index].read();
+        },
+      ),
+      DesktopMenuEntry(
+        text: "图片列表".tl,
+        onClick: () async {
+          //await Future.delayed(const Duration(milliseconds: 250));
+          _goLocalComicPage(comic);
+        },
+      ),
+      DesktopMenuEntry(
+        text: "删除".tl,
+        onClick: () {
+          showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
+            final comic = logic.comics[index];
+            downloadManager.delete([comic.id]);
+            logic.removeComic(comic);
+          });
+        },
+      ),
+      DesktopMenuEntry(
+        text: "删除(不包括文件)".tl,
+        onClick: () {
+          showConfirmDialog(context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl, () {
+            downloadManager.deleteWithoutFile([comic.id]);
+            logic.removeComic(comic);
+            logic.update();
+          });
+        },
+      ),
+      DesktopMenuEntry(
+        text: "查看漫画详情".tl,
+        onClick: () {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            toComicInfoPage(logic.comics[index]);
+          });
+        },
+      ),
+      DesktopMenuEntry(
+        text: "更新文件大小".tl,
+        onClick: () async {
+          await downloadManager.updateComicSize(comic);
+          logic.update();
+        },
+      ),
+      DesktopMenuEntry(
+        text: "管理标签".tl,
+        onClick: () async {
+          await Future.delayed(const Duration(milliseconds: 300));
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => TagAssignmentDialog(
+              comicIds: [comic.id],
+            ),
+          );
+          if (result == true) {
+            logic.refresh();
+          }
+        },
+      ),
+      DesktopMenuEntry(
+        text: "复制路径".tl,
+        onClick: () async {
+          Future.delayed(const Duration(milliseconds: 300), () async {
+            var path = comic.directoryPath;
+            Clipboard.setData(ClipboardData(text: path));
+          });
+        },
+      ),
+      DesktopMenuEntry(
+        text: "打开文件".tl,
+        onClick: () async {
+          var path = comic.directoryPath;
+          OpenFile.open(path);
+        },
+      ),
+    ]);
+  }
+
+  void _goLocalComicPage(DownloadedItem comic) {
+    var dirPath = comic.directoryPath;
+    App.globalTo(() => LocalThumbsPage(
+          dirPath: dirPath,
+          onItemTap: (index, filePath) async {
+            if (index <= 0) {
+              comic.read();
+              return;
+            }
+            int ep = 0;
+            final file = File(filePath);
+            final absPath = file.absolute.path;
+            if (comic.type == DownloadType.picacg ||
+                comic.type == DownloadType.jm) {
+              final fileParent = file.parent;
+              final fileParentPath = Path.normalize(file.parent.absolute.path);
+              for (final e in comic.downloadedEps) {
+                final epDirPath = Path.normalize("$dirPath/$e");
+                //debugPrint("epDirPath: $epDirPath, fileParent: $fileParent");
+                if (epDirPath == fileParentPath) {
+                  ep = e;
+                  sFileRelativeFromPath = fileParent.path;
+                  final imageNames =
+                      (await fileParent.list(recursive: true).toList())
+                          .where(predictImageFile)
+                          .sortedByName()
+                          .map((e) => e.name)
+                          .toList();
+                  index = imageNames.indexOf(Path.basename(absPath));
+                  if (index < 0) {
+                    index = 0;
+                  }
+                  index += 1;
+                  break;
+                }
+              }
+            }
+            debugPrint(
+                "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
+            comic.read(initialPage: index, ep: ep);
+          },
+        ));
   }
 
   void toComicInfoPage(DownloadedItem comic) => _toComicInfoPage(comic);
@@ -1069,59 +942,7 @@ class DownloadPage extends StatelessWidget {
           child: IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () async {
-              bool changed = false;
-              await showDialog(
-                  context: context,
-                  builder: (context) => SimpleDialog(
-                        title: Text("漫画排序模式".tl),
-                        children: [
-                          SizedBox(
-                            width: 400,
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  title: Text("漫画排序模式".tl),
-                                  trailing: Select(
-                                    initialValue:
-                                        int.parse(appdata.settings[26][0]),
-                                    onChange: (i) {
-                                      appdata.settings[26] = appdata
-                                          .settings[26]
-                                          .setValueAt(i.toString(), 0);
-                                      appdata.updateSettings();
-                                      changed = true;
-                                    },
-                                    values: ["时间", "漫画名", "作者名", "大小"].tl,
-                                  ),
-                                ),
-                                ListTile(
-                                  title: Text("倒序".tl),
-                                  trailing: StatefulSwitch(
-                                    initialValue:
-                                        appdata.settings[26][1] == "1",
-                                    onChanged: (b) {
-                                      if (b) {
-                                        appdata.settings[26] = appdata
-                                            .settings[26]
-                                            .setValueAt("1", 1);
-                                      } else {
-                                        appdata.settings[26] = appdata
-                                            .settings[26]
-                                            .setValueAt("0", 1);
-                                      }
-                                      appdata.updateSettings();
-                                      changed = true;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        ],
-                      ));
-              if (changed) {
-                logic.refresh();
-              }
+              await _showComicSortDialog(context, logic);
             },
           ),
         ),
@@ -1144,101 +965,7 @@ class DownloadPage extends StatelessWidget {
           child: IconButton(
             icon: const Icon(Icons.more_horiz),
             onPressed: () {
-              showMenu(
-                  context: context,
-                  position: RelativeRect.fromLTRB(
-                      MediaQuery.of(context).size.width - 60,
-                      50,
-                      MediaQuery.of(context).size.width - 60,
-                      50),
-                  items: [
-                    PopupMenuItem(
-                      child: Text("全选".tl),
-                      onTap: () {
-                        logic.selected.addAll(logic.comics.map((e) => e.id));
-                        logic.update();
-                      },
-                    ),
-                    PopupMenuItem(
-                      child: Text("管理标签".tl),
-                      onTap: () => Future.delayed(
-                        const Duration(milliseconds: 200),
-                        () async {
-                          final result = await showDialog<bool>(
-                            context: App.globalContext!,
-                            builder: (context) => TagAssignmentDialog(
-                              comicIds: logic.selectedComics
-                                  .map((e) => e.id)
-                                  .toList(),
-                            ),
-                          );
-                          if (result == true) {
-                            logic.refresh();
-                          }
-                        },
-                      ),
-                    ),
-                    PopupMenuItem(
-                      child: Text("重命名下载目录".tl),
-                      onTap: () => Future.delayed(
-                        const Duration(milliseconds: 200),
-                        () async {
-                          await showDialog(
-                            context: App.globalContext!,
-                            builder: (context) => RenameDownloadDialog(
-                              comics: logic.selectedComics,
-                              onComplete: () {
-                                logic.selecting = false;
-                                logic.selected.clear();
-                                logic.refresh();
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    // PopupMenuItem(
-                    //   child: Text("导出".tl),
-                    //   onTap: () => exportSelectedComic(context, logic),
-                    // ),
-                    // PopupMenuItem(
-                    //   child: Text("导出为pdf".tl),
-                    //   onTap: () => exportAsPdf(null, logic),
-                    // ),
-                    PopupMenuItem(
-                      child: Text("查看漫画详情".tl),
-                      onTap: () =>
-                          Future.delayed(const Duration(milliseconds: 200), () {
-                        if (logic.selectedNum != 1) {
-                          showToast(message: "请选择一个漫画".tl);
-                        } else {}
-                      }),
-                    ),
-                    PopupMenuItem(
-                      child: Text("更新漫画文件大小".tl),
-                      onTap: () async {
-                        final selected = List.from(logic.selected);
-                        final comics = List.from(logic.comics);
-                        for (int i = 0; i < selected.length; i++) {
-                          if (selected[i]) {
-                            await downloadManager.updateComicSize(comics[i]);
-                            logic.update();
-                            await Future.delayed(
-                                const Duration(milliseconds: 50));
-                          }
-                        }
-                        showToast(message: "更新完成".tl);
-                      },
-                    ),
-                    PopupMenuItem(
-                      child: Text("添加至本地收藏".tl),
-                      onTap: () => Future.delayed(
-                        const Duration(milliseconds: 200),
-                        () =>
-                            addToLocalFavoriteFolder(App.globalContext!, logic),
-                      ),
-                    ),
-                  ]);
+              _showSelectingMenu(context, logic);
             },
           ),
         ),
@@ -1256,153 +983,246 @@ class DownloadPage extends StatelessWidget {
     ];
   }
 
-  void exportSelectedComic(BuildContext context, DownloadPageLogic logic) {
-    if (logic.selectedNum == 0) {
-      showToast(message: "请选择漫画".tl);
-    } else {
-      Future<void>.delayed(
-        const Duration(milliseconds: 200),
-        () => showDialog(
-          context: App.globalContext!,
-          barrierColor: Colors.black26,
-          barrierDismissible: false,
-          builder: (context) => const SimpleDialog(
-            children: [
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: Center(
-                  child: SizedBox(
-                    width: 50,
-                    height: 75,
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          height: 10,
-                        ),
-                        CircularProgressIndicator(),
-                        SizedBox(
-                          height: 9,
-                        ),
-                        Text("打包中")
-                      ],
-                    ),
-                  ),
+  void _showSelectingMenu(BuildContext context, DownloadPageLogic logic) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(MediaQuery.of(context).size.width - 60,
+          50, MediaQuery.of(context).size.width - 60, 50),
+      items: [
+        PopupMenuItem(
+          child: Text("全选".tl),
+          onTap: () {
+            logic.selected.addAll(logic.comics.map((e) => e.id));
+            logic.update();
+          },
+        ),
+        PopupMenuItem(
+          child: Text("管理标签".tl),
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () async {
+              final result = await showDialog<bool>(
+                context: App.globalContext!,
+                builder: (context) => TagAssignmentDialog(
+                  comicIds: logic.selectedComics.map((e) => e.id).toList(),
                 ),
-              )
-            ],
+              );
+              if (result == true) {
+                logic.refresh();
+              }
+            },
           ),
         ),
-      );
-      Future<void>.delayed(
-          const Duration(milliseconds: 500), () => export(logic));
+        PopupMenuItem(
+          child: Text("重命名下载目录".tl),
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () async {
+              await showDialog(
+                context: App.globalContext!,
+                builder: (context) => RenameDownloadDialog(
+                  comics: logic.selectedComics,
+                  onComplete: () {
+                    logic.selecting = false;
+                    logic.selected.clear();
+                    logic.refresh();
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        // PopupMenuItem(
+        //   child: Text("导出".tl),
+        //   onTap: () => exportSelectedComic(context, logic),
+        // ),
+        // PopupMenuItem(
+        //   child: Text("导出为pdf".tl),
+        //   onTap: () => exportAsPdf(null, logic),
+        // ),
+        PopupMenuItem(
+          child: Text("查看漫画详情".tl),
+          onTap: () => Future.delayed(const Duration(milliseconds: 200), () {
+            if (logic.selectedNum != 1) {
+              showToast(message: "请选择一个漫画".tl);
+            } else {}
+          }),
+        ),
+        PopupMenuItem(
+          child: Text("更新漫画文件大小".tl),
+          onTap: () async {
+            final selected = List.from(logic.selected);
+            final comics = List.from(logic.comics);
+            for (int i = 0; i < selected.length; i++) {
+              if (selected[i]) {
+                await downloadManager.updateComicSize(comics[i]);
+                logic.update();
+                await Future.delayed(const Duration(milliseconds: 50));
+              }
+            }
+            showToast(message: "更新完成".tl);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("添加至本地收藏".tl),
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () => addToLocalFavoriteFolder(App.globalContext!, logic),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showComicSortDialog(
+      BuildContext context, DownloadPageLogic logic) async {
+    bool changed = false;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: Text("漫画排序模式".tl),
+          children: [
+            SizedBox(
+              width: 400,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text("漫画排序模式".tl),
+                    trailing: Select(
+                      initialValue: int.parse(appdata.settings[26][0]),
+                      onChange: (i) {
+                        appdata.settings[26] =
+                            appdata.settings[26].setValueAt(i.toString(), 0);
+                        appdata.updateSettings();
+                        changed = true;
+                      },
+                      values: ["时间", "漫画名", "作者名", "大小"].tl,
+                    ),
+                  ),
+                  ListTile(
+                    title: Text("倒序".tl),
+                    trailing: StatefulSwitch(
+                      initialValue: appdata.settings[26][1] == "1",
+                      onChanged: (b) {
+                        if (b) {
+                          appdata.settings[26] =
+                              appdata.settings[26].setValueAt("1", 1);
+                        } else {
+                          appdata.settings[26] =
+                              appdata.settings[26].setValueAt("0", 1);
+                        }
+                        appdata.updateSettings();
+                        changed = true;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            )
+          ],
+        );
+      },
+    );
+    if (changed) {
+      logic.refresh();
     }
   }
 
   void addToLocalFavoriteFolder(BuildContext context, DownloadPageLogic logic) {
     String? folder;
     showDialog(
-        context: App.globalContext!,
-        builder: (context) => SimpleDialog(
-              title: const Text("复制到..."),
+      context: App.globalContext!,
+      builder: (context) => SimpleDialog(
+        title: const Text("复制到..."),
+        children: [
+          SizedBox(
+            width: 400,
+            height: 132,
+            child: Column(
               children: [
-                SizedBox(
-                  width: 400,
-                  height: 132,
-                  child: Column(
-                    children: [
-                      FutureBuilder<List<String>>(
-                          future: LocalFavoritesManager().folderNames,
-                          builder: (context, snapshot) {
-                            final folderNames = snapshot.data;
-                            if (folderNames == null) {
-                              return const SizedBox();
-                            }
-                            return ListTile(
-                              title: Text("收藏夹".tl),
-                              trailing: Select(
-                                width: 156,
-                                values: folderNames,
-                                initialValue: null,
-                                onChange: (i) => folder = folderNames[i],
-                              ),
-                            );
-                          }),
-                      const Spacer(),
-                      Center(
-                        child: FilledButton(
-                          child: Text("确认".tl),
-                          onPressed: () {
-                            if (folder == null) {
-                              return;
-                            }
-                            final comics = logic.selectedComics;
-                            for (final c in comics) {
-                              var comic = c;
-                              LocalFavoritesManager().addComic(
-                                  folder!,
-                                  switch (comic.type) {
-                                    DownloadType.picacg =>
-                                      FavoriteItem.fromPicacg(
-                                          (comic as DownloadedComic)
-                                              .comicItem
-                                              .toBrief()),
-                                    DownloadType.ehentai =>
-                                      FavoriteItem.fromEhentai(
-                                          (comic as DownloadedGallery)
-                                              .gallery
-                                              .toBrief()),
-                                    DownloadType.jm => FavoriteItem.fromJmComic(
-                                        (comic as DownloadedJmComic)
-                                            .comic
-                                            .toBrief()),
-                                    DownloadType.nhentai =>
-                                      FavoriteItem.fromNhentai(
-                                          NhentaiComicBrief(
-                                              comic.name,
-                                              (comic as NhentaiDownloadedComic)
-                                                  .cover,
-                                              comic.id,
-                                              "",
-                                              const [])),
-                                    DownloadType.hitomi =>
-                                      FavoriteItem.fromHitomi((comic
-                                              as DownloadedHitomiComic)
-                                          .comic
-                                          .toBrief(comic.link, comic.cover)),
-                                    DownloadType.htmanga =>
-                                      FavoriteItem.fromHtcomic(
-                                          (comic as DownloadedHtComic)
-                                              .comic
-                                              .toBrief()),
-                                    DownloadType.other => () {
-                                        var c = (comic as CustomDownloadedItem);
-                                        return FavoriteItem.custom(CustomComic(
-                                            c.name,
-                                            c.subTitle,
-                                            c.cover,
-                                            c.comicId,
-                                            c.tags,
-                                            "",
-                                            c.sourceKey));
-                                      }(),
-                                    DownloadType.favorite =>
-                                      throw UnimplementedError(),
-                                  });
-                            }
-
-                            App.globalBack();
-                          },
+                FutureBuilder<List<String>>(
+                    future: LocalFavoritesManager().folderNames,
+                    builder: (context, snapshot) {
+                      final folderNames = snapshot.data;
+                      if (folderNames == null) {
+                        return const SizedBox();
+                      }
+                      return ListTile(
+                        title: Text("收藏夹".tl),
+                        trailing: Select(
+                          width: 156,
+                          values: folderNames,
+                          initialValue: null,
+                          onChange: (i) => folder = folderNames[i],
                         ),
-                      ),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                    ],
+                      );
+                    }),
+                const Spacer(),
+                Center(
+                  child: FilledButton(
+                    child: Text("确认".tl),
+                    onPressed: () {
+                      if (folder == null) {
+                        return;
+                      }
+                      final comics = logic.selectedComics;
+                      for (final c in comics) {
+                        var comic = c;
+                        LocalFavoritesManager().addComic(
+                            folder!,
+                            switch (comic.type) {
+                              DownloadType.picacg => FavoriteItem.fromPicacg(
+                                  (comic as DownloadedComic)
+                                      .comicItem
+                                      .toBrief()),
+                              DownloadType.ehentai => FavoriteItem.fromEhentai(
+                                  (comic as DownloadedGallery)
+                                      .gallery
+                                      .toBrief()),
+                              DownloadType.jm => FavoriteItem.fromJmComic(
+                                  (comic as DownloadedJmComic).comic.toBrief()),
+                              DownloadType.nhentai => FavoriteItem.fromNhentai(
+                                  NhentaiComicBrief(
+                                      comic.name,
+                                      (comic as NhentaiDownloadedComic).cover,
+                                      comic.id,
+                                      "", const [])),
+                              DownloadType.hitomi => FavoriteItem.fromHitomi(
+                                  (comic as DownloadedHitomiComic)
+                                      .comic
+                                      .toBrief(comic.link, comic.cover)),
+                              DownloadType.htmanga => FavoriteItem.fromHtcomic(
+                                  (comic as DownloadedHtComic).comic.toBrief()),
+                              DownloadType.other => () {
+                                  var c = (comic as CustomDownloadedItem);
+                                  return FavoriteItem.custom(CustomComic(
+                                      c.name,
+                                      c.subTitle,
+                                      c.cover,
+                                      c.comicId,
+                                      c.tags,
+                                      "",
+                                      c.sourceKey));
+                                }(),
+                              DownloadType.favorite =>
+                                throw UnimplementedError(),
+                            });
+                      }
+
+                      App.globalBack();
+                    },
                   ),
-                )
+                ),
+                const SizedBox(
+                  height: 16,
+                ),
               ],
-            ));
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
