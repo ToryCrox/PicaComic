@@ -21,6 +21,7 @@ import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'base.dart';
@@ -32,6 +33,7 @@ import 'comic_source/built_in/picacg.dart';
 import 'foundation/app.dart';
 import 'network/nhentai_network/nhentai_main_network.dart';
 import 'tools/prefs_helper.dart';
+import 'package:logger/logger.dart';
 
 Future<void> init() async {
   try {
@@ -40,6 +42,21 @@ Future<void> init() async {
     PrefsHelper.init();
     Log.i("App Status Start initialization.");
     await appdata.readData();
+    // Apply log level setting
+    try {
+      final codes = ['auto','trace','debug','info','warning','error'];
+      var code = appdata.settings.length > 90 ? appdata.settings[90] : 'auto';
+      Level level = switch (code) {
+        'trace' => Level.trace,
+        'debug' => Level.debug,
+        'info' => Level.info,
+        'warning' => Level.warning,
+        'error' => Level.error,
+        _ => kReleaseMode ? Level.info : Level.trace,
+      };
+      setLoggerLevel(level);
+    } catch (_) {}
+
     SingleInstanceCookieJar("${App.dataPath}/cookies.db");
     HttpProxyServer.createConfigFile();
     if (appdata.settings[58] == "1") {

@@ -50,6 +50,11 @@ final logger = Logger(
       }),
 );
 
+void setLoggerLevel(Level level) {
+  logFilter.level = level;
+}
+
+
 class LogManager {
   static final List<Log> _logs = <Log>[];
 

@@ -42,6 +42,7 @@ import '../../tools/background_service.dart';
 import '../../tools/debug.dart';
 import '../welcome_page.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:logger/logger.dart';
 
 part "reading_settings.dart";
 
@@ -479,6 +480,31 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
 
         ListTile(
           title: Text("日志".tl),
+        ),
+        ListTile(
+          leading: const Icon(Icons.sort),
+          title: Text("日志级别".tl),
+          trailing: Select(
+            initialValue: [
+              'auto','trace','debug','info','warning','error'
+            ].indexOf(appdata.settings.length > 90 ? appdata.settings[90] : 'auto'),
+            values: ["自动".tl, "Trace", "Debug", "Info", "Warning", "Error"],
+            onChange: (i) {
+              final codes = ['auto','trace','debug','info','warning','error'];
+              appdata.settings[90] = codes[i];
+              appdata.updateSettings();
+              final code = appdata.settings[90];
+              final level = switch (code) {
+                'trace' => Level.trace,
+                'debug' => Level.debug,
+                'info' => Level.info,
+                'warning' => Level.warning,
+                'error' => Level.error,
+                _ => kReleaseMode ? Level.info : Level.trace,
+              };
+              setLoggerLevel(level);
+            },
+          ),
         ),
         ListTile(
           leading: const Icon(Icons.bug_report),
