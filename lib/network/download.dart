@@ -367,19 +367,41 @@ class DownloadManager implements Listenable {
     }
   }
 
-  /// return error message when error, or null if success.
+  /// 删除漫画的指定章节
+  ///
+  /// 删除章节目录并重新计算漫画文件大小
+  ///
+  /// 参数：
+  /// - comic: 漫画对象
+  /// - ep: 章节索引（从0开始）
+  ///
+  /// 返回：
+  /// - 成功返回 null，失败返回错误信息
   Future<String?> deleteEpisode(DownloadedItem comic, int ep) async {
     try {
+      // 检查是否只剩一个章节，不允许删除最后一个章节
       if (comic.downloadedEps.length == 1) {
         return "Delete Error: only one downloaded episode";
       }
+
+      // 获取漫画目录的完整路径
       final fullPath = Path.join(path ?? '', comic.directory);
+
+      // 删除指定章节的目录（章节编号从1开始，所以需要 +1）
       if (Directory("$fullPath/${ep + 1}").existsSync()) {
         Directory("$fullPath/${ep + 1}").deleteSync(recursive: true);
       }
-      var size = Directory(fullPath).getMBSizeSync();
+
+      // 重新计算漫画文件大小（异步操作，不阻塞主线程）
+      var size = await Directory(fullPath).getMBSize();
+
+      // 从已下载章节列表中移除该章节
       comic.downloadedEps.remove(ep);
+
+      // 更新漫画大小
       comic.comicSize = size;
+
+      // 更新数据库
       await _addToDb(comic, comic.directory);
       return null;
     } catch (e, s) {
@@ -388,14 +410,35 @@ class DownloadManager implements Listenable {
     }
   }
 
-  /// 更新漫画大小
+  /// 更新漫画文件大小
+  ///
+  /// 计算漫画目录的实际文件大小，并在大小发生变化时更新到数据库
+  ///
+  /// 参数：
+  /// - comic: 待更新的漫画对象
+  ///
+  /// 返回：
+  /// - 更新后的文件大小（MB），如果出错则返回 0
   Future<double> updateComicSize(DownloadedItem comic) async {
     try {
+      // 获取漫画目录的完整路径
       final dirPath = Path.join(path ?? '', comic.directory);
-      final size = Directory(dirPath).getMBSizeSync();
+
+      // 异步计算目录大小（不阻塞主线程）
+      final size = await Directory(dirPath).getMBSize();
+
+      // 获取旧的文件大小
+      final oldSize = comic.comicSize ?? 0;
+
+      // 更新漫画对象的大小属性
       comic.comicSize = size;
-      debugPrint("update comic size: ${comic.id} $size");
-      await updateSize(comic.id, size);
+
+      // 只有当文件大小发生变化时才更新数据库
+      // 使用 0.01 MB 作为阈值，避免浮点数精度问题
+      if ((size - oldSize).abs() > 0.01) {
+        await updateSize(comic.id, size);
+      }
+
       return size;
     } catch (e) {
       Log.e("IO ${e.toString()}");

@@ -24,6 +24,7 @@ import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/tag_management_page.dart';
 import 'package:pica_comic/pages/rename_download_dialog.dart';
+import 'package:pica_comic/pages/update_size_dialog.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
@@ -712,8 +713,16 @@ class DownloadPage extends StatelessWidget {
       DesktopMenuEntry(
         text: "更新文件大小".tl,
         onClick: () async {
-          await downloadManager.updateComicSize(comic);
-          logic.update();
+          await Future.delayed(const Duration(milliseconds: 300));
+          await showDialog(
+            context: context,
+            builder: (context) => UpdateSizeDialog(
+              comics: [comic],
+              onComplete: () {
+                logic.update();
+              },
+            ),
+          );
         },
       ),
       DesktopMenuEntry(
@@ -1050,18 +1059,22 @@ class DownloadPage extends StatelessWidget {
         ),
         PopupMenuItem(
           child: Text("更新漫画文件大小".tl),
-          onTap: () async {
-            final selected = List.from(logic.selected);
-            final comics = List.from(logic.comics);
-            for (int i = 0; i < selected.length; i++) {
-              if (selected[i]) {
-                await downloadManager.updateComicSize(comics[i]);
-                logic.update();
-                await Future.delayed(const Duration(milliseconds: 50));
-              }
-            }
-            showToast(message: "更新完成".tl);
-          },
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () async {
+              await showDialog(
+                context: App.globalContext!,
+                builder: (context) => UpdateSizeDialog(
+                  comics: logic.selectedComics,
+                  onComplete: () {
+                    logic.selecting = false;
+                    logic.selected.clear();
+                    logic.refresh();
+                  },
+                ),
+              );
+            },
+          ),
         ),
         PopupMenuItem(
           child: Text("添加至本地收藏".tl),

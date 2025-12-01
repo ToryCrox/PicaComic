@@ -39,9 +39,30 @@ extension FileExtension on File {
 }
 
 extension DirectoryExtension on Directory {
-  /// Get directory size information in MB
+  /// 异步获取目录大小信息（单位：MB）
+  ///
+  /// 递归遍历目录下的所有文件，累加文件大小并转换为 MB
+  /// 如果目录不存在，返回 0
+  ///
+  /// 注意：此方法使用异步操作，不会阻塞主线程
+  Future<double> getMBSize() async {
+    if (!(await exists())) return 0;
+    double total = 0;
+    // 异步遍历目录下的所有文件和子目录
+    await for (var f in list(recursive: true)) {
+      // 只统计文件，忽略目录
+      if (await FileSystemEntity.type(f.path) == FileSystemEntityType.file) {
+        total += await File(f.path).length() / 1024 / 1024;
+      }
+    }
+    return total;
+  }
+
+  /// Get directory size information in MB (Sync)
   ///
   /// if directory is not exist, return 0;
+  ///
+  /// Warning: This method blocks the main thread. Use getMBSize() instead.
   double getMBSizeSync() {
     if (!existsSync()) return 0;
     double total = 0;
