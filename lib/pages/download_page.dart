@@ -856,10 +856,16 @@ class DownloadPage extends StatelessWidget {
         text: "管理标签".tl,
         onClick: () async {
           await Future.delayed(const Duration(milliseconds: 300));
+          final suggestedTags = [
+            comic.name,
+            comic.subTitle,
+            ...logic.getOriginalTags(comic)
+          ];
           final result = await showDialog<bool>(
             context: context,
             builder: (context) => TagAssignmentDialog(
               comicIds: [comic.id],
+              suggestedTags: suggestedTags,
             ),
           );
           if (result == true) {
@@ -1149,10 +1155,18 @@ class DownloadPage extends StatelessWidget {
           onTap: () => Future.delayed(
             const Duration(milliseconds: 200),
             () async {
+              final selectedComics = logic.selectedComics;
+              final suggestedTags = [
+                ...selectedComics.map((e) => e.name),
+                ...selectedComics.map((e) => e.subTitle),
+                ...selectedComics.expand((e) => logic.getOriginalTags(e)),
+              ];
+
               final result = await showDialog<bool>(
                 context: App.globalContext!,
                 builder: (context) => TagAssignmentDialog(
-                  comicIds: logic.selectedComics.map((e) => e.id).toList(),
+                  comicIds: selectedComics.map((e) => e.id).toList(),
+                  suggestedTags: suggestedTags,
                 ),
               );
               if (result == true) {
