@@ -1272,6 +1272,13 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   Future<void> _openTagAssignmentDialog(BuildContext context) async {
     // 收集当前漫画的所有网络标签并翻译成中文
     final currentTags = <String>[];
+
+    // 添加漫画标题(标题中可能包含推荐的tag)
+    if (title != null && title!.isNotEmpty) {
+      currentTags.add(title!.translateTagsToCN);
+    }
+
+    // 添加所有网络标签
     if (tags != null) {
       for (var tagList in tags!.values) {
         currentTags.addAll(tagList.map((tag) => tag.translateTagsToCN));
