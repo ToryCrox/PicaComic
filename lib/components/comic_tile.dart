@@ -345,11 +345,11 @@ abstract class ComicTile extends StatelessWidget {
   Widget _buildDetailedMode(BuildContext context) {
     return LayoutBuilder(builder: (context, constrains) {
       final height = constrains.maxHeight - 16;
-      return InkWell(
+      return _ComicTileInkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap_,
         onLongPress: enableLongPressed ? onLongTap_ : null,
-        onSecondaryTapDown: onSecondaryTap_,
+        onSecondaryTap: onSecondaryTap_,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
           child: Row(
@@ -444,10 +444,10 @@ abstract class ComicTile extends StatelessWidget {
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
-                child: InkWell(
+                child: _ComicTileInkWell(
                   onTap: onTap_,
                   onLongPress: enableLongPressed ? onLongTap_ : null,
-                  onSecondaryTapDown: onSecondaryTap_,
+                  onSecondaryTap: onSecondaryTap_,
                   borderRadius: BorderRadius.circular(8),
                   child: const SizedBox.expand(),
                 ),
@@ -460,7 +460,7 @@ abstract class ComicTile extends StatelessWidget {
   }
 }
 
-class _ComicDescription extends StatelessWidget {
+class _ComicDescription extends StatefulWidget {
   const _ComicDescription({
     required this.title,
     required this.user,
@@ -491,27 +491,34 @@ class _ComicDescription extends StatelessWidget {
       onPrimaryTagSecondaryTap;
 
   @override
+  State<_ComicDescription> createState() => _ComicDescriptionState();
+}
+
+class _ComicDescriptionState extends State<_ComicDescription> {
+  TapDownDetails? _details;
+
+  @override
   Widget build(BuildContext context) {
-    final tags = this.tags ?? [];
+    final tags = widget.tags ?? [];
     if (tags.isNotEmpty) {
       tags.removeWhere((element) => element.removeAllBlank == "");
     }
-    final primaryTags = this.primaryTags;
+    final primaryTags = widget.primaryTags;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          title,
+          widget.title,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
             fontSize: 14.0,
           ),
-          maxLines: maxLines,
+          maxLines: widget.maxLines,
           overflow: TextOverflow.ellipsis,
         ),
-        if (user != "")
+        if (widget.user != "")
           Text(
-            user,
+            widget.user,
             style: const TextStyle(fontSize: 10.0),
             maxLines: 1,
           ),
@@ -532,10 +539,15 @@ class _ComicDescription extends StatelessWidget {
                   children: [
                     for (var s in primaryTags)
                       GestureDetector(
-                        onSecondaryTapDown: (details) =>
-                            onPrimaryTagSecondaryTap?.call(s, details),
+                        behavior: HitTestBehavior.opaque,
+                        onSecondaryTapDown: (details) => _details = details,
+                        onSecondaryTap: () {
+                          if (_details != null) {
+                            widget.onPrimaryTagSecondaryTap?.call(s, _details!);
+                          }
+                        },
                         child: InkWell(
-                          onTap: () => onPrimaryTagTap?.call(s),
+                          onTap: () => widget.onPrimaryTagTap?.call(s),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
@@ -558,10 +570,15 @@ class _ComicDescription extends StatelessWidget {
                       ),
                     for (var s in tags)
                       GestureDetector(
-                        onSecondaryTapDown: (details) =>
-                            onTagSecondaryTap?.call(s, details),
+                        behavior: HitTestBehavior.opaque,
+                        onSecondaryTapDown: (details) => _details = details,
+                        onSecondaryTap: () {
+                          if (_details != null) {
+                            widget.onTagSecondaryTap?.call(s, _details!);
+                          }
+                        },
                         child: InkWell(
-                          onTap: () => onTagTap?.call(s),
+                          onTap: () => widget.onTagTap?.call(s),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
@@ -598,9 +615,9 @@ class _ComicDescription extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (subDescription != null) subDescription!,
+                  if (widget.subDescription != null) widget.subDescription!,
                   Text(
-                    description,
+                    widget.description,
                     style: const TextStyle(
                       fontSize: 12.0,
                     ),
@@ -608,7 +625,7 @@ class _ComicDescription extends StatelessWidget {
                 ],
               ),
             ),
-            if (badge != null)
+            if (widget.badge != null)
               Container(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
                 decoration: BoxDecoration(
@@ -617,7 +634,7 @@ class _ComicDescription extends StatelessWidget {
                 ),
                 child: DefaultTextStyle(
                   style: const TextStyle(fontSize: 12),
-                  child: badge!,
+                  child: widget.badge!,
                 ),
               )
           ],
@@ -851,6 +868,45 @@ class ComicTilePlaceholder extends StatelessWidget {
         color: context.colorScheme.secondaryContainer.withAlpha(80),
         borderRadius: BorderRadius.circular(8),
       ),
+    );
+  }
+}
+
+class _ComicTileInkWell extends StatefulWidget {
+  const _ComicTileInkWell({
+    required this.onTap,
+    required this.onLongPress,
+    required this.onSecondaryTap,
+    required this.child,
+    this.borderRadius,
+  });
+
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final void Function(TapDownDetails) onSecondaryTap;
+  final Widget child;
+  final BorderRadius? borderRadius;
+
+  @override
+  State<_ComicTileInkWell> createState() => _ComicTileInkWellState();
+}
+
+class _ComicTileInkWellState extends State<_ComicTileInkWell> {
+  TapDownDetails? _details;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: widget.borderRadius,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      onSecondaryTapDown: (details) => _details = details,
+      onSecondaryTap: () {
+        if (_details != null) {
+          widget.onSecondaryTap(_details!);
+        }
+      },
+      child: widget.child,
     );
   }
 }
