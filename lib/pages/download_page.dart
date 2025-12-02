@@ -33,6 +33,9 @@ import 'package:pica_comic/tools/pdf.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:open_file/open_file.dart';
+
+import 'package:pica_comic/pages/search_result_page.dart';
+import 'package:pica_comic/network/custom_download_model.dart';
 import '../components/components.dart';
 import '../pages/components/download_tag_filter_panel.dart';
 import '../foundation/app.dart';
@@ -40,7 +43,7 @@ import '../foundation/state_controller.dart';
 import '../foundation/ui_mode.dart';
 import '../network/app_dio.dart';
 import '../network/base_comic.dart';
-import '../network/custom_download_model.dart';
+
 import '../network/eh_network/eh_download_model.dart';
 import '../network/hitomi_network/hitomi_download_model.dart';
 import '../network/jm_network/jm_download.dart';
@@ -316,6 +319,17 @@ class DownloadPageLogic extends StateController {
 
   List<String> getAllTags(DownloadedItem item) {
     return [...getOriginalTags(item), ...getUserTags(item)];
+  }
+
+  List<String> getRawTags(DownloadedItem item) {
+    final userTags = getUserTags(item);
+    if (userTags.isEmpty) {
+      return item.tags.toList();
+    } else {
+      return item.tags
+          .where((e) => !userTags.contains(e.translateTagsToCN))
+          .toList();
+    }
   }
 
   @override
@@ -616,8 +630,12 @@ class DownloadPage extends StatelessWidget {
           imagePath: File(item.coverPath ?? ''),
           type: type,
           primaryTags: logic.getUserTags(item),
-          tag: logic.getOriginalTags(item),
+          tag: logic.getRawTags(item),
           onTagTap: (tag) => logic.updateKeyword(tag),
+          onTagSecondaryTap: (tag, details) =>
+              _showTagMenu(context, logic, tag, item, false, details),
+          onPrimaryTagSecondaryTap: (tag, details) =>
+              _showTagMenu(context, logic, tag, item, true, details),
           onPrimaryTagTap: (tag) async {
             // find tag id by name
             final tagId = logic.allTags
@@ -754,6 +772,63 @@ class DownloadPage extends StatelessWidget {
         onClick: () async {
           var path = comic.directoryPath;
           OpenFile.open(path);
+        },
+      ),
+    ]);
+  }
+
+  void _showTagMenu(BuildContext context, DownloadPageLogic logic, String tag,
+      DownloadedItem item, bool isPrimary, TapDownDetails details) {
+    showDesktopMenu(App.globalContext!,
+        Offset(details.globalPosition.dx, details.globalPosition.dy), [
+      DesktopMenuEntry(
+        text: "复制".tl,
+        onClick: () {
+          Clipboard.setData(ClipboardData(text: tag));
+        },
+      ),
+      DesktopMenuEntry(
+        text: "本地搜索".tl,
+        onClick: () {
+          logic.updateKeyword(tag);
+        },
+      ),
+      DesktopMenuEntry(
+        text: "搜索漫画".tl,
+        onClick: () {
+          String searchTag = tag;
+          if (!isPrimary) {
+            // Find original tag
+            searchTag = item.tags.firstWhere((t) => t.translateTagsToCN == tag,
+                orElse: () => tag);
+          } else {
+            // Check if the user tag corresponds to an original tag
+            var originalTag = item.tags.firstWhereOrNull(
+                (t) => t.translateTagsToCN == tag || t == tag);
+            if (originalTag != null) {
+              searchTag = originalTag;
+            }
+          }
+          String sourceKey = "picacg";
+          if (item.type == DownloadType.ehentai) {
+            sourceKey = "ehentai";
+          } else if (item.type == DownloadType.jm) {
+            sourceKey = "jm";
+          } else if (item.type == DownloadType.hitomi) {
+            sourceKey = "hitomi";
+          } else if (item.type == DownloadType.htmanga) {
+            sourceKey = "htmanga";
+          } else if (item.type == DownloadType.nhentai) {
+            sourceKey = "nhentai";
+          } else if (item.type == DownloadType.other) {
+            if (item is CustomDownloadedItem) {
+              sourceKey = item.sourceKey;
+            }
+          }
+          context.to(() => SearchResultPage(
+                keyword: searchTag,
+                sourceKey: sourceKey,
+              ));
         },
       ),
     ]);
@@ -1397,6 +1472,11 @@ class DownloadedComicTile extends ComicTile {
   final void Function(TapDownDetails details) onSecondaryTap;
   final void Function(String tag)? onTagTap;
   final void Function(String tag)? onPrimaryTagTap;
+  @override
+  final void Function(String tag, TapDownDetails details)? onTagSecondaryTap;
+  @override
+  final void Function(String tag, TapDownDetails details)?
+      onPrimaryTagSecondaryTap;
 
   List<String>? get tags => tag
       .map((e) => App.locale.languageCode == "zh" ? e.translateTagsToCN : e)
@@ -1446,6 +1526,8 @@ class DownloadedComicTile extends ComicTile {
     this.primaryTags = const [],
     this.onTagTap,
     this.onPrimaryTagTap,
+    this.onTagSecondaryTap,
+    this.onPrimaryTagSecondaryTap,
     super.key,
   });
 }

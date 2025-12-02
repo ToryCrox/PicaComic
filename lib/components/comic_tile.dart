@@ -46,6 +46,14 @@ abstract class ComicTile extends StatelessWidget {
   /// Callback when a primary tag is tapped
   void Function(String tag)? get onPrimaryTagTap => null;
 
+  /// Callback when a tag is secondary tapped
+  void Function(String tag, TapDownDetails details)? get onTagSecondaryTap =>
+      null;
+
+  /// Callback when a primary tag is secondary tapped
+  void Function(String tag, TapDownDetails details)?
+      get onPrimaryTagSecondaryTap => null;
+
   /// Comic ID, used to identify a comic.
   String? get comicID => null;
 
@@ -372,6 +380,8 @@ abstract class ComicTile extends StatelessWidget {
                   maxLines: maxLines,
                   onTagTap: onTagTap,
                   onPrimaryTagTap: onPrimaryTagTap,
+                  onTagSecondaryTap: onTagSecondaryTap,
+                  onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
                 ),
               ),
             ],
@@ -462,6 +472,8 @@ class _ComicDescription extends StatelessWidget {
     this.primaryTags = const [],
     this.onTagTap,
     this.onPrimaryTagTap,
+    this.onTagSecondaryTap,
+    this.onPrimaryTagSecondaryTap,
   });
 
   final String title;
@@ -474,6 +486,9 @@ class _ComicDescription extends StatelessWidget {
   final int maxLines;
   final void Function(String tag)? onTagTap;
   final void Function(String tag)? onPrimaryTagTap;
+  final void Function(String tag, TapDownDetails details)? onTagSecondaryTap;
+  final void Function(String tag, TapDownDetails details)?
+      onPrimaryTagSecondaryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -516,47 +531,55 @@ class _ComicDescription extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.end,
                   children: [
                     for (var s in primaryTags)
-                      InkWell(
-                        onTap: () => onPrimaryTagTap?.call(s),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: Text(
-                            s,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.onPrimary,
+                      GestureDetector(
+                        onSecondaryTapDown: (details) =>
+                            onPrimaryTagSecondaryTap?.call(s, details),
+                        child: InkWell(
+                          onTap: () => onPrimaryTagTap?.call(s),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius:
+                                  const BorderRadius.all(Radius.circular(8)),
+                            ),
+                            child: Text(
+                              s,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     for (var s in tags)
-                      InkWell(
-                        onTap: () => onTagTap?.call(s),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
-                          decoration: BoxDecoration(
-                            color: s == "Unavailable"
-                                ? Theme.of(context).colorScheme.errorContainer
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .secondaryContainer,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: Text(
-                            s,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12),
+                      GestureDetector(
+                        onSecondaryTapDown: (details) =>
+                            onTagSecondaryTap?.call(s, details),
+                        child: InkWell(
+                          onTap: () => onTagTap?.call(s),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(3, 1, 3, 3),
+                            decoration: BoxDecoration(
+                              color: s == "Unavailable"
+                                  ? Theme.of(context).colorScheme.errorContainer
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .secondaryContainer,
+                              borderRadius:
+                                  const BorderRadius.all(Radius.circular(8)),
+                            ),
+                            child: Text(
+                              s,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                       ),
