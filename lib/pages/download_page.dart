@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
@@ -202,6 +204,7 @@ class DownloadPageLogic extends StateController {
 
   Future<void> updateSearchMode(bool mode) async {
     _searchMode = mode;
+    _showAppBar = true; // 确保AppBar显示以反映状态变化
     await updateComics();
     update();
   }
@@ -218,6 +221,9 @@ class DownloadPageLogic extends StateController {
 
   /// 所有标签
   List<TagInfo> allTags = [];
+
+  /// 是否显示AppBar和TagFilter
+  bool _showAppBar = true;
 
   final textFieldController = TextEditingController();
 
@@ -297,6 +303,7 @@ class DownloadPageLogic extends StateController {
     } else {
       selectedTagId = tagId;
     }
+    _showAppBar = true; // 确保AppBar显示以反映状态变化
     await updateComics();
     update();
   }
@@ -448,20 +455,115 @@ class DownloadPage extends StatelessWidget {
           );
         }
         return Scaffold(
-          floatingActionButton: buildFAB(context, logic),
-          appBar: buildAppbar(context, logic),
-          body: Column(
-            children: [
-              if (!logic.selecting) _buildTagFilter(context, logic),
-              Expanded(
-                child: CustomScrollView(
-                  slivers: [buildComics(context, logic)],
-                ),
-              ),
-            ],
+          floatingActionButton:
+              logic._showAppBar ? buildFAB(context, logic) : null,
+          body: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) {
+              final ScrollDirection direction = notification.scrollDelta! < 0
+                  ? ScrollDirection.forward
+                  : ScrollDirection.reverse;
+              var showAppBar = logic._showAppBar;
+              if (direction == ScrollDirection.reverse) {
+                logic._showAppBar = false;
+              } else if (direction == ScrollDirection.forward) {
+                logic._showAppBar = true;
+              }
+              if (logic._showAppBar == showAppBar) return true;
+              logic.update();
+              return false;
+            },
+            child: CustomScrollView(
+              slivers: [
+                // AppBar作为SliverPersistentHeader
+                if (!logic.selecting)
+                  SliverPersistentHeader(
+                    pinned:
+                        logic._showAppBar && SmoothScrollProvider.isMouseScroll,
+                    floating: !SmoothScrollProvider.isMouseScroll,
+                    delegate: _SliverAppBarDelegate(
+                      minHeight: 56,
+                      maxHeight: 56,
+                      child: _buildAppBarContent(context, logic),
+                    ),
+                  ),
+                // 选择模式下的AppBar
+                if (logic.selecting)
+                  SliverAppBar(
+                    pinned: true,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    leading: IconButton(
+                      onPressed: () {
+                        logic.exitSelecting();
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+                    title: buildTitle(context, logic),
+                    actions: buildActions(context, logic),
+                  ),
+                // TagFilter作为SliverPersistentHeader
+                if (!logic.selecting)
+                  SliverPersistentHeader(
+                    pinned:
+                        logic._showAppBar && SmoothScrollProvider.isMouseScroll,
+                    floating: !SmoothScrollProvider.isMouseScroll,
+                    delegate: _SliverAppBarDelegate(
+                      minHeight: 48,
+                      maxHeight: 48,
+                      child: _buildTagFilter(context, logic),
+                    ),
+                  ),
+                // 漫画列表
+                buildComics(context, logic),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAppBarContent(BuildContext context, DownloadPageLogic logic) {
+    Widget? leading;
+    if (logic.selectedTagId != null || logic.searchMode) {
+      leading = IconButton(
+        onPressed: () {
+          if (logic.searchMode) {
+            logic.updateSearchMode(false);
+          } else if (logic.selectedTagId != null) {
+            logic.updateTagFilter(null);
+          }
+        },
+        icon: const Icon(Icons.close),
+      );
+    } else if (showBack) {
+      leading = IconButton(
+        onPressed: () {
+          if (logic.selectedTagId != null) {
+            logic.updateTagFilter(null);
+          } else if (logic.searchMode) {
+            logic.updateSearchMode(false);
+          } else {
+            Navigator.maybePop(context);
+          }
+        },
+        icon: const Icon(Icons.arrow_back),
+      );
+    } else {
+      leading = const SizedBox.shrink();
+    }
+
+    return Material(
+      elevation: 1,
+      surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+      child: Container(
+        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+        child: Appbar(
+          leading: leading,
+          title: buildTitle(context, logic),
+          actions: buildActions(context, logic),
+        ),
+      ),
     );
   }
 
@@ -964,49 +1066,6 @@ class DownloadPage extends StatelessWidget {
           : Text(
               '${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})$suffix');
     }
-  }
-
-  PreferredSizeWidget buildAppbar(
-      BuildContext context, DownloadPageLogic logic) {
-    Widget? leading;
-    if (logic.selecting || logic.selectedTagId != null || logic.searchMode) {
-      leading = IconButton(
-        onPressed: () {
-          if (logic.selecting) {
-            logic.exitSelecting();
-          } else if (logic.searchMode) {
-            logic.updateSearchMode(false);
-          } else if (logic.selectedTagId != null) {
-            logic.updateTagFilter(null);
-          }
-        },
-        icon: const Icon(Icons.close),
-      );
-    } else if (showBack) {
-      leading = IconButton(
-        onPressed: () {
-          if (logic.selectedTagId != null) {
-            logic.updateTagFilter(null);
-          } else if (logic.searchMode) {
-            logic.updateSearchMode(false);
-          } else {
-            Navigator.maybePop(context);
-          }
-        },
-        icon: const Icon(Icons.arrow_back),
-      );
-    } else {
-      leading = const SizedBox.shrink();
-    }
-    return Appbar(
-      // radius: UiMode.m1(context) ? 0 : 16,
-      backgroundColor: logic.selecting
-          ? Theme.of(context).colorScheme.primaryContainer
-          : null,
-      leading: leading,
-      title: buildTitle(context, logic),
-      actions: buildActions(context, logic),
-    );
   }
 
   List<Widget> buildActions(BuildContext context, DownloadPageLogic logic) {
@@ -1623,5 +1682,34 @@ class TagInfo {
       'sort_order': sortOrder,
       'category_sort_order': categorySortOrder,
     };
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(
+      {required this.child, required this.maxHeight, required this.minHeight});
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(
+      child: child,
+    );
+  }
+
+  @override
+  double get maxExtent => minHeight;
+
+  @override
+  double get minExtent => max(maxHeight, minHeight);
+
+  @override
+  bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
+    // 始终重建以确保内容变化时能够更新
+    return true;
   }
 }
