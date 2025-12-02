@@ -179,6 +179,13 @@ class DownloadPageLogic extends StateController {
   //var selected = <bool>[];
   var selected = <String>{};
 
+  /// 退出选择状态
+  void exitSelecting() {
+    selecting = false;
+    selected.clear();
+    update();
+  }
+
   List<DownloadedItem> get selectedComics =>
       baseComics.where((element) => selected.contains(element.id)).toList();
 
@@ -966,13 +973,11 @@ class DownloadPage extends StatelessWidget {
       leading = IconButton(
         onPressed: () {
           if (logic.selecting) {
-            logic.selecting = false;
-            logic.selected.clear();
-            logic.update();
-          } else if (logic.selectedTagId != null) {
-            logic.updateTagFilter(null);
+            logic.exitSelecting();
           } else if (logic.searchMode) {
             logic.updateSearchMode(false);
+          } else if (logic.selectedTagId != null) {
+            logic.updateTagFilter(null);
           }
         },
         icon: const Icon(Icons.close),
@@ -1092,6 +1097,7 @@ class DownloadPage extends StatelessWidget {
                 ),
               );
               if (result == true) {
+                logic.exitSelecting();
                 logic.refresh();
               }
             },
@@ -1107,8 +1113,7 @@ class DownloadPage extends StatelessWidget {
                 builder: (context) => RenameDownloadDialog(
                   comics: logic.selectedComics,
                   onComplete: () {
-                    logic.selecting = false;
-                    logic.selected.clear();
+                    logic.exitSelecting();
                     logic.refresh();
                   },
                 ),
@@ -1142,8 +1147,7 @@ class DownloadPage extends StatelessWidget {
                 builder: (context) => UpdateSizeDialog(
                   comics: logic.selectedComics,
                   onComplete: () {
-                    logic.selecting = false;
-                    logic.selected.clear();
+                    logic.exitSelecting();
                     logic.refresh();
                   },
                 ),
