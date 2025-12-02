@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
@@ -12,10 +13,12 @@ import '../foundation/log.dart';
 /// 标签分配对话框
 class TagAssignmentDialog extends StatefulWidget {
   final List<String> comicIds;
+  final List<String>? suggestedTags;
 
   const TagAssignmentDialog({
     Key? key,
     required this.comicIds,
+    this.suggestedTags,
   }) : super(key: key);
 
   @override
@@ -71,12 +74,15 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       _originalTagIds.addAll(ids);
     }
 
-    // 获取所有标签,按updated_time倒序
+    // 获取所有标签
     final tags = await downloadManager.getAllTags();
-    // 标签已经按sort_order排序,我们需要按updated_time倒序
+
+    // 计算标签相似度并排序
     tags.sort((a, b) {
       final hasA = selectedTagIds.contains(a.id);
       final hasB = selectedTagIds.contains(b.id);
+
+      // 已选中的标签优先
       if (hasA && hasB) {
         return b.updatedTime.compareTo(a.updatedTime);
       } else if (hasA) {
@@ -84,6 +90,17 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       } else if (hasB) {
         return 1;
       }
+
+      // 如果提供了建议标签,计算相似度
+      if (widget.suggestedTags != null && widget.suggestedTags!.isNotEmpty) {
+        final similarityA = _calculateSimilarity(a.name, widget.suggestedTags!);
+        final similarityB = _calculateSimilarity(b.name, widget.suggestedTags!);
+
+        if (similarityA != similarityB) {
+          return similarityB.compareTo(similarityA); // 相似度高的在前
+        }
+      }
+
       return b.updatedTime.compareTo(a.updatedTime);
     });
 
@@ -245,6 +262,60 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       return comic.coverPath;
     }
     return null;
+  }
+
+  /// 计算标签与建议标签列表的相似度
+  /// 返回值越大表示越相似
+  int _calculateSimilarity(String tagName, List<String> suggestedTags) {
+    final lowerTagName = tagName.toLowerCase();
+    int maxSimilarity = 0;
+
+    for (var suggested in suggestedTags) {
+      final lowerSuggested = suggested.toLowerCase();
+
+      // 完全匹配
+      if (lowerTagName == lowerSuggested) {
+        return 100;
+      }
+
+      // 包含关系
+      if (lowerTagName.contains(lowerSuggested) ||
+          lowerSuggested.contains(lowerTagName)) {
+        maxSimilarity = math.max(maxSimilarity, 50);
+        continue;
+      }
+
+      // 计算编辑距离相似度
+      final distance = _levenshteinDistance(lowerTagName, lowerSuggested);
+      final maxLen = math.max(lowerTagName.length, lowerSuggested.length);
+      final similarity = ((maxLen - distance) * 30 / maxLen).round();
+      maxSimilarity = math.max(maxSimilarity, similarity);
+    }
+
+    return maxSimilarity;
+  }
+
+  /// 计算两个字符串的编辑距离
+  int _levenshteinDistance(String s1, String s2) {
+    if (s1 == s2) return 0;
+    if (s1.isEmpty) return s2.length;
+    if (s2.isEmpty) return s1.length;
+
+    List<int> v0 = List<int>.generate(s2.length + 1, (i) => i);
+    List<int> v1 = List<int>.filled(s2.length + 1, 0);
+
+    for (int i = 0; i < s1.length; i++) {
+      v1[0] = i + 1;
+      for (int j = 0; j < s2.length; j++) {
+        int cost = (s1[i] == s2[j]) ? 0 : 1;
+        v1[j + 1] = math.min(math.min(v1[j] + 1, v0[j + 1] + 1), v0[j] + cost);
+      }
+      List<int> temp = v0;
+      v0 = v1;
+      v1 = temp;
+    }
+
+    return v0[s2.length];
   }
 
   @override

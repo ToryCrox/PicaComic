@@ -19,10 +19,12 @@ import 'package:pica_comic/foundation/stack.dart' as stack;
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/favorites/local_favorites.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
+import 'package:pica_comic/pages/tag_assignment_dialog.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'download_page.dart';
@@ -600,6 +602,8 @@ class ComicPageLogic<T extends Object> extends StateController {
   bool showFullEps = false;
   int colorIndex = 0;
   bool? favoriteOnPlatform;
+  bool isDownloaded = false;
+  List<DownloadTag> localTags = [];
 
   Future<void> get(
       Future<Res<T>> Function() loadData,
@@ -636,6 +640,16 @@ class ComicPageLogic<T extends Object> extends StateController {
       });
     }
     loading = false;
+    update();
+  }
+
+  Future<void> loadLocalTags(String downloadedId) async {
+    isDownloaded = await downloadManager.isExists(downloadedId);
+    if (isDownloaded) {
+      localTags = await downloadManager.getComicTags(downloadedId);
+    } else {
+      localTags = [];
+    }
     update();
   }
 
@@ -813,6 +827,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           initState: (logic) {
             tagsStack.push(_logic);
             _logic.favoriteOnPlatform = favoriteOnPlatformInitial;
+            _logic.loadLocalTags(downloadedId);
           },
           dispose: (logic) {
             tagsStack.pop();
@@ -1201,6 +1216,82 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     );
   }
 
+  Widget buildLocalTagCard(String text, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      child: Card(
+        margin: EdgeInsets.zero,
+        color: ElevationOverlay.applySurfaceTint(
+            colorScheme.surface, colorScheme.surfaceTint, 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+          child: Text(text, style: const TextStyle(fontSize: 13)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddTagButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      child: InkWell(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        onTap: () => _openTagAssignmentDialog(context),
+        child: Card(
+          margin: EdgeInsets.zero,
+          color: Theme.of(context).colorScheme.primaryContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer),
+                const SizedBox(width: 4),
+                Text("打标签",
+                    style: TextStyle(
+                        fontSize: 13,
+                        color:
+                            Theme.of(context).colorScheme.onPrimaryContainer)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTagAssignmentDialog(BuildContext context) async {
+    // 收集当前漫画的所有网络标签并翻译成中文
+    final currentTags = <String>[];
+    if (tags != null) {
+      for (var tagList in tags!.values) {
+        currentTags.addAll(tagList.map((tag) => tag.translateTagsToCN));
+      }
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => TagAssignmentDialog(
+        comicIds: [downloadedId],
+        suggestedTags: currentTags,
+      ),
+    );
+
+    if (result == true) {
+      // 刷新本地标签
+      await _logic.loadLocalTags(downloadedId);
+    }
+  }
+
   Widget buildActions(ComicPageLogic logic, BuildContext context, bool center) {
     if (logic.loading) {
       return Container(
@@ -1425,6 +1516,21 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   Iterable<Widget> buildInfoCards(
       ComicPageLogic logic, BuildContext context) sync* {
+    // 显示本地标签(如果漫画已下载)
+    if (logic.isDownloaded) {
+      yield Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+        child: Wrap(
+          children: [
+            buildInfoCard("本地标签", context, title: true),
+            for (var tag in logic.localTags)
+              buildLocalTagCard(tag.name, context),
+            _buildAddTagButton(context),
+          ],
+        ),
+      );
+    }
+
     if (buildMoreInfo != null) {
       yield Padding(
         padding: const EdgeInsets.fromLTRB(18, 8, 30, 8),
