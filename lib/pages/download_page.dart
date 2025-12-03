@@ -893,9 +893,30 @@ class DownloadPage extends StatelessWidget {
   }
 
   void _showTagMenu(BuildContext context, DownloadPageLogic logic, String tag,
-      DownloadedItem item, bool isPrimary, TapDownDetails details) {
+      DownloadedItem comic, bool isPrimary, TapDownDetails details) {
     showDesktopMenu(App.globalContext!,
         Offset(details.globalPosition.dx, details.globalPosition.dy), [
+      DesktopMenuEntry(
+        text: "管理标签".tl,
+        onClick: () async {
+          await Future.delayed(const Duration(milliseconds: 300));
+          final suggestedTags = [
+            comic.name,
+            comic.subTitle,
+            ...logic.getOriginalTags(comic)
+          ];
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => TagAssignmentDialog(
+              comicIds: [comic.id],
+              suggestedTags: suggestedTags,
+            ),
+          );
+          if (result == true) {
+            logic.refresh();
+          }
+        },
+      ),
       DesktopMenuEntry(
         text: "复制".tl,
         onClick: () {
@@ -914,30 +935,30 @@ class DownloadPage extends StatelessWidget {
           String searchTag = tag;
           if (!isPrimary) {
             // Find original tag
-            searchTag = item.tags.firstWhere((t) => t.translateTagsToCN == tag,
+            searchTag = comic.tags.firstWhere((t) => t.translateTagsToCN == tag,
                 orElse: () => tag);
           } else {
             // Check if the user tag corresponds to an original tag
-            var originalTag = item.tags.firstWhereOrNull(
+            var originalTag = comic.tags.firstWhereOrNull(
                 (t) => t.translateTagsToCN == tag || t == tag);
             if (originalTag != null) {
               searchTag = originalTag;
             }
           }
           String sourceKey = "picacg";
-          if (item.type == DownloadType.ehentai) {
+          if (comic.type == DownloadType.ehentai) {
             sourceKey = "ehentai";
-          } else if (item.type == DownloadType.jm) {
+          } else if (comic.type == DownloadType.jm) {
             sourceKey = "jm";
-          } else if (item.type == DownloadType.hitomi) {
+          } else if (comic.type == DownloadType.hitomi) {
             sourceKey = "hitomi";
-          } else if (item.type == DownloadType.htmanga) {
+          } else if (comic.type == DownloadType.htmanga) {
             sourceKey = "htmanga";
-          } else if (item.type == DownloadType.nhentai) {
+          } else if (comic.type == DownloadType.nhentai) {
             sourceKey = "nhentai";
-          } else if (item.type == DownloadType.other) {
-            if (item is CustomDownloadedItem) {
-              sourceKey = item.sourceKey;
+          } else if (comic.type == DownloadType.other) {
+            if (comic is CustomDownloadedItem) {
+              sourceKey = comic.sourceKey;
             }
           }
           context.to(() => SearchResultPage(
