@@ -307,6 +307,12 @@ class ComicReadingPageLogic extends StateController {
         autoPageTurning();
       }
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
+      // 键盘翻页时的处理
+      if (resetAutoTurning && runningAutoPageTurning) {
+        _isKeyboardPageTurning = true;
+        pauseAutoPageTurning();
+      }
+
       final maxScrollExtent = scrollController.position.maxScrollExtent;
       if (animate) {
         double distance = 600;
@@ -332,25 +338,43 @@ class ComicReadingPageLogic extends StateController {
             duration: duration,
             curve: Curves.decelerate);
       }
+
+      // 键盘翻页后立即恢复自动滚动
+      if (resetAutoTurning && runningAutoPageTurning) {
+        _isKeyboardPageTurning = false;
+        resumeAutoPageTurning();
+      }
     } else {
       pageController.jumpToPage(pageController.page!.round() + 1);
     }
   }
 
-  void jumpToLastPage({bool resetAutoTurning = false}) {
+  Future<void> jumpToLastPage({bool resetAutoTurning = false}) async {
     if (readingMethod.index < 3) {
       pageController.jumpToPage(index - 1);
       if (resetAutoTurning && runningAutoPageTurning) {
         autoPageTurning();
       }
     } else if (readingMethod == ReadingMethod.topToBottomContinuously) {
+      // 键盘翻页时的处理
+      if (resetAutoTurning && runningAutoPageTurning) {
+        _isKeyboardPageTurning = true;
+        pauseAutoPageTurning();
+      }
+
       //scrollController.jumpTo(scrollController.position.pixels - 600);
       final duration = Duration(
           milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
-      scrollController.animateTo(
+      await scrollController.animateTo(
           scrollController.position.pixels - _animateNextPageDistance,
           duration: duration,
           curve: Curves.decelerate);
+
+      // 键盘翻页后立即恢复自动滚动
+      if (resetAutoTurning && runningAutoPageTurning) {
+        _isKeyboardPageTurning = false;
+        resumeAutoPageTurning();
+      }
     } else {
       pageController.jumpToPage(pageController.page!.round() - 1);
     }
@@ -475,10 +499,18 @@ class ComicReadingPageLogic extends StateController {
   /// 滚轮滚动时会触发多次事件, 使用此标志位配合定时器进行防抖
   bool _isWheelScrolling = false;
 
+  /// 是否正在进行键盘翻页
+  ///
+  /// 键盘翻页时会触发动画, 使用此标志位配合定时器进行防抖
+  bool _isKeyboardPageTurning = false;
+
   Timer? _autoPageTurningTimer;
 
   /// 滚轮防抖定时器
   Timer? _wheelDebounceTimer;
+
+  /// 键盘翻页后恢复自动翻页的定时器
+  Timer? _keyboardPageTurnDebounceTimer;
 
   void stopAutoPageTurning() {
     runningAutoPageTurning = false;
@@ -487,6 +519,9 @@ class ComicReadingPageLogic extends StateController {
     _autoPageTurningTimer = null;
     _wheelDebounceTimer?.cancel();
     _wheelDebounceTimer = null;
+    _keyboardPageTurnDebounceTimer?.cancel();
+    _keyboardPageTurnDebounceTimer = null;
+    _isKeyboardPageTurning = false;
     if (readingMethod == ReadingMethod.topToBottomContinuously &&
         scrollController.hasClients) {
       scrollController.jumpTo(scrollController.position.pixels + 1);
@@ -530,12 +565,14 @@ class ComicReadingPageLogic extends StateController {
   /// 2. 当前处于暂停状态
   /// 3. 用户未在交互(未按下)
   /// 4. 未在滚轮滚动中
+  /// 5. 未在键盘翻页中
   /// 时恢复
   void resumeAutoPageTurning() {
     if (runningAutoPageTurning &&
         _isAutoPageTurningPaused &&
         !userInteracting &&
-        !_isWheelScrolling) {
+        !_isWheelScrolling &&
+        !_isKeyboardPageTurning) {
       _isAutoPageTurningPaused = false;
       autoPageTurning();
     }
