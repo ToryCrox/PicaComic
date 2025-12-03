@@ -351,6 +351,52 @@ class DownloadPageLogic extends StateController {
     _loadComics();
   }
 
+  /// 只刷新标签数据,不重新加载漫画列表
+  /// 用于标签编辑后的轻量级刷新
+  Future<void> refreshTags() async {
+    await _loadTagsData();
+    await updateComics();
+    update();
+  }
+
+  /// 加载标签数据(包括标签映射、标签信息和封面路径)
+  Future<void> _loadTagsData() async {
+    // 重新加载漫画标签映射
+    comicUserTags = await downloadManager.getAllComicTagsMap();
+
+    // 重新加载所有标签
+    final allTags = await downloadManager.getAllTags();
+    _tagInfoMap.clear();
+    _tagInfoMap.addAll(allTags.groupFoldBy((e) => e.id, (g, t) => t));
+
+    this.allTags = allTags
+        .map((e) => TagInfo(
+              id: e.id,
+              name: e.name,
+              comicCount: 0,
+              category: e.category.value,
+              sortOrder: e.sortOrder,
+              categorySortOrder: e.categorySortOrder,
+              coverPath: _tagInfoMap[e.id]?.coverComicId != null
+                  ? _tagInfoMap[e.id]!.coverComicId!
+                  : null,
+            ))
+        .toList();
+
+    // 填充标签封面路径
+    for (var tag in this.allTags) {
+      if (_tagInfoMap[tag.id]?.coverComicId != null) {
+        final comicId = _tagInfoMap[tag.id]!.coverComicId!;
+        final comic = baseComics.firstWhereOrNull((e) => e.id == comicId);
+        if (comic != null) {
+          tag.coverPath = comic.coverPath;
+        }
+      }
+    }
+
+    this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
   Future<void> _loadComics({bool isFirstLoad = false}) async {
     loading = true;
     var order = '', direction = 'desc';
@@ -371,42 +417,10 @@ class DownloadPageLogic extends StateController {
     }
     final allComics = await DownloadManager().getAll(order, direction);
     baseComics = allComics;
-    comicUserTags = await downloadManager.getAllComicTagsMap();
-    final allTags = await downloadManager.getAllTags();
-    _tagInfoMap.clear();
-    _tagInfoMap.addAll(allTags.groupFoldBy((e) => e.id, (g, t) => t));
-    this.allTags = allTags
-        .map((e) => TagInfo(
-              id: e.id,
-              name: e.name,
-              comicCount: 0,
-              category: e.category.value,
-              sortOrder: e.sortOrder,
-              categorySortOrder: e.categorySortOrder,
-              coverPath: _tagInfoMap[e.id]?.coverComicId != null
-                  ? _tagInfoMap[e.id]!
-                      .coverComicId! // This is comic ID, we need path. logic.
-                  : null,
-            ))
-        .toList();
 
-    // Fill cover paths
-    for (var tag in this.allTags) {
-      if (_tagInfoMap[tag.id]?.coverComicId != null) {
-        final comicId = _tagInfoMap[tag.id]!.coverComicId!;
-        final comic = baseComics.firstWhereOrNull((e) => e.id == comicId);
-        if (comic != null) {
-          tag.coverPath = comic.coverPath;
-        }
-      }
-    }
-
-    this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    this.allTags.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    await _loadTagsData();
     await updateComics();
-    // if (isFirstLoad) {
-    //   await Future.delayed(const Duration(milliseconds: 150));
-    // }
+
     loading = false;
     update();
   }
@@ -869,7 +883,7 @@ class DownloadPage extends StatelessWidget {
             ),
           );
           if (result == true) {
-            logic.refresh();
+            logic.refreshTags();
           }
         },
       ),
@@ -913,7 +927,7 @@ class DownloadPage extends StatelessWidget {
             ),
           );
           if (result == true) {
-            logic.refresh();
+            logic.refreshTags();
           }
         },
       ),
@@ -1192,7 +1206,7 @@ class DownloadPage extends StatelessWidget {
               );
               if (result == true) {
                 logic.exitSelecting();
-                logic.refresh();
+                logic.refreshTags();
               }
             },
           ),

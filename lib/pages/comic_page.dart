@@ -1296,6 +1296,9 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     if (result == true) {
       // 刷新本地标签
       await _logic.loadLocalTags(downloadedId);
+
+      // 刷新 DownloadPage 的标签数据
+      StateController.findOrNull<DownloadPageLogic>()?.refreshTags();
     }
   }
 
