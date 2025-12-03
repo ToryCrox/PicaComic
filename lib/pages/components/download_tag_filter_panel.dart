@@ -43,7 +43,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
 
   // 使用List存储所有标签,便于排序
   List<TagInfo> _allTags = [];
-  
+
   // 缓存每个tab的显示列表,key为tab索引
   final Map<int, List<TagInfo>> _displayTagsByTab = {};
 
@@ -52,27 +52,26 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     super.initState();
     _tabController = TabController(length: _categories.length + 1, vsync: this);
     _scrollControllers.addAll([
-      for (var i = 0; i < _tabController.length + 1; i++)
-        ScrollController(),
+      for (var i = 0; i < _tabController.length + 1; i++) ScrollController(),
     ]);
     _allTags = List.from(widget.tags);
     _updateAllDisplayTags();
   }
-  
+
   // 更新所有tab的显示列表
   void _updateAllDisplayTags() {
     // Tab 0: 全部标签,按 sortOrder 排序
     final allTagsList = List<TagInfo>.from(_allTags);
     allTagsList.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     _displayTagsByTab[0] = allTagsList;
-    
+
     // 其他tab: 按分类过滤,按 categorySortOrder 排序
     for (int i = 0; i < _categories.length; i++) {
       final category = _categories[i];
-      final categoryTags = _allTags
-          .where((t) => t.category == category.value)
-          .toList();
-      categoryTags.sort((a, b) => a.categorySortOrder.compareTo(b.categorySortOrder));
+      final categoryTags =
+          _allTags.where((t) => t.category == category.value).toList();
+      categoryTags
+          .sort((a, b) => a.categorySortOrder.compareTo(b.categorySortOrder));
       _displayTagsByTab[i + 1] = categoryTags;
     }
   }
@@ -205,7 +204,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
             }
 
             // 通知父组件刷新
-            StateController.findOrNull<DownloadPageLogic>()?.refresh();
+            StateController.findOrNull<DownloadPageLogic>()?.refreshTags();
           } catch (e) {
             Log.e('onReorder $e');
             // 出错时重新加载

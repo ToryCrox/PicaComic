@@ -85,7 +85,7 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
       },
       cancelPlatformFavorite: () async {
         var res = await jmNetwork.favorite(id, null);
-        if(res.success) {
+        if (res.success) {
           data!.favorite = false;
         }
         return res;
@@ -129,16 +129,19 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   String? get introduction => data!.description;
 
   @override
-  Future<Res<JmComicInfo>> loadData() => JmNetwork().getComicInfo(id).then((res) {
-    if (res.success) {
-      DiskCache.writeString(cacheKey, TypeUtil.parseString(res.data.toJson()));
-    }
-    return res;
-  });
+  Future<Res<JmComicInfo>> loadData() =>
+      JmNetwork().getComicInfo(id).then((res) {
+        if (res.success) {
+          DiskCache.writeString(
+              cacheKey, TypeUtil.parseString(res.data.toJson()));
+        }
+        return res;
+      });
 
   @override
   Future<JmComicInfo?> loadCachedData() async {
-    return await DiskCache.readModel(cacheKey, (map) => JmComicInfo.fromMap(map));
+    return await DiskCache.readModel(
+        cacheKey, (map) => JmComicInfo.fromMap(map));
   }
 
   @override
@@ -147,7 +150,8 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   @override
   Future<bool> loadFavorite(JmComicInfo data) async {
     return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem())).isNotEmpty;
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem()))
+            .isNotEmpty;
   }
 
   @override
@@ -173,12 +177,9 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   Map<String, List<String>>? get tags => {
         "ID": "JM${data!.id}".toList(),
         "作者".tl: (data!.author.isEmpty) ? "未知".tl.toList() : data!.author,
-        if (data!.works.isNotEmpty)
-          "作品".tl: data!.works,
-        if (data!.actors.isNotEmpty)
-          "登场人物".tl: data!.actors,
-        if (data!.tags.isNotEmpty)
-          "标签".tl: data!.tags
+        if (data!.works.isNotEmpty) "作品".tl: data!.works,
+        if (data!.actors.isNotEmpty) "登场人物".tl: data!.actors,
+        if (data!.tags.isNotEmpty) "标签".tl: data!.tags
       };
 
   @override
@@ -204,11 +205,10 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
       id,
       data!.author.elementAtOrNull(0) ?? "",
       data!.name,
-      data!.description,
-      []));
+      data!.description, []));
 
   @override
-  String get downloadedId => "jm${data!.id}";
+  String get downloadedId => "jm${data?.id}";
 
   @override
   String get sourceKey => "jm";
@@ -231,7 +231,8 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
   }
 
   var downloaded = <int>[];
-  final downloadedComic = await DownloadManager().getComicOrNull("jm${comic.id}");
+  final downloadedComic =
+      await DownloadManager().getComicOrNull("jm${comic.id}");
   if (downloadedComic != null) {
     downloaded.addAll(downloadedComic.downloadedEps);
   }
