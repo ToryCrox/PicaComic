@@ -34,6 +34,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   String _searchQuery = '';
+  final Map<int, String?> _coverPathCache = {}; // 封面路径缓存
 
   // 当前标签分类
   TagCategory? get _currentCategory {
@@ -77,7 +78,16 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     // 获取所有标签
     final tags = await downloadManager.getAllTags();
 
-    // 计算标签相似度并排序
+    // 预计算相似度(避免在排序中重复计算)
+    final similarityMap = <int, int>{};
+    if (widget.suggestedTags != null && widget.suggestedTags!.isNotEmpty) {
+      for (var tag in tags) {
+        similarityMap[tag.id] =
+            _calculateSimilarity(tag.name, widget.suggestedTags!);
+      }
+    }
+
+    // 排序:已选中 > 相似度高 > 最近更新
     tags.sort((a, b) {
       final hasA = selectedTagIds.contains(a.id);
       final hasB = selectedTagIds.contains(b.id);
@@ -91,10 +101,10 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
         return 1;
       }
 
-      // 如果提供了建议标签,计算相似度
-      if (widget.suggestedTags != null && widget.suggestedTags!.isNotEmpty) {
-        final similarityA = _calculateSimilarity(a.name, widget.suggestedTags!);
-        final similarityB = _calculateSimilarity(b.name, widget.suggestedTags!);
+      // 如果提供了建议标签,按相似度排序
+      if (similarityMap.isNotEmpty) {
+        final similarityA = similarityMap[a.id] ?? 0;
+        final similarityB = similarityMap[b.id] ?? 0;
 
         if (similarityA != similarityB) {
           return similarityB.compareTo(similarityA); // 相似度高的在前
@@ -104,10 +114,40 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       return b.updatedTime.compareTo(a.updatedTime);
     });
 
+    // 预加载所有封面路径
+    await _preloadCoverPaths(tags);
+
     setState(() {
       allTags = tags;
       loading = false;
     });
+  }
+
+  /// 预加载所有标签的封面路径
+  Future<void> _preloadCoverPaths(List<DownloadTag> tags) async {
+    _coverPathCache.clear();
+
+    // 收集所有需要加载封面的 comicId
+    final comicIds = tags
+        .where((tag) => tag.coverComicId != null)
+        .map((tag) => tag.coverComicId!)
+        .toSet()
+        .toList();
+
+    if (comicIds.isEmpty) return;
+
+    // 批量查询所有漫画
+    final comicsMap = await downloadManager.getDownloadedItemsByIds(comicIds);
+
+    // 为所有标签设置封面路径
+    for (var tag in tags) {
+      if (tag.coverComicId != null) {
+        final comic = comicsMap[tag.coverComicId];
+        if (comic != null) {
+          _coverPathCache[tag.id] = comic.coverPath;
+        }
+      }
+    }
   }
 
   Future<void> _createNewTag() async {
@@ -128,6 +168,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       setState(() {
         allTags.insert(0, newTag);
         selectedTagIds.add(tagId);
+        _coverPathCache[tagId] = null; // 新标签暂无封面
         _searchController.clear();
         _searchQuery = '';
       });
@@ -211,57 +252,58 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
         final tagName = tag.name;
         final isSelected = selectedTagIds.contains(tagId);
 
-        return FutureBuilder<String?>(
-          future: _getTagCoverPath(tag),
-          builder: (context, snapshot) {
-            return CheckboxListTile(
-              title: Text(tagName),
-              subtitle: Text(tag.category.label),
-              secondary: snapshot.hasData && snapshot.data != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.file(
-                        File(snapshot.data!),
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: tag.category.color.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Icon(Icons.label_outline, size: 20),
-                    ),
-              value: isSelected,
-              onChanged: (value) {
-                setState(() {
-                  if (value == true) {
-                    selectedTagIds.add(tagId);
-                  } else {
-                    selectedTagIds.remove(tagId);
-                  }
-                });
-              },
-            );
+        return CheckboxListTile(
+          title: Text(tagName),
+          subtitle: Text(tag.category.label),
+          secondary: _buildTagCover(tag),
+          value: isSelected,
+          onChanged: (value) {
+            setState(() {
+              if (value == true) {
+                selectedTagIds.add(tagId);
+              } else {
+                selectedTagIds.remove(tagId);
+              }
+            });
           },
         );
       },
     );
   }
 
-  Future<String?> _getTagCoverPath(DownloadTag tag) async {
-    if (tag.coverComicId == null) return null;
+  /// 构建标签封面
+  Widget _buildTagCover(DownloadTag tag) {
+    final coverPath = _coverPathCache[tag.id];
 
-    final comic =
-        await downloadManager.getDownloadedItemById(tag.coverComicId!);
-    if (comic != null) {
-      return comic.coverPath;
+    if (coverPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.file(
+          File(coverPath),
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildDefaultCover(tag);
+          },
+        ),
+      );
     }
-    return null;
+
+    return _buildDefaultCover(tag);
+  }
+
+  /// 构建默认封面
+  Widget _buildDefaultCover(DownloadTag tag) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: tag.category.color.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(Icons.label_outline, size: 20),
+    );
   }
 
   /// 计算标签与建议标签列表的相似度

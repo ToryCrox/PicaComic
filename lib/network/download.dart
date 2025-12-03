@@ -809,6 +809,32 @@ extension AddDownloadExt on DownloadManager {
     return await _getComicWithDb(id);
   }
 
+  /// 批量根据ID获取已下载的漫画
+  Future<Map<String, DownloadedItem>> getDownloadedItemsByIds(
+      List<String> ids) async {
+    if (ids.isEmpty) return {};
+
+    final results = await _db.getDownloadsByIds(ids);
+    final map = <String, DownloadedItem>{};
+
+    for (var result in results) {
+      final comic = _getComicFromJson(
+        id: result[kDownloadId] as String,
+        json: result[kDownloadJson] as String,
+        time: DateTime.fromMillisecondsSinceEpoch(result[kDownloadTime] as int),
+        size: result[kDownloadSize] is double
+            ? result[kDownloadSize] as double
+            : (result[kDownloadSize] as int).toDouble(),
+        directory: result[kDownloadDirectory] as String? ?? "",
+      );
+      if (comic != null) {
+        map[comic.id] = comic;
+      }
+    }
+
+    return map;
+  }
+
   // int get total {
   //   // 注意：这个方法需要异步处理，但在原来代码中是同步的
   //   // 在实际使用中，需要重构调用此属性的地方改为异步

@@ -289,6 +289,20 @@ class DownloadDatabase {
     return result.isEmpty ? null : result.first;
   }
 
+  /// 批量获取下载项
+  Future<List<Map<String, Object?>>> getDownloadsByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+
+    final db = await _getDatabase();
+    final placeholders = ids.map((e) => '?').join(',');
+    final result = await db.query(
+      kTableDownload,
+      where: '$kDownloadId IN ($placeholders)',
+      whereArgs: ids,
+    );
+    return result;
+  }
+
   /// 获取下载总数
   Future<int> getDownloadTotalCount() async {
     final db = await _getDatabase();
