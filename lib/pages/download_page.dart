@@ -203,10 +203,22 @@ class DownloadPageLogic extends StateController {
   bool get searchMode => _searchMode;
 
   Future<void> updateSearchMode(bool mode) async {
+    final wasFiltering = isFiltering;
     _searchMode = mode;
     _showAppBar = true; // 确保AppBar显示以反映状态变化
+
+    // 进入过滤模式时保存位置，退出时恢复
+    if (mode && !wasFiltering) {
+      _saveScrollPosition();
+    }
+
     await updateComics();
     update();
+
+    // 退出过滤模式后恢复位置
+    if (!isFiltering && wasFiltering) {
+      _restoreScrollPosition();
+    }
   }
 
   bool searchInit = false;
@@ -226,6 +238,34 @@ class DownloadPageLogic extends StateController {
   bool _showAppBar = true;
 
   final textFieldController = TextEditingController();
+
+  /// 滚动控制器
+  final scrollController = ScrollController();
+
+  /// 保存的滚动位置（用于退出搜索/过滤模式时恢复）
+  double? _savedScrollPosition;
+
+  /// 是否处于过滤状态（搜索模式或标签筛选）
+  bool get isFiltering => _searchMode || selectedTagId != null;
+
+  /// 保存当前滚动位置
+  void _saveScrollPosition() {
+    if (scrollController.hasClients) {
+      _savedScrollPosition = scrollController.offset;
+    }
+  }
+
+  /// 恢复滚动位置
+  void _restoreScrollPosition() {
+    if (_savedScrollPosition != null && scrollController.hasClients) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (scrollController.hasClients) {
+          scrollController.jumpTo(_savedScrollPosition!);
+          _savedScrollPosition = null;
+        }
+      });
+    }
+  }
 
   // void change() {
   //   try {
@@ -263,8 +303,15 @@ class DownloadPageLogic extends StateController {
       textFieldController.text = keyword;
     }
     if (_keyword != keyword || !_searchMode) {
+      final wasFiltering = isFiltering;
       _keyword = keyword;
       _searchMode = true;
+
+      // 进入过滤模式时保存位置
+      if (!wasFiltering) {
+        _saveScrollPosition();
+      }
+
       await updateComics();
       update();
     }
@@ -298,14 +345,27 @@ class DownloadPageLogic extends StateController {
 
   /// 更新标签筛选
   Future<void> updateTagFilter(int? tagId) async {
+    final wasFiltering = isFiltering;
+
     if (tagId == selectedTagId) {
       selectedTagId = null;
     } else {
       selectedTagId = tagId;
     }
+
+    // 进入过滤模式时保存位置
+    if (selectedTagId != null && !wasFiltering) {
+      _saveScrollPosition();
+    }
+
     _showAppBar = true; // 确保AppBar显示以反映状态变化
     await updateComics();
     update();
+
+    // 退出过滤模式后恢复位置
+    if (!isFiltering && wasFiltering) {
+      _restoreScrollPosition();
+    }
   }
 
   void removeComic(DownloadedItem comic) {
@@ -487,6 +547,7 @@ class DownloadPage extends StatelessWidget {
               return false;
             },
             child: CustomScrollView(
+              controller: logic.scrollController,
               slivers: [
                 // AppBar作为SliverPersistentHeader
                 if (!logic.selecting)
