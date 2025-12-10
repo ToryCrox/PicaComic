@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
@@ -38,6 +35,7 @@ class _LocalRepositoryManagementPageState
 
   Future<void> _addRepository() async {
     final nameController = TextEditingController();
+    final titleController = TextEditingController();
     final pathController = TextEditingController();
 
     final result = await showDialog<bool>(
@@ -50,10 +48,20 @@ class _LocalRepositoryManagementPageState
             TextField(
               controller: nameController,
               decoration: InputDecoration(
-                labelText: "存储库名称".tl,
+                labelText: "存储库名称（唯一标识，不可更改）".tl,
                 border: const OutlineInputBorder(),
+                helperText: "存储库的唯一标识符，创建后不可更改".tl,
               ),
               autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: "存储库标题（可选）".tl,
+                border: const OutlineInputBorder(),
+                helperText: "用于显示的标题，可随时更改".tl,
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -105,8 +113,16 @@ class _LocalRepositoryManagementPageState
         pathController.text.isNotEmpty) {
       try {
         final success = await LocalRepositoryManager()
-            .addRepository(nameController.text, pathController.text);
+            .addRepository(
+              nameController.text,
+              pathController.text,
+            );
         if (success) {
+          // 如果提供了标题，更新标题
+          if (titleController.text.isNotEmpty) {
+            await LocalRepositoryManager()
+                .updateRepositoryTitle(nameController.text, titleController.text);
+          }
           showToast(message: "存储库添加成功".tl);
           _loadRepositories();
         } else {
@@ -119,7 +135,7 @@ class _LocalRepositoryManagementPageState
   }
 
   Future<void> _editRepository(RepositoryInfo repo) async {
-    final nameController = TextEditingController(text: repo.name);
+    final titleController = TextEditingController(text: repo.title);
     final pathController = TextEditingController(text: repo.path);
 
     final result = await showDialog<bool>(
@@ -129,12 +145,26 @@ class _LocalRepositoryManagementPageState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 显示名称（只读）
             TextField(
-              controller: nameController,
+              controller: TextEditingController(text: repo.name),
               decoration: InputDecoration(
-                labelText: "存储库名称".tl,
+                labelText: "存储库名称（不可更改）".tl,
                 border: const OutlineInputBorder(),
+                enabled: false,
+                helperText: "存储库的唯一标识符，不可更改".tl,
               ),
+            ),
+            const SizedBox(height: 16),
+            // 标题（可编辑）
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: "存储库标题".tl,
+                border: const OutlineInputBorder(),
+                helperText: "用于显示的标题，可随时更改".tl,
+              ),
+              autofocus: true,
             ),
             const SizedBox(height: 16),
             Row(
@@ -181,20 +211,18 @@ class _LocalRepositoryManagementPageState
       ),
     );
 
-    if (result == true &&
-        nameController.text.isNotEmpty &&
-        pathController.text.isNotEmpty) {
+    if (result == true && pathController.text.isNotEmpty) {
       try {
         final success = await LocalRepositoryManager().updateRepository(
           repo.name,
-          nameController.text,
           pathController.text,
+          titleController.text.isNotEmpty ? titleController.text : null,
         );
         if (success) {
           showToast(message: "存储库更新成功".tl);
           _loadRepositories();
         } else {
-          showToast(message: "存储库更新失败：名称冲突或路径无效".tl);
+          showToast(message: "存储库更新失败：路径无效".tl);
         }
       } catch (e) {
         showToast(message: "存储库更新失败: $e".tl);
@@ -207,7 +235,7 @@ class _LocalRepositoryManagementPageState
       context: context,
       builder: (context) => AlertDialog(
         title: Text("删除存储库".tl),
-        content: Text("确定要删除存储库 \"${repo.name}\" 吗?".tl),
+        content: Text("确定要删除存储库 \"${repo.title}\" 吗?".tl),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -272,8 +300,20 @@ class _LocalRepositoryManagementPageState
                     final repo = repositories[index];
                     return ListTile(
                       leading: const Icon(Icons.folder),
-                      title: Text(repo.name),
-                      subtitle: Text(repo.path),
+                      title: Text(repo.title),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(repo.path),
+                          if (repo.title != repo.name)
+                            Text(
+                              "标识: ${repo.name}".tl,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                            ),
+                        ],
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

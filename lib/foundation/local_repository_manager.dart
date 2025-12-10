@@ -5,20 +5,32 @@ import 'package:pica_comic/tools/prefs_helper.dart';
 
 /// 存储库信息
 class RepositoryInfo {
+  /// 存储库名称（唯一标识符，不可更改）
   final String name;
+  
+  /// 存储库路径
   final String path;
+  
+  /// 存储库标题（可更改，用于显示）
+  String title;
 
-  RepositoryInfo({required this.name, required this.path});
+  RepositoryInfo({
+    required this.name,
+    required this.path,
+    String? title,
+  }) : title = title ?? name;
 
-  Map<String, String> toMap() => {
+  Map<String, dynamic> toMap() => {
         'name': name,
         'path': path,
+        'title': title,
       };
 
   factory RepositoryInfo.fromMap(Map<String, dynamic> map) {
     return RepositoryInfo(
       name: map['name'] as String,
       path: map['path'] as String,
+      title: map['title'] as String?,
     );
   }
 }
@@ -87,11 +99,11 @@ class LocalRepositoryManager {
     return true;
   }
 
-  /// 更新存储库
+  /// 更新存储库（只能更新路径和标题，不能更改名称）
   Future<bool> updateRepository(
-    String oldName,
-    String newName,
+    String name,
     String newPath,
+    String? newTitle,
   ) async {
     // 验证路径是否存在
     final dir = Directory(newPath);
@@ -99,18 +111,35 @@ class LocalRepositoryManager {
       return false;
     }
 
-    final index = _repositories.indexWhere((r) => r.name == oldName);
+    final index = _repositories.indexWhere((r) => r.name == name);
     if (index == -1) {
       return false;
     }
 
-    // 检查新名称是否与其他存储库冲突
-    if (oldName != newName &&
-        _repositories.any((r) => r.name == newName && r.name != oldName)) {
+    // 更新路径和标题，名称保持不变
+    final repo = _repositories[index];
+    _repositories[index] = RepositoryInfo(
+      name: repo.name,
+      path: newPath,
+      title: newTitle ?? repo.title,
+    );
+    await _saveRepositories(_repositories);
+    return true;
+  }
+
+  /// 更新存储库标题
+  Future<bool> updateRepositoryTitle(String name, String newTitle) async {
+    final index = _repositories.indexWhere((r) => r.name == name);
+    if (index == -1) {
       return false;
     }
 
-    _repositories[index] = RepositoryInfo(name: newName, path: newPath);
+    final repo = _repositories[index];
+    _repositories[index] = RepositoryInfo(
+      name: repo.name,
+      path: repo.path,
+      title: newTitle,
+    );
     await _saveRepositories(_repositories);
     return true;
   }

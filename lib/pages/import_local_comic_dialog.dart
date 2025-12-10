@@ -160,7 +160,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                     items: repositories.map((repo) {
                       return DropdownMenuItem<String>(
                         value: repo.name,
-                        child: Text(repo.name),
+                        child: Text(repo.title),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -250,12 +250,12 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                       children: [
                         Icon(
                           Icons.folder_open,
-                          size: 64,
+                          size: 48,
                           color: draggedFolderPath != null
                               ? Theme.of(context).colorScheme.primary
                               : Colors.grey,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         Text(
                           draggedFolderPath != null
                               ? Path.basename(draggedFolderPath!)
@@ -294,9 +294,9 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                     final comic = scannedComics[index];
                     return ListTile(
                       dense: true,
-                      title: Text(comic['name'] as String),
-                      subtitle: Text(comic['relativePath'] as String),
-                      trailing: Text('${comic['imageCount']} 张图片'),
+                      title: SelectableText(comic['name'] as String),
+                      subtitle: SelectableText(comic['relativePath'] as String),
+                      trailing: SelectableText('${comic['imageCount']} 张图片'),
                     );
                   },
                 ),
