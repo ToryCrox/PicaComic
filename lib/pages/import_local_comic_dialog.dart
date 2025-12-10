@@ -7,6 +7,7 @@ import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/tools/image_utils.dart';
 import 'package:path/path.dart' as Path;
 
 /// 导入本地漫画对话框
@@ -80,12 +81,70 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         });
         return;
       }
-      
 
-      final comics = await downloadManager.scanComicDirectories(
-        draggedFolderPath!,
-        repositoryPath,
-      );
+      final draggedDir = Directory(draggedFolderPath!);
+      if (!await draggedDir.exists()) {
+        setState(() {
+          scanning = false;
+          importResult = '文件夹不存在';
+        });
+        return;
+      }
+
+      // 检查是否有子目录（只检查直接子目录）
+      bool hasSubDirectories = false;
+      await for (var entity in draggedDir.list()) {
+        if (entity is Directory) {
+          hasSubDirectories = true;
+          break;
+        }
+      }
+
+      List<Map<String, dynamic>> comics = [];
+
+      // 如果没有子目录，检查该文件夹本身是否就是漫画目录
+      if (!hasSubDirectories) {
+        int imageCount = 0;
+        String? firstImagePath;
+
+        try {
+          await for (var file in draggedDir.list(recursive: true)) {
+            if (file is File && predictImageFile(file)) {
+              imageCount++;
+              if (firstImagePath == null) {
+                firstImagePath = file.path;
+              }
+            }
+          }
+        } catch (e) {
+          // 忽略无法访问的文件
+        }
+
+        // 如果包含至少3张图片，则将该文件夹作为漫画目录
+        if (imageCount >= 3) {
+          final relativePath = Path.relative(draggedDir.path, from: repositoryPath);
+          final relativeImagePath = firstImagePath != null
+              ? Path.relative(firstImagePath, from: draggedDir.path)
+              : null;
+
+          comics.add({
+            'path': draggedDir.path,
+            'name': Path.basename(draggedDir.path),
+            'relativePath': relativePath,
+            'imageCount': imageCount,
+            'coverImagePath': relativeImagePath,
+          });
+        }
+      }
+
+      // 如果有子目录或者当前文件夹不是漫画目录，则扫描子目录
+      if (hasSubDirectories || comics.isEmpty) {
+        final scannedComics = await downloadManager.scanComicDirectories(
+          draggedFolderPath!,
+          repositoryPath,
+        );
+        comics = scannedComics;
+      }
 
       setState(() {
         scannedComics = comics;
@@ -115,6 +174,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         repositoryName: selectedRepositoryName!,
         titlePrefix: titlePrefix,
         tagIds: selectedTagIds.isEmpty ? null : selectedTagIds,
+        comicDirs: scannedComics,
       );
 
       setState(() {

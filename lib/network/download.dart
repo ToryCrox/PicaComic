@@ -1207,6 +1207,7 @@ extension AddDownloadExt on DownloadManager {
     required String repositoryName,
     String? titlePrefix,
     List<int>? tagIds,
+    List<Map<String, dynamic>>? comicDirs,
   }) async {
     var successCount = 0;
     var failCount = 0;
@@ -1224,11 +1225,11 @@ extension AddDownloadExt on DownloadManager {
         };
       }
 
-      // 扫描漫画目录
-      final comicDirs = await scanComicDirectories(draggedFolderPath, repositoryPath);
+      // 如果提供了已扫描的漫画目录列表，直接使用；否则进行扫描
+      final finalComicDirs = comicDirs ?? await scanComicDirectories(draggedFolderPath, repositoryPath);
 
       // 导入每个漫画目录
-      for (var comicDir in comicDirs) {
+      for (var comicDir in finalComicDirs) {
         try {
           final relativePath = comicDir['relativePath'] as String;
           
