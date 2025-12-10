@@ -1,0 +1,24 @@
+name: log_viewer_web
+description: 日志查看器 Web 应用
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0'
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  log_viewer_shared:
+    path: ../log_viewer_shared
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  # Web 应用配置
+  uses-material-design: true
+

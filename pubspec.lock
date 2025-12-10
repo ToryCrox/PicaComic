@@ -696,6 +696,20 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.11"
+  log_viewer_server:
+    dependency: "direct main"
+    description:
+      path: "packages/log_viewer_server"
+      relative: true
+    source: path
+    version: "1.0.0"
+  log_viewer_shared:
+    dependency: "direct main"
+    description:
+      path: "packages/log_viewer_shared"
+      relative: true
+    source: path
+    version: "1.0.0"
   logger:
     dependency: "direct main"
     description:

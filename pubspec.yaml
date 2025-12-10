@@ -109,6 +109,12 @@ dependencies:
 
   wakelock_plus: ^1.4.0
   reorderables: ^0.6.0
+  
+  # 日志查看器模块
+  log_viewer_server:
+    path: packages/log_viewer_server
+  log_viewer_shared:
+    path: packages/log_viewer_shared
 
 dev_dependencies:
   flutter_test:
@@ -121,6 +127,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^2.0.0
   archive: ^3.4.0
+  path: ^1.9.0
   flutter_to_arch:
     git: https://github.com/wgh136/flutter_to_arch
 

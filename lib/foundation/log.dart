@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pica_comic/foundation/log_viewer_integration.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/throttle.dart';
 
@@ -29,6 +30,7 @@ final logger = Logger(
         overrideExisting: false,
       ),
     logMemoryOut,
+    LogViewerOutput(),
   ]),
   printer: LoggerPrettyPrinter(
       methodCount: 1,

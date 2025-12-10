@@ -9,6 +9,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/js_engine.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/log_viewer_integration.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/http_proxy.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
@@ -96,6 +97,9 @@ Future<void> init() async {
       AppTranslation.init(),
     ]);
     CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
+    
+    // 启动日志查看器（仅在桌面平台）
+    await LogViewerIntegration.init();
   } catch (e, s) {
     Log.e("Init App initialization failed!\n$e$s");
   }

@@ -1,0 +1,16 @@
+name: log_viewer_shared
+description: 日志查看器共享模型和协议定义
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0'
+
+dependencies:
+  # 无外部依赖，纯 Dart 包
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
