@@ -28,12 +28,19 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   int? selectedTagId;
   List<DownloadTag> allTags = [];
   String importResult = '';
+  final TextEditingController _titlePrefixController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadRepositories();
     _loadTags();
+  }
+
+  @override
+  void dispose() {
+    _titlePrefixController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRepositories() async {
@@ -73,6 +80,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         });
         return;
       }
+      
 
       final comics = await downloadManager.scanComicDirectories(
         draggedFolderPath!,
@@ -287,6 +295,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
             const SizedBox(height: 16),
             // 标题前缀输入
             TextField(
+              controller: _titlePrefixController,
               decoration: InputDecoration(
                 labelText: "标题前缀（可选）".tl,
                 border: const OutlineInputBorder(),
@@ -349,11 +358,14 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                     final path = files.first.path;
                     final dir = Directory(path);
                     if (dir.existsSync()) {
+                      final folderName = Path.basename(path);
                       setState(() {
                         draggedFolderPath = path;
+                        titlePrefix = folderName;
                         scannedComics = [];
                         importResult = '';
                       });
+                      _titlePrefixController.text = folderName;
                       _scanComics();
                     }
                   }
@@ -381,7 +393,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                               : Colors.grey,
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        SelectableText(
                           draggedFolderPath != null
                               ? Path.basename(draggedFolderPath!)
                               : "拖拽文件夹到这里".tl,
@@ -389,7 +401,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                         ),
                         if (draggedFolderPath != null) ...[
                           const SizedBox(height: 8),
-                          Text(
+                          SelectableText(
                             draggedFolderPath!,
                             style: Theme.of(context).textTheme.bodySmall,
                             textAlign: TextAlign.center,
