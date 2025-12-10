@@ -146,6 +146,9 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         comics = scannedComics;
       }
 
+      // 按照目录名排序
+      comics = comics.sortedFileNameBy((comic) => comic['name'] as String).toList();
+
       setState(() {
         scannedComics = comics;
         scanning = false;
@@ -331,8 +334,8 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       child: Container(
-        width: 600,
-        height: 700,
+        width: 800,
+        height: 900,
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
