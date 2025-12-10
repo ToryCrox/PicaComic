@@ -1206,7 +1206,7 @@ extension AddDownloadExt on DownloadManager {
     required String draggedFolderPath,
     required String repositoryName,
     String? titlePrefix,
-    int? tagId,
+    List<int>? tagIds,
   }) async {
     var successCount = 0;
     var failCount = 0;
@@ -1287,8 +1287,10 @@ extension AddDownloadExt on DownloadManager {
           await _addToDb(item, relativePath);
 
           // 如果选择了标签，关联标签
-          if (tagId != null) {
-            await addTagToComic(id, tagId);
+          if (tagIds != null && tagIds.isNotEmpty) {
+            for (final tagId in tagIds) {
+              await addTagToComic(id, tagId);
+            }
           }
 
           successCount++;

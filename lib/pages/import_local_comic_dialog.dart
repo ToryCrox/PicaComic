@@ -25,7 +25,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   bool scanning = false;
   bool importing = false;
   String? titlePrefix;
-  int? selectedTagId;
+  List<int> selectedTagIds = [];
   List<DownloadTag> allTags = [];
   String importResult = '';
   final TextEditingController _titlePrefixController = TextEditingController();
@@ -114,7 +114,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         draggedFolderPath: draggedFolderPath!,
         repositoryName: selectedRepositoryName!,
         titlePrefix: titlePrefix,
-        tagId: selectedTagId,
+        tagIds: selectedTagIds.isEmpty ? null : selectedTagIds,
       );
 
       setState(() {
@@ -145,6 +145,8 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   Future<void> _showTagSearchDialog(BuildContext context) async {
     String searchQuery = '';
     List<DownloadTag> filteredTags = List.from(allTags);
+    // 使用临时列表来跟踪对话框内的选择状态
+    List<int> tempSelectedTagIds = List.from(selectedTagIds);
 
     await showDialog(
       context: context,
@@ -203,30 +205,23 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                     // 标签列表
                     Expanded(
                       child: ListView.builder(
-                        itemCount: filteredTags.length + 1,
+                        itemCount: filteredTags.length,
                         itemBuilder: (context, index) {
-                          if (index == 0) {
-                            // "无"选项
-                            return ListTile(
-                              title: const Text('无'),
-                              selected: selectedTagId == null,
-                              onTap: () {
-                                setState(() {
-                                  selectedTagId = null;
-                                });
-                                Navigator.pop(dialogContext);
-                              },
-                            );
-                          }
-                          final tag = filteredTags[index - 1];
-                          return ListTile(
+                          final tag = filteredTags[index];
+                          final isSelected = tempSelectedTagIds.contains(tag.id);
+                          return CheckboxListTile(
                             title: Text(tag.name),
-                            selected: selectedTagId == tag.id,
-                            onTap: () {
-                              setState(() {
-                                selectedTagId = tag.id;
+                            value: isSelected,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  if (!tempSelectedTagIds.contains(tag.id)) {
+                                    tempSelectedTagIds.add(tag.id);
+                                  }
+                                } else {
+                                  tempSelectedTagIds.remove(tag.id);
+                                }
                               });
-                              Navigator.pop(dialogContext);
                             },
                           );
                         },
@@ -238,8 +233,27 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              tempSelectedTagIds.clear();
+                            });
+                          },
+                          child: Text("清除".tl),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           child: Text("取消".tl),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              selectedTagIds = List.from(tempSelectedTagIds);
+                            });
+                            Navigator.pop(dialogContext);
+                          },
+                          child: Text("确定".tl),
                         ),
                       ],
                     ),
@@ -325,20 +339,32 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              selectedTagId == null
-                                  ? '无'
-                                  : allTags
-                                          .where((tag) => tag.id == selectedTagId)
-                                          .firstOrNull
-                                          ?.name ??
-                                      '无',
-                              style: TextStyle(
-                                color: selectedTagId == null
-                                    ? Colors.grey[600]
-                                    : null,
-                              ),
-                            ),
+                            child: selectedTagIds.isEmpty
+                                ? Text(
+                                    '无',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                    ),
+                                  )
+                                : Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: selectedTagIds.map((tagId) {
+                                      final tag = allTags
+                                          .where((tag) => tag.id == tagId)
+                                          .firstOrNull;
+                                      if (tag == null) return const SizedBox.shrink();
+                                      return Chip(
+                                        label: Text(tag.name),
+                                        onDeleted: () {
+                                          setState(() {
+                                            selectedTagIds.remove(tagId);
+                                          });
+                                        },
+                                        deleteIcon: const Icon(Icons.close, size: 18),
+                                      );
+                                    }).toList(),
+                                  ),
                           ),
                           const Icon(Icons.arrow_drop_down),
                         ],
@@ -364,6 +390,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                         titlePrefix = folderName;
                         scannedComics = [];
                         importResult = '';
+                        selectedTagIds = [];
                       });
                       _titlePrefixController.text = folderName;
                       _scanComics();

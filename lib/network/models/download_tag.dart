@@ -7,6 +7,7 @@ enum TagCategory {
   character(3, '角色', Colors.greenAccent),
   special(5, '特点', Colors.deepPurple),
   manga(4, '漫画', Colors.orangeAccent),
+  date(6, '日期', Colors.brown),
   none(0, '未分类', Colors.grey);
 
   final int value;
