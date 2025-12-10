@@ -255,6 +255,12 @@ class DownloadPageLogic extends StateController {
   /// 当前选中的标签筛选
   int? selectedTagId;
 
+  /// 当前选中的下载类型筛选
+  DownloadType? selectedDownloadType;
+
+  /// 是否排除本地漫画（显示非本地漫画）
+  bool excludeLocal = false;
+
   /// 是否展开标签
   bool expandTags = false;
 
@@ -272,8 +278,8 @@ class DownloadPageLogic extends StateController {
   /// 保存的滚动位置（用于退出搜索/过滤模式时恢复）
   double? _savedScrollPosition;
 
-  /// 是否处于过滤状态（搜索模式或标签筛选）
-  bool get isFiltering => _searchMode || selectedTagId != null;
+  /// 是否处于过滤状态（搜索模式、标签筛选或类型筛选）
+  bool get isFiltering => _searchMode || selectedTagId != null || selectedDownloadType != null || excludeLocal;
 
   /// 保存当前滚动位置
   void _saveScrollPosition() {
@@ -347,12 +353,26 @@ class DownloadPageLogic extends StateController {
   Future<void> updateComics() async {
     comics.clear();
 
-    // 如果有标签筛选，先按标签过滤
+    // 先按下载类型过滤
     List<DownloadedItem> filteredComics = baseComics;
+    if (selectedDownloadType != null) {
+      filteredComics = baseComics
+          .where((e) => e.type == selectedDownloadType)
+          .toList();
+    }
+
+    // 如果排除本地，过滤掉本地漫画
+    if (excludeLocal) {
+      filteredComics = filteredComics
+          .where((e) => e.type != DownloadType.local)
+          .toList();
+    }
+
+    // 如果有标签筛选，再按标签过滤
     if (selectedTagId != null) {
       final comicIds = await downloadManager.getComicIdsByTag(selectedTagId!);
       filteredComics =
-          baseComics.where((e) => comicIds.contains(e.id)).toList();
+          filteredComics.where((e) => comicIds.contains(e.id)).toList();
     }
 
     // 再按关键词过滤
@@ -382,6 +402,58 @@ class DownloadPageLogic extends StateController {
 
     // 进入过滤模式时保存位置
     if (selectedTagId != null && !wasFiltering) {
+      _saveScrollPosition();
+    }
+
+    _showAppBar = true; // 确保AppBar显示以反映状态变化
+    await updateComics();
+    update();
+
+    // 退出过滤模式后恢复位置
+    if (!isFiltering && wasFiltering) {
+      _restoreScrollPosition();
+    }
+  }
+
+  /// 更新下载类型筛选
+  Future<void> updateDownloadTypeFilter(DownloadType? type) async {
+    final wasFiltering = isFiltering;
+
+    if (type == selectedDownloadType) {
+      selectedDownloadType = null;
+    } else {
+      selectedDownloadType = type;
+      // 选择特定类型时，取消排除本地选项
+      excludeLocal = false;
+    }
+
+    // 进入过滤模式时保存位置
+    if (selectedDownloadType != null && !wasFiltering) {
+      _saveScrollPosition();
+    }
+
+    _showAppBar = true; // 确保AppBar显示以反映状态变化
+    await updateComics();
+    update();
+
+    // 退出过滤模式后恢复位置
+    if (!isFiltering && wasFiltering) {
+      _restoreScrollPosition();
+    }
+  }
+
+  /// 更新排除本地筛选
+  Future<void> updateExcludeLocalFilter(bool exclude) async {
+    final wasFiltering = isFiltering;
+
+    excludeLocal = exclude;
+    // 启用排除本地时，取消特定类型选择
+    if (exclude) {
+      selectedDownloadType = null;
+    }
+
+    // 进入过滤模式时保存位置
+    if (excludeLocal && !wasFiltering) {
       _saveScrollPosition();
     }
 
@@ -627,13 +699,17 @@ class DownloadPage extends StatelessWidget {
 
   Widget _buildAppBarContent(BuildContext context, DownloadPageLogic logic) {
     Widget? leading;
-    if (logic.selectedTagId != null || logic.searchMode) {
+    if (logic.selectedTagId != null || logic.searchMode || logic.selectedDownloadType != null || logic.excludeLocal) {
       leading = IconButton(
         onPressed: () {
           if (logic.searchMode) {
             logic.updateSearchMode(false);
           } else if (logic.selectedTagId != null) {
             logic.updateTagFilter(null);
+          } else if (logic.selectedDownloadType != null) {
+            logic.updateDownloadTypeFilter(null);
+          } else if (logic.excludeLocal) {
+            logic.updateExcludeLocalFilter(false);
           }
         },
         icon: const Icon(Icons.close),
@@ -645,6 +721,10 @@ class DownloadPage extends StatelessWidget {
             logic.updateTagFilter(null);
           } else if (logic.searchMode) {
             logic.updateSearchMode(false);
+          } else if (logic.selectedDownloadType != null) {
+            logic.updateDownloadTypeFilter(null);
+          } else if (logic.excludeLocal) {
+            logic.updateExcludeLocalFilter(false);
           } else {
             Navigator.maybePop(context);
           }
@@ -1178,7 +1258,6 @@ class DownloadPage extends StatelessWidget {
 
   Widget buildTitle(BuildContext context, DownloadPageLogic logic) {
     if (logic.searchMode && !logic.selecting) {
-      bool focus = logic.searchMode;
       return TextField(
         decoration:
             InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
@@ -1195,11 +1274,51 @@ class DownloadPage extends StatelessWidget {
           suffix = ' [$tagName]';
         }
       }
+      if (logic.selectedDownloadType != null) {
+        final typeName = _getDownloadTypeName(logic.selectedDownloadType!);
+        if (suffix.isNotEmpty) {
+          suffix = '$suffix / $typeName';
+        } else {
+          suffix = ' [$typeName]';
+        }
+      }
+      if (logic.excludeLocal) {
+        final excludeText = "非本地".tl;
+        if (suffix.isNotEmpty) {
+          suffix = '$suffix / $excludeText';
+        } else {
+          suffix = ' [$excludeText]';
+        }
+      }
       return logic.selecting
           ? Text("已选择 @num 个项目$suffix"
               .tlParams({"num": logic.selectedNum.toString()}))
           : Text(
               '${"已下载".tl}(${logic.baseComics.length}, ${logic.allComicSize})$suffix');
+    }
+  }
+
+  /// 获取下载类型的显示名称
+  String _getDownloadTypeName(DownloadType type) {
+    switch (type) {
+      case DownloadType.picacg:
+        return "哔咔";
+      case DownloadType.ehentai:
+        return "E-Hentai";
+      case DownloadType.jm:
+        return "禁漫";
+      case DownloadType.hitomi:
+        return "Hitomi";
+      case DownloadType.htmanga:
+        return "HTManga";
+      case DownloadType.nhentai:
+        return "nhentai";
+      case DownloadType.other:
+        return "其他";
+      case DownloadType.favorite:
+        return "收藏";
+      case DownloadType.local:
+        return "本地".tl;
     }
   }
 
@@ -1265,6 +1384,18 @@ class DownloadPage extends StatelessWidget {
                 const DownloadingPage(),
               );
             },
+          ),
+        ),
+      if (!logic.selecting)
+        Builder(
+          builder: (buttonContext) => Tooltip(
+            message: "类型筛选".tl,
+            child: IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: () {
+                _showDownloadTypeFilterMenu(buttonContext, logic);
+              },
+            ),
           ),
         )
       else if (logic.selecting)
@@ -1446,6 +1577,82 @@ class DownloadPage extends StatelessWidget {
     if (changed) {
       logic.refresh();
     }
+  }
+
+  void _showDownloadTypeFilterMenu(
+      BuildContext buttonContext, DownloadPageLogic logic) {
+    final RenderBox? renderBox = buttonContext.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
+    final Offset offset = renderBox.localToGlobal(Offset.zero);
+    final Size buttonSize = renderBox.size;
+    final Size screenSize = MediaQuery.of(App.globalContext!).size;
+
+    showMenu<DownloadType?>(
+      context: App.globalContext!,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy + buttonSize.height,
+        screenSize.width - offset.dx - buttonSize.width,
+        screenSize.height - offset.dy - buttonSize.height,
+      ),
+      items: [
+        PopupMenuItem<DownloadType?>(
+          value: null,
+          child: Row(
+            children: [
+              if (logic.selectedDownloadType == null && !logic.excludeLocal)
+                const Icon(Icons.check, size: 20),
+              const SizedBox(width: 8),
+              Text("全部".tl),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              logic.updateDownloadTypeFilter(null);
+              logic.updateExcludeLocalFilter(false);
+            });
+          },
+        ),
+        PopupMenuItem<DownloadType?>(
+          child: Row(
+            children: [
+              if (logic.excludeLocal)
+                const Icon(Icons.check, size: 20),
+              if (!logic.excludeLocal)
+                const SizedBox(width: 28),
+              Text("非本地".tl),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              logic.updateExcludeLocalFilter(!logic.excludeLocal);
+            });
+          },
+        ),
+        const PopupMenuDivider(),
+        ...DownloadType.values.map((type) {
+          final typeName = _getDownloadTypeName(type);
+          return PopupMenuItem<DownloadType?>(
+            value: type,
+            child: Row(
+              children: [
+                if (logic.selectedDownloadType == type)
+                  const Icon(Icons.check, size: 20),
+                if (logic.selectedDownloadType != type)
+                  const SizedBox(width: 28),
+                Text(typeName),
+              ],
+            ),
+            onTap: () {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                logic.updateDownloadTypeFilter(type);
+              });
+            },
+          );
+        }),
+      ],
+    );
   }
 
   void addToLocalFavoriteFolder(BuildContext context, DownloadPageLogic logic) {
