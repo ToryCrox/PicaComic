@@ -133,6 +133,118 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
     }
   }
 
+  /// 显示标签搜索对话框
+  Future<void> _showTagSearchDialog(BuildContext context) async {
+    String searchQuery = '';
+    List<DownloadTag> filteredTags = List.from(allTags);
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              child: Container(
+                width: 400,
+                height: 500,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "选择标签".tl,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    // 搜索框
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: "搜索标签".tl,
+                        hintText: "输入标签名称".tl,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setDialogState(() {
+                                    searchQuery = '';
+                                    filteredTags = List.from(allTags);
+                                  });
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          searchQuery = value;
+                          if (value.isEmpty) {
+                            filteredTags = List.from(allTags);
+                          } else {
+                            filteredTags = allTags
+                                .where((tag) => tag.name
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()))
+                                .toList();
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // 标签列表
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredTags.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            // "无"选项
+                            return ListTile(
+                              title: const Text('无'),
+                              selected: selectedTagId == null,
+                              onTap: () {
+                                setState(() {
+                                  selectedTagId = null;
+                                });
+                                Navigator.pop(dialogContext);
+                              },
+                            );
+                          }
+                          final tag = filteredTags[index - 1];
+                          return ListTile(
+                            title: Text(tag.name),
+                            selected: selectedTagId == tag.id,
+                            onTap: () {
+                              setState(() {
+                                selectedTagId = tag.id;
+                              });
+                              Navigator.pop(dialogContext);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 按钮
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: Text("取消".tl),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -190,26 +302,39 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                 Text("标签（可选）：".tl),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: DropdownButton<int?>(
-                    value: selectedTagId,
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('无'),
+                  child: InkWell(
+                    onTap: () => _showTagSearchDialog(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
                       ),
-                      ...allTags.map((tag) {
-                        return DropdownMenuItem<int?>(
-                          value: tag.id,
-                          child: Text(tag.name),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        selectedTagId = value;
-                      });
-                    },
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedTagId == null
+                                  ? '无'
+                                  : allTags
+                                          .where((tag) => tag.id == selectedTagId)
+                                          .firstOrNull
+                                          ?.name ??
+                                      '无',
+                              style: TextStyle(
+                                color: selectedTagId == null
+                                    ? Colors.grey[600]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
