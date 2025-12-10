@@ -1313,43 +1313,30 @@ class DownloadPage extends StatelessWidget {
     }
   }
 
-  Widget buildFAB(BuildContext context, DownloadPageLogic logic) =>
-      FloatingActionButton(
-        enableFeedback: true,
-        onPressed: () {
-          if (!logic.selecting) {
-            logic.selecting = true;
-            logic.update();
-          } else {
-            if (logic.selectedNum == 0) return;
-            showDialog(
-                context: context,
-                builder: (dialogContext) {
-                  return AlertDialog(
-                    title: Text("删除".tl),
-                    content: Text("要删除已选择的项目吗? 此操作无法撤销".tl),
-                    actions: [
-                      TextButton(
-                          onPressed: () => App.globalBack(),
-                          child: Text("取消".tl)),
-                      TextButton(
-                          onPressed: () async {
-                            App.globalBack();
-                            var comics =
-                                logic.selectedComics.map((e) => e.id).toList();
-                            await downloadManager.delete(comics);
-                            logic.refresh();
-                          },
-                          child: Text("确认".tl)),
-                    ],
-                  );
-                });
-          }
-        },
-        child: logic.selecting
-            ? const Icon(Icons.delete_forever_outlined)
-            : const Icon(Icons.checklist_outlined),
-      );
+  Widget buildFAB(BuildContext context, DownloadPageLogic logic) {
+    // 判断当前是否为倒序（desc），settings[26][1] == "1" 表示升序（asc），否则为降序（desc）
+    final isDescending = appdata.settings[26][1] != "1";
+    
+    return FloatingActionButton(
+      enableFeedback: true,
+      onPressed: () {
+        // 切换正序/倒序
+        if (isDescending) {
+          // 当前是倒序，切换为正序
+          appdata.settings[26] = appdata.settings[26].setValueAt("1", 1);
+        } else {
+          // 当前是正序，切换为倒序
+          appdata.settings[26] = appdata.settings[26].setValueAt("0", 1);
+        }
+        appdata.updateSettings();
+        logic.refresh();
+      },
+      tooltip: isDescending ? "切换为正序".tl : "切换为倒序".tl,
+      child: isDescending
+          ? const Icon(Icons.arrow_downward)
+          : const Icon(Icons.arrow_upward),
+    );
+  }
 
   Widget buildTitle(BuildContext context, DownloadPageLogic logic) {
     if (logic.searchMode && !logic.selecting) {
