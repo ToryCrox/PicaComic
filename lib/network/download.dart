@@ -1182,8 +1182,9 @@ extension AddDownloadExt on DownloadManager {
         // 如果包含至少3张图片，则添加到结果列表
         if (imageCount >= 3) {
           final relativePath = Path.relative(entity.path, from: repositoryPath);
+          // coverImagePath存储相对于漫画目录的路径
           final relativeImagePath = firstImagePath != null
-              ? Path.relative(firstImagePath, from: repositoryPath)
+              ? Path.relative(firstImagePath, from: entity.path)
               : null;
           
           result.add({

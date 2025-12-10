@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 
 /// 存储库信息
@@ -31,21 +30,36 @@ class LocalRepositoryManager {
   factory LocalRepositoryManager() =>
       _instance ??= LocalRepositoryManager._internal();
 
-  LocalRepositoryManager._internal();
+  LocalRepositoryManager._internal() {
+    _loadRepositories();
+  }
 
   static const String _prefsKey = 'local_comic_repositories';
 
-  /// 获取所有存储库
-  Future<List<RepositoryInfo>> getAllRepositories() async {
+  /// 缓存的存储库列表
+  List<RepositoryInfo> _repositories = [];
+
+  /// 加载存储库列表（同步方法）
+  void _loadRepositories() {
     final jsonStr = PrefsHelper.getString(_prefsKey, '[]');
     try {
       final list = jsonDecode(jsonStr) as List;
-      return list
+      _repositories = list
           .map((item) => RepositoryInfo.fromMap(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      return [];
+      _repositories = [];
     }
+  }
+
+  /// 获取所有存储库（同步方法）
+  List<RepositoryInfo> getAllRepositoriesSync() {
+    return List.unmodifiable(_repositories);
+  }
+
+  /// 获取所有存储库（异步方法，保持向后兼容）
+  Future<List<RepositoryInfo>> getAllRepositories() async {
+    return getAllRepositoriesSync();
   }
 
   /// 添加存储库
@@ -56,22 +70,20 @@ class LocalRepositoryManager {
       return false;
     }
 
-    final repositories = await getAllRepositories();
     // 检查名称是否已存在
-    if (repositories.any((r) => r.name == name)) {
+    if (_repositories.any((r) => r.name == name)) {
       return false;
     }
 
-    repositories.add(RepositoryInfo(name: name, path: path));
-    await _saveRepositories(repositories);
+    _repositories.add(RepositoryInfo(name: name, path: path));
+    await _saveRepositories(_repositories);
     return true;
   }
 
   /// 删除存储库
   Future<bool> removeRepository(String name) async {
-    final repositories = await getAllRepositories();
-    repositories.removeWhere((r) => r.name == name);
-    await _saveRepositories(repositories);
+    _repositories.removeWhere((r) => r.name == name);
+    await _saveRepositories(_repositories);
     return true;
   }
 
@@ -87,32 +99,35 @@ class LocalRepositoryManager {
       return false;
     }
 
-    final repositories = await getAllRepositories();
-    final index = repositories.indexWhere((r) => r.name == oldName);
+    final index = _repositories.indexWhere((r) => r.name == oldName);
     if (index == -1) {
       return false;
     }
 
     // 检查新名称是否与其他存储库冲突
     if (oldName != newName &&
-        repositories.any((r) => r.name == newName && r.name != oldName)) {
+        _repositories.any((r) => r.name == newName && r.name != oldName)) {
       return false;
     }
 
-    repositories[index] = RepositoryInfo(name: newName, path: newPath);
-    await _saveRepositories(repositories);
+    _repositories[index] = RepositoryInfo(name: newName, path: newPath);
+    await _saveRepositories(_repositories);
     return true;
   }
 
-  /// 根据名称获取存储库路径
-  Future<String?> getRepositoryPath(String name) async {
-    final repositories = await getAllRepositories();
+  /// 根据名称获取存储库路径（同步方法）
+  String? getRepositoryPathSync(String name) {
     try {
-      final repo = repositories.firstWhere((r) => r.name == name);
+      final repo = _repositories.firstWhere((r) => r.name == name);
       return repo.path;
     } catch (e) {
       return null;
     }
+  }
+
+  /// 根据名称获取存储库路径（异步方法，保持向后兼容）
+  Future<String?> getRepositoryPath(String name) async {
+    return getRepositoryPathSync(name);
   }
 
   /// 保存存储库列表
@@ -120,6 +135,8 @@ class LocalRepositoryManager {
     final maps = repositories.map((r) => r.toMap()).toList();
     final jsonStr = jsonEncode(maps);
     await PrefsHelper.setString(_prefsKey, jsonStr);
+    // 更新缓存
+    _repositories = repositories;
   }
 }
 

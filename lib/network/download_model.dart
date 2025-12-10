@@ -642,17 +642,21 @@ class LocalDownloadedItem extends DownloadedItem {
 
   @override
   String get directoryPath {
-    // 对于本地漫画，directory存储的是相对路径
-    // 完整路径需要通过DownloadManager的getFullDirectory方法获取
+    // 对于本地漫画，directory存储的是相对路径（相对于存储库根目录）
+    // 通过LocalRepositoryManager同步方法获取存储库路径，拼接完整路径
     if (directory.isEmpty) return '';
-    return directory;
+    final repoPath = LocalRepositoryManager().getRepositoryPathSync(repositoryName);
+    if (repoPath == null) return '';
+    return Path.join(repoPath, directory);
   }
 
   @override
   String? get coverPath {
-    // 对于本地漫画，coverImagePath存储的是相对路径
-    // 完整路径需要通过其他方式获取
+    // 对于本地漫画，coverImagePath存储的是相对路径（相对于漫画目录）
+    // 完整路径 = directoryPath + coverImagePath
     if (coverImagePath == null) return null;
-    return coverImagePath;
+    final dirPath = directoryPath;
+    if (dirPath.isEmpty) return null;
+    return Path.join(dirPath, coverImagePath!);
   }
 }
