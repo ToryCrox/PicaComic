@@ -252,8 +252,8 @@ class DownloadPageLogic extends StateController {
 
   String _keyword = "";
 
-  /// 当前选中的标签筛选
-  int? selectedTagId;
+  /// 当前选中的标签筛选（支持多标签，同类别只能选一个）
+  Set<int> selectedTagIds = {};
 
   /// 当前选中的下载类型筛选
   DownloadType? selectedDownloadType;
@@ -279,7 +279,7 @@ class DownloadPageLogic extends StateController {
   double? _savedScrollPosition;
 
   /// 是否处于过滤状态（搜索模式、标签筛选或类型筛选）
-  bool get isFiltering => _searchMode || selectedTagId != null || selectedDownloadType != null || excludeLocal;
+  bool get isFiltering => _searchMode || selectedTagIds.isNotEmpty || selectedDownloadType != null || excludeLocal;
 
   /// 保存当前滚动位置
   void _saveScrollPosition() {
@@ -368,11 +368,23 @@ class DownloadPageLogic extends StateController {
           .toList();
     }
 
-    // 如果有标签筛选，再按标签过滤
-    if (selectedTagId != null) {
-      final comicIds = await downloadManager.getComicIdsByTag(selectedTagId!);
+    // 如果有标签筛选，再按标签过滤（多标签AND关系）
+    if (selectedTagIds.isNotEmpty) {
+      // 获取所有选中标签的漫画ID集合
+      Set<String> commonComicIds = {};
+      bool isFirst = true;
+      for (final tagId in selectedTagIds) {
+        final comicIds = await downloadManager.getComicIdsByTag(tagId);
+        if (isFirst) {
+          commonComicIds = comicIds.toSet();
+          isFirst = false;
+        } else {
+          // 取交集，实现AND关系
+          commonComicIds = commonComicIds.intersection(comicIds.toSet());
+        }
+      }
       filteredComics =
-          filteredComics.where((e) => comicIds.contains(e.id)).toList();
+          filteredComics.where((e) => commonComicIds.contains(e.id)).toList();
     }
 
     // 再按关键词过滤
@@ -391,17 +403,35 @@ class DownloadPageLogic extends StateController {
   }
 
   /// 更新标签筛选
+  /// 同类别只能选一个，不同类别可以多选
   Future<void> updateTagFilter(int? tagId) async {
-    final wasFiltering = isFiltering;
-
-    if (tagId == selectedTagId) {
-      selectedTagId = null;
+    if (tagId == null) {
+      selectedTagIds.clear();
     } else {
-      selectedTagId = tagId;
+      // 获取要选择的标签的类别
+      final tagInfo = _tagInfoMap[tagId];
+      if (tagInfo != null) {
+        final tagCategory = tagInfo.category.value;
+        
+        // 如果已选中该标签，则取消选择
+        if (selectedTagIds.contains(tagId)) {
+          selectedTagIds.remove(tagId);
+        } else {
+          // 移除同类的其他标签
+          selectedTagIds.removeWhere((id) {
+            final existingTag = _tagInfoMap[id];
+            return existingTag != null && existingTag.category.value == tagCategory;
+          });
+          // 添加新标签
+          selectedTagIds.add(tagId);
+        }
+      }
     }
 
+    final wasFiltering = isFiltering;
+
     // 进入过滤模式时保存位置
-    if (selectedTagId != null && !wasFiltering) {
+    if (selectedTagIds.isNotEmpty && !wasFiltering) {
       _saveScrollPosition();
     }
 
@@ -699,12 +729,12 @@ class DownloadPage extends StatelessWidget {
 
   Widget _buildAppBarContent(BuildContext context, DownloadPageLogic logic) {
     Widget? leading;
-    if (logic.selectedTagId != null || logic.searchMode || logic.selectedDownloadType != null || logic.excludeLocal) {
+    if (logic.selectedTagIds.isNotEmpty || logic.searchMode || logic.selectedDownloadType != null || logic.excludeLocal) {
       leading = IconButton(
         onPressed: () {
           if (logic.searchMode) {
             logic.updateSearchMode(false);
-          } else if (logic.selectedTagId != null) {
+          } else if (logic.selectedTagIds.isNotEmpty) {
             logic.updateTagFilter(null);
           } else if (logic.selectedDownloadType != null) {
             logic.updateDownloadTypeFilter(null);
@@ -717,7 +747,7 @@ class DownloadPage extends StatelessWidget {
     } else if (showBack) {
       leading = IconButton(
         onPressed: () {
-          if (logic.selectedTagId != null) {
+          if (logic.selectedTagIds.isNotEmpty) {
             logic.updateTagFilter(null);
           } else if (logic.searchMode) {
             logic.updateSearchMode(false);
@@ -750,22 +780,87 @@ class DownloadPage extends StatelessWidget {
   }
 
   Widget _buildTagFilter(BuildContext context, DownloadPageLogic logic) {
-    var tags = logic.allTags;
-
-    // If selected tag is not in the first 20, move it to the front for display
-    if (logic.selectedTagId != null) {
-      final selectedIndex = tags.indexWhere((t) => t.id == logic.selectedTagId);
-      if (selectedIndex >= 20) {
-        final selectedTag = tags[selectedIndex];
-        tags = [
-          selectedTag,
-          ...tags.sublist(0, 19),
-        ];
-      } else if (tags.length > 20) {
+    // 如果处于过滤状态，显示已筛选漫画的标签，按数量排序
+    List<TagInfo> tags;
+    if (logic.isFiltering && logic.comics.isNotEmpty) {
+      // 统计已筛选漫画中每个标签出现的次数
+      final tagCountMap = <int, int>{};
+      
+      // 创建标签名称到标签ID的映射，提高查找效率
+      final tagNameToIdMap = <String, int>{};
+      for (final tag in logic.allTags) {
+        tagNameToIdMap[tag.name] = tag.id;
+      }
+      
+      for (final comic in logic.comics) {
+        // 获取用户标签（通过标签名称）
+        final comicUserTagNames = logic.comicUserTags[comic.id] ?? [];
+        for (final tagName in comicUserTagNames) {
+          final tagId = tagNameToIdMap[tagName];
+          if (tagId != null) {
+            tagCountMap[tagId] = (tagCountMap[tagId] ?? 0) + 1;
+          }
+        }
+        
+        // 获取原始标签对应的标签ID（通过标签名称匹配）
+        for (final tag in comic.tags) {
+          final tagName = tag.translateTagsToCN;
+          final tagId = tagNameToIdMap[tagName];
+          if (tagId != null) {
+            tagCountMap[tagId] = (tagCountMap[tagId] ?? 0) + 1;
+          }
+        }
+      }
+      
+      // 转换为TagInfo列表并按数量排序
+      tags = tagCountMap.entries
+          .map((e) {
+            final tagInfo = logic.allTags.firstWhereOrNull((t) => t.id == e.key);
+            if (tagInfo != null) {
+              return TagInfo(
+                id: tagInfo.id,
+                name: tagInfo.name,
+                coverPath: tagInfo.coverPath,
+                comicCount: e.value,
+                category: tagInfo.category,
+                sortOrder: tagInfo.sortOrder,
+                categorySortOrder: tagInfo.categorySortOrder,
+              );
+            }
+            return null;
+          })
+          .whereType<TagInfo>()
+          .toList();
+      
+      // 按数量从多到少排序
+      tags.sort((a, b) => b.comicCount.compareTo(a.comicCount));
+      
+      // 限制显示数量
+      if (tags.length > 20) {
         tags = tags.sublist(0, 20);
       }
-    } else if (tags.length > 20) {
-      tags = tags.sublist(0, 20);
+    } else {
+      // 未过滤时，显示所有标签
+      tags = List.from(logic.allTags);
+      
+      // 如果有选中的标签，将它们移到前面
+      if (logic.selectedTagIds.isNotEmpty) {
+        final selectedTags = <TagInfo>[];
+        final unselectedTags = <TagInfo>[];
+        for (final tag in tags) {
+          if (logic.selectedTagIds.contains(tag.id)) {
+            selectedTags.add(tag);
+          } else {
+            unselectedTags.add(tag);
+          }
+        }
+        tags = [...selectedTags, ...unselectedTags];
+      }
+      
+      // 限制显示数量
+      if (tags.length > 20) {
+        tags = tags.sublist(0, 20);
+      }
     }
 
     return Material(
@@ -792,13 +887,13 @@ class DownloadPage extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: logic.selectedTagId == tag.id
+                              color: logic.selectedTagIds.contains(tag.id)
                                   ? Theme.of(context).colorScheme.primary
                                   : TagCategory.fromValue(tag.category)
                                       .color
                                       .withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
-                              border: logic.selectedTagId == tag.id
+                              border: logic.selectedTagIds.contains(tag.id)
                                   ? null
                                   : Border.all(
                                       color: TagCategory.fromValue(tag.category)
@@ -810,7 +905,7 @@ class DownloadPage extends StatelessWidget {
                               tag.name,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: logic.selectedTagId == tag.id
+                                color: logic.selectedTagIds.contains(tag.id)
                                     ? Theme.of(context).colorScheme.onPrimary
                                     : Theme.of(context).colorScheme.onSurface,
                               ),
@@ -832,7 +927,7 @@ class DownloadPage extends StatelessWidget {
                   backgroundColor: Colors.transparent,
                   builder: (context) => DownloadTagFilterPanel(
                     tags: logic.allTags,
-                    selectedTagId: logic.selectedTagId,
+                    selectedTagId: logic.selectedTagIds.isNotEmpty ? logic.selectedTagIds.first : null,
                     onTagSelected: (id) {
                       logic.updateTagFilter(id);
                       Navigator.pop(context);
@@ -1268,10 +1363,13 @@ class DownloadPage extends StatelessWidget {
       );
     } else {
       String suffix = '';
-      if (logic.selectedTagId != null) {
-        final tagName = logic.getTagName(logic.selectedTagId ?? 0);
-        if (tagName.isNotEmpty) {
-          suffix = ' [$tagName]';
+      if (logic.selectedTagIds.isNotEmpty) {
+        final tagNames = logic.selectedTagIds
+            .map((id) => logic.getTagName(id))
+            .where((name) => name.isNotEmpty)
+            .join(', ');
+        if (tagNames.isNotEmpty) {
+          suffix = ' [$tagNames]';
         }
       }
       if (logic.selectedDownloadType != null) {

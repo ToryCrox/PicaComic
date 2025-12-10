@@ -232,6 +232,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
   }
 
   Widget _buildTagItem(TagInfo tag) {
+    // 支持多标签选择，但这里只显示单个选中状态（用于兼容）
     final isSelected = widget.selectedTagId == tag.id;
     return Card(
       key: ValueKey(tag.id.toString()),
