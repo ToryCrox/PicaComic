@@ -1227,20 +1227,34 @@ extension AddDownloadExt on DownloadManager {
       // 扫描漫画目录
       final comicDirs = await scanComicDirectories(draggedFolderPath, repositoryPath);
 
-      // 获取所有已存在的目录路径（用于去重）
-      final allDownloads = await _db.getAllDownloads();
-      final existingDirectories = allDownloads
-          .map((e) => e[kDownloadDirectory] as String?)
-          .where((d) => d != null && d.isNotEmpty)
-          .toSet();
-
       // 导入每个漫画目录
       for (var comicDir in comicDirs) {
         try {
           final relativePath = comicDir['relativePath'] as String;
           
-          // 检查是否已存在
-          if (existingDirectories.contains(relativePath)) {
+          // 通过相对路径查询数据库，检查是否已存在（只查询相同相对路径的记录）
+          final existingRecords = await _db.getDownloadsByDirectory(relativePath);
+          
+          // 检查是否有相同相对路径和存储库名称的记录
+          bool isDuplicate = false;
+          for (var record in existingRecords) {
+            try {
+              final jsonStr = record[kDownloadJson] as String;
+              final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+              // 只检查本地漫画（ID以LC开头）且存储库名称匹配的记录
+              final recordId = record[kDownloadId] as String;
+              if (recordId.startsWith('LC') && 
+                  json['repositoryName'] == repositoryName) {
+                isDuplicate = true;
+                break;
+              }
+            } catch (e) {
+              // 忽略解析失败的记录
+              continue;
+            }
+          }
+          
+          if (isDuplicate) {
             failCount++;
             errors.add('${comicDir['name']}: 已存在');
             continue;

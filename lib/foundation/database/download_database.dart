@@ -335,6 +335,17 @@ class DownloadDatabase {
     return result.isEmpty ? null : result.first[kDownloadDirectory] as String?;
   }
 
+  /// 根据目录路径查询下载项（只返回 id 和 json，用于去重检查）
+  Future<List<Map<String, Object?>>> getDownloadsByDirectory(String directory) async {
+    final db = await _getDatabase();
+    return await db.query(
+      kTableDownload,
+      columns: [kDownloadId, kDownloadJson],
+      where: '$kDownloadDirectory = ?',
+      whereArgs: [directory],
+    );
+  }
+
   /// 添加或更新本地漫画项
   Future<void> addLocalComic({
     required String path,
