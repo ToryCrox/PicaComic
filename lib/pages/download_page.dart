@@ -33,6 +33,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/pdf.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -164,10 +165,13 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.local) {
+      final history = await DownloadManager().getLocalHistory(comic.directoryPath);
+      final initIndex = history.optInt('pageIndex', 1);
       App.globalTo(
         () => ComicReadingPage.localComic(
           comic.directoryPath,
           comic.name,
+          initialPage: initIndex,
         ),
       );
       // 本地漫画使用LocalThumbsPage阅读
@@ -823,7 +827,7 @@ class DownloadPage extends StatelessWidget {
     } else {
       name = '${comic.name}';
     }
-    
+
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Container(
@@ -912,16 +916,17 @@ class DownloadPage extends StatelessWidget {
           _goLocalComicPage(comic);
         },
       ),
-      DesktopMenuEntry(
-        text: "删除".tl,
-        onClick: () {
-          showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
-            final comic = logic.comics[index];
-            downloadManager.delete([comic.id]);
-            logic.removeComic(comic);
-          });
-        },
-      ),
+      if (comic.type != DownloadType.local)
+        DesktopMenuEntry(
+          text: "删除".tl,
+          onClick: () {
+            showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
+              final comic = logic.comics[index];
+              downloadManager.delete([comic.id]);
+              logic.removeComic(comic);
+            });
+          },
+        ),
       DesktopMenuEntry(
         text: "删除(不包括文件)".tl,
         onClick: () {

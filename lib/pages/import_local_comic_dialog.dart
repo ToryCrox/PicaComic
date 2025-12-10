@@ -387,12 +387,12 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                       children: [
                         Icon(
                           Icons.folder_open,
-                          size: 48,
+                          size: 30,
                           color: draggedFolderPath != null
                               ? Theme.of(context).colorScheme.primary
                               : Colors.grey,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 3),
                         SelectableText(
                           draggedFolderPath != null
                               ? Path.basename(draggedFolderPath!)
@@ -400,7 +400,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         if (draggedFolderPath != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 0),
                           SelectableText(
                             draggedFolderPath!,
                             style: Theme.of(context).textTheme.bodySmall,
