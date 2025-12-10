@@ -164,20 +164,26 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.local) {
+      App.globalTo(
+        () => ComicReadingPage.localComic(
+          comic.directoryPath,
+          comic.name,
+        ),
+      );
       // 本地漫画使用LocalThumbsPage阅读
-      final fullPath = await downloadManager.getFullDirectory(comic.id);
-      if (fullPath.isNotEmpty) {
-        App.globalTo(() => LocalThumbsPage(
-              dirPath: fullPath,
-              onItemTap: (index, filePath) async {
-                if (index <= 0) {
-                  comic.read();
-                  return;
-                }
-                comic.read(initialPage: index);
-              },
-            ));
-      }
+      // final fullPath = await downloadManager.getFullDirectory(comic.id);
+      // if (fullPath.isNotEmpty) {
+      //   App.globalTo(() => LocalThumbsPage(
+      //         dirPath: fullPath,
+      //         onItemTap: (index, filePath) async {
+      //           if (index <= 0) {
+      //             comic.read();
+      //             return;
+      //           }
+      //           comic.read(initialPage: index);
+      //         },
+      //       ));
+      // }
     }
   }
 }
@@ -812,8 +818,10 @@ class DownloadPage extends StatelessWidget {
     }
     if (maxPage.isNotEmpty && maxPage != '0') {
       name = '(${maxPage}P)[${comic.id}]${comic.name}';
+    } else if (comic.type == DownloadType.local) {
+      name = '${comic.name}';
     } else {
-      name = '[${comic.id}]${comic.name}';
+      name = '${comic.name}';
     }
     
     return Padding(
