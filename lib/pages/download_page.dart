@@ -25,6 +25,8 @@ import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/tag_management_page.dart';
+import 'package:pica_comic/pages/import_local_comic_dialog.dart';
+import 'package:pica_comic/pages/local_repository_management_page.dart';
 import 'package:pica_comic/pages/rename_download_dialog.dart';
 import 'package:pica_comic/pages/update_size_dialog.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -161,6 +163,21 @@ extension ReadComic on DownloadedItem {
           ep ?? history.ep,
         ),
       );
+    } else if (comic.type == DownloadType.local) {
+      // 本地漫画使用LocalThumbsPage阅读
+      final fullPath = await downloadManager.getFullDirectory(comic.id);
+      if (fullPath.isNotEmpty) {
+        App.globalTo(() => LocalThumbsPage(
+              dirPath: fullPath,
+              onItemTap: (index, filePath) async {
+                if (index <= 0) {
+                  comic.read();
+                  return;
+                }
+                comic.read(initialPage: index);
+              },
+            ));
+      }
     }
   }
 }
@@ -783,6 +800,8 @@ class DownloadPage extends StatelessWidget {
     var type = logic.comics[index].type.name;
     if (item.type == DownloadType.other) {
       type = (item as CustomDownloadedItem).sourceName;
+    } else if (item.type == DownloadType.local) {
+      type = "本地".tl;
     }
     final comic = logic.comics[index];
 
@@ -796,6 +815,84 @@ class DownloadPage extends StatelessWidget {
     } else {
       name = '[${comic.id}]${comic.name}';
     }
+    
+    // 对于本地漫画，需要异步获取完整封面路径
+    if (item.type == DownloadType.local) {
+      return FutureBuilder<String?>(
+        future: downloadManager.getLocalComicCoverPath(item.id),
+        builder: (context, snapshot) {
+          final coverPath = snapshot.data ?? item.coverPath ?? '';
+          return Padding(
+            padding: const EdgeInsets.all(2),
+            child: Container(
+              decoration: BoxDecoration(
+                color: selected
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                    : Colors.transparent,
+                borderRadius: const BorderRadius.all(
+                  Radius.circular(16),
+                ),
+              ),
+              child: DownloadedComicTile(
+                id: item.id,
+                name: name,
+                author: item.subTitle,
+                imagePath: File(coverPath),
+                type: type,
+                primaryTags: logic.getUserTags(item),
+                tag: logic.getRawTags(item),
+                onTagTap: (tag) => logic.updateKeyword(tag),
+                onTagSecondaryTap: (tag, details) =>
+                    _showTagMenu(context, logic, tag, item, false, details),
+                onPrimaryTagSecondaryTap: (tag, details) =>
+                    _showTagMenu(context, logic, tag, item, true, details),
+                onPrimaryTagTap: (tag) async {
+                  // find tag id by name
+                  final tagId = logic.allTags
+                      .firstWhereOrNull((element) => element.name == tag)
+                      ?.id;
+                  if (tagId != null) {
+                    logic.updateTagFilter(tagId);
+                  }
+                },
+                onTap: () async {
+                  if (logic.selecting) {
+                    if (logic.selected.contains(comic.id)) {
+                      logic.selected.remove(comic.id);
+                    } else {
+                      logic.selected.add(comic.id);
+                    }
+                    if (logic.selectedNum == 0) {
+                      logic.selecting = false;
+                    }
+                    logic.update();
+                  } else {
+                    showInfo(index, logic, context);
+                  }
+                },
+                size: () {
+                  if (logic.comics[index].comicSize != null) {
+                    return logic.comics[index].comicSize!.toStringAsFixed(2);
+                  } else {
+                    return "未知大小".tl;
+                  }
+                }.call(),
+                onLongTap: () {
+                  if (logic.selecting) return;
+                  logic.selected.add(item.id);
+                  logic.selecting = true;
+                  logic.update();
+                },
+                onSecondaryTap: (details) async {
+                  _onTileSecondaryTap(context, details, index, logic);
+                },
+              ),
+            ),
+          );
+        },
+      );
+    }
+    
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Container(
@@ -952,7 +1049,7 @@ class DownloadPage extends StatelessWidget {
         text: "复制路径".tl,
         onClick: () async {
           Future.delayed(const Duration(milliseconds: 300), () async {
-            var path = comic.directoryPath;
+            var path = await downloadManager.getFullDirectory(comic.id);
             Clipboard.setData(ClipboardData(text: path));
           });
         },
@@ -960,7 +1057,7 @@ class DownloadPage extends StatelessWidget {
       DesktopMenuEntry(
         text: "打开文件".tl,
         onClick: () async {
-          var path = comic.directoryPath;
+          var path = await downloadManager.getFullDirectory(comic.id);
           OpenFile.open(path);
         },
       ),
@@ -1045,8 +1142,8 @@ class DownloadPage extends StatelessWidget {
     ]);
   }
 
-  void _goLocalComicPage(DownloadedItem comic) {
-    var dirPath = comic.directoryPath;
+  void _goLocalComicPage(DownloadedItem comic) async {
+    var dirPath = await downloadManager.getFullDirectory(comic.id);
     App.globalTo(() => LocalThumbsPage(
           dirPath: dirPath,
           onItemTap: (index, filePath) async {
@@ -1183,6 +1280,31 @@ class DownloadPage extends StatelessWidget {
                 // 应用标签筛选
                 logic.updateTagFilter(tagId);
               }
+            },
+          ),
+        ),
+      if (!logic.selecting)
+        Tooltip(
+          message: "导入本地漫画".tl,
+          child: IconButton(
+            icon: const Icon(Icons.folder_open),
+            onPressed: () async {
+              await showDialog(
+                context: context,
+                builder: (context) => const ImportLocalComicDialog(),
+              );
+              // 刷新列表
+              logic.refresh();
+            },
+          ),
+        ),
+      if (!logic.selecting)
+        Tooltip(
+          message: "存储库管理".tl,
+          child: IconButton(
+            icon: const Icon(Icons.storage),
+            onPressed: () {
+              App.globalTo(() => const LocalRepositoryManagementPage());
             },
           ),
         ),
@@ -1468,6 +1590,8 @@ class DownloadPage extends StatelessWidget {
                                 }(),
                               DownloadType.favorite =>
                                 throw UnimplementedError(),
+                              DownloadType.local =>
+                                throw UnimplementedError('本地漫画不支持添加到收藏'),
                             });
                       }
 
@@ -1721,6 +1845,9 @@ void _toComicInfoPage(DownloadedItem comic) {
     context.to(() => NhentaiComicPage(comic.id.replaceFirst("nhentai", "")));
   } else if (comic is CustomDownloadedItem) {
     context.to(() => ComicPage(sourceKey: comic.sourceKey, id: comic.comicId));
+  } else if (comic.type == DownloadType.local) {
+    // 本地漫画不支持查看详情页面，可以显示提示
+    showToast(message: "本地漫画不支持查看详情".tl);
   }
 }
 

@@ -31,6 +31,9 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
 import 'package:synchronized/synchronized.dart';
+import 'package:pica_comic/foundation/local_repository_manager.dart';
+import 'package:pica_comic/tools/image_utils.dart';
+import 'dart:math';
 
 import '../comic_source/comic_source.dart';
 import '../components/components.dart';
@@ -735,7 +738,11 @@ extension AddDownloadExt on DownloadManager {
   }) {
     DownloadedItem comic;
     try {
-      if (id.contains('-')) {
+      if (id.startsWith("LC")) {
+        // 本地导入的漫画
+        final jsonMap = jsonDecode(json) as Map<String, dynamic>;
+        comic = LocalDownloadedItem.fromJson(jsonMap);
+      } else if (id.contains('-')) {
         comic = CustomDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.startsWith("jm")) {
         comic = DownloadedJmComic.fromMap(jsonDecode(json));
@@ -895,7 +902,7 @@ extension AddDownloadExt on DownloadManager {
       // 在实际使用中，需要重构调用此方法的地方改为异步
       throw UnimplementedError('Use getDirectoryAsync() instead');
     }
-    return directory ?? '';
+    return directory;
   }
 
   Future<String> getDirectoryName(String id) {
@@ -918,10 +925,34 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<String> getFullDirectory(String id) async {
+    // 如果是本地漫画，需要从存储库获取路径
+    if (id.startsWith('LC')) {
+      final item = await getDownloadedItemById(id);
+      if (item is LocalDownloadedItem) {
+        final repoPath = await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
+        if (repoPath != null && item.directory.isNotEmpty) {
+          return Path.join(repoPath, item.directory);
+        }
+      }
+      return '';
+    }
     return getDirectoryName(id).then((e) {
       if (e.isEmpty) return '';
       return Path.join(path ?? '', e);
     });
+  }
+
+  /// 获取本地漫画的完整封面路径
+  Future<String?> getLocalComicCoverPath(String id) async {
+    if (!id.startsWith('LC')) return null;
+    final item = await getDownloadedItemById(id);
+    if (item is LocalDownloadedItem) {
+      final repoPath = await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
+      if (repoPath != null && item.coverImagePath != null) {
+        return Path.join(repoPath, item.coverImagePath!);
+      }
+    }
+    return null;
   }
 
   /// 添加一个本地的漫画
@@ -1091,6 +1122,184 @@ extension AddDownloadExt on DownloadManager {
   String generateDirectoryName(DownloadedItem item) {
     String sanitizedTitle = sanitizeFileName(item.name);
     return '[${item.type.name}][${item.id}]$sanitizedTitle';
+  }
+
+  /// 生成唯一的本地漫画ID（带冲突检测）
+  Future<String> _generateUniqueLocalId(String repositoryName) async {
+    final random = Random();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    String id;
+    bool exists;
+    int attempts = 0;
+    const maxAttempts = 100;
+
+    do {
+      final suffix = List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
+      id = 'LC$repositoryName$suffix';
+      exists = await _db.isDownloadExists(id);
+      attempts++;
+      if (attempts >= maxAttempts) {
+        throw Exception('Failed to generate unique ID after $maxAttempts attempts');
+      }
+    } while (exists);
+
+    return id;
+  }
+
+  /// 扫描漫画目录（只扫描直接子目录）
+  Future<List<Map<String, dynamic>>> scanComicDirectories(
+    String parentPath,
+    String repositoryPath,
+  ) async {
+    final result = <Map<String, dynamic>>[];
+    final parentDir = Directory(parentPath);
+    
+    if (!await parentDir.exists()) {
+      return result;
+    }
+
+    // 只扫描直接子目录
+    await for (var entity in parentDir.list()) {
+      if (entity is Directory) {
+        // 递归扫描该子目录下的所有文件，查找图片
+        int imageCount = 0;
+        String? firstImagePath;
+        
+        try {
+          await for (var file in entity.list(recursive: true)) {
+            if (file is File && predictImageFile(file)) {
+              imageCount++;
+              if (firstImagePath == null) {
+                firstImagePath = file.path;
+              }
+            }
+          }
+        } catch (e) {
+          // 忽略无法访问的目录
+          continue;
+        }
+
+        // 如果包含至少3张图片，则添加到结果列表
+        if (imageCount >= 3) {
+          final relativePath = Path.relative(entity.path, from: repositoryPath);
+          final relativeImagePath = firstImagePath != null
+              ? Path.relative(firstImagePath, from: repositoryPath)
+              : null;
+          
+          result.add({
+            'path': entity.path,
+            'name': Path.basename(entity.path),
+            'relativePath': relativePath,
+            'imageCount': imageCount,
+            'coverImagePath': relativeImagePath,
+          });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /// 导入本地漫画
+  Future<Map<String, dynamic>> importLocalComics({
+    required String draggedFolderPath,
+    required String repositoryName,
+    String? titlePrefix,
+    int? tagId,
+  }) async {
+    var successCount = 0;
+    var failCount = 0;
+    final errors = <String>[];
+
+    try {
+      // 获取存储库路径
+      final repositoryPath = await LocalRepositoryManager().getRepositoryPath(repositoryName);
+      if (repositoryPath == null) {
+        return {
+          'success': false,
+          'message': '存储库不存在: $repositoryName',
+          'successCount': 0,
+          'failCount': 0,
+        };
+      }
+
+      // 扫描漫画目录
+      final comicDirs = await scanComicDirectories(draggedFolderPath, repositoryPath);
+
+      // 获取所有已存在的目录路径（用于去重）
+      final allDownloads = await _db.getAllDownloads();
+      final existingDirectories = allDownloads
+          .map((e) => e[kDownloadDirectory] as String?)
+          .where((d) => d != null && d.isNotEmpty)
+          .toSet();
+
+      // 导入每个漫画目录
+      for (var comicDir in comicDirs) {
+        try {
+          final relativePath = comicDir['relativePath'] as String;
+          
+          // 检查是否已存在
+          if (existingDirectories.contains(relativePath)) {
+            failCount++;
+            errors.add('${comicDir['name']}: 已存在');
+            continue;
+          }
+
+          // 生成唯一ID
+          final id = await _generateUniqueLocalId(repositoryName);
+
+          // 计算目录大小
+          final dir = Directory(comicDir['path'] as String);
+          final size = await dir.getMBSize();
+
+          // 创建LocalDownloadedItem
+          final name = titlePrefix != null && titlePrefix.isNotEmpty
+              ? '$titlePrefix${comicDir['name']}'
+              : comicDir['name'] as String;
+
+          final item = LocalDownloadedItem(
+            comicSize: size,
+            downloadedEps: [],
+            id: id,
+            name: name,
+            subTitle: '',
+            tags: [],
+            repositoryName: repositoryName,
+            coverImagePath: comicDir['coverImagePath'] as String?,
+          );
+
+          // 保存到数据库
+          await _addToDb(item, relativePath);
+
+          // 如果选择了标签，关联标签
+          if (tagId != null) {
+            await addTagToComic(id, tagId);
+          }
+
+          successCount++;
+        } catch (e, s) {
+          failCount++;
+          errors.add('${comicDir['name']}: $e');
+          Log.e('导入漫画失败: $e', stackTrace: s);
+        }
+      }
+
+      return {
+        'success': true,
+        'successCount': successCount,
+        'failCount': failCount,
+        'errors': errors,
+      };
+    } catch (e, s) {
+      Log.e('导入本地漫画失败: $e', stackTrace: s);
+      return {
+        'success': false,
+        'message': '导入失败: $e',
+        'successCount': successCount,
+        'failCount': failCount,
+        'errors': errors,
+      };
+    }
   }
 
   /// 重命名漫画目录

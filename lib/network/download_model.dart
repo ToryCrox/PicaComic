@@ -17,6 +17,7 @@ import 'package:pica_comic/tools/image_utils.dart';
 import '../base.dart';
 import 'app_dio.dart';
 import 'download.dart';
+import '../foundation/local_repository_manager.dart';
 
 abstract class DownloadedItem {
   ///漫画源
@@ -74,7 +75,8 @@ enum DownloadType {
   htmanga,
   nhentai,
   other,
-  favorite;
+  favorite,
+  local;
 
   ComicType toComicType() => switch (this) {
         picacg => ComicType.picacg,
@@ -85,6 +87,7 @@ enum DownloadType {
         nhentai => ComicType.nhentai,
         other => ComicType.other,
         favorite => ComicType.other,
+        local => ComicType.other,
       };
 }
 
@@ -569,5 +572,87 @@ abstract mixin class _TransferSpeedMixin {
   void stopRecorder() {
     timer?.cancel();
     timer = null;
+  }
+}
+
+/// 本地导入的漫画项
+class LocalDownloadedItem extends DownloadedItem {
+  @override
+  double? comicSize;
+
+  @override
+  final List<int> downloadedEps;
+
+  @override
+  List<String> get eps => [];
+
+  @override
+  final String id;
+
+  @override
+  final String name;
+
+  @override
+  final String subTitle;
+
+  @override
+  final List<String> tags;
+
+  @override
+  DownloadType get type => DownloadType.local;
+
+  /// 存储库名称（存储在JSON中）
+  final String repositoryName;
+
+  /// 封面图片的相对路径（存储在JSON中，相对于存储库根目录）
+  final String? coverImagePath;
+
+  LocalDownloadedItem({
+    required this.comicSize,
+    required this.downloadedEps,
+    required this.id,
+    required this.name,
+    required this.subTitle,
+    required this.tags,
+    required this.repositoryName,
+    this.coverImagePath,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        "comicSize": comicSize,
+        "downloadedEps": downloadedEps,
+        "id": id,
+        "name": name,
+        "subTitle": subTitle,
+        "tags": tags,
+        "repositoryName": repositoryName,
+        "coverImagePath": coverImagePath,
+      };
+
+  LocalDownloadedItem.fromJson(Map<String, dynamic> json)
+      : comicSize = json["comicSize"],
+        downloadedEps = List<int>.from(json["downloadedEps"] ?? []),
+        id = json["id"],
+        name = json["name"],
+        subTitle = json["subTitle"] ?? "",
+        tags = List<String>.from(json["tags"] ?? []),
+        repositoryName = json["repositoryName"],
+        coverImagePath = json["coverImagePath"];
+
+  @override
+  String get directoryPath {
+    // 对于本地漫画，directory存储的是相对路径
+    // 完整路径需要通过DownloadManager的getFullDirectory方法获取
+    if (directory.isEmpty) return '';
+    return directory;
+  }
+
+  @override
+  String? get coverPath {
+    // 对于本地漫画，coverImagePath存储的是相对路径
+    // 完整路径需要通过其他方式获取
+    if (coverImagePath == null) return null;
+    return coverImagePath;
   }
 }
