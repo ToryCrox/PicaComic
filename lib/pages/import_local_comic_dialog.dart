@@ -453,7 +453,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                         titlePrefix = folderName;
                         scannedComics = [];
                         importResult = '';
-                        selectedTagIds = [];
+                        //selectedTagIds = [];
                       });
                       _titlePrefixController.text = folderName;
                       _scanComics();

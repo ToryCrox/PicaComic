@@ -1270,7 +1270,7 @@ extension AddDownloadExt on DownloadManager {
 
           // 创建LocalDownloadedItem
           final name = titlePrefix != null && titlePrefix.isNotEmpty
-              ? '$titlePrefix${comicDir['name']}'
+              ? '$titlePrefix ${comicDir['name']}'
               : comicDir['name'] as String;
 
           final item = LocalDownloadedItem(

@@ -99,7 +99,7 @@ Future<void> init() async {
     CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
     
     // 启动日志查看器（仅在桌面平台）
-    await LogViewerIntegration.init();
+    //await LogViewerIntegration.init();
   } catch (e, s) {
     Log.e("Init App initialization failed!\n$e$s");
   }
