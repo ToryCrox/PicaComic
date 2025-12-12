@@ -7,6 +7,7 @@ import 'package:pica_comic/pages/webview.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../comic_source/built_in/ehentai.dart';
 import '../../foundation/app.dart';
 import '../../network/eh_network/eh_main_network.dart';
 
@@ -305,15 +306,86 @@ class _EhLoginPageState extends State<EhLoginPage> {
     EhNetwork().getUserName().then((b) async {
       if(!mounted)  return;
       if (b) {
-        context.pop();
-        showToast(message: "登录成功".tl);
-      } else {
-        await EhNetwork().cookieJar.deleteUri(Uri.parse('https://e-hentai.org'));
-        await EhNetwork().cookieJar.deleteUri(Uri.parse('https://exhentai.org'));
-        showToast(message: "登录失败".tl);
         setState(() {
           logging = false;
         });
+        context.pop();
+        showToast(message: "登录成功".tl);
+      } else {
+        setState(() {
+          logging = false;
+        });
+        // 显示确认对话框，询问是否强制覆盖cookie并输入用户名
+        final username = await showDialog<String>(
+          context: context,
+          builder: (context) {
+            final usernameController = TextEditingController();
+            return StatefulBuilder(
+              builder: (context, setDialogState) {
+                return AlertDialog(
+                  title: Text("登录失败".tl),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("登录失败，是否强制覆盖cookie并手动输入用户名？".tl),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: usernameController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          labelText: "用户名".tl,
+                          hintText: "请输入用户名".tl,
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: (value) {
+                          setDialogState(() {});
+                        },
+                        onSubmitted: (value) {
+                          if (value.trim().isNotEmpty) {
+                            Navigator.of(context).pop(value.trim());
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(null);
+                      },
+                      child: Text("取消".tl),
+                    ),
+                    TextButton(
+                      onPressed: usernameController.text.trim().isNotEmpty
+                          ? () {
+                              Navigator.of(context).pop(usernameController.text.trim());
+                            }
+                          : null,
+                      child: Text("确认".tl),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+        
+        if (username != null && username.isNotEmpty && mounted) {
+          // 保存用户名并视为登录成功
+          ehentai.data['name'] = username;
+          ehentai.data['account'] = 'ok';
+          await ehentai.saveData();
+          
+          if (mounted) {
+            context.pop();
+            showToast(message: "登录成功".tl);
+          }
+        } else {
+          // 用户取消或未输入，删除cookie
+          await EhNetwork().cookieJar.deleteUri(Uri.parse('https://e-hentai.org'));
+          await EhNetwork().cookieJar.deleteUri(Uri.parse('https://exhentai.org'));
+        }
       }
     });
   }
