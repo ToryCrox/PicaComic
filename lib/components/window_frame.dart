@@ -19,7 +19,7 @@ import '../pages/local/local_comic_page.dart';
 import '../tools/prefs_helper.dart';
 import 'components.dart';
 
-const _kTitleBarHeight = 36.0;
+const _kTitleBarHeight = 32.0;
 
 class WindowFrameController extends StateController {
   bool useDarkTheme = false;
@@ -128,7 +128,7 @@ class WindowFrame extends StatelessWidget {
       if(App.isLinux) {
         return VirtualWindowFrame(child: body);
       } else {
-        return body;
+        return Scaffold(body: body);
       }
     });
   }

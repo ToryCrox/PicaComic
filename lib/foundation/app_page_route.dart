@@ -138,6 +138,20 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
       );
     }
 
+    // 在Windows平台使用默认的MaterialPageRoute转场动画
+    if (App.isWindows) {
+      final theme = Theme.of(context);
+      final pageTransitionsTheme = theme.pageTransitionsTheme;
+      final route = this as PageRoute<T>;
+      return pageTransitionsTheme.buildTransitions<T>(
+        route,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+
     return SlidePageTransitionBuilder().buildTransitions(
         this,
         context,
