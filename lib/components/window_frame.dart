@@ -233,8 +233,8 @@ class __SideBarState extends State<_SideBar>
                 ),
               )),
               Positioned(
-                left: !App.isMacOS ? (1 - _controller.value) * (-300) : null,
-                right: App.isMacOS ? (_controller.value - 1) * 300 : null,
+                left: !App.isMacOS ? (1 - _controller.value) * (-250) : null,
+                right: App.isMacOS ? (_controller.value - 1) * 250 : null,
                 top: 0,
                 bottom: 0,
                 child: Material(
@@ -246,7 +246,7 @@ class __SideBarState extends State<_SideBar>
                     bottomRight: Radius.circular(8),
                   ),
                   child: SizedBox(
-                    width: 300,
+                    width: 250,
                     height: double.infinity,
                     child: const SingleChildScrollView(
                       child: _SideBarBody(),
