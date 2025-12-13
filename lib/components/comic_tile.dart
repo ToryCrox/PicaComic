@@ -8,34 +8,6 @@ class ComicTileMenuOption {
   const ComicTileMenuOption(this.title, this.icon, this.onTap);
 }
 
-/// 根据 sourceKey 和 comicID 生成正确的 downloadId
-String _generateDownloadId(String? sourceKey, String? comicID) {
-  if (sourceKey == null || comicID == null || comicID.isEmpty) return '';
-  
-  switch (sourceKey) {
-    case 'picacg':
-      return comicID;
-    case 'ehentai':
-      // ehentai 的 comicID 是完整的链接，需要从中提取 gallery ID
-      // 参考 eh_gallery_page.dart 中的 downloadedId 实现
-      return getGalleryId(comicID);
-    case 'jm':
-      return 'jm$comicID';
-    case 'hitomi':
-      // 从链接中提取数字ID
-      final match = RegExp(r'\d+(?=\.html)').firstMatch(comicID);
-      if (match != null) {
-        return 'hitomi${match.group(0)}';
-      }
-      return comicID;
-    case 'htmanga':
-      return 'Ht$comicID';
-    case 'nhentai':
-      return '$comicID';
-    default:
-      return DownloadManager().generateId(sourceKey, comicID);
-  }
-}
 
 abstract class ComicTile extends StatelessWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
@@ -173,7 +145,7 @@ abstract class ComicTile extends StatelessWidget {
                         title: Text("打开下载目录".tl),
                         onTap: () async {
                           context.pop();
-                          final downloadId = _generateDownloadId(sourceKey, comicID);
+                          final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
                           if (downloadId.isEmpty) {
                             showToast(message: "无法生成下载ID".tl);
                             return;
@@ -294,7 +266,7 @@ abstract class ComicTile extends StatelessWidget {
     }
     return FutureBuilder<bool>(
       future: DownloadManager().isExists(
-          _generateDownloadId(sourceKey, comicID)),
+          DownloadManager().getDownloadIdFromComicId(sourceKey, comicID)),
       builder: (context, snapshot) {
         if (snapshot.data != true) {
           return const SizedBox.shrink();
@@ -306,7 +278,7 @@ abstract class ComicTile extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () async {
-                final downloadId = _generateDownloadId(sourceKey, comicID);
+                final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
                 if (downloadId.isEmpty) {
                   showToast(message: "无法生成下载ID".tl);
                   return;
@@ -378,7 +350,7 @@ abstract class ComicTile extends StatelessWidget {
         DesktopMenuEntry(
           text: "打开下载目录".tl,
           onClick: () async {
-            final downloadId = _generateDownloadId(sourceKey, comicID);
+            final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
             if (downloadId.isEmpty) {
               showToast(message: "无法生成下载ID".tl);
               return;

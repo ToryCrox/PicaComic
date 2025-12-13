@@ -269,6 +269,40 @@ class DownloadManager implements Listenable {
     return id;
   }
 
+  /// 根据漫画源和漫画ID获取下载ID
+  /// 
+  /// 下载ID的生成规则：
+  /// - 对于哔咔和eh，直接使用其提供的漫画id
+  /// - 禁漫开头加jm，hitomi开头加hitomi
+  /// - 其他源使用 generateId 方法生成
+  String getDownloadIdFromComicId(String? sourceKey, String? comicID) {
+    if (sourceKey == null || comicID == null || comicID.isEmpty) return '';
+    
+    switch (sourceKey) {
+      case 'picacg':
+        return comicID;
+      case 'ehentai':
+        // ehentai 的 comicID 是完整的链接，需要从中提取 gallery ID
+        // 参考 eh_gallery_page.dart 中的 downloadedId 实现
+        return getGalleryId(comicID);
+      case 'jm':
+        return 'jm$comicID';
+      case 'hitomi':
+        // 从链接中提取数字ID
+        final match = RegExp(r'\d+(?=\.html)').firstMatch(comicID);
+        if (match != null) {
+          return 'hitomi${match.group(0)}';
+        }
+        return comicID;
+      case 'htmanga':
+        return 'Ht$comicID';
+      case 'nhentai':
+        return '$comicID';
+      default:
+        return generateId(sourceKey, comicID);
+    }
+  }
+
   ///当一个下载任务完成时, 调用此函数
   void _onFinish() async {
     var task = downloading.removeFirst();
