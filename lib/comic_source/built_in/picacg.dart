@@ -292,6 +292,9 @@ class _PicComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
+  String? get sourceKey => 'picacg';
+
+  @override
   final List<ComicTileMenuOption>? addonMenuOptions;
 }
 

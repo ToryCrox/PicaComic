@@ -8,6 +8,35 @@ class ComicTileMenuOption {
   const ComicTileMenuOption(this.title, this.icon, this.onTap);
 }
 
+/// 根据 sourceKey 和 comicID 生成正确的 downloadId
+String _generateDownloadId(String? sourceKey, String? comicID) {
+  if (sourceKey == null || comicID == null || comicID.isEmpty) return '';
+  
+  switch (sourceKey) {
+    case 'picacg':
+      return comicID;
+    case 'ehentai':
+      // ehentai 的 comicID 是完整的链接，需要从中提取 gallery ID
+      // 参考 eh_gallery_page.dart 中的 downloadedId 实现
+      return getGalleryId(comicID);
+    case 'jm':
+      return 'jm$comicID';
+    case 'hitomi':
+      // 从链接中提取数字ID
+      final match = RegExp(r'\d+(?=\.html)').firstMatch(comicID);
+      if (match != null) {
+        return 'hitomi${match.group(0)}';
+      }
+      return comicID;
+    case 'htmanga':
+      return 'Ht$comicID';
+    case 'nhentai':
+      return '$comicID';
+    default:
+      return DownloadManager().generateId(sourceKey, comicID);
+  }
+}
+
 abstract class ComicTile extends StatelessWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
@@ -56,6 +85,9 @@ abstract class ComicTile extends StatelessWidget {
 
   /// Comic ID, used to identify a comic.
   String? get comicID => null;
+
+  /// Source key, used to generate download ID.
+  String? get sourceKey => null;
 
   bool get showFavorite => true;
 
@@ -135,6 +167,32 @@ abstract class ComicTile extends StatelessWidget {
                         showBlockPane();
                       },
                     ),
+                    if (comicID != null && sourceKey != null)
+                      ListTile(
+                        leading: const Icon(Icons.folder_open),
+                        title: Text("打开下载目录".tl),
+                        onTap: () async {
+                          context.pop();
+                          final downloadId = _generateDownloadId(sourceKey, comicID);
+                          if (downloadId.isEmpty) {
+                            showToast(message: "无法生成下载ID".tl);
+                            return;
+                          }
+                          final isDownloaded = await DownloadManager()
+                              .isExists(downloadId);
+                          if (isDownloaded) {
+                            final path = await DownloadManager()
+                                .getFullDirectory(downloadId);
+                            if (path.isNotEmpty) {
+                              OpenFile.open(path);
+                            } else {
+                              showToast(message: "目录不存在".tl);
+                            }
+                          } else {
+                            showToast(message: "未下载".tl);
+                          }
+                        },
+                      ),
                     if (addonMenuOptions != null)
                       for (var option in addonMenuOptions!)
                         ListTile(
@@ -216,6 +274,72 @@ abstract class ComicTile extends StatelessWidget {
 
   void onTap_();
 
+  /// 构建带下载图标的 widget
+  Widget _buildWithDownloadIcon(Widget child, bool detailedMode) {
+    if (comicID == null || sourceKey == null) {
+      return child;
+    }
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        _buildDownloadIcon(detailedMode),
+      ],
+    );
+  }
+
+  /// 构建下载图标按钮
+  Widget _buildDownloadIcon(bool detailedMode) {
+    if (comicID == null || sourceKey == null) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<bool>(
+      future: DownloadManager().isExists(
+          _generateDownloadId(sourceKey, comicID)),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) {
+          return const SizedBox.shrink();
+        }
+        return Positioned(
+          right: detailedMode ? 16 : 6,
+          top: 8,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
+                final downloadId = _generateDownloadId(sourceKey, comicID);
+                if (downloadId.isEmpty) {
+                  showToast(message: "无法生成下载ID".tl);
+                  return;
+                }
+                final path = await DownloadManager()
+                    .getFullDirectory(downloadId);
+                if (path.isNotEmpty) {
+                  OpenFile.open(path);
+                } else {
+                  showToast(message: "目录不存在".tl);
+                }
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.folder_open,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void onSecondaryTap_(TapDownDetails details) {
     showDesktopMenu(App.globalContext!,
         Offset(details.globalPosition.dx, details.globalPosition.dy), [
@@ -250,6 +374,29 @@ abstract class ComicTile extends StatelessWidget {
         text: "屏蔽".tl,
         onClick: () => Future.microtask(showBlockPane),
       ),
+      if (comicID != null && sourceKey != null)
+        DesktopMenuEntry(
+          text: "打开下载目录".tl,
+          onClick: () async {
+            final downloadId = _generateDownloadId(sourceKey, comicID);
+            if (downloadId.isEmpty) {
+              showToast(message: "无法生成下载ID".tl);
+              return;
+            }
+            final isDownloaded = await DownloadManager().isExists(downloadId);
+            if (isDownloaded) {
+              final path = await DownloadManager()
+                  .getFullDirectory(downloadId);
+              if (path.isNotEmpty) {
+                OpenFile.open(path);
+              } else {
+                showToast(message: "目录不存在".tl);
+              }
+            } else {
+              showToast(message: "未下载".tl);
+            }
+          },
+        ),
       if (addonMenuOptions != null)
         for (var option in addonMenuOptions!)
           DesktopMenuEntry(
@@ -280,7 +427,7 @@ abstract class ComicTile extends StatelessWidget {
         : false;
 
     if (!isFavorite && appdata.settings[73] != '1') {
-      return child;
+      return _buildWithDownloadIcon(child, detailedMode);
     }
 
     return FutureBuilder<History?>(
@@ -292,7 +439,7 @@ abstract class ComicTile extends StatelessWidget {
           }
 
           if (!isFavorite && history == null) {
-            return child;
+            return _buildWithDownloadIcon(child, detailedMode);
           }
 
           return Stack(
@@ -336,7 +483,9 @@ abstract class ComicTile extends StatelessWidget {
                     ],
                   ),
                 ),
-              )
+              ),
+              // 打开下载目录图标
+              _buildDownloadIcon(detailedMode),
             ],
           );
         });
@@ -730,8 +879,8 @@ class NormalComicTile extends ComicTile {
       this.badgeName,
       this.headers,
       this.tags,
-      this.sourceKey,
-      super.key});
+      sourceKey,
+      super.key}) : _sourceKey = sourceKey;
 
   final String description_;
   final String coverPath;
@@ -741,7 +890,7 @@ class NormalComicTile extends ComicTile {
   final void Function()? onLongTap;
   final String? badgeName;
   final Map<String, String>? headers;
-  final String? sourceKey;
+  final String? _sourceKey;
 
   @override
   final List<String>? tags;
@@ -760,7 +909,7 @@ class NormalComicTile extends ComicTile {
         image: CachedImageProvider(
           coverPath,
           headers: headers,
-          sourceKey: sourceKey,
+          sourceKey: _sourceKey,
         ),
         fit: BoxFit.cover,
         width: double.infinity,
@@ -775,6 +924,9 @@ class NormalComicTile extends ComicTile {
 
   @override
   String get title => name;
+
+  @override
+  String? get sourceKey => _sourceKey;
 }
 
 class ComicTilePlaceholder extends StatelessWidget {
@@ -956,6 +1108,9 @@ class CustomComicTile extends ComicTile {
 
   @override
   String? get comicID => comic.id;
+
+  @override
+  String? get sourceKey => comic.sourceKey;
 
   @override
   get read => () async {

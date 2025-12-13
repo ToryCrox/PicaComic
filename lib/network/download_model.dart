@@ -32,7 +32,7 @@ abstract class DownloadedItem {
   ///已下载的章节
   List<int> get downloadedEps;
 
-  ///标识符
+  ///标识符, 对于哔咔和eh, 直接使用其提供的漫画id, 禁漫开头加jm, hitomi开头加hitomi
   String get id;
 
   ///副标题, 通常为作者

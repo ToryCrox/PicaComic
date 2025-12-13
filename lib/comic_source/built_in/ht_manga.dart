@@ -279,5 +279,8 @@ class _HtComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
+  String? get sourceKey => 'htmanga';
+
+  @override
   final List<ComicTileMenuOption>? addonMenuOptions;
 }
