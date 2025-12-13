@@ -27,3 +27,4 @@ class ApiProtocol {
   static const String eventTypeError = 'error';
 }
 
+

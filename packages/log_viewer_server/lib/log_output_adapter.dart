@@ -15,3 +15,4 @@ class LogOutputAdapter extends LogOutput {
   }
 }
 
+
