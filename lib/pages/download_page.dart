@@ -1048,7 +1048,12 @@ class DownloadPage extends StatelessWidget {
               }
               logic.update();
             } else {
-              showInfo(index, logic, context);
+              // 如果是本地漫画，直接打开阅读页
+              if (comic.type == DownloadType.local) {
+                comic.read();
+              } else {
+                showInfo(index, logic, context);
+              }
             }
           },
           size: () {
