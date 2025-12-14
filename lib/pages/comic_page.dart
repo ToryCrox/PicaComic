@@ -32,6 +32,7 @@ import 'image_favorites.dart';
 import 'show_image_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
+import 'package:open_file/open_file.dart';
 import 'dart:math' as math;
 
 class ComicPage extends StatelessWidget {
@@ -1235,6 +1236,47 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     );
   }
 
+  Widget _buildOpenFolderButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      child: InkWell(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        onTap: () async {
+          final folderPath = await downloadManager.getFullDirectory(downloadedId);
+          if (folderPath.isNotEmpty) {
+            OpenFile.open(folderPath);
+          } else {
+            showToast(message: "无法获取文件夹路径".tl);
+          }
+        },
+        child: Card(
+          margin: EdgeInsets.zero,
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.folder_open,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer),
+                const SizedBox(width: 4),
+                Text("打开文件夹",
+                    style: TextStyle(
+                        fontSize: 13,
+                        color:
+                            Theme.of(context).colorScheme.onSecondaryContainer)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAddTagButton(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
@@ -1535,6 +1577,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             buildInfoCard("本地标签", context, title: true),
             for (var tag in logic.localTags)
               buildLocalTagCard(tag.name, context),
+            _buildOpenFolderButton(context),
             _buildAddTagButton(context),
           ],
         ),
