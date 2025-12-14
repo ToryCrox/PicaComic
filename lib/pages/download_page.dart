@@ -165,7 +165,8 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.local) {
-      final history = await DownloadManager().getLocalHistory(comic.directoryPath);
+      final history =
+          await DownloadManager().getLocalHistory(comic.directoryPath);
       final initIndex = history.optInt('pageIndex', 1);
       App.globalTo(
         () => ComicReadingPage.localComic(
@@ -279,7 +280,11 @@ class DownloadPageLogic extends StateController {
   double? _savedScrollPosition;
 
   /// 是否处于过滤状态（搜索模式、标签筛选或类型筛选）
-  bool get isFiltering => _searchMode || selectedTagIds.isNotEmpty || selectedDownloadType != null || excludeLocal;
+  bool get isFiltering =>
+      _searchMode ||
+      selectedTagIds.isNotEmpty ||
+      selectedDownloadType != null ||
+      excludeLocal;
 
   /// 保存当前滚动位置
   void _saveScrollPosition() {
@@ -356,16 +361,14 @@ class DownloadPageLogic extends StateController {
     // 先按下载类型过滤
     List<DownloadedItem> filteredComics = baseComics;
     if (selectedDownloadType != null) {
-      filteredComics = baseComics
-          .where((e) => e.type == selectedDownloadType)
-          .toList();
+      filteredComics =
+          baseComics.where((e) => e.type == selectedDownloadType).toList();
     }
 
     // 如果排除本地，过滤掉本地漫画
     if (excludeLocal) {
-      filteredComics = filteredComics
-          .where((e) => e.type != DownloadType.local)
-          .toList();
+      filteredComics =
+          filteredComics.where((e) => e.type != DownloadType.local).toList();
     }
 
     // 如果有标签筛选，再按标签过滤（多标签AND关系）
@@ -412,7 +415,7 @@ class DownloadPageLogic extends StateController {
       final tagInfo = _tagInfoMap[tagId];
       if (tagInfo != null) {
         final tagCategory = tagInfo.category.value;
-        
+
         // 如果已选中该标签，则取消选择
         if (selectedTagIds.contains(tagId)) {
           selectedTagIds.remove(tagId);
@@ -420,7 +423,8 @@ class DownloadPageLogic extends StateController {
           // 移除同类的其他标签
           selectedTagIds.removeWhere((id) {
             final existingTag = _tagInfoMap[id];
-            return existingTag != null && existingTag.category.value == tagCategory;
+            return existingTag != null &&
+                existingTag.category.value == tagCategory;
           });
           // 添加新标签
           selectedTagIds.add(tagId);
@@ -729,7 +733,10 @@ class DownloadPage extends StatelessWidget {
 
   Widget _buildAppBarContent(BuildContext context, DownloadPageLogic logic) {
     Widget? leading;
-    if (logic.selectedTagIds.isNotEmpty || logic.searchMode || logic.selectedDownloadType != null || logic.excludeLocal) {
+    if (logic.selectedTagIds.isNotEmpty ||
+        logic.searchMode ||
+        logic.selectedDownloadType != null ||
+        logic.excludeLocal) {
       leading = IconButton(
         onPressed: () {
           if (logic.searchMode) {
@@ -785,13 +792,13 @@ class DownloadPage extends StatelessWidget {
     if (logic.isFiltering && logic.comics.isNotEmpty) {
       // 统计已筛选漫画中每个标签出现的次数
       final tagCountMap = <int, int>{};
-      
+
       // 创建标签名称到标签ID的映射，提高查找效率
       final tagNameToIdMap = <String, int>{};
       for (final tag in logic.allTags) {
         tagNameToIdMap[tag.name] = tag.id;
       }
-      
+
       for (final comic in logic.comics) {
         // 获取用户标签（通过标签名称）
         final comicUserTagNames = logic.comicUserTags[comic.id] ?? [];
@@ -801,7 +808,7 @@ class DownloadPage extends StatelessWidget {
             tagCountMap[tagId] = (tagCountMap[tagId] ?? 0) + 1;
           }
         }
-        
+
         // 获取原始标签对应的标签ID（通过标签名称匹配）
         for (final tag in comic.tags) {
           final tagName = tag.translateTagsToCN;
@@ -811,11 +818,12 @@ class DownloadPage extends StatelessWidget {
           }
         }
       }
-      
+
       // 转换为TagInfo列表并按数量排序
       tags = tagCountMap.entries
           .map((e) {
-            final tagInfo = logic.allTags.firstWhereOrNull((t) => t.id == e.key);
+            final tagInfo =
+                logic.allTags.firstWhereOrNull((t) => t.id == e.key);
             if (tagInfo != null) {
               return TagInfo(
                 id: tagInfo.id,
@@ -831,10 +839,10 @@ class DownloadPage extends StatelessWidget {
           })
           .whereType<TagInfo>()
           .toList();
-      
+
       // 按数量从多到少排序
       tags.sort((a, b) => b.comicCount.compareTo(a.comicCount));
-      
+
       // 限制显示数量
       if (tags.length > 20) {
         tags = tags.sublist(0, 20);
@@ -842,7 +850,7 @@ class DownloadPage extends StatelessWidget {
     } else {
       // 未过滤时，显示所有标签
       tags = List.from(logic.allTags);
-      
+
       // 如果有选中的标签，将它们移到前面
       if (logic.selectedTagIds.isNotEmpty) {
         final selectedTags = <TagInfo>[];
@@ -856,7 +864,7 @@ class DownloadPage extends StatelessWidget {
         }
         tags = [...selectedTags, ...unselectedTags];
       }
-      
+
       // 限制显示数量
       if (tags.length > 20) {
         tags = tags.sublist(0, 20);
@@ -927,7 +935,9 @@ class DownloadPage extends StatelessWidget {
                   backgroundColor: Colors.transparent,
                   builder: (context) => DownloadTagFilterPanel(
                     tags: logic.allTags,
-                    selectedTagId: logic.selectedTagIds.isNotEmpty ? logic.selectedTagIds.first : null,
+                    selectedTagId: logic.selectedTagIds.isNotEmpty
+                        ? logic.selectedTagIds.first
+                        : null,
                     onTagSelected: (id) {
                       logic.updateTagFilter(id);
                       Navigator.pop(context);
@@ -1052,7 +1062,8 @@ class DownloadPage extends StatelessWidget {
               if (comic.type == DownloadType.local) {
                 comic.read();
               } else {
-                showInfo(index, logic, context);
+                // 非本地漫画直接进入详情页
+                toComicInfoPage(comic);
               }
             }
           },
@@ -1096,6 +1107,16 @@ class DownloadPage extends StatelessWidget {
           _goLocalComicPage(comic);
         },
       ),
+      // 当漫画有多个ep时显示该选项
+      if (comic.downloadedEps.length > 1)
+        DesktopMenuEntry(
+          text: "显示信息".tl,
+          onClick: () async {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              showInfo(index, logic, context);
+            });
+          },
+        ),
       if (comic.type != DownloadType.local)
         DesktopMenuEntry(
           text: "删除".tl,
@@ -1321,7 +1342,7 @@ class DownloadPage extends StatelessWidget {
   Widget buildFAB(BuildContext context, DownloadPageLogic logic) {
     // 判断当前是否为倒序（desc），settings[26][1] == "1" 表示升序（asc），否则为降序（desc）
     final isDescending = appdata.settings[26][1] != "1";
-    
+
     return FloatingActionButton(
       enableFeedback: true,
       onPressed: () {
@@ -1673,7 +1694,7 @@ class DownloadPage extends StatelessWidget {
       BuildContext buttonContext, DownloadPageLogic logic) {
     final RenderBox? renderBox = buttonContext.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final Offset offset = renderBox.localToGlobal(Offset.zero);
     final Size buttonSize = renderBox.size;
     final Size screenSize = MediaQuery.of(App.globalContext!).size;
@@ -1707,10 +1728,8 @@ class DownloadPage extends StatelessWidget {
         PopupMenuItem<DownloadType?>(
           child: Row(
             children: [
-              if (logic.excludeLocal)
-                const Icon(Icons.check, size: 20),
-              if (!logic.excludeLocal)
-                const SizedBox(width: 28),
+              if (logic.excludeLocal) const Icon(Icons.check, size: 20),
+              if (!logic.excludeLocal) const SizedBox(width: 28),
               Text("非本地".tl),
             ],
           ),
