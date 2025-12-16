@@ -1,15 +1,11 @@
 part of pica_reader;
 
 extension ScrollExtension on ScrollController {
-  static double? futurePosition;
-
+  /// 鼠标滚轮滚动时直接跳转到目标位置，不使用动画，使滚动更跟手
   void smoothTo(double value) {
-    futurePosition ??= position.pixels;
-    futurePosition = futurePosition! + value * 1.2;
-    futurePosition = futurePosition!
+    final targetPosition = (position.pixels + value)
         .clamp(position.minScrollExtent, position.maxScrollExtent);
-    animateTo(futurePosition!,
-        duration: const Duration(milliseconds: 200), curve: Curves.linear);
+    jumpTo(targetPosition);
   }
 }
 
@@ -27,7 +23,6 @@ extension ImageExt on ComicReadingPage {
   Widget buildComicView(
       ComicReadingPageLogic logic, BuildContext context, String target,
       {bool isShowSelectImage = false}) {
-    ScrollExtension.futurePosition = null;
     Widget buildType4() {
       return ScrollablePositionedList.builder(
         itemScrollController: logic.itemScrollController,

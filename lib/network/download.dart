@@ -270,14 +270,14 @@ class DownloadManager implements Listenable {
   }
 
   /// 根据漫画源和漫画ID获取下载ID
-  /// 
+  ///
   /// 下载ID的生成规则：
   /// - 对于哔咔和eh，直接使用其提供的漫画id
   /// - 禁漫开头加jm，hitomi开头加hitomi
   /// - 其他源使用 generateId 方法生成
   String getDownloadIdFromComicId(String? sourceKey, String? comicID) {
     if (sourceKey == null || comicID == null || comicID.isEmpty) return '';
-    
+
     switch (sourceKey) {
       case 'picacg':
         return comicID;
@@ -459,7 +459,8 @@ class DownloadManager implements Listenable {
   Future<double> updateComicSize(DownloadedItem comic) async {
     try {
       // 获取漫画目录的完整路径
-      final dirPath = Path.join(path ?? '', comic.directory);
+      // 使用 comic.directoryPath 以支持本地漫画（其路径基于存储库，而非下载目录）
+      final dirPath = comic.directoryPath;
 
       // 异步计算目录大小（不阻塞主线程）
       final size = await Directory(dirPath).getMBSize();
@@ -963,7 +964,8 @@ extension AddDownloadExt on DownloadManager {
     if (id.startsWith('LC')) {
       final item = await getDownloadedItemById(id);
       if (item is LocalDownloadedItem) {
-        final repoPath = await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
+        final repoPath = await LocalRepositoryManager()
+            .getRepositoryPath(item.repositoryName);
         if (repoPath != null && item.directory.isNotEmpty) {
           return Path.join(repoPath, item.directory);
         }
@@ -981,7 +983,8 @@ extension AddDownloadExt on DownloadManager {
     if (!id.startsWith('LC')) return null;
     final item = await getDownloadedItemById(id);
     if (item is LocalDownloadedItem) {
-      final repoPath = await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
+      final repoPath =
+          await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
       if (repoPath != null && item.coverImagePath != null) {
         return Path.join(repoPath, item.coverImagePath!);
       }
@@ -1168,12 +1171,14 @@ extension AddDownloadExt on DownloadManager {
     const maxAttempts = 100;
 
     do {
-      final suffix = List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
+      final suffix =
+          List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
       id = 'LC$repositoryName$suffix';
       exists = await _db.isDownloadExists(id);
       attempts++;
       if (attempts >= maxAttempts) {
-        throw Exception('Failed to generate unique ID after $maxAttempts attempts');
+        throw Exception(
+            'Failed to generate unique ID after $maxAttempts attempts');
       }
     } while (exists);
 
@@ -1187,7 +1192,7 @@ extension AddDownloadExt on DownloadManager {
   ) async {
     final result = <Map<String, dynamic>>[];
     final parentDir = Directory(parentPath);
-    
+
     if (!await parentDir.exists()) {
       return result;
     }
@@ -1198,7 +1203,7 @@ extension AddDownloadExt on DownloadManager {
         // 递归扫描该子目录下的所有文件，查找图片
         int imageCount = 0;
         String? firstImagePath;
-        
+
         try {
           await for (var file in entity.list(recursive: true)) {
             if (file is File && predictImageFile(file)) {
@@ -1220,7 +1225,7 @@ extension AddDownloadExt on DownloadManager {
           final relativeImagePath = firstImagePath != null
               ? Path.relative(firstImagePath, from: entity.path)
               : null;
-          
+
           result.add({
             'path': entity.path,
             'name': Path.basename(entity.path),
@@ -1249,7 +1254,8 @@ extension AddDownloadExt on DownloadManager {
 
     try {
       // 获取存储库路径
-      final repositoryPath = await LocalRepositoryManager().getRepositoryPath(repositoryName);
+      final repositoryPath =
+          await LocalRepositoryManager().getRepositoryPath(repositoryName);
       if (repositoryPath == null) {
         return {
           'success': false,
@@ -1260,16 +1266,18 @@ extension AddDownloadExt on DownloadManager {
       }
 
       // 如果提供了已扫描的漫画目录列表，直接使用；否则进行扫描
-      final finalComicDirs = comicDirs ?? await scanComicDirectories(draggedFolderPath, repositoryPath);
+      final finalComicDirs = comicDirs ??
+          await scanComicDirectories(draggedFolderPath, repositoryPath);
 
       // 导入每个漫画目录
       for (var comicDir in finalComicDirs) {
         try {
           final relativePath = comicDir['relativePath'] as String;
-          
+
           // 通过相对路径查询数据库，检查是否已存在（只查询相同相对路径的记录）
-          final existingRecords = await _db.getDownloadsByDirectory(relativePath);
-          
+          final existingRecords =
+              await _db.getDownloadsByDirectory(relativePath);
+
           // 检查是否有相同相对路径和存储库名称的记录
           bool isDuplicate = false;
           for (var record in existingRecords) {
@@ -1278,7 +1286,7 @@ extension AddDownloadExt on DownloadManager {
               final json = jsonDecode(jsonStr) as Map<String, dynamic>;
               // 只检查本地漫画（ID以LC开头）且存储库名称匹配的记录
               final recordId = record[kDownloadId] as String;
-              if (recordId.startsWith('LC') && 
+              if (recordId.startsWith('LC') &&
                   json['repositoryName'] == repositoryName) {
                 isDuplicate = true;
                 break;
@@ -1288,7 +1296,7 @@ extension AddDownloadExt on DownloadManager {
               continue;
             }
           }
-          
+
           if (isDuplicate) {
             failCount++;
             errors.add('${comicDir['name']}: 已存在');
