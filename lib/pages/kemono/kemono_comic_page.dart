@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -14,10 +13,12 @@ import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
+import 'package:pica_comic/tools/prefs_helper.dart';
 
 
 class KemonoComicPage extends BaseComicPage<KemonoPost> {
@@ -256,7 +257,13 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
         "附件".tl, 
         Icons.attach_file, 
         () => _showDownloadAttachmentsDialog(context, nonImageAttachments)
-      )
+      ),
+      buildActionItem(
+        context, 
+        "原网页".tl, 
+        Icons.open_in_browser, 
+        () => launchUrlString("https://kemono.cr/${data!.service}/user/${data!.userId}/post/${data!.id}", mode: LaunchMode.externalApplication)
+      ),
     ];
   }
 
@@ -287,7 +294,6 @@ class _DownloadAttachmentsDialog extends StatefulWidget {
   State<_DownloadAttachmentsDialog> createState() => _DownloadAttachmentsDialogState();
 }
 
-String? _lastAttachmentDownloadPath;
 
 class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> {
   late List<bool> selected;
@@ -300,7 +306,12 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
   void initState() {
     super.initState();
     selected = List.generate(widget.files.length, (index) => true);
-    downloadPath = _lastAttachmentDownloadPath;
+    var path = PrefsHelper.getString("kemono_download_path");
+    if (path.isNotEmpty) {
+      downloadPath = path;
+    } else {
+      downloadPath = null;
+    }
   }
 
   Future<void> _changeDirectory() async {
@@ -309,7 +320,7 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
       setState(() {
         downloadPath = path;
       });
-      _lastAttachmentDownloadPath = path;
+      PrefsHelper.setString("kemono_download_path", path);
     }
   }
 
