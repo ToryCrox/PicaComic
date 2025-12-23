@@ -47,5 +47,6 @@ const builtInSources = [
   "jm",
   "hitomi",
   "htmanga",
-  "nhentai"
+  "nhentai",
+  "kemono"
 ];

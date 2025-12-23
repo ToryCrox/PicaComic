@@ -21,6 +21,7 @@ import 'built_in/ehentai.dart';
 import 'built_in/hitomi.dart';
 import 'built_in/ht_manga.dart';
 import 'built_in/jm.dart';
+import 'built_in/kemono.dart';
 import 'built_in/nhentai.dart';
 import 'built_in/picacg.dart';
 
@@ -54,7 +55,7 @@ typedef GetThumbnailLoadingConfigFunc = Map<String, dynamic> Function(
     String imageKey)?;
 
 class ComicSource {
-  static final builtIn = [picacg, ehentai, jm, hitomi, htManga, nhentai];
+  static final builtIn = [picacg, ehentai, jm, hitomi, htManga, nhentai, kemono];
 
   static List<ComicSource> sources = [];
 

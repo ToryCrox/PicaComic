@@ -111,7 +111,7 @@ class Appdata {
     "6", //79 下载并行
     "1", //80 启动时检查自定义漫画源的更新
     "0", //81 使用深色背景
-    "111111", //82 内置漫画源启用状态,
+    "1111111", //82 内置漫画源启用状态,
     "1", //83 完全隐藏屏蔽的作品
     "0", //84 纯黑色模式
     "www.cdntwice.org,www.cdnsha.org,www.cdnaspa.cc,www.cdnntr.cc", //85 jm api domains
@@ -345,6 +345,10 @@ class _Settings {
     if (index == -1) {
       throw "Not Found";
     }
+    // 处理旧版本设置字符串长度不足的情况,新增的漫画源默认启用
+    if (index >= appdata.settings[82].length) {
+      return true;
+    }
     return appdata.settings[82][index] == '1';
   }
 
@@ -352,6 +356,10 @@ class _Settings {
     var index = builtInSources.indexOf(key);
     if (index == -1) {
       throw "Not Found";
+    }
+    // 如果设置字符串长度不足,先扩展到足够的长度
+    while (appdata.settings[82].length <= index) {
+      appdata.settings[82] += '1'; // 默认启用
     }
     appdata.settings[82] =
         appdata.settings[82].setValueAt(enabled ? '1' : '0', index);
