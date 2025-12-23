@@ -18,6 +18,8 @@ import 'package:pica_comic/tools/image_utils.dart';
 import '../../base.dart';
 import '../app_dio.dart';
 import 'download_manager.dart';
+import 'image_download_queue.dart';
+import 'download_error_handler.dart';
 import '../../foundation/local_repository_manager.dart';
 
 abstract class DownloadedItem {
@@ -129,15 +131,32 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// headers for downloading cover
   Map<String, String> get headers => {};
 
+  /// 图片下载队列（新的队列系统）
+  ImageDownloadQueue? _imageQueue;
+
+  /// 错误处理器
+  final DownloadErrorHandler _errorHandler = DownloadErrorHandler();
+
+  /// 已下载的图片数量
+  int get downloadedPages => _imageQueue?.completedCount ?? 0;
+
+  /// 失败的图片数量
+  int get failedPages => _imageQueue?.failedCount ?? 0;
+
+  // 为了向后兼容，保留这些旧的字段
+  @Deprecated('Use _imageQueue instead')
   int _downloadedNum = 0;
 
+  @Deprecated('Use _imageQueue instead')
   int _downloadingEp = 0;
 
   /// index of downloading episode
   ///
   /// Attention, this is used for array indexing, so it starts with 0
+  @Deprecated('Use _imageQueue instead')
   int get downloadingEp => _downloadingEp;
 
+  @Deprecated('Use _imageQueue instead')
   int index = 0;
 
   /// all image urls
@@ -200,47 +219,83 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     }
   }
 
+  // 为了向后兼容保留旧的 _downloading Map，但不再使用
+  @Deprecated('Use _imageQueue instead')
   final _downloading = <String, _ImageDownloadWrapper>{};
 
-  void _addDownloading(String link, int ep, int index) {
-    var downloadTo = '';
-    var basename = '';
-    if (haveEps) {
-      downloadTo = "$path/$ep";
-      basename = index.toString();
-    } else {
-      downloadTo = path;
-      basename = index.toString();
+  /// 初始化图片下载队列
+  void _initializeImageQueue() {
+    if (links == null || links!.isEmpty) {
+      Log.w('DownloadingTask: Cannot initialize image queue without links');
+      return;
     }
-    if (_downloading["$ep$index"] == null ||
-        _downloading["$ep$index"]!.error != null) {
-      _downloading["$ep$index"] = _ImageDownloadWrapper(
-        () => downloadImage(link),
-        downloadTo,
-        basename,
-        onData,
-        () {
-          updateInfo?.call();
-          _scheduleTasks(ep, this.index);
-        },
-      );
+
+    // 创建图片下载队列
+    _imageQueue = ImageDownloadQueue(
+      maxConcurrentDownloads: allowedLoadingNumber,
+      downloadFunction: _downloadImageWrapper,
+      onProgressUpdate: (downloaded, total) {
+        // 更新下载进度
+        updateInfo?.call();
+        runRecorder(); // 确保速度统计正常运行
+        
+        // 更新通知
+        notifications.sendProgressNotification(
+          downloaded,
+          total,
+          "下载中".tl,
+          "${downloadManager.downloading.length} Tasks",
+        );
+      },
+      onAllCompleted: () {
+        Log.i('DownloadingTask: All images downloaded for $id');
+      },
+      onFailed: (failedItems) {
+        Log.e('DownloadingTask: ${failedItems.length} images failed for $id');
+      },
+    );
+
+    // 将所有图片添加到队列
+    for (var ep in links!.keys) {
+      var urls = links![ep]!;
+      for (var i = 0; i < urls.length; i++) {
+        var downloadTo = haveEps ? "$path/$ep" : path;
+        var basename = i.toString();
+        
+        var item = ImageDownloadQueueItem(
+          url: urls[i],
+          episodeIndex: ep,
+          imageIndex: i,
+          savePath: downloadTo,
+          fileBaseName: basename,
+        );
+        
+        _imageQueue!.addImage(item);
+      }
     }
   }
 
-  void _scheduleTasks(int ep, int index) {
-    var urls = links![ep]!;
-    int downloading = 0;
-    for (int i = index; i < urls.length; i++) {
-      var task = _downloading["$ep$i"];
-      if (task == null || task.error != null) {
-        _addDownloading(urls[i], ep, i);
-        downloading++;
-      } else if (!task.isFinished) {
-        downloading++;
-      }
-      if (downloading >= allowedLoadingNumber) {
-        break;
-      }
+  /// 下载图片的包装器（用于 ImageDownloadQueue）
+  Future<void> _downloadImageWrapper(ImageDownloadQueueItem item) async {
+    // 创建下载包装器
+    final wrapper = _ImageDownloadWrapper(
+      () => downloadImage(item.url),
+      item.savePath,
+      item.fileBaseName,
+      onData,
+      null, // 不需要完成回调，由队列管理
+    );
+
+    // 等待下载完成
+    await wrapper.wait();
+
+    // 检查错误
+    if (wrapper.error != null) {
+      throw wrapper.error!;
+    }
+
+    if (!wrapper.isFinished) {
+      throw Exception('Image download not finished');
     }
   }
 
@@ -248,60 +303,88 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   void start() async {
     _runtimeKey++;
     var currentKey = _runtimeKey;
+    
     try {
+      // 初始化
       await onStart();
       if (_runtimeKey != currentKey) return;
-      notifications.sendProgressNotification(downloadedPages, totalPages,
-          "下载中".tl, "${downloadManager.downloading.length} Tasks");
-
-      // get image links and cover
+      
+      // 获取图片链接和封面
       links ??= await getLinks();
       await downloadCover();
-      runRecorder();
-
-      // download images
-      while (_downloadingEp < links!.length && currentKey == _runtimeKey) {
-        int ep = links!.keys.elementAt(_downloadingEp);
-        var urls = links![ep]!;
-        while (index < urls.length && currentKey == _runtimeKey) {
-          notifications.sendProgressNotification(downloadedPages, totalPages,
-              "下载中".tl, "${downloadManager.downloading.length} Tasks");
-          _scheduleTasks(ep, index);
-          if (currentKey != _runtimeKey) return;
-          var task = _downloading["$ep$index"];
-          if (task == null) {
-            throw Exception("Task not started");
-          }
-          await task.wait();
-          if (task.error != null) {
-            throw task.error!;
-          }
-          if (!task.isFinished) {
-            throw Exception("Task not finished");
-          }
-          _downloading.remove("$ep$index");
-          index++;
-          _downloadedNum++;
-          await updateInfo?.call();
-        }
-        if (currentKey != _runtimeKey) return;
-        index = 0;
-        _downloadingEp++;
-        await updateInfo?.call();
+      
+      // 初始化图片下载队列
+      if (_imageQueue == null) {
+        _initializeImageQueue();
+      }
+      
+      if (_imageQueue == null) {
+        throw Exception('Failed to initialize image download queue');
       }
 
-      // finish downloading
-      if (DownloadManager().downloading.firstOrNull != this) return;
-      onFinish?.call();
-      _stopAllTasks();
+      // 启动速度统计
+      runRecorder();
+      
+      // 发送初始进度通知
+      notifications.sendProgressNotification(
+        downloadedPages,
+        totalPages,
+        "下载中".tl,
+        "${downloadManager.downloading.length} Tasks",
+      );
+
+      // 启动图片下载队列
+      await _imageQueue!.start();
+      
+      // 检查是否被取消
+      if (_runtimeKey != currentKey) return;
+
+      // 检查下载结果
+      if (_imageQueue!.failedCount > 0) {
+        // 有失败的图片，触发重试
+        throw Exception('${_imageQueue!.failedCount} images failed to download');
+      }
+
+      // 下载完成
+      Log.i('DownloadingTask: Download completed for $id');
+      stopRecorder();
+      
+      // 只有当这是队列中第一个任务时才调用 onFinish
+      if (DownloadManager().downloading.firstOrNull == this) {
+        onFinish?.call();
+      }
     } catch (e, s) {
       if (currentKey != _runtimeKey) return;
-      Log.e("Download $e\n$s");
-      retry();
+      
+      Log.e("Download error for $id: $e\n$s");
+      
+      // 使用新的错误处理器
+      final error = DownloadError.fromException(e, s);
+      _errorHandler.handleError(
+        error: error,
+        retryCount: _retryTimes,
+        retryAction: () async {
+          _retryTimes++;
+          if (_retryTimes > 100) {
+            throw Exception('Max retries exceeded');
+          }
+          start();
+        },
+        onFinalFailure: (error) {
+          Log.e('DownloadingTask: Final failure for $id after $_retryTimes retries');
+          stopRecorder();
+          onError?.call();
+          _retryTimes = 0;
+        },
+      );
     }
   }
 
   void _stopAllTasks() {
+    // 停止图片下载队列
+    _imageQueue?.cancelAll();
+    
+    // 为了向后兼容，也清理旧的 _downloading Map
     var shouldRemove = <String>[];
     for (var entry in _downloading.entries) {
       if (!entry.value.isFinished) {
@@ -416,10 +499,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   String get cover;
 
   ///总共的图片数量
-  int get totalPages => links?.totalLength ?? 0;
+  int get totalPages => _imageQueue?.totalCount ?? (links?.totalLength ?? 0);
 
-  ///已下载的图片数量
-  int get downloadedPages => _downloadedNum;
+  // downloadedPages 已在前面定义
 
   ///标题
   String get title;

@@ -1,0 +1,346 @@
+import 'dart:collection';
+import 'dart:async';
+import 'package:pica_comic/foundation/log.dart';
+
+/// 图片下载队列项的状态
+enum ImageDownloadTaskState {
+  /// 等待下载
+  waiting,
+  
+  /// 下载中
+  downloading,
+  
+  /// 已完成
+  completed,
+  
+  /// 失败
+  failed,
+  
+  /// 已取消
+  canceled,
+}
+
+/// 图片下载队列项
+/// 
+/// 表示一个待下载的图片任务
+class ImageDownloadQueueItem {
+  /// 图片URL
+  final String url;
+
+  /// 章节索引（从0开始，对于无章节的漫画为0）
+  final int episodeIndex;
+
+  /// 图片索引（在章节中的位置）
+  final int imageIndex;
+
+  /// 保存路径（目录）
+  final String savePath;
+
+  /// 文件基础名称（不含扩展名）
+  final String fileBaseName;
+
+  /// 任务状态
+  ImageDownloadTaskState state;
+
+  /// 错误信息
+  Object? error;
+
+  /// 重试次数
+  int retryCount;
+
+  /// 下载进度（字节）
+  int downloadedBytes;
+
+  /// 总大小（字节，如果未知则为0）
+  int totalBytes;
+
+  /// 创建时间
+  final DateTime createdAt;
+
+  /// 完成时间
+  DateTime? completedAt;
+
+  ImageDownloadQueueItem({
+    required this.url,
+    required this.episodeIndex,
+    required this.imageIndex,
+    required this.savePath,
+    required this.fileBaseName,
+    this.state = ImageDownloadTaskState.waiting,
+    this.error,
+    this.retryCount = 0,
+    this.downloadedBytes = 0,
+    this.totalBytes = 0,
+  }) : createdAt = DateTime.now();
+
+  /// 生成唯一键
+  String get key => '$episodeIndex-$imageIndex';
+
+  /// 是否已完成
+  bool get isCompleted => state == ImageDownloadTaskState.completed;
+
+  /// 是否失败
+  bool get isFailed => state == ImageDownloadTaskState.failed;
+
+  /// 是否可以重试
+  bool get canRetry => state == ImageDownloadTaskState.failed;
+
+  @override
+  String toString() {
+    return 'ImageDownloadQueueItem(ep: $episodeIndex, idx: $imageIndex, state: $state, retry: $retryCount)';
+  }
+}
+
+/// 图片下载队列
+/// 
+/// 管理单个漫画的所有图片下载任务，控制并发数量，跟踪下载进度
+class ImageDownloadQueue {
+  /// 等待下载的图片队列
+  final Queue<ImageDownloadQueueItem> _waitingQueue = Queue<ImageDownloadQueueItem>();
+
+  /// 正在下载的图片映射表（key: ep-index）
+  final Map<String, ImageDownloadQueueItem> _downloadingItems = {};
+
+  /// 已完成的图片集合（key: ep-index）
+  final Map<String, ImageDownloadQueueItem> _completedItems = {};
+
+  /// 失败的图片集合（key: ep-index）
+  final Map<String, ImageDownloadQueueItem> _failedItems = {};
+
+  /// 最大并发下载数
+  final int maxConcurrentDownloads;
+
+  /// 是否正在运行
+  bool _isRunning = false;
+  
+  /// 完成信号（用于 await start() 等待所有任务完成）
+  Completer<void>? _completer;
+
+  /// 下载函数
+  final Future<void> Function(ImageDownloadQueueItem item) downloadFunction;
+
+  /// 进度更新回调
+  final void Function(int downloaded, int total)? onProgressUpdate;
+
+  /// 任务完成回调
+  final void Function()? onAllCompleted;
+
+  /// 任务失败回调（所有重试都失败后）
+  final void Function(List<ImageDownloadQueueItem> failedItems)? onFailed;
+
+  ImageDownloadQueue({
+    required this.downloadFunction,
+    this.maxConcurrentDownloads = 6,
+    this.onProgressUpdate,
+    this.onAllCompleted,
+    this.onFailed,
+  });
+
+  /// 获取当前下载中的数量
+  int get downloadingCount => _downloadingItems.length;
+
+  /// 获取等待中的数量
+  int get waitingCount => _waitingQueue.length;
+
+  /// 获取已完成的数量
+  int get completedCount => _completedItems.length;
+
+  /// 获取失败的数量
+  int get failedCount => _failedItems.length;
+
+  /// 获取总任务数量
+  int get totalCount => 
+      _waitingQueue.length + 
+      _downloadingItems.length + 
+      _completedItems.length + 
+      _failedItems.length;
+
+  /// 是否正在运行
+  bool get isRunning => _isRunning;
+
+  /// 是否全部完成
+  bool get isAllCompleted => 
+      _waitingQueue.isEmpty && 
+      _downloadingItems.isEmpty && 
+      _failedItems.isEmpty;
+
+  /// 添加图片到队列
+  void addImage(ImageDownloadQueueItem item) {
+    final key = item.key;
+
+    // 检查是否已存在
+    if (_completedItems.containsKey(key) ||
+        _downloadingItems.containsKey(key) ||
+        _failedItems.containsKey(key) ||
+        _waitingQueue.any((i) => i.key == key)) {
+      Log.w('ImageDownloadQueue: Item $key already exists');
+      return;
+    }
+
+    _waitingQueue.addLast(item);
+  }
+
+  /// 批量添加图片
+  void addImages(List<ImageDownloadQueueItem> items) {
+    for (var item in items) {
+      addImage(item);
+    }
+  }
+
+  /// 开始下载
+  /// 
+  /// 这个方法会阻塞直到所有任务完成（成功或失败）
+  Future<void> start() async {
+    if (_isRunning) {
+      Log.w('ImageDownloadQueue: Already running');
+      return;
+    }
+
+    _isRunning = true;
+    _completer = Completer<void>();
+    
+    Log.i('ImageDownloadQueue: Starting queue. Total: $totalCount, Waiting: ${_waitingQueue.length}');
+
+    // 触发任务调度
+    _scheduleNext();
+    
+    // 等待所有任务完成
+    await _completer!.future;
+  }
+
+  /// 暂停下载
+  void pause() {
+    if (!_isRunning) {
+      Log.w('ImageDownloadQueue: Already paused');
+      return;
+    }
+
+    _isRunning = false;
+    Log.i('ImageDownloadQueue: Paused. Downloaded: $completedCount, Failed: $failedCount, Downloading: $downloadingCount');
+  }
+
+  /// 取消所有下载
+  void cancelAll() {
+    _isRunning = false;
+
+    // 将所有正在下载的任务标记为取消
+    for (var item in _downloadingItems.values) {
+      item.state = ImageDownloadTaskState.canceled;
+    }
+
+    _downloadingItems.clear();
+    _waitingQueue.clear();
+
+    Log.i('ImageDownloadQueue: All tasks canceled');
+  }
+
+  /// 重试失败的任务
+  Future<void> retryFailed() async {
+    if (_failedItems.isEmpty) {
+      Log.i('ImageDownloadQueue: No failed items to retry');
+      return;
+    }
+
+    Log.i('ImageDownloadQueue: Retrying ${_failedItems.length} failed items');
+
+    // 将失败的任务重新加入队列
+    final failedList = _failedItems.values.toList();
+    _failedItems.clear();
+
+    for (var item in failedList) {
+      item.state = ImageDownloadTaskState.waiting;
+      item.error = null;
+      // 保留重试次数，用于退避策略
+      _waitingQueue.addLast(item);
+    }
+
+    // 如果队列没有运行，启动它
+    if (!_isRunning) {
+      await start();
+    } else {
+      _scheduleNext();
+    }
+  }
+
+  /// 清除已完成的项目（释放内存）
+  void clearCompleted() {
+    _completedItems.clear();
+  }
+
+  /// 调度下一批任务
+  void _scheduleNext() {
+    if (!_isRunning) {
+      return;
+    }
+
+    // 继续调度直到达到并发上限或没有等待的任务
+    while (_downloadingItems.length < maxConcurrentDownloads && _waitingQueue.isNotEmpty) {
+      final item = _waitingQueue.removeFirst();
+      _downloadItem(item);
+    }
+
+    // 检查是否全部完成
+    if (_waitingQueue.isEmpty && _downloadingItems.isEmpty) {
+      if (_failedItems.isEmpty) {
+        Log.i('ImageDownloadQueue: All tasks completed successfully');
+        _isRunning = false;
+        onAllCompleted?.call();
+        _completer?.complete();  // 发送完成信号
+      } else {
+        Log.w('ImageDownloadQueue: All tasks finished but ${_failedItems.length} failed');
+        _isRunning = false;
+        onFailed?.call(_failedItems.values.toList());
+        _completer?.complete();  // 即使有失败也发送完成信号
+      }
+    }
+  }
+
+  /// 下载单个图片
+  Future<void> _downloadItem(ImageDownloadQueueItem item) async {
+    final key = item.key;
+    item.state = ImageDownloadTaskState.downloading;
+    _downloadingItems[key] = item;
+
+    try {
+      // 调用下载函数
+      await downloadFunction(item);
+
+      // 下载成功
+      item.state = ImageDownloadTaskState.completed;
+      item.completedAt = DateTime.now();
+      _downloadingItems.remove(key);
+      _completedItems[key] = item;
+
+      Log.d('ImageDownloadQueue: Downloaded $key (${completedCount}/$totalCount)');
+
+      // 通知进度更新
+      onProgressUpdate?.call(completedCount, totalCount);
+    } catch (e) {
+      // 下载失败
+      Log.e('ImageDownloadQueue: Failed to download $key: $e');
+      
+      item.state = ImageDownloadTaskState.failed;
+      item.error = e;
+      item.retryCount++;
+      
+      _downloadingItems.remove(key);
+      _failedItems[key] = item;
+
+      // 通知进度更新
+      onProgressUpdate?.call(completedCount, totalCount);
+    }
+
+    // 调度下一个任务
+    _scheduleNext();
+  }
+
+  /// 获取队列状态摘要
+  String getStatusSummary() {
+    return 'Total: $totalCount, Completed: $completedCount, Downloading: $downloadingCount, Waiting: $waitingCount, Failed: $failedCount';
+  }
+
+  /// 清理资源
+  void dispose() {
+    cancelAll();
+  }
+}

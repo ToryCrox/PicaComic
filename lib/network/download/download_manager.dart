@@ -12,6 +12,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/download_queue_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
@@ -57,11 +58,21 @@ class DownloadManager implements Listenable {
   ///下载目录
   String? path;
 
-  ///下载队列
-  var downloading = Queue<DownloadingTask>();
+  /// 下载队列管理器（新的队列系统）
+  late final DownloadQueueManager _queueManager;
 
-  ///是否正在下载
-  bool isDownloading = false;
+  ///下载队列（向后兼容，委托给 _queueManager）
+  Queue<DownloadingTask> get downloading {
+    return Queue.from(_queueManager.getAllTasks());
+  }
+
+  ///是否正在下载（委托给 _queueManager）
+  bool get isDownloading => _queueManager.isRunning;
+  
+  set isDownloading(bool value) {
+    // 为了向后兼容保留 setter，但不做任何操作
+    // 实际状态由 _queueManager 管理
+  }
 
   ///是否出现了错误
   bool _error = false;
@@ -79,11 +90,13 @@ class DownloadManager implements Listenable {
   @override
   void addListener(VoidCallback listener) {
     _listeners.add(listener);
+    _queueManager.addListener(listener);
   }
 
   @override
   void removeListener(VoidCallback listener) {
     _listeners.remove(listener);
+    _queueManager.removeListener(listener);
   }
 
   void notifyListeners() {
@@ -154,8 +167,17 @@ class DownloadManager implements Listenable {
       try {
         var json = const JsonDecoder().convert(await file.readAsString());
         for (var item in json["downloading"]) {
-          downloading.add(
-              downloadingItemFromMap(item, _onFinish, _onError, _saveInfo));
+          // 添加任务到队列管理器
+          final task = downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
+          _queueManager.enqueue(task);
+        }
+        
+        // 如果有任务被加载，记录一下，但不自动启动
+        // 用户需要手动点击开始按钮来恢复下载
+        if (_queueManager.totalTasksCount > 0) {
+          Log.i('DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session');
+          // 通知 UI 有未完成的任务
+          notifyListeners();
         }
       } catch (e, s) {
         Log.e("IO Failed to read downloaded information\n$e\n$s");
@@ -209,14 +231,18 @@ class DownloadManager implements Listenable {
 
   void dispose() {
     _runInit = false;
-    downloading.forEach((e) => e.stop());
-    downloading.clear();
+    _queueManager.stopAll();
   }
 
   ///初始化下载管理器
   Future<void> init() async {
     if (_runInit) return;
     _runInit = true;
+    
+    // 初始化队列管理器
+    _queueManager = DownloadQueueManager(maxConcurrentTasks: 1);
+    _queueManager.addListener(notifyListeners);
+    
     await _getPath();
     await _getInfo();
     await _initDb();
@@ -232,7 +258,8 @@ class DownloadManager implements Listenable {
       final t1 = DateTime.now();
       var data = <String, dynamic>{};
       data["downloading"] = <Map<String, dynamic>>[];
-      for (var item in downloading) {
+      // 从队列管理器获取所有任务
+      for (var item in _queueManager.getAllTasks()) {
         data["downloading"].add(item.toMap());
       }
       final saveItem = SaveInfoItem(data, path ?? '');
@@ -249,13 +276,8 @@ class DownloadManager implements Listenable {
 
   /// move comic to first
   void moveToFirst(DownloadingTask item) {
-    if (downloading.first == item) {
-      return;
-    }
-    pause();
-    downloading.remove(item);
-    downloading.addFirst(item);
-    start();
+    _queueManager.moveToFirst(item.id);
+    _saveInfo();
   }
 
   String generateId(String source, String id) {
@@ -303,35 +325,39 @@ class DownloadManager implements Listenable {
 
   ///当一个下载任务完成时, 调用此函数
   void _onFinish() async {
-    var task = downloading.removeFirst();
-    
-    // 只有标记为需要保存的下载任务才会保存到数据库
-    if (task.shouldSaveToDatabase) {
-      await _addToDb(await task.toDownloadedItem(), task.directory!);
+    // 通知队列管理器任务完成
+    final tasks = _queueManager.getAllTasks();
+    if (tasks.isNotEmpty) {
+      final finishedTask = tasks.first;
+      _queueManager.onTaskFinished(finishedTask.id);
+      
+      // 只有标记为需要保存的下载任务才会保存到数据库
+      if (finishedTask.shouldSaveToDatabase) {
+        await _addToDb(await finishedTask.toDownloadedItem(), finishedTask.directory!);
+      }
     }
     
     await _saveInfo();
     StateController.findOrNull<DownloadPageLogic>()?.refresh();
-    if (downloading.isNotEmpty) {
-      //清除已完成的任务, 开始下一个任务
-      downloading.first.start();
-    } else {
-      //标记状态为未在下载
-      isDownloading = false;
+    
+    // 队列管理器会自动调度下一个任务
+    // 如果没有更多任务，会自动停止
+    if (_queueManager.totalTasksCount == 0) {
       notifications.endProgress();
     }
   }
 
   ///暂停下载
   void pause() {
-    isDownloading = false;
-    downloading.first.pause();
+    _queueManager.pause();
+    notifications.endProgress();
   }
 
   ///出现错误时调用此函数
   void _onError() {
     pause();
     _error = true;
+    _queueManager.onTaskError(_queueManager.getAllTasks().first.id);
     notifications.sendNotification("下载出错".tl, "点击查看详情".tl);
     notifyListeners();
   }
@@ -339,36 +365,18 @@ class DownloadManager implements Listenable {
   ///开始或继续下载
   void start() {
     _error = false;
-    if (isDownloading) return;
-    downloading.first.start();
-    isDownloading = true;
+    _queueManager.start();
   }
 
   ///取消指定的下载
-  void cancel(String id) {
-    var index = 0;
-    for (var i in downloading) {
-      if (i.id == id) break;
-      index++;
-    }
-
-    if (index == 0) {
-      _error = false;
-      downloading.first.stop();
-      downloading.removeFirst();
-    } else {
-      downloading.removeWhere((element) => element.id == id);
-    }
-
-    notifyListeners();
-
-    if (downloading.isEmpty) {
-      isDownloading = false;
-      notifications.endProgress();
-    } else {
-      downloading.first.start();
-    }
+  Future<void> cancel(String id) async {
+    await _queueManager.removeTask(id);
     _saveInfo();
+    notifyListeners();
+    
+    if (_queueManager.totalTasksCount == 0) {
+      notifications.endProgress();
+    }
   }
 
   Future<DownloadedItem?> getComicOrNull(String id) async {
@@ -669,15 +677,21 @@ DownloadingTask downloadingItemFromMap(
 }
 
 extension AddDownloadExt on DownloadManager {
+  /// 添加下载任务的通用方法（消除重复代码）
+  void _addDownloadTask(DownloadingTask task) {
+    _queueManager.enqueue(task);
+    _saveInfo();
+    notifyListeners();  // 立即通知 UI 更新
+    if (!isDownloading) {
+      start();
+    }
+  }
+
   ///添加哔咔漫画下载
   void addPicDownload(picacg.ComicItem comic, List<int> downloadEps) {
-    downloading.addLast(PicDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, comic.id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = PicDownloadingTask(
+        comic, downloadEps, _onFinish, _onError, _saveInfo, comic.id);
+    _addDownloadTask(task);
   }
 
   ///添加E-Hentai下载
@@ -685,70 +699,43 @@ extension AddDownloadExt on DownloadManager {
   /// - downloadEps: 下载的章节
   void addEhDownload(Gallery gallery, [int type = 0]) {
     final id = getGalleryId(gallery.link);
-    downloading.addLast(
-        EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type);
+    _addDownloadTask(task);
   }
 
   ///添加禁漫下载
   void addJmDownload(JmComicInfo comic, List<int> downloadEps) {
-    downloading.addLast(JmDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, "jm${comic.id}"));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = JmDownloadingTask(
+        comic, downloadEps, _onFinish, _onError, _saveInfo, "jm${comic.id}");
+    _addDownloadTask(task);
   }
 
   ///添加Hitomi下载
   void addHitomiDownload(hitomi.HitomiComic comic, String cover, String link) {
     final id = "hitomi${comic.id}";
-    downloading.addLast(HitomiDownloadingTask(
-        comic, cover, link, _onFinish, _onError, _saveInfo, id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = HitomiDownloadingTask(
+        comic, cover, link, _onFinish, _onError, _saveInfo, id);
+    _addDownloadTask(task);
   }
 
   ///添加绅士漫画下载
   void addHtDownload(HtComicInfo comic) {
     final id = "Ht${comic.id}";
-    downloading
-        .addLast(HtDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = HtDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    _addDownloadTask(task);
   }
 
   void addNhentaiDownload(NhentaiComic comic) {
     final id = "nhentai${comic.id}";
-    downloading.addLast(
-        NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    _addDownloadTask(task);
   }
 
   void addCustomDownload(ComicInfoData comic, List<int> downloadEps) {
     var id = generateId(comic.sourceKey, comic.comicId);
-    downloading.addLast(CustomDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = CustomDownloadingTask(
+        comic, downloadEps, _onFinish, _onError, _saveInfo, id);
+    _addDownloadTask(task);
   }
 
   void addFavoriteDownload(FavoriteItem comic) {
@@ -761,13 +748,8 @@ extension AddDownloadExt on DownloadManager {
       6 => "nhentai${comic.target}",
       _ => generateId(comic.type.comicSource.key, comic.target)
     };
-    downloading.addLast(
-        FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    final task = FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    _addDownloadTask(task);
   }
 
   /// 添加 Kemono 附件下载
@@ -780,7 +762,7 @@ extension AddDownloadExt on DownloadManager {
     String? coverUrl,
   }) {
     final id = "kemono-attachment-$postId-${DateTime.now().millisecondsSinceEpoch}";
-    downloading.addLast(KemonoAttachmentDownloadingTask(
+    final task = KemonoAttachmentDownloadingTask(
       files: files,
       customDownloadPath: downloadPath,
       authorName: authorName,
@@ -791,12 +773,8 @@ extension AddDownloadExt on DownloadManager {
       onError: _onError,
       updateInfo: _saveInfo,
       id: id,
-    ));
-    _saveInfo();
-    if (!isDownloading) {
-      downloading.first.start();
-      isDownloading = true;
-    }
+    );
+    _addDownloadTask(task);
   }
 
   DownloadedItem? _getComicFromJson({
