@@ -199,6 +199,9 @@ class KemonoNetwork {
           Log.d('Kemono getPostDetail cache hit: $cacheKey');
           // 同样尝试从作者缓存中获取真实的作者名称
           if (cached.userName == cached.userId || cached.userName.isEmpty) {
+            if (_creatorsCache == null) {
+              await getCreators();
+            }
             final creatorName = getCreatorName(service, creatorId);
             if (creatorName != null && creatorName.isNotEmpty) {
               cached.userName = creatorName;
@@ -225,6 +228,9 @@ class KemonoNetwork {
       // 尝试从作者缓存中获取真实的作者名称
       // 因为 API 返回的详情中可能没有 user_name 字段，只有 user (userId)
       if (post.userName == post.userId || post.userName.isEmpty) {
+        if (_creatorsCache == null) {
+          await getCreators();
+        }
         final creatorName = getCreatorName(service, creatorId);
         if (creatorName != null && creatorName.isNotEmpty) {
           post.userName = creatorName;
@@ -258,6 +264,27 @@ class KemonoNetwork {
       return Res(_creatorsCache!);
     }
 
+    const cacheKey = 'kemono_creators_list';
+
+    // 尝试读取磁盘缓存
+    if (!forceRefresh) {
+      try {
+        final cache = await CacheManager().findCache(cacheKey);
+        if (cache != null && await cache.file.exists()) {
+          final data = await cache.file.readAsString();
+          final jsonData = jsonDecode(data) as List;
+          final creators = jsonData.map((e) => KemonoCreator.fromJson(e as Map)).toList();
+          if (creators.isNotEmpty) {
+            _creatorsCache = creators;
+            Log.d('Kemono getCreators cache hit');
+            return Res(creators);
+          }
+        }
+      } catch (e) {
+        Log.e('Kemono getCreators cache read error: $e');
+      }
+    }
+
     try {
       final res = await get('/creators');
       if (res.error) {
@@ -270,6 +297,9 @@ class KemonoNetwork {
       // 缓存结果
       _creatorsCache = creators;
       
+      // 写入磁盘缓存
+      CacheManager().writeString(cacheKey, res.data);
+
       return Res(creators);
     } catch (e, s) {
       Log.e('Kemono getCreators error: $e\n$s');
