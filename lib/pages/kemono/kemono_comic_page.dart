@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:pica_comic/tools/io_extensions.dart';
+import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -300,6 +302,8 @@ class _DownloadAttachmentsDialog extends StatefulWidget {
 class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> {
   late List<bool> selected;
   late String? downloadPath;
+  /// 存储已下载文件的完整路径，key为文件索引，value为文件路径（null表示未下载）
+  final Map<int, String?> _downloadedFilePaths = {};
 
   @override
   void initState() {
@@ -308,6 +312,8 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
     var path = PrefsHelper.getString("kemono_download_path");
     if (path.isNotEmpty) {
       downloadPath = path;
+      // 检查已下载的文件
+      _checkDownloadedFiles();
     } else {
       downloadPath = null;
     }
@@ -320,6 +326,78 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
         downloadPath = path;
       });
       PrefsHelper.setString("kemono_download_path", path);
+    }
+  }
+
+  /// 检查哪些文件已经下载过
+  void _checkDownloadedFiles() {
+    if (downloadPath == null) return;
+    
+    final sanitizedAuthor = sanitizeFileName(widget.authorName);
+    final authorDir = Path.join(downloadPath!, sanitizedAuthor);
+    
+    // 如果作者目录不存在，则没有已下载的文件
+    if (!Directory(authorDir).existsSync()) return;
+    
+    for (int i = 0; i < widget.files.length; i++) {
+      final file = widget.files[i];
+      final downloadedPath = _findDownloadedFile(authorDir, file);
+      if (downloadedPath != null) {
+        _downloadedFilePaths[i] = downloadedPath;
+        // 已下载的文件默认不选中，避免重复下载
+        selected[i] = false;
+      }
+    }
+  }
+
+  /// 查找已下载的文件（支持带数字后缀的重命名文件）
+  String? _findDownloadedFile(String authorDir, KemonoFile file) {
+    // 生成日期前缀
+    final date = widget.publishedDate ?? DateTime.now();
+    final datePrefix = '[${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}]';
+    
+    // 生成清理后的文件名
+    final sanitizedName = sanitizeFileName(file.name);
+    final baseFileName = '$datePrefix$sanitizedName';
+    
+    // 首先检查原始文件名
+    var filePath = Path.join(authorDir, baseFileName);
+    if (File(filePath).existsSync()) {
+      return filePath;
+    }
+    
+    // 检查带数字后缀的文件（例如 filename (1).ext）
+    final baseName = Path.basenameWithoutExtension(baseFileName);
+    final extension = Path.extension(baseFileName);
+    
+    // 最多检查 10 个重命名版本
+    for (int i = 1; i <= 10; i++) {
+      final renamedFileName = '$baseName ($i)$extension';
+      filePath = Path.join(authorDir, renamedFileName);
+      if (File(filePath).existsSync()) {
+        return filePath;
+      }
+    }
+    
+    return null;
+  }
+
+  /// 打开文件所在目录并选中文件
+  Future<void> _openFileLocation(String filePath) async {
+    try {
+      if (Platform.isWindows) {
+        // Windows: 使用 explorer.exe /select, 打开并选中文件
+        await Process.run('explorer.exe', ['/select,', filePath]);
+      } else if (Platform.isMacOS) {
+        // macOS: 使用 open -R 打开并选中文件
+        await Process.run('open', ['-R', filePath]);
+      } else if (Platform.isLinux) {
+        // Linux: 打开文件所在目录（不同发行版命令不同）
+        final dirPath = Path.dirname(filePath);
+        await Process.run('xdg-open', [dirPath]);
+      }
+    } catch (e) {
+      showToast(message: "打开目录失败: $e");
     }
   }
 
@@ -375,15 +453,67 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
                 itemCount: widget.files.length,
                 itemBuilder: (context, index) {
                   final file = widget.files[index];
-                  return CheckboxListTile(
-                    value: selected[index],
-                    onChanged: (v) {
+                  final isDownloaded = _downloadedFilePaths.containsKey(index);
+                  
+                  return ListTile(
+                    leading: Checkbox(
+                      value: selected[index],
+                      onChanged: (v) {
+                        setState(() {
+                          selected[index] = v!;
+                        });
+                      },
+                    ),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            file.name,
+                            style: TextStyle(
+                              color: isDownloaded 
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                            ),
+                          ),
+                        ),
+                        if (isDownloaded)
+                          const SizedBox(width: 8),
+                        if (isDownloaded)
+                          Icon(
+                            Icons.check_circle,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 16,
+                          ),
+                        if (isDownloaded)
+                          const SizedBox(width: 4),
+                        if (isDownloaded)
+                          Text(
+                            "已下载",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                    subtitle: Text(file.path.split('.').last.toUpperCase()),
+                    trailing: isDownloaded
+                        ? IconButton(
+                            icon: const Icon(Icons.folder_open),
+                            tooltip: "打开所在目录",
+                            onPressed: () {
+                              final filePath = _downloadedFilePaths[index];
+                              if (filePath != null) {
+                                _openFileLocation(filePath);
+                              }
+                            },
+                          )
+                        : null,
+                    onTap: () {
                       setState(() {
-                        selected[index] = v!;
+                        selected[index] = !selected[index];
                       });
                     },
-                    title: Text(file.name),
-                    subtitle: Text(file.path.split('.').last.toUpperCase()),
                   );
                 },
               ),
