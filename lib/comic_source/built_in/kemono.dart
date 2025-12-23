@@ -6,7 +6,6 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -91,8 +90,8 @@ final kemono = ComicSource.named(
   // 搜索页面配置
   searchPageData: SearchPageData.named(
     loadPage: (keyword, page, options) async {
-      // 判断搜索类型
-      final searchType = options.isNotEmpty ? options[0] : 'posts';
+      // 判断搜索类型，默认搜索作者
+      final searchType = options.isNotEmpty ? options[0] : 'creators';
       
       if (searchType == 'creators') {
         // 搜索作者 (本地搜索)
@@ -117,8 +116,8 @@ final kemono = ComicSource.named(
     searchOptions: [
       SearchOptions(
         LinkedHashMap.of({
-          'posts': '图集',
           'creators': '作者',
+          'posts': '图集',
         }),
         '搜索类型',
       ),

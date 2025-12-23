@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/res.dart';
@@ -42,6 +43,19 @@ class KemonoNetwork {
 
   /// 作者列表缓存 (creators.txt返回全量数据)
   List<KemonoCreator>? _creatorsCache;
+
+  /// 根据 service 和 userId 从缓存中查找作者名称
+  /// 
+  /// 如果找不到返回 null
+  String? getCreatorName(String service, String userId) {
+    if (_creatorsCache == null) return null;
+    for (var creator in _creatorsCache!) {
+      if (creator.service == service && creator.id == userId) {
+        return creator.title;
+      }
+    }
+    return null;
+  }
 
   /// 初始化网络模块
   Future<void> init() async {
@@ -169,7 +183,33 @@ class KemonoNetwork {
   /// [service] 服务类型 (patreon/fanbox/fantia等)
   /// [creatorId] 作者ID
   /// [postId] 图集ID
-  Future<Res<KemonoPost>> getPostDetail(String service, String creatorId, String postId) async {
+  /// [useCache] 是否使用缓存，默认为true
+  Future<Res<KemonoPost>> getPostDetail(String service, String creatorId, String postId, {bool useCache = true}) async {
+    final cacheKey = 'kemono_post_$service/$creatorId/$postId';
+    
+    // 尝试从缓存读取
+    if (useCache) {
+      try {
+        final cached = await CacheManager().findCacheModel<KemonoPost>(
+          cacheKey,
+          (map) => KemonoPost.fromJson(map),
+        );
+        if (cached != null) {
+          Log.d('Kemono getPostDetail cache hit: $cacheKey');
+          // 同样尝试从作者缓存中获取真实的作者名称
+          if (cached.userName == cached.userId || cached.userName.isEmpty) {
+            final creatorName = getCreatorName(service, creatorId);
+            if (creatorName != null && creatorName.isNotEmpty) {
+              cached.userName = creatorName;
+            }
+          }
+          return Res(cached);
+        }
+      } catch (e) {
+        Log.e('Kemono cache read error: $e');
+      }
+    }
+    
     try {
       final res = await get('/$service/user/$creatorId/post/$postId');
       if (res.error) {
@@ -180,6 +220,26 @@ class KemonoNetwork {
       // API 返回 {"post": {...}} 结构
       final postData = jsonData['post'] as Map? ?? jsonData;
       final post = KemonoPost.fromJson(postData);
+      
+      // 尝试从作者缓存中获取真实的作者名称
+      // 因为 API 返回的详情中可能没有 user_name 字段，只有 user (userId)
+      if (post.userName == post.userId || post.userName.isEmpty) {
+        final creatorName = getCreatorName(service, creatorId);
+        if (creatorName != null && creatorName.isNotEmpty) {
+          post.userName = creatorName;
+        }
+      }
+      
+      // 写入缓存
+      try {
+        final cacheData = jsonEncode(postData);
+        await CacheManager().writeString(
+          cacheKey,
+          cacheData,
+        );
+      } catch (e) {
+        Log.e('Kemono cache write error: $e');
+      }
       
       return Res(post);
     } catch (e, s) {

@@ -754,7 +754,7 @@ class ImageManager {
     var cacheKey = "$sourceKey$comicId$epId$url";
     Log.d("getCustomImage $url");
 
-    if (await _checkFileCache(controller: controller, url: url)) {
+    if (await _checkFileCache(controller: controller, url: url, key: cacheKey)) {
       controller.close();
       return;
     }

@@ -179,7 +179,7 @@ class KemonoPost with HistoryMixin {
   final String userId;
 
   /// 作者名称
-  final String userName;
+  String userName;
 
   /// 主文件
   final KemonoFile? file;
@@ -266,6 +266,9 @@ class KemonoPost with HistoryMixin {
       if (userId.isEmpty) userId = author['id']?.toString() ?? '';
       if (userName.isEmpty) userName = author['username']?.toString() ?? '';
     }
+    
+    // 如果 userName 仍为空，回退使用 userId
+    if (userName.isEmpty) userName = userId;
 
     return KemonoPost(
       id: json.optString('id'),
