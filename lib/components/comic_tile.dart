@@ -265,8 +265,8 @@ abstract class ComicTile extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return FutureBuilder<bool>(
-      future: DownloadManager().isExists(
-          DownloadManager().getDownloadIdFromComicId(sourceKey, comicID)),
+      future: downloadManager.isExists(
+          downloadManager.getDownloadIdFromComicId(sourceKey, comicID)),
       builder: (context, snapshot) {
         if (snapshot.data != true) {
           return const SizedBox.shrink();

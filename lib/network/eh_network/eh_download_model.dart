@@ -3,15 +3,15 @@ import 'dart:isolate';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/download/file_downloader.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
-import 'package:pica_comic/network/file_downloader.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 import 'dart:io';
 import '../../tools/io_tools.dart';
-import '../download.dart';
+import '../download/download_manager.dart';
 import 'eh_main_network.dart';
 import 'get_gallery_id.dart';
 
@@ -72,8 +72,8 @@ class DownloadedGallery extends DownloadedItem {
 }
 
 ///e-hentai的下载进程模型
-class EhDownloadingItem extends DownloadingItem {
-  EhDownloadingItem(
+class EhDownloadingTask extends DownloadingTask {
+  EhDownloadingTask(
     this.gallery,
     super.whenFinish,
     super.onError,
@@ -240,7 +240,7 @@ class EhDownloadingItem extends DownloadingItem {
     }
   }
 
-  EhDownloadingItem.fromMap(
+  EhDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

@@ -30,7 +30,7 @@ import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/cookie_jar.dart';
-import '../../network/download.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/eh_network/eh_main_network.dart';
 import '../../network/http_client.dart';
 import '../../network/http_proxy.dart';

@@ -13,7 +13,7 @@ import '../../base.dart';
 import '../../foundation/app.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
-import '../../network/download.dart';
+import '../../network/download/download_manager.dart';
 import 'comments.dart';
 
 class NhentaiComicPage extends BaseComicPage<NhentaiComic> {

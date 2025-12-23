@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import '../../base.dart';
 import '../../tools/io_tools.dart';
@@ -59,8 +59,8 @@ class DownloadedHitomiComic extends DownloadedItem {
   List<String> get tags => comic.tags.map((e) => e.name).toList();
 }
 
-class HitomiDownloadingItem extends DownloadingItem {
-  HitomiDownloadingItem(this.comic, this._coverPath, this.link,
+class HitomiDownloadingTask extends DownloadingTask {
+  HitomiDownloadingTask(this.comic, this._coverPath, this.link,
       super.whenFinish, super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.hitomi});
 
@@ -110,7 +110,7 @@ class HitomiDownloadingItem extends DownloadingItem {
         ...super.toBaseMap()
       };
 
-  HitomiDownloadingItem.fromMap(
+  HitomiDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

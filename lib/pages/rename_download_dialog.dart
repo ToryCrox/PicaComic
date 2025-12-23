@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 class RenameDownloadDialog extends StatefulWidget {

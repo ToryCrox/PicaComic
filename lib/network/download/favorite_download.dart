@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/custom_download_model.dart';
-import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
@@ -20,13 +20,13 @@ import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 
-class FavoriteDownloading extends DownloadingItem{
-  FavoriteDownloading(this.comic, super.whenFinish, super.onError,
+class FavoriteDownloadingTask extends DownloadingTask{
+  FavoriteDownloadingTask(this.comic, super.whenFinish, super.onError,
       super.updateInfo, super.id, {super.type = DownloadType.favorite});
 
   FavoriteItem comic;
 
-  late DownloadingItem downloadLogic;
+  late DownloadingTask downloadLogic;
 
   @override
   void start() async{
@@ -40,13 +40,13 @@ class FavoriteDownloading extends DownloadingItem{
       switch(comic.type.key){
         case 0: {
           var comicItem = await PicacgNetwork().getComicInfo(comic.target);
-          downloadLogic = PicDownloadingItem(
+          downloadLogic = PicDownloadingTask(
               comicItem.data, List.generate(comicItem.data.eps.length,
                   (index) => index), onFinish, onError, updateInfo, id);
         }
         case 1: {
           var gallery = await EhNetwork().getGalleryInfo(comic.target);
-          downloadLogic = EhDownloadingItem(gallery.data,
+          downloadLogic = EhDownloadingTask(gallery.data,
               onFinish, onError, updateInfo, id, 0);
         }
         case 2: {
@@ -55,27 +55,27 @@ class FavoriteDownloading extends DownloadingItem{
           if(downloadedEp.isEmpty) {
             downloadedEp.add(0);
           }
-          downloadLogic = JmDownloadingItem(jmComic.data, downloadedEp,
+          downloadLogic = JmDownloadingTask(jmComic.data, downloadedEp,
               onFinish, onError, updateInfo, id);
         }
         case 3: {
           var hitomiComic = await HiNetwork().getComicInfo(comic.target);
-          downloadLogic = HitomiDownloadingItem(hitomiComic.data,
+          downloadLogic = HitomiDownloadingTask(hitomiComic.data,
               comic.coverPath, comic.target, onFinish, onError, updateInfo, id);
         }
         case 4: {
           var htComic = await HtmangaNetwork().getComicInfo(comic.target);
-          downloadLogic = DownloadingHtComic(htComic.data, onFinish, onError, updateInfo, id);
+          downloadLogic = HtDownloadingTask(htComic.data, onFinish, onError, updateInfo, id);
         }
         case 6: {
           var nhComic = await NhentaiNetwork().getComicInfo(comic.target);
-          downloadLogic = NhentaiDownloadingItem(nhComic.data, onFinish, onError, updateInfo, id);
+          downloadLogic = NhentaiDownloadingTask(nhComic.data, onFinish, onError, updateInfo, id);
         }
         default: {
           var comicSource = comic.type.comicSource;
           var comicInfoData = await comicSource.loadComicInfo!(comic.target);
           var downloadedEp = List.generate(comicInfoData.data.chapters?.length ?? 0, (index) => index);
-          downloadLogic = CustomDownloadingItem(comicInfoData.data, downloadedEp,
+          downloadLogic = CustomDownloadingTask(comicInfoData.data, downloadedEp,
               onFinish, onError, updateInfo, id);
         }
       }
@@ -108,7 +108,7 @@ class FavoriteDownloading extends DownloadingItem{
     };
   }
 
-  FavoriteDownloading.fromMap(Map<String, dynamic> json,
+  FavoriteDownloadingTask.fromMap(Map<String, dynamic> json,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,
       DownloadProgressCallbackAsync updateInfo,

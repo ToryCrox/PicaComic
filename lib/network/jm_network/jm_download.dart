@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'jm_image.dart';
 import 'jm_models.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'dart:io';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'jm_network.dart';
@@ -75,8 +75,8 @@ class DownloadedJmComic extends DownloadedItem {
   List<String> get tags => comic.tags;
 }
 
-class JmDownloadingItem extends DownloadingItem {
-  JmDownloadingItem(this.comic, this._downloadEps, super.whenFinish,
+class JmDownloadingTask extends DownloadingTask {
+  JmDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
       super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.jm});
 
@@ -154,7 +154,7 @@ class JmDownloadingItem extends DownloadingItem {
         ...super.toBaseMap()
       };
 
-  JmDownloadingItem.fromMap(
+  JmDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

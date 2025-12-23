@@ -18,8 +18,8 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/stack.dart' as stack;
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/models/download_tag.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/favorites/local_favorites.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
@@ -80,25 +80,25 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   void download() async {
-    final downloadId = DownloadManager().generateId(sourceKey, id);
+    final downloadId = downloadManager.generateId(sourceKey, id);
     final eps = data!.chapters?.values.toList();
-    for (var i in DownloadManager().downloading) {
+    for (var i in downloadManager.downloading) {
       if (i.id == downloadId) {
         showToast(message: "下载中".tl);
         return;
       }
     }
     var downloaded = <int>[];
-    if (await DownloadManager().isExists(downloadId)) {
+    if (await downloadManager.isExists(downloadId)) {
       if (eps == null) {
         showToast(message: "已下载".tl);
         return;
       }
-      var downloadedComic = await DownloadManager().getComicOrNull(downloadId);
+      var downloadedComic = await downloadManager.getComicOrNull(downloadId);
       downloaded.addAll(downloadedComic!.downloadedEps);
     } else {
       if (eps == null) {
-        DownloadManager().addCustomDownload(data!, [0]);
+        downloadManager.addCustomDownload(data!, [0]);
         App.globalBack();
         showToast(message: "已加入下载队列".tl);
         return;

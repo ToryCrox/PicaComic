@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:path/path.dart' as Path;
@@ -13,7 +13,7 @@ import 'package:path/path.dart' as Path;
 /// 
 /// 这个类将 Kemono 附件下载集成到 DownloadManager 中
 /// 通过将附件列表映射为"单章节多文件"模型来复用现有的下载基础设施
-class KemonoAttachmentDownloadingItem extends DownloadingItem {
+class KemonoAttachmentDownloadingTask extends DownloadingTask {
   /// 要下载的附件列表
   final List<KemonoFile> files;
   
@@ -47,7 +47,7 @@ class KemonoAttachmentDownloadingItem extends DownloadingItem {
   /// Dio 实例（用于下载）
   Dio? _dio;
 
-  KemonoAttachmentDownloadingItem({
+  KemonoAttachmentDownloadingTask({
     required this.files,
     required this.customDownloadPath,
     required this.authorName,
@@ -282,7 +282,7 @@ class KemonoAttachmentDownloadingItem extends DownloadingItem {
         ...super.toBaseMap(),
       };
 
-  KemonoAttachmentDownloadingItem.fromMap(
+  KemonoAttachmentDownloadingTask.fromMap(
     Map<String, dynamic> map,
     DownloadProgressCallback whenFinish,
     DownloadProgressCallback whenError,

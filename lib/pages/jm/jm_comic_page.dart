@@ -3,8 +3,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
-import 'package:pica_comic/foundation/cache_manager.dart';
-import 'package:pica_comic/network/jm_network/jm_download.dart';
+
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -19,7 +18,7 @@ import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
-import '../../network/download.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/jm_network/jm_models.dart';
 import '../../network/jm_network/jm_network.dart';
 import 'jm_comments_page.dart';

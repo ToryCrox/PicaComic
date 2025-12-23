@@ -10,7 +10,7 @@ import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/tools/map_extension.dart';

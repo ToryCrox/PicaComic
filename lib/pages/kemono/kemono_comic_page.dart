@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:pica_comic/base.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/res.dart';
@@ -125,9 +126,9 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   Future<String?> _getLocalCoverPath() async {
     try {
-      final downloadId = DownloadManager().generateId(sourceKey, id);
-      if (await DownloadManager().isExists(downloadId)) {
-        final comic = await DownloadManager().getComicOrNull(downloadId);
+      final downloadId = downloadManager.generateId(sourceKey, id);
+      if (await downloadManager.isExists(downloadId)) {
+        final comic = await downloadManager.getComicOrNull(downloadId);
         if (comic != null) {
           final path = comic.coverPath;
           if (path != null && await File(path).exists()) {
@@ -165,13 +166,13 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   @override
   void download() async {
-    final downloadId = DownloadManager().generateId(sourceKey, id);
-    if (DownloadManager().downloading.any((e) => e.id == downloadId)) {
+    final downloadId = downloadManager.generateId(sourceKey, id);
+    if (downloadManager.downloading.any((e) => e.id == downloadId)) {
       showToast(message: "下载中".tl);
       return;
     }
     
-    if (await DownloadManager().isExists(downloadId)) {
+    if (await downloadManager.isExists(downloadId)) {
        showToast(message: "已下载".tl);
        return;
     }
@@ -244,7 +245,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   Card? get uploaderInfo => null;
 
   @override
-  String get downloadedId => DownloadManager().generateId(sourceKey, id);
+  String get downloadedId => downloadManager.generateId(sourceKey, id);
 
   @override
   List<Widget>? get extraActionButtons {
@@ -421,7 +422,7 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
     if (downloadPath == null) return;
 
     // 使用 DownloadManager 进行下载
-    DownloadManager().addKemonoAttachmentDownload(
+    downloadManager.addKemonoAttachmentDownload(
       files: selectedFiles,
       downloadPath: downloadPath!,
       authorName: widget.authorName,

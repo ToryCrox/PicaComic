@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 /// 更新漫画文件大小对话框

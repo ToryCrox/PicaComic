@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import '../../base.dart';
-import '../download.dart';
+import '../download/download_manager.dart';
 import 'methods.dart';
 import 'models.dart';
 import 'dart:io';
@@ -72,8 +72,8 @@ class DownloadedComic extends DownloadedItem {
 }
 
 ///picacg的下载进程模型
-class PicDownloadingItem extends DownloadingItem {
-  PicDownloadingItem(this.comic, this._downloadEps, super.whenFinish,
+class PicDownloadingTask extends DownloadingTask {
+  PicDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
       super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.picacg});
 
@@ -118,7 +118,7 @@ class PicDownloadingItem extends DownloadingItem {
         ...super.toBaseMap()
       };
 
-  PicDownloadingItem.fromMap(
+  PicDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

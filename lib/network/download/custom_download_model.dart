@@ -5,10 +5,10 @@ import 'dart:typed_data';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 
-import '../tools/io_tools.dart';
-import 'download.dart';
+import '../../tools/io_tools.dart';
+import 'download_manager.dart';
 
 class CustomDownloadedItem extends DownloadedItem {
   @override
@@ -89,8 +89,8 @@ class CustomDownloadedItem extends DownloadedItem {
         comicId = json["comicId"];
 }
 
-class CustomDownloadingItem extends DownloadingItem {
-  CustomDownloadingItem(this.comic, this._downloadEps, super.whenFinish,
+class CustomDownloadingTask extends DownloadingTask {
+  CustomDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
       super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.other})
       : source = ComicSource.find(comic.sourceKey)!;
@@ -174,7 +174,7 @@ class CustomDownloadingItem extends DownloadingItem {
         ...super.toBaseMap()
       };
 
-  CustomDownloadingItem.fromMap(
+  CustomDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/tools/translations.dart';
 import '../../base.dart';
 import '../../foundation/image_manager.dart';
 import '../../tools/io_tools.dart';
-import '../download_model.dart';
 
 class NhentaiDownloadedComic extends DownloadedItem {
   NhentaiDownloadedComic(
@@ -60,8 +60,8 @@ class NhentaiDownloadedComic extends DownloadedItem {
   List<String> tags;
 }
 
-class NhentaiDownloadingItem extends DownloadingItem {
-  NhentaiDownloadingItem(
+class NhentaiDownloadingTask extends DownloadingTask {
+  NhentaiDownloadingTask(
       this.comic, super.whenFinish, super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.nhentai});
 
@@ -88,7 +88,7 @@ class NhentaiDownloadingItem extends DownloadingItem {
   Map<String, dynamic> toMap() =>
       {"comic": comic.toMap(), ...super.toBaseMap()};
 
-  NhentaiDownloadingItem.fromMap(
+  NhentaiDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,

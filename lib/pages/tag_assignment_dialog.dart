@@ -4,8 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
-import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/models/download_tag.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 import '../foundation/log.dart';

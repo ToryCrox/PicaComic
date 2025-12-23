@@ -14,8 +14,8 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
-import 'package:pica_comic/network/download.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 

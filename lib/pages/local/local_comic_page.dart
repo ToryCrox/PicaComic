@@ -4,7 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/map_extension.dart';

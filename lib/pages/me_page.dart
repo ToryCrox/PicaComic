@@ -3,7 +3,7 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'accounts_page.dart';
 import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/pages/tools.dart';

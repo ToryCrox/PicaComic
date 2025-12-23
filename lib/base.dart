@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
-import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';

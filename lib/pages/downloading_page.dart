@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/components/components.dart';
 
 class DownloadingPage extends StatefulWidget {
@@ -16,7 +16,7 @@ class DownloadingPage extends StatefulWidget {
 }
 
 class _DownloadingPageState extends State<DownloadingPage> {
-  var comics = <DownloadingItem>[];
+  var comics = <DownloadingTask>[];
 
   @override
   void dispose() {
@@ -160,7 +160,7 @@ class _DownloadingTile extends StatefulWidget {
     super.key,
   });
 
-  final DownloadingItem comic;
+  final DownloadingTask comic;
 
   final void Function() cancel;
 
@@ -171,7 +171,7 @@ class _DownloadingTile extends StatefulWidget {
 }
 
 class _DownloadingTileState extends State<_DownloadingTile> {
-  late DownloadingItem comic;
+  late DownloadingTask comic;
 
   double value = 0.0;
   int downloadPages = 0;
@@ -321,10 +321,10 @@ class _DownloadingTileState extends State<_DownloadingTile> {
 
     String status = "${"已下载".tl}$downloadPages/$pagesCount";
 
-    // 对于 EhDownloadingItem 和 KemonoAttachmentDownloadingItem，以字节为单位显示
-    if ((comic is EhDownloadingItem &&
-            (comic as EhDownloadingItem).downloadType != 0) ||
-        comic.runtimeType.toString() == 'KemonoAttachmentDownloadingItem') {
+    // 对于 EhDownloadingTask 和 KemonoAttachmentDownloadingTask，以字节为单位显示
+    if ((comic is EhDownloadingTask &&
+            (comic as EhDownloadingTask).downloadType != 0) ||
+        comic.runtimeType.toString() == 'KemonoAttachmentDownloadingTask') {
       status = "${_bytesToSize(downloadPages).split(' ').first}"
           "/${_bytesToSize(pagesCount!)}";
     }

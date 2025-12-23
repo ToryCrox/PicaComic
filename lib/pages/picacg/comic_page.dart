@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/res.dart';
@@ -16,7 +16,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
-import '../../foundation/cache_manager.dart';
+
 import '../../foundation/disk_cache.dart';
 import '../../network/picacg_network/picacg_download_model.dart';
 import '../../tools/type_util.dart';

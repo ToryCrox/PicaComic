@@ -9,15 +9,16 @@ import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 
-import '../base.dart';
-import 'app_dio.dart';
-import 'download.dart';
-import '../foundation/local_repository_manager.dart';
+import '../../base.dart';
+import '../app_dio.dart';
+import 'download_manager.dart';
+import '../../foundation/local_repository_manager.dart';
 
 abstract class DownloadedItem {
   ///漫画源
@@ -95,7 +96,7 @@ typedef DownloadProgressCallback = void Function();
 
 typedef DownloadProgressCallbackAsync = Future<void> Function();
 
-abstract class DownloadingItem with _TransferSpeedMixin {
+abstract class DownloadingTask with _TransferSpeedMixin {
   ///完成时调用
   final DownloadProgressCallback? onFinish;
 
@@ -152,7 +153,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
   /// 设置为 false 的下载任务（如临时文件下载）不会被持久化
   bool shouldSaveToDatabase = true;
 
-  DownloadingItem(this.onFinish, this.onError, this.updateInfo, this.id,
+  DownloadingTask(this.onFinish, this.onError, this.updateInfo, this.id,
       {required this.type});
 
   Future<void> downloadCover() async {
@@ -371,25 +372,25 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 
   Map<String, dynamic> toMap();
 
-  DownloadingItem.fromMap(
+  DownloadingTask.fromMap(
       Map<String, dynamic> map, this.onFinish, this.onError, this.updateInfo)
-      : id = map["id"],
-        type = DownloadType.values[map["type"]],
-        _downloadedNum = map["_downloadedNum"],
-        _downloadingEp = map["_downloadingEp"],
-        index = map["index"],
+      : id = map.optString("id"),
+        type = DownloadType.values[map.optInt("type")],
+        _downloadedNum = map.optInt("_downloadedNum"),
+        _downloadingEp = map.optInt("_downloadingEp"),
+        index = map.optInt("index"),
         links = null {
-    var data = map["links"] as Map<String, dynamic>?;
-    if (data != null) {
+    var data = map.optMap("links");
+    if (data.isNotEmpty) {
       links = {};
       data.forEach((key, value) {
         links![int.parse(key)] = List<String>.from(value);
       });
     }
-    directory = map["directory"];
-    if (map["finishedTasks"] != null) {
-      var finishedTasks = List<String>.from(map["finishedTasks"]);
-      for (var task in finishedTasks) {
+    directory = map.optString("directory");
+    var finishedTasksList = map.optStringList("finishedTasks");
+    if (finishedTasksList.isNotEmpty) {
+      for (var task in finishedTasksList) {
         _downloading[task] = _ImageDownloadWrapper.finished();
       }
     }
@@ -425,7 +426,7 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 
   @override
   bool operator ==(Object other) {
-    if (other is DownloadingItem) {
+    if (other is DownloadingTask) {
       return id == other.id;
     } else {
       return false;

@@ -2,7 +2,7 @@ import 'dart:async' show Future;
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 
 class FileImageProvider extends ImageProvider<FileImageProvider> {
 

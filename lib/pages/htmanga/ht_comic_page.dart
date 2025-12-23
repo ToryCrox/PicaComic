@@ -1,7 +1,7 @@
 import 'package:pica_comic/comic_source/built_in/ht_manga.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:flutter/material.dart';
-import 'package:pica_comic/network/download.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/res.dart';

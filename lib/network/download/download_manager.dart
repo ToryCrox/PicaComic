@@ -4,23 +4,33 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/comic_source/comic_source.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
+import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download_model.dart';
-import 'package:pica_comic/network/models/download_tag.dart';
+import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/models/download_tag.dart';
+import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
-import 'package:pica_comic/network/favorite_download.dart';
+import 'package:pica_comic/network/download/favorite_download.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart' as hitomi;
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
+import 'package:pica_comic/network/kemono_network/kemono_attachment_download.dart';
+import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
+import 'package:pica_comic/network/nhentai_network/models.dart';
+import 'package:pica_comic/network/picacg_network/models.dart' as picacg;
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 import 'package:pica_comic/pages/download_page.dart';
+import 'package:pica_comic/tools/debounce.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
@@ -35,20 +45,6 @@ import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'dart:math';
 
-import '../comic_source/comic_source.dart';
-import '../components/components.dart';
-import '../foundation/local_favorites.dart';
-import '../tools/debounce.dart';
-import '../tools/image_utils.dart';
-import '../tools/throttle.dart';
-import 'custom_download_model.dart';
-import 'eh_network/eh_download_model.dart';
-import 'hitomi_network/hitomi_models.dart';
-import 'kemono_network/kemono_attachment_download.dart';
-import 'kemono_network/models.dart';
-import 'nhentai_network/models.dart';
-import 'picacg_network/models.dart';
-
 typedef DownloadingCallback = void Function();
 
 class DownloadManager implements Listenable {
@@ -62,7 +58,7 @@ class DownloadManager implements Listenable {
   String? path;
 
   ///下载队列
-  var downloading = Queue<DownloadingItem>();
+  var downloading = Queue<DownloadingTask>();
 
   ///是否正在下载
   bool isDownloading = false;
@@ -252,7 +248,7 @@ class DownloadManager implements Listenable {
   }
 
   /// move comic to first
-  void moveToFirst(DownloadingItem item) {
+  void moveToFirst(DownloadingTask item) {
     if (downloading.first == item) {
       return;
     }
@@ -634,38 +630,38 @@ class DownloadManager implements Listenable {
   }
 }
 
-DownloadingItem downloadingItemFromMap(
+DownloadingTask downloadingItemFromMap(
     Map<String, dynamic> map,
     void Function() whenFinish,
     void Function() whenError,
     Future<void> Function() updateInfo) {
   switch (map["type"]) {
     case 0:
-      return PicDownloadingItem.fromMap(
+      return PicDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 1:
-      return EhDownloadingItem.fromMap(
+      return EhDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 2:
-      return JmDownloadingItem.fromMap(
+      return JmDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 3:
-      return HitomiDownloadingItem.fromMap(
+      return HitomiDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 4:
-      return DownloadingHtComic.fromMap(
+      return HtDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 5:
-      return NhentaiDownloadingItem.fromMap(
+      return NhentaiDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 6:
-      return CustomDownloadingItem.fromMap(
+      return CustomDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 7:
-      return FavoriteDownloading.fromMap(
+      return FavoriteDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 8:
-      return KemonoAttachmentDownloadingItem.fromMap(
+      return KemonoAttachmentDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     default:
       throw UnimplementedError();
@@ -674,8 +670,8 @@ DownloadingItem downloadingItemFromMap(
 
 extension AddDownloadExt on DownloadManager {
   ///添加哔咔漫画下载
-  void addPicDownload(ComicItem comic, List<int> downloadEps) {
-    downloading.addLast(PicDownloadingItem(
+  void addPicDownload(picacg.ComicItem comic, List<int> downloadEps) {
+    downloading.addLast(PicDownloadingTask(
         comic, downloadEps, _onFinish, _onError, _saveInfo, comic.id));
     _saveInfo();
     if (!isDownloading) {
@@ -690,7 +686,7 @@ extension AddDownloadExt on DownloadManager {
   void addEhDownload(Gallery gallery, [int type = 0]) {
     final id = getGalleryId(gallery.link);
     downloading.addLast(
-        EhDownloadingItem(gallery, _onFinish, _onError, _saveInfo, id, type));
+        EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -700,7 +696,7 @@ extension AddDownloadExt on DownloadManager {
 
   ///添加禁漫下载
   void addJmDownload(JmComicInfo comic, List<int> downloadEps) {
-    downloading.addLast(JmDownloadingItem(
+    downloading.addLast(JmDownloadingTask(
         comic, downloadEps, _onFinish, _onError, _saveInfo, "jm${comic.id}"));
     _saveInfo();
     if (!isDownloading) {
@@ -710,9 +706,9 @@ extension AddDownloadExt on DownloadManager {
   }
 
   ///添加Hitomi下载
-  void addHitomiDownload(HitomiComic comic, String cover, String link) {
+  void addHitomiDownload(hitomi.HitomiComic comic, String cover, String link) {
     final id = "hitomi${comic.id}";
-    downloading.addLast(HitomiDownloadingItem(
+    downloading.addLast(HitomiDownloadingTask(
         comic, cover, link, _onFinish, _onError, _saveInfo, id));
     _saveInfo();
     if (!isDownloading) {
@@ -725,7 +721,7 @@ extension AddDownloadExt on DownloadManager {
   void addHtDownload(HtComicInfo comic) {
     final id = "Ht${comic.id}";
     downloading
-        .addLast(DownloadingHtComic(comic, _onFinish, _onError, _saveInfo, id));
+        .addLast(HtDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -736,7 +732,7 @@ extension AddDownloadExt on DownloadManager {
   void addNhentaiDownload(NhentaiComic comic) {
     final id = "nhentai${comic.id}";
     downloading.addLast(
-        NhentaiDownloadingItem(comic, _onFinish, _onError, _saveInfo, id));
+        NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -746,7 +742,7 @@ extension AddDownloadExt on DownloadManager {
 
   void addCustomDownload(ComicInfoData comic, List<int> downloadEps) {
     var id = generateId(comic.sourceKey, comic.comicId);
-    downloading.addLast(CustomDownloadingItem(
+    downloading.addLast(CustomDownloadingTask(
         comic, downloadEps, _onFinish, _onError, _saveInfo, id));
     _saveInfo();
     if (!isDownloading) {
@@ -766,7 +762,7 @@ extension AddDownloadExt on DownloadManager {
       _ => generateId(comic.type.comicSource.key, comic.target)
     };
     downloading.addLast(
-        FavoriteDownloading(comic, _onFinish, _onError, _saveInfo, id));
+        FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id));
     _saveInfo();
     if (!isDownloading) {
       downloading.first.start();
@@ -784,7 +780,7 @@ extension AddDownloadExt on DownloadManager {
     String? coverUrl,
   }) {
     final id = "kemono-attachment-$postId-${DateTime.now().millisecondsSinceEpoch}";
-    downloading.addLast(KemonoAttachmentDownloadingItem(
+    downloading.addLast(KemonoAttachmentDownloadingTask(
       files: files,
       customDownloadPath: downloadPath,
       authorName: authorName,

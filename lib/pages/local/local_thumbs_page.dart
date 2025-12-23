@@ -15,7 +15,7 @@ import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
-import '../../network/download.dart';
+import '../../network/download/download_manager.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';

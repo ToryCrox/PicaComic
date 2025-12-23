@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
-import 'package:pica_comic/network/download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
 import '../../base.dart';
 import '../../foundation/image_manager.dart';
 import '../../tools/io_tools.dart';
@@ -51,8 +51,8 @@ class DownloadedHtComic extends DownloadedItem {
   List<String> get tags => comic.tags.keys.toList();
 }
 
-class DownloadingHtComic extends DownloadingItem {
-  DownloadingHtComic(
+class HtDownloadingTask extends DownloadingTask {
+  HtDownloadingTask(
       this.comic, super.whenFinish, super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.htmanga});
 
@@ -87,7 +87,7 @@ class DownloadingHtComic extends DownloadingItem {
   Map<String, dynamic> toMap() =>
       {"comic": comic.toJson(), ...super.toBaseMap()};
 
-  DownloadingHtComic.fromMap(
+  HtDownloadingTask.fromMap(
       Map<String, dynamic> map,
       DownloadProgressCallback whenFinish,
       DownloadProgressCallback whenError,
