@@ -69,10 +69,10 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   @override
   ThumbnailsData? get thumbnailsCreator {
-    if (data == null || data!.imageUrls.isEmpty) return null;
+    if (data == null || data!.thumbnailUrls.isEmpty) return null;
     return ThumbnailsData(
-      data!.imageUrls,
-      (page) async => Res(data!.imageUrls),
+      data!.thumbnailUrls,
+      (page) async => Res(data!.thumbnailUrls),
       1,
     );
   }

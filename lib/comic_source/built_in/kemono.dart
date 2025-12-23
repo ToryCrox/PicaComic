@@ -171,7 +171,7 @@ final kemono = ComicSource.named(
       stripHtml(post.content),
       tags,
       null, // 单章节,不需要章节列表
-      post.imageUrls.map((url) => url.replaceFirst('img.kemono.cr/data', 'img.kemono.cr/thumbnail/data')).toList(),
+      post.thumbnailUrls,
       null,
       0,
       null,

@@ -304,6 +304,25 @@ class KemonoPost with HistoryMixin {
     return urls;
   }
 
+  /// 获取所有缩略图URL列表 (用于详情页预览)
+  List<String> get thumbnailUrls {
+    final urls = <String>[];
+
+    // 添加主文件
+    if (file != null && file!.isImage) {
+      urls.add(file!.thumbnailUrl);
+    }
+
+    // 添加附件中的图片
+    for (var attachment in attachments) {
+      if (attachment.isImage) {
+        urls.add(attachment.thumbnailUrl);
+      }
+    }
+
+    return urls;
+  }
+
   /// 获取所有压缩包附件
   List<KemonoFile> get archiveAttachments {
     return attachments.where((a) => a.isArchive).toList();
