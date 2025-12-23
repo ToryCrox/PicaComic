@@ -321,8 +321,10 @@ class _DownloadingTileState extends State<_DownloadingTile> {
 
     String status = "${"已下载".tl}$downloadPages/$pagesCount";
 
-    if (comic is EhDownloadingItem
-        && (comic as EhDownloadingItem).downloadType != 0) {
+    // 对于 EhDownloadingItem 和 KemonoAttachmentDownloadingItem，以字节为单位显示
+    if ((comic is EhDownloadingItem &&
+            (comic as EhDownloadingItem).downloadType != 0) ||
+        comic.runtimeType.toString() == 'KemonoAttachmentDownloadingItem') {
       status = "${_bytesToSize(downloadPages).split(' ').first}"
           "/${_bytesToSize(pagesCount!)}";
     }

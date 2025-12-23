@@ -146,6 +146,12 @@ abstract class DownloadingItem with _TransferSpeedMixin {
 
   bool duplicate = false;
 
+  /// 是否应该保存到数据库
+  /// 
+  /// 默认为 true，表示下载完成后保存到"已下载"列表
+  /// 设置为 false 的下载任务（如临时文件下载）不会被持久化
+  bool shouldSaveToDatabase = true;
+
   DownloadingItem(this.onFinish, this.onError, this.updateInfo, this.id,
       {required this.type});
 

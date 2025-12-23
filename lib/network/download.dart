@@ -44,6 +44,8 @@ import '../tools/throttle.dart';
 import 'custom_download_model.dart';
 import 'eh_network/eh_download_model.dart';
 import 'hitomi_network/hitomi_models.dart';
+import 'kemono_network/kemono_attachment_download.dart';
+import 'kemono_network/models.dart';
 import 'nhentai_network/models.dart';
 import 'picacg_network/models.dart';
 
@@ -306,7 +308,12 @@ class DownloadManager implements Listenable {
   ///当一个下载任务完成时, 调用此函数
   void _onFinish() async {
     var task = downloading.removeFirst();
-    await _addToDb(await task.toDownloadedItem(), task.directory!);
+    
+    // 只有标记为需要保存的下载任务才会保存到数据库
+    if (task.shouldSaveToDatabase) {
+      await _addToDb(await task.toDownloadedItem(), task.directory!);
+    }
+    
     await _saveInfo();
     StateController.findOrNull<DownloadPageLogic>()?.refresh();
     if (downloading.isNotEmpty) {
@@ -657,6 +664,9 @@ DownloadingItem downloadingItemFromMap(
     case 7:
       return FavoriteDownloading.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
+    case 8:
+      return KemonoAttachmentDownloadingItem.fromMap(
+          map, whenFinish, whenError, updateInfo, map["id"]);
     default:
       throw UnimplementedError();
   }
@@ -764,6 +774,35 @@ extension AddDownloadExt on DownloadManager {
     }
   }
 
+  /// 添加 Kemono 附件下载
+  void addKemonoAttachmentDownload({
+    required List<KemonoFile> files,
+    required String downloadPath,
+    required String authorName,
+    required String postId,
+    DateTime? publishedDate,
+    String? coverUrl,
+  }) {
+    final id = "kemono-attachment-$postId-${DateTime.now().millisecondsSinceEpoch}";
+    downloading.addLast(KemonoAttachmentDownloadingItem(
+      files: files,
+      customDownloadPath: downloadPath,
+      authorName: authorName,
+      postId: postId,
+      publishedDate: publishedDate,
+      coverUrl: coverUrl,
+      onFinish: _onFinish,
+      onError: _onError,
+      updateInfo: _saveInfo,
+      id: id,
+    ));
+    _saveInfo();
+    if (!isDownloading) {
+      downloading.first.start();
+      isDownloading = true;
+    }
+  }
+
   DownloadedItem? _getComicFromJson({
     required String id,
     required String json,
@@ -777,6 +816,10 @@ extension AddDownloadExt on DownloadManager {
         // 本地导入的漫画
         final jsonMap = jsonDecode(json) as Map<String, dynamic>;
         comic = LocalDownloadedItem.fromJson(jsonMap);
+      } else if (id.startsWith("kemono-attachment-")) {
+        // Kemono 附件下载 - 不应该被保存到数据库，但如果被保存了就忽略
+        // 返回 null 会被 whereType<DownloadedItem>() 过滤掉
+        return null;
       } else if (id.contains('-')) {
         comic = CustomDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.startsWith("jm")) {
@@ -923,8 +966,9 @@ extension AddDownloadExt on DownloadManager {
                 ? e[kDownloadSize] as double
                 : (e[kDownloadSize] as int).toDouble(),
             directory: e[kDownloadDirectory] as String?,
-          )!,
+          ),
         )
+        .whereType<DownloadedItem>() // 过滤掉 null 值
         .toList();
   }
 

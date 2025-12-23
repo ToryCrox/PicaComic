@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/res.dart';
@@ -16,7 +16,6 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/download.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 
@@ -274,6 +273,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
         files: files, 
         authorName: data?.userName ?? "Unknown",
         publishedDate: data?.published,
+        coverUrl: data?.cover ?? "", // 传递封面 URL
       ),
     );
   }
@@ -283,11 +283,13 @@ class _DownloadAttachmentsDialog extends StatefulWidget {
   final List<KemonoFile> files;
   final String authorName;
   final DateTime? publishedDate;
+  final String coverUrl;
 
   const _DownloadAttachmentsDialog({
     required this.files,
     required this.authorName,
     this.publishedDate,
+    required this.coverUrl,
   });
 
   @override
@@ -297,9 +299,6 @@ class _DownloadAttachmentsDialog extends StatefulWidget {
 
 class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> {
   late List<bool> selected;
-  bool downloading = false;
-  double? progress;
-  String? currentFile;
   late String? downloadPath;
 
   @override
@@ -343,71 +342,20 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
 
     if (downloadPath == null) return;
 
-    setState(() {
-      downloading = true;
-    });
-
-    final dio = Dio();
-    
-    // 目录结构: path/[AuthorName]/
-    final targetDir = Directory("$downloadPath${Platform.pathSeparator}${_sanitizeFileName(widget.authorName)}");
-    if (!await targetDir.exists()) {
-      await targetDir.create(recursive: true);
-    }
-    
-    // 日期前缀: [2025-12-25]
-    String datePrefix = "";
-    if (widget.publishedDate != null) {
-      datePrefix = "[${widget.publishedDate!.year}-${widget.publishedDate!.month.toString().padLeft(2, '0')}-${widget.publishedDate!.day.toString().padLeft(2, '0')}]";
-    } else {
-      final now = DateTime.now();
-      datePrefix = "[${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}]";
-    }
-
-    int successCount = 0;
-    
-    for (var file in selectedFiles) {
-      if (!mounted) break;
-      
-      setState(() {
-        currentFile = file.name;
-        progress = 0;
-      });
-
-      final fileName = "$datePrefix${file.name}";
-      final savePath = "${targetDir.path}${Platform.pathSeparator}$fileName";
-
-      try {
-        await dio.download(
-          file.fullUrl, 
-          savePath,
-          onReceiveProgress: (count, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                progress = count / total;
-              });
-            }
-          },
-        );
-        successCount++;
-      } catch (e) {
-        showToast(message: "下载失败: ${file.name}\n$e");
-      }
-    }
+    // 使用 DownloadManager 进行下载
+    DownloadManager().addKemonoAttachmentDownload(
+      files: selectedFiles,
+      downloadPath: downloadPath!,
+      authorName: widget.authorName,
+      postId: widget.files.first.path.split('/')[2], // 从路径中提取 postId
+      publishedDate: widget.publishedDate,
+      coverUrl: widget.coverUrl,
+    );
 
     if (mounted) {
-      setState(() {
-        downloading = false;
-        currentFile = null;
-        progress = null;
-      });
       Navigator.of(context).pop();
-      showToast(message: "下载完成: 成功 $successCount/${selectedFiles.length}");
+      showToast(message: "已加入下载队列 (${selectedFiles.length} 个文件)");
     }
-  }
-
-  String _sanitizeFileName(String name) {
-    return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
   @override
@@ -420,62 +368,54 @@ class _DownloadAttachmentsDialogState extends State<_DownloadAttachmentsDialog> 
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (downloading) ...[
-              LinearProgressIndicator(value: progress),
-              const SizedBox(height: 8),
-              Text(currentFile != null ? "正在下载: $currentFile" : "准备中..."),
-            ] else ...[
-              SizedBox(
-                height: 300,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: widget.files.length,
-                  itemBuilder: (context, index) {
-                    final file = widget.files[index];
-                    return CheckboxListTile(
-                      value: selected[index],
-                      onChanged: (v) {
-                        setState(() {
-                          selected[index] = v!;
-                        });
-                      },
-                      title: Text(file.name),
-                      subtitle: Text(file.path.split('.').last.toUpperCase()),
-                    );
-                  },
+            SizedBox(
+              height: 300,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: widget.files.length,
+                itemBuilder: (context, index) {
+                  final file = widget.files[index];
+                  return CheckboxListTile(
+                    value: selected[index],
+                    onChanged: (v) {
+                      setState(() {
+                        selected[index] = v!;
+                      });
+                    },
+                    title: Text(file.name),
+                    subtitle: Text(file.path.split('.').last.toUpperCase()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    downloadPath == null ? "未选择下载目录" : "存储位置: $downloadPath",
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      downloadPath == null ? "未选择下载目录" : "存储位置: $downloadPath",
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _changeDirectory, 
-                    child: const Text("更改")
-                  ),
-                ],
-              ),
-            ],
+                TextButton(
+                  onPressed: _changeDirectory, 
+                  child: const Text("更改")
+                ),
+              ],
+            ),
           ],
         ),
       ),
       actions: [
-        if (!downloading) ...[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("取消"),
-          ),
-          FilledButton(
-            onPressed: _startDownload,
-            child: const Text("下载"),
-          ),
-        ],
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("取消"),
+        ),
+        FilledButton(
+          onPressed: _startDownload,
+          child: const Text("下载"),
+        ),
       ],
     );
   }
