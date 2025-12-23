@@ -1344,6 +1344,42 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     }
   }
 
+  Widget buildActionItem(BuildContext context, String title, IconData icon, VoidCallback onTap,
+      [VoidCallback? onLongPress]) {
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: const BorderRadius.all(Radius.circular(8)),
+      child: SizedBox(
+        height: 72,
+        width: 64,
+        child: Column(
+          children: [
+            const SizedBox(
+              height: 12,
+            ),
+            Icon(
+              icon,
+              size: 24,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(
+              height: 8,
+            ),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget>? get extraActionButtons => null;
+
   Widget buildActions(ComicPageLogic logic, BuildContext context, bool center) {
     if (logic.loading) {
       return Container(
@@ -1356,38 +1392,6 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         ),
         height: 72,
         width: double.infinity,
-      );
-    }
-
-    Widget buildItem(String title, IconData icon, VoidCallback onTap,
-        [VoidCallback? onLongPress]) {
-      return InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: const BorderRadius.all(Radius.circular(8)),
-        child: SizedBox(
-          height: 72,
-          width: 64,
-          child: Column(
-            children: [
-              const SizedBox(
-                height: 12,
-              ),
-              Icon(
-                icon,
-                size: 24,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(
-                height: 8,
-              ),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12),
-              )
-            ],
-          ),
-        ),
       );
     }
 
@@ -1404,19 +1408,19 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             alignment: center ? WrapAlignment.center : WrapAlignment.start,
             children: [
               if (logic.history != null && width >= 500)
-                buildItem(
+                buildActionItem(context, 
                     "继续阅读".tl, Icons.menu_book, () => read(logic.history)),
               if (width >= 500 || (width < 500 && logic.history != null))
-                buildItem(
+                buildActionItem(context, 
                     "从头开始".tl, Icons.not_started_outlined, () => read(null)),
-              buildItem("分享".tl, Icons.share, () {
+              buildActionItem(context, "分享".tl, Icons.share, () {
                 var text = title!;
                 if (url != null) {
                   text += ":$url";
                 }
                 Share.share(text);
               }),
-              buildItem(
+              buildActionItem(context, 
                   favorite ? "已收藏".tl : "收藏".tl,
                   favorite
                       ? Icons.collections_bookmark
@@ -1430,15 +1434,26 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                   showToast(message: "已收藏".tl);
                 }
               }),
-              if (width >= 500) buildItem("下载".tl, Icons.download, download),
+              if (width >= 500) buildActionItem(context, "下载".tl, Icons.download, download),
+              if (extraActionButtons != null) ...extraActionButtons!,
               if (onLike != null)
-                buildItem(likeCount ?? "喜欢".tl,
+                buildActionItem(context, likeCount ?? "喜欢".tl,
                     isLiked ? Icons.favorite : Icons.favorite_border, onLike!),
               if (openComments != null)
-                buildItem(commentsCount ?? "评论".tl, Icons.comment_outlined,
+                buildActionItem(context, commentsCount ?? "评论".tl, Icons.comment_outlined,
                     openComments!),
               if (searchSimilar != null)
-                buildItem("相似".tl, Icons.search, searchSimilar!),
+                buildActionItem(context, "相关推荐".tl, Icons.account_tree,
+                    searchSimilar!),
+              if (logic.history != null && width >= 500 && width < 600)
+                buildActionItem(context, 
+                    "auto_page_turning".tl, Icons.timer_outlined, () {
+                  App.globalTo(() => ComicReadingPage(
+                      CustomReadingData(id, title!, ComicSource.find(sourceKey), {}),
+                      1,
+                      1)..readingData.history = logic.history,
+                  );
+                }),
               FutureBuilder<bool>(
                   future: downloadManager.isExists(downloadedId),
                   builder: (context, snapshot) {
@@ -1499,7 +1514,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                     }
                     return const SizedBox.shrink();
                   }),
-              buildItem("图片收藏".tl, Icons.image, () {
+              buildActionItem(context, "图片收藏".tl, Icons.image, () {
                 context.to(
                   () => ImageFavoritesPage(
                     filterTitle: title!,

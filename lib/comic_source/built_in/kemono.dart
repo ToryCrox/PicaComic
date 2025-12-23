@@ -9,6 +9,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
+import 'package:pica_comic/pages/kemono/kemono_comic_page.dart';
 import 'package:pica_comic/tools/time.dart';
 
 /// Kemono 漫画源配置
@@ -227,6 +228,9 @@ final kemono = ComicSource.named(
   initData: (source) async {
     await KemonoNetwork().init();
   },
+  
+  // 自定义详情页
+  comicPageBuilder: (context, id, cover) => KemonoComicPage(id, cover),
 );
 
 
