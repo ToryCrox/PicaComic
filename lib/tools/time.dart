@@ -1,6 +1,11 @@
 import 'package:intl/intl.dart';
 import 'package:pica_comic/tools/translations.dart';
 
+/// 将时间格式化为具体日期字符串 (yyyy-MM-dd)
+String timeToDateString(DateTime time) {
+  return DateFormat('yyyy-MM-dd').format(time);
+}
+
 String timeToString(DateTime time){
   var current = DateTime.now();
   if(current.millisecondsSinceEpoch < time.millisecondsSinceEpoch){

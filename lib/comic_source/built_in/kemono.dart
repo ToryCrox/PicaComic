@@ -249,7 +249,7 @@ class _KemonoPostTile extends ComicTile {
   @override
   String get description {
     if (post.published != null) {
-      return timeToString(post.published!);
+      return timeToDateString(post.published!);
     }
     return post.service;
   }

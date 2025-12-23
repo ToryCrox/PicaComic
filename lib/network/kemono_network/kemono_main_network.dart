@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -281,7 +282,39 @@ class KemonoNetwork {
   /// [service] 服务类型
   /// [creatorId] 作者ID
   /// [offset] 分页偏移量 (必须是50的倍数)
-  Future<Res<List<KemonoPostBrief>>> getCreatorPosts(String service, String creatorId, int offset) async {
+  /// [useCache] 是否使用缓存，默认为true
+  Future<Res<List<KemonoPostBrief>>> getCreatorPosts(String service, String creatorId, int offset, {bool useCache = true}) async {
+    final cacheKey = 'kemono_creator_posts_$service/$creatorId/$offset';
+    
+    // 尝试从缓存读取
+    if (useCache) {
+      try {
+        final cached = await CacheManager().findCache(cacheKey);
+        if (cached != null) {
+          final file = File(cached.filePath);
+          if (file.existsSync()) {
+            final dataStr = await file.readAsString();
+            final jsonData = jsonDecode(dataStr);
+            final List postsData;
+            if (jsonData is Map && jsonData.containsKey('posts')) {
+              postsData = jsonData['posts'] as List;
+            } else if (jsonData is List) {
+              postsData = jsonData;
+            } else {
+              postsData = [];
+            }
+            if (postsData.isNotEmpty) {
+              Log.d('Kemono getCreatorPosts cache hit: $cacheKey');
+              final posts = postsData.map((e) => KemonoPostBrief.fromJson(e as Map)).toList();
+              return Res(posts);
+            }
+          }
+        }
+      } catch (e) {
+        Log.e('Kemono getCreatorPosts cache read error: $e');
+      }
+    }
+    
     try {
       if (service == 'discord') {
         return _getDiscordPosts(creatorId, offset);
@@ -303,6 +336,13 @@ class KemonoNetwork {
         return const Res(null, errorMessage: 'Unexpected API response format');
       }
       final posts = postsData.map((e) => KemonoPostBrief.fromJson(e as Map)).toList();
+      
+      // 写入缓存 (1小时过期)
+      try {
+        await CacheManager().writeString(cacheKey, res.data);
+      } catch (e) {
+        Log.e('Kemono getCreatorPosts cache write error: $e');
+      }
       
       return Res(posts);
     } catch (e, s) {
