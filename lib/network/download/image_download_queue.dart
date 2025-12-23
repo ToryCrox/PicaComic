@@ -217,6 +217,11 @@ class ImageDownloadQueue {
 
     _isRunning = false;
     Log.i('ImageDownloadQueue: Paused. Downloaded: $completedCount, Failed: $failedCount, Downloading: $downloadingCount');
+    
+    // 解除对 start() 的阻塞
+    if (_completer != null && !_completer!.isCompleted) {
+      _completer!.complete();
+    }
   }
 
   /// 取消所有下载

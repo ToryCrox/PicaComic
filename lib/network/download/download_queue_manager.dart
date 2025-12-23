@@ -175,6 +175,11 @@ class DownloadQueueManager {
     Log.i('DownloadQueueManager: Starting queue manager');
     _notifyListeners();
 
+    // 恢复所有正在运行的任务
+    for (var task in _runningTasks.values) {
+      task.start();
+    }
+
     // 开始调度任务
     _scheduleNext();
   }

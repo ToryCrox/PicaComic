@@ -402,8 +402,15 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     _runtimeKey++;
     stopRecorder();
     notifications.endProgress();
-    _stopAllTasks();
-    ImageManager.clearTasks();
+    // 使用 pause 而不是 cancelAll (通过 _stopAllTasks)
+    _imageQueue?.pause();
+    
+    // 对于旧的 _downloading map，如果有正在进行的任务，取消它们
+    for (var entry in _downloading.entries) {
+      if (!entry.value.isFinished) {
+        entry.value.cancel();
+      }
+    }
   }
 
   /// stop downloading
