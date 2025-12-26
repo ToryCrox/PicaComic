@@ -106,7 +106,7 @@ dependencies:
   image_size_getter: ^2.4.0
   scrollview_observer: ^1.26.1
   event_bus: ^2.0.1
-
+  flutter_riverpod: ^2.6.1
   wakelock_plus: ^1.4.0
   reorderables: ^0.6.0
   

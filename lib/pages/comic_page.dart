@@ -27,7 +27,7 @@ import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/pages/tag_assignment_dialog.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'download_page.dart';
+
 import 'image_favorites.dart';
 import 'show_image_page.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1360,7 +1360,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       await _logic.loadLocalTags(downloadedId);
 
       // 刷新 DownloadPage 的标签数据
-      StateController.findOrNull<DownloadPageLogic>()?.refreshTags();
+
     }
   }
 
@@ -1492,8 +1492,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                               onPressed: () async {
                                 Navigator.of(context).pop();
                                 await downloadManager.delete([downloadedId]);
-                                StateController.findOrNull<DownloadPageLogic>()
-                                    ?.refresh();
+
                                 showToast(message: "已删除".tl);
                                 logic.update();
                               },

@@ -9,7 +9,7 @@ import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
-import 'package:pica_comic/pages/download_page.dart';
+import 'package:pica_comic/pages/download/download_helper.dart';
 import 'main_favorites_page.dart';
 import 'network_to_local.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';

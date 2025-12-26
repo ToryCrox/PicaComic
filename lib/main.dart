@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -40,7 +41,7 @@ void main(List<String> args) {
     };
     notFirstUse = appdata.firstUse[3] == "1";
     setNetworkProxy();
-    runApp(const MyApp());
+    runApp(const ProviderScope(child: MyApp()));
     if (App.isDesktop) {
       await windowManager.ensureInitialized();
       windowManager.waitUntilReadyToShow().then((_) async {

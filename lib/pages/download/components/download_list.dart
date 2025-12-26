@@ -1,0 +1,278 @@
+import 'dart:io';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/pages/tag_assignment_dialog.dart';
+import 'package:pica_comic/tools/translations.dart';
+import 'package:open_file/open_file.dart';
+
+import 'package:pica_comic/base.dart';
+import 'package:pica_comic/pages/download/download_helper.dart';
+import '../download_providers.dart';
+import 'download_tile.dart';
+import 'download_menus.dart';
+
+/// 下载列表组件
+///
+/// 使用 Riverpod 管理状态，显示过滤后的漫画列表
+class DownloadList extends ConsumerWidget {
+  const DownloadList({
+    super.key,
+    required this.pageId,
+    required this.onRefresh,
+    required this.onRefreshTags,
+    required this.onShowInfo,
+  });
+
+  final String pageId;
+  final VoidCallback onRefresh;
+  final VoidCallback onRefreshTags;
+  final void Function(int index) onShowInfo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final comicsAsync = ref.watch(filteredComicsProvider(pageId));
+    final pageState = ref.watch(downloadPageStateProvider(pageId));
+    final allTagsAsync = ref.watch(downloadTagsProvider);
+    final userTagsMapAsync = ref.watch(comicUserTagsProvider);
+
+    return comicsAsync.when(
+      skipLoadingOnReload: true,
+      data: (comics) {
+        return allTagsAsync.when(
+          skipLoadingOnReload: true,
+          data: (allTags) {
+            return userTagsMapAsync.when(
+              skipLoadingOnReload: true,
+              data: (userTagsMap) {
+                return _buildGrid(
+                    context, ref, comics, pageState, allTags, userTagsMap);
+              },
+              loading: () => const SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator())),
+              error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
+            );
+          },
+          loading: () => const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator())),
+          error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
+        );
+      },
+      loading: () => const SliverToBoxAdapter(
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => SliverToBoxAdapter(
+        child: Center(child: Text("加载失败: $error")),
+      ),
+    );
+  }
+
+  Widget _buildGrid(
+    BuildContext context,
+    WidgetRef ref,
+    List<DownloadedItem> comics,
+    DownloadPageState pageState,
+    List<TagInfo> allTags,
+    Map<String, List<String>> userTagsMap,
+  ) {
+    return SliverGrid(
+      delegate: SliverChildBuilderDelegate(
+        childCount: comics.length,
+        (context, index) => _buildItem(context, ref, comics[index], index, pageState, allTags, userTagsMap),
+      ),
+      gridDelegate: SliverGridDelegateWithComics(),
+    );
+  }
+
+  Widget _buildItem(
+    BuildContext context,
+    WidgetRef ref,
+    DownloadedItem item,
+    int index,
+    DownloadPageState pageState,
+    List<TagInfo> allTags,
+    Map<String, List<String>> userTagsMap,
+  ) {
+    final isSelected = pageState.selectedIds.contains(item.id);
+    final typeName = getComicTypeName(item);
+    final displayName = getComicDisplayName(item);
+    final sizeText = getComicSizeText(item);
+
+    return Padding(
+      padding: const EdgeInsets.all(2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.surfaceContainerHighest
+              : Colors.transparent,
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+        ),
+        child: DownloadedComicTile(
+          id: item.id,
+          name: displayName,
+          author: item.subTitle,
+          imagePath: File(item.coverPath ?? ''),
+          type: typeName,
+          primaryTags: getUserTags(item, userTagsMap),
+          tag: getRawTags(item, userTagsMap),
+          onTagTap: (tag) => updateKeyword(ref, pageId, tag),
+          onTagSecondaryTap: (tag, details) =>
+              _showTagMenu(context, ref, tag, item, false, details, userTagsMap),
+          onPrimaryTagSecondaryTap: (tag, details) =>
+              _showTagMenu(context, ref, tag, item, true, details, userTagsMap),
+          onPrimaryTagTap: (tag) async {
+            final tagId = allTags.firstWhere(
+              (element) => element.name == tag,
+              orElse: () => TagInfo(id: -1, name: '', comicCount: 0),
+            ).id;
+            if (tagId != -1) {
+              updateTagFilter(ref, pageId, tagId);
+            }
+          },
+          onManageTags: () async {
+            final suggestedTags = [
+              item.name,
+              item.subTitle,
+              ...getOriginalTags(item, userTagsMap),
+            ];
+            final result = await showDialog<bool>(
+              context: context,
+              builder: (context) => TagAssignmentDialog(
+                comicIds: [item.id],
+                suggestedTags: suggestedTags,
+              ),
+            );
+            if (result == true) {
+              onRefreshTags();
+            }
+          },
+          onOpenFolder: () async {
+            var path = await downloadManager.getFullDirectory(item.id);
+            OpenFile.open(path);
+          },
+          onTap: () async {
+            if (pageState.isSelecting) {
+              toggleSelection(ref, pageId, item.id);
+              // 如果没有选中项，退出选择模式
+              final newState = ref.read(downloadPageStateProvider(pageId));
+              if (newState.selectedIds.isEmpty) {
+                exitSelecting(ref, pageId);
+              }
+            } else {
+              if (item.type == DownloadType.local) {
+                item.read();
+              } else {
+                toComicInfoPage(item);
+              }
+            }
+          },
+          size: sizeText,
+          onLongTap: () {
+            if (pageState.isSelecting) return;
+            toggleSelection(ref, pageId, item.id);
+            enterSelecting(ref, pageId);
+          },
+          onSecondaryTap: (details) async {
+            showTileContextMenu(
+              context: context,
+              details: details,
+              comic: item,
+              getOriginalTags: (item) => getOriginalTags(item, userTagsMap),
+              onRefresh: onRefresh,
+              onRefreshTags: onRefreshTags,
+              onRemoveComic: () {
+                // Provider will automatically update when DownloadManager notifies
+              },
+              onShowInfo: () => onShowInfo(index),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showTagMenu(
+    BuildContext context,
+    WidgetRef ref,
+    String tag,
+    DownloadedItem comic,
+    bool isPrimary,
+    TapDownDetails details,
+    Map<String, List<String>> userTagsMap,
+  ) {
+    showDesktopMenu(
+      App.globalContext!,
+      Offset(details.globalPosition.dx, details.globalPosition.dy),
+      [
+        DesktopMenuEntry(
+          text: "管理标签".tl,
+          onClick: () async {
+            await Future.delayed(const Duration(milliseconds: 300));
+            final suggestedTags = [
+              comic.name,
+              comic.subTitle,
+              ...getOriginalTags(comic, userTagsMap),
+            ];
+            final result = await showDialog<bool>(
+              context: context,
+              builder: (context) => TagAssignmentDialog(
+                comicIds: [comic.id],
+                suggestedTags: suggestedTags,
+              ),
+            );
+            if (result == true) {
+              onRefreshTags();
+            }
+          },
+        ),
+        DesktopMenuEntry(
+          text: "复制".tl,
+          onClick: () {
+            // TODO: Clipboard copy
+          },
+        ),
+        DesktopMenuEntry(
+          text: "本地搜索".tl,
+          onClick: () {
+            updateKeyword(ref, pageId, tag);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// SliverPersistentHeader 代理
+class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  SliverAppBarDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => max(maxHeight, minHeight);
+
+  @override
+  bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
+    return true;
+  }
+}

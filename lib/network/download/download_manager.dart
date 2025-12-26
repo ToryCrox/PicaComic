@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
@@ -30,7 +31,6 @@ import 'package:pica_comic/network/nhentai_network/download.dart';
 import 'package:pica_comic/network/nhentai_network/models.dart';
 import 'package:pica_comic/network/picacg_network/models.dart' as picacg;
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
-import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/tools/debounce.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
@@ -86,6 +86,18 @@ class DownloadManager implements Listenable {
   final DownloadDatabase _db = DownloadDatabase();
 
   final List<VoidCallback> _listeners = [];
+
+  /// 用于通知已下载列表变化的 StreamController
+  final StreamController<void> _comicsChangedController =
+      StreamController<void>.broadcast();
+
+  /// 当已下载列表变化时触发的 Stream (下载完成, 删除, 导入等)
+  Stream<void> get onComicsChanged => _comicsChangedController.stream;
+
+  /// 触发已下载列表变化通知
+  void _notifyComicsChanged() {
+    _comicsChangedController.add(null);
+  }
 
   @override
   void addListener(VoidCallback listener) {
@@ -338,7 +350,7 @@ class DownloadManager implements Listenable {
     }
     
     await _saveInfo();
-    StateController.findOrNull<DownloadPageLogic>()?.refresh();
+    _notifyComicsChanged();
     
     // 队列管理器会自动调度下一个任务
     // 如果没有更多任务，会自动停止
@@ -417,12 +429,14 @@ class DownloadManager implements Listenable {
         Log.w("IO delete comic error: comic not found $id");
       }
     }
+    _notifyComicsChanged();
   }
 
   Future<void> deleteWithoutFile(List<String> ids) async {
     for (var id in ids) {
       await _deleteFromDb(id);
     }
+    _notifyComicsChanged();
   }
 
   /// 删除漫画的指定章节

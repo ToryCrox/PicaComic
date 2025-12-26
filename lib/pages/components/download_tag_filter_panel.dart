@@ -3,17 +3,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/state_controller.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
-import 'package:pica_comic/pages/download_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
-
-import '../../components/keep_alive_wrapper.dart';
+import 'package:pica_comic/pages/download/components/download_tile.dart';
 import '../../foundation/log.dart';
 
 class DownloadTagFilterPanel extends StatefulWidget {
+  final List<TagInfo> tags;
+  final int? selectedTagId;
+  final ValueChanged<int?> onTagSelected;
+  final VoidCallback onClose;
+  final VoidCallback onManageTags;
+  final VoidCallback? onTagsReordered;
+
   const DownloadTagFilterPanel({
     super.key,
     required this.tags,
@@ -21,13 +25,8 @@ class DownloadTagFilterPanel extends StatefulWidget {
     required this.onTagSelected,
     required this.onClose,
     required this.onManageTags,
+    this.onTagsReordered,
   });
-
-  final List<TagInfo> tags;
-  final int? selectedTagId;
-  final ValueChanged<int?> onTagSelected;
-  final VoidCallback onClose;
-  final VoidCallback onManageTags;
 
   @override
   State<DownloadTagFilterPanel> createState() => _DownloadTagFilterPanelState();
@@ -204,7 +203,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
             }
 
             // 通知父组件刷新
-            StateController.findOrNull<DownloadPageLogic>()?.refreshTags();
+            widget.onTagsReordered?.call();
           } catch (e) {
             Log.e('onReorder $e');
             // 出错时重新加载
