@@ -1046,6 +1046,27 @@ class DownloadPage extends StatelessWidget {
               logic.updateTagFilter(tagId);
             }
           },
+          onManageTags: () async {
+            final suggestedTags = [
+              comic.name,
+              comic.subTitle,
+              ...logic.getOriginalTags(comic)
+            ];
+            final result = await showDialog<bool>(
+              context: context,
+              builder: (context) => TagAssignmentDialog(
+                comicIds: [comic.id],
+                suggestedTags: suggestedTags,
+              ),
+            );
+            if (result == true) {
+              logic.refreshTags();
+            }
+          },
+          onOpenFolder: () async {
+            var path = await downloadManager.getFullDirectory(comic.id);
+            OpenFile.open(path);
+          },
           onTap: () async {
             if (logic.selecting) {
               if (logic.selected.contains(comic.id)) {
@@ -2027,12 +2048,91 @@ class DownloadedComicTile extends ComicTile {
   final void Function(String tag, TapDownDetails details)?
       onPrimaryTagSecondaryTap;
 
+  final VoidCallback? onManageTags;
+  final VoidCallback? onOpenFolder;
+
   List<String>? get tags => tag
       .map((e) => App.locale.languageCode == "zh" ? e.translateTagsToCN : e)
       .toList();
 
   @override
   String get description => "${size}MB";
+
+  @override
+  Widget? buildSubDescription(BuildContext context) {
+    if (onManageTags == null && onOpenFolder == null) return null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+      child: Row(
+        children: [
+          if (onOpenFolder != null)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onOpenFolder,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.folder_open,
+                          size: 18,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer),
+                      const SizedBox(width: 8),
+                      Text("目录".tl,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (onOpenFolder != null && onManageTags != null)
+            const SizedBox(width: 12),
+          if (onManageTags != null)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onManageTags,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.label_outline,
+                          size: 18,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer),
+                      const SizedBox(width: 8),
+                      Text("标签".tl,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget get image => Image.file(
@@ -2077,6 +2177,8 @@ class DownloadedComicTile extends ComicTile {
     this.onPrimaryTagTap,
     this.onTagSecondaryTap,
     this.onPrimaryTagSecondaryTap,
+    this.onManageTags,
+    this.onOpenFolder,
     super.key,
   });
 }
