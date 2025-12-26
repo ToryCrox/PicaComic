@@ -277,9 +277,10 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   /// 下载图片的包装器（用于 ImageDownloadQueue）
   Future<void> _downloadImageWrapper(ImageDownloadQueueItem item) async {
-    // 创建下载包装器
+    // 创建下载包装器，使用 downloadImageWithContext 替代直接调用 downloadImage
+    // 这样可以将图片的上下文信息（章节索引等）安全地传递给子类，避免并发时的竞态条件
     final wrapper = _ImageDownloadWrapper(
-      () => downloadImage(item.url),
+      () => downloadImageWithContext(item),
       item.savePath,
       item.fileBaseName,
       onData,
@@ -500,7 +501,20 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       type != DownloadType.htmanga &&
       type != DownloadType.nhentai;
 
+  /// 下载单张图片
+  /// 
+  /// [link] 图片链接
   Stream<DownloadProgress> downloadImage(String link);
+
+  /// 下载单张图片（带上下文信息）
+  /// 
+  /// 子类可以覆写此方法以获取完整的下载上下文，包括章节索引等信息。
+  /// 这对于需要根据章节信息进行特殊处理的平台（如禁漫的图片反混淆）非常重要。
+  /// 
+  /// 默认实现直接调用 [downloadImage]，忽略上下文信息。
+  Stream<DownloadProgress> downloadImageWithContext(ImageDownloadQueueItem item) {
+    return downloadImage(item.url);
+  }
 
   ///获取封面链接
   String get cover;

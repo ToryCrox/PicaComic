@@ -7,6 +7,7 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'jm_image.dart';
 import 'jm_models.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/image_download_queue.dart';
 import 'dart:io';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'jm_network.dart';
@@ -129,15 +130,41 @@ class JmDownloadingTask extends DownloadingTask {
     return res;
   }
 
-  @override
-  Stream<DownloadProgress> downloadImage(String link) {
-    var bookId = "";
+  /// 从图片链接中提取 bookId
+  String _getBookIdFromLink(String link) {
     for (int i = link.length - 1; i >= 0; i--) {
       if (link[i] == '/') {
-        bookId = link.substring(i + 1, link.length - 5);
-        break;
+        return link.substring(i + 1, link.length - 5);
       }
     }
+    return "";
+  }
+
+  /// 覆写此方法以使用线程安全的方式获取 epsId
+  /// 
+  /// 从 [item.episodeIndex] 直接获取章节 ID，而不是依赖共享状态 [downloadingEp]
+  /// 这在并发下载时能确保每张图片都使用正确的章节 ID 进行反混淆处理
+  @override
+  Stream<DownloadProgress> downloadImageWithContext(ImageDownloadQueueItem item) {
+    final bookId = _getBookIdFromLink(item.url);
+    // item.episodeIndex 就是 links 的 key，即章节编号
+    // comic.series 是 {章节编号: 章节ID} 的映射
+    final epsId = comic.series[item.episodeIndex] ?? comic.series.values.first;
+    
+    return ImageManager().getJmImage(
+      item.url,
+      {},
+      epsId: epsId,
+      scrambleId: "220980",
+      bookId: bookId,
+    );
+  }
+
+  @override
+  @Deprecated('Use downloadImageWithContext instead for thread safety')
+  Stream<DownloadProgress> downloadImage(String link) {
+    // 保留此方法用于向后兼容，但新的队列系统会调用 downloadImageWithContext
+    final bookId = _getBookIdFromLink(link);
     return ImageManager().getJmImage(
       link,
       {},
