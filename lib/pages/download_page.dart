@@ -1107,10 +1107,10 @@ class DownloadPage extends StatelessWidget {
           _goLocalComicPage(comic);
         },
       ),
-      // 当漫画有多个ep时显示该选项
-      if (comic.downloadedEps.length > 1)
+      // 查看下载的章节列表
+      if (comic.downloadedEps.isNotEmpty)
         DesktopMenuEntry(
-          text: "显示信息".tl,
+          text: "查看章节".tl,
           onClick: () async {
             Future.delayed(const Duration(milliseconds: 300), () {
               showInfo(index, logic, context);
