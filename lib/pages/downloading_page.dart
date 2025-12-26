@@ -380,6 +380,12 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     size: 16,
                     color: Colors.green,
                   )
+                else if (epValue == 0)
+                  Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: context.colorScheme.primary,
+                  )
                 else
                   SizedBox(
                     width: 16,
