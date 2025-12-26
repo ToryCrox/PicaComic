@@ -146,4 +146,27 @@ class PicDownloadingTask extends DownloadingTask {
       downloaded,
     );
   }
+
+  @override
+  FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) async {
+    var previous = <int>[];
+    if (await DownloadManager().isExists(id)) {
+      var existingComic =
+          (await DownloadManager().getComicOrNull(id))! as DownloadedComic;
+      previous = existingComic.downloadedEps;
+    }
+    // completedEpisodes 是 links Map 的 key（章节编号，从1开始）
+    // downloadedEps 存储的是从0开始的索引
+    var downloaded = (completedEpisodes.map((e) => e - 1).toList() + previous)
+        .toSet()
+        .toList();
+    downloaded.sort();
+    return DownloadedComic(
+      comic,
+      eps,
+      await getFolderSize(Directory(path)),
+      downloaded,
+    );
+  }
 }
+

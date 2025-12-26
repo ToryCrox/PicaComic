@@ -128,13 +128,27 @@ class ImageDownloadQueue {
   /// 任务失败回调（所有重试都失败后）
   final void Function(List<ImageDownloadQueueItem> failedItems)? onFailed;
 
+  /// 章节完成回调（当一个章节的所有图片下载完成时触发）
+  final void Function(int episodeIndex)? onEpisodeCompleted;
+
+  /// 每个章节的图片总数
+  final Map<int, int> _episodeTotalCounts = {};
+
+  /// 每个章节已完成的图片数
+  final Map<int, int> _episodeCompletedCounts = {};
+
+  /// 已触发完成回调的章节（避免重复触发）
+  final Set<int> _completedEpisodes = {};
+
   ImageDownloadQueue({
     required this.downloadFunction,
     this.maxConcurrentDownloads = 6,
     this.onProgressUpdate,
     this.onAllCompleted,
     this.onFailed,
+    this.onEpisodeCompleted,
   });
+
 
   /// 获取当前下载中的数量
   int get downloadingCount => _downloadingItems.length;
@@ -178,7 +192,12 @@ class ImageDownloadQueue {
     }
 
     _waitingQueue.addLast(item);
+    
+    // 统计章节图片总数
+    _episodeTotalCounts[item.episodeIndex] = 
+        (_episodeTotalCounts[item.episodeIndex] ?? 0) + 1;
   }
+
 
   /// 批量添加图片
   void addImages(List<ImageDownloadQueueItem> items) {
@@ -320,6 +339,9 @@ class ImageDownloadQueue {
 
       // 通知进度更新
       onProgressUpdate?.call(completedCount, totalCount);
+      
+      // 检查章节是否完成
+      _checkEpisodeCompleted(item.episodeIndex);
     } catch (e) {
       // 下载失败
       Log.e('ImageDownloadQueue: Failed to download $key: $e');
@@ -338,6 +360,31 @@ class ImageDownloadQueue {
     // 调度下一个任务
     _scheduleNext();
   }
+
+  /// 检查章节是否完成
+  void _checkEpisodeCompleted(int episodeIndex) {
+    // 如果已经触发过，跳过
+    if (_completedEpisodes.contains(episodeIndex)) return;
+    
+    // 更新已完成数量
+    _episodeCompletedCounts[episodeIndex] = 
+        (_episodeCompletedCounts[episodeIndex] ?? 0) + 1;
+    
+    final total = _episodeTotalCounts[episodeIndex] ?? 0;
+    final completed = _episodeCompletedCounts[episodeIndex] ?? 0;
+    
+    if (completed >= total && total > 0) {
+      _completedEpisodes.add(episodeIndex);
+      Log.i('ImageDownloadQueue: Episode $episodeIndex completed ($completed/$total)');
+      onEpisodeCompleted?.call(episodeIndex);
+    }
+  }
+
+  /// 获取已完成的章节索引集合
+  Set<int> getCompletedEpisodes() {
+    return Set<int>.from(_completedEpisodes);
+  }
+
 
   /// 获取队列状态摘要
   String getStatusSummary() {

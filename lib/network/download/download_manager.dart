@@ -225,7 +225,7 @@ class DownloadManager implements Listenable {
     }
     await _db.init(dbPath: "$path/download.db");
     for (var entry in oldData.entries) {
-      await _addToDb(entry.value, entry.key);
+      await addToDb(entry.value, entry.key);
     }
   }
 
@@ -333,7 +333,7 @@ class DownloadManager implements Listenable {
       
       // 只有标记为需要保存的下载任务才会保存到数据库
       if (finishedTask.shouldSaveToDatabase) {
-        await _addToDb(await finishedTask.toDownloadedItem(), finishedTask.directory!);
+        await addToDb(await finishedTask.toDownloadedItem(), finishedTask.directory!);
       }
     }
     
@@ -450,7 +450,7 @@ class DownloadManager implements Listenable {
       comic.comicSize = size;
 
       // 更新数据库
-      await _addToDb(comic, comic.directory);
+      await addToDb(comic, comic.directory);
       return null;
     } catch (e, s) {
       Log.e("IO $e/n$s");
@@ -821,7 +821,8 @@ extension AddDownloadExt on DownloadManager {
     }
   }
 
-  Future<void> _addToDb(DownloadedItem item, String directory,
+  /// 添加或更新下载记录到数据库（公开方法，供 DownloadingTask 使用）
+  Future<void> addToDb(DownloadedItem item, String directory,
       [DateTime? time]) async {
     await _db.addToDownload(
       item.id,
@@ -833,6 +834,7 @@ extension AddDownloadExt on DownloadManager {
       jsonEncode(item.toJson()),
     );
   }
+
 
   /// 更新漫画大小
   Future<void> updateSize(String id, double size) async {
@@ -1345,7 +1347,7 @@ extension AddDownloadExt on DownloadManager {
           );
 
           // 保存到数据库
-          await _addToDb(item, relativePath);
+          await addToDb(item, relativePath);
 
           // 如果选择了标签，关联标签
           if (tagIds != null && tagIds.isNotEmpty) {

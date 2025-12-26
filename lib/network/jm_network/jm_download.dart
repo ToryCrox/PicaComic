@@ -204,4 +204,23 @@ class JmDownloadingTask extends DownloadingTask {
     return DownloadedJmComic(
         comic, await getFolderSize(Directory(path)), downloadEps);
   }
+
+  @override
+  FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) async {
+    var previous = <int>[];
+    if (await DownloadManager().isExists(id)) {
+      var existingComic =
+          (await DownloadManager().getComicOrNull(id))! as DownloadedJmComic;
+      previous = existingComic.downloadedEps;
+    }
+    // completedEpisodes 是 links Map 的 key（章节编号，从1开始）
+    // downloadedEps 存储的是从0开始的索引
+    var downloadedEps = (completedEpisodes.map((e) => e - 1).toList() + previous)
+        .toSet()
+        .toList();
+    downloadedEps.sort();
+    return DownloadedJmComic(
+        comic, await getFolderSize(Directory(path)), downloadedEps);
+  }
 }
+

@@ -219,6 +219,38 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     }
   }
 
+  /// 章节下载完成时调用，保存增量数据到数据库
+  /// 
+  /// [episodeIndex] 是 links Map 的 key，即章节编号（通常从1开始）
+  Future<void> _onEpisodeDownloaded(int episodeIndex) async {
+    if (!shouldSaveToDatabase) return;
+    if (directory == null) return;
+    
+    try {
+      // 生成包含已完成章节的下载记录
+      final downloadedItem = await toDownloadedItemPartial(
+        _imageQueue?.getCompletedEpisodes().toList() ?? [episodeIndex],
+      );
+      
+      if (downloadedItem != null) {
+        await DownloadManager().addToDb(downloadedItem, directory!);
+        Log.i('DownloadingTask: Saved episode $episodeIndex for $id to database');
+      }
+    } catch (e, s) {
+      Log.e('DownloadingTask: Failed to save episode $episodeIndex: $e\n$s');
+    }
+  }
+
+  /// 生成包含指定已完成章节的下载记录（用于增量保存）
+  /// 
+  /// 子类必须实现此方法以支持逐章节保存
+  /// [completedEpisodes] 是已完成章节的索引列表（links Map 的 key）
+  /// 
+  /// 默认实现返回 null，表示不支持增量保存
+  FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) {
+    return null;
+  }
+
   // 为了向后兼容保留旧的 _downloading Map，但不再使用
   @Deprecated('Use _imageQueue instead')
   final _downloading = <String, _ImageDownloadWrapper>{};
@@ -253,6 +285,10 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       onFailed: (failedItems) {
         Log.e('DownloadingTask: ${failedItems.length} images failed for $id');
       },
+      onEpisodeCompleted: (episodeIndex) {
+        // 章节下载完成，保存到数据库
+        _onEpisodeDownloaded(episodeIndex);
+      },
     );
 
     // 将所有图片添加到队列
@@ -274,6 +310,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       }
     }
   }
+
 
   /// 下载图片的包装器（用于 ImageDownloadQueue）
   Future<void> _downloadImageWrapper(ImageDownloadQueueItem item) async {
@@ -415,6 +452,8 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   }
 
   /// stop downloading
+  /// 
+  /// 取消下载时，只删除未完成的章节目录，保留已完成的章节
   Future<void> stop() async {
     _runtimeKey++;
     stopRecorder();
@@ -423,7 +462,11 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     if (await downloadManager.isExists(id)) {
       if (links == null) return;
       var comicPath = "$path/";
+      // 获取已完成的章节，这些章节不会被删除
+      final completedEpisodes = _imageQueue?.getCompletedEpisodes() ?? <int>{};
       for (var ep in links!.keys.toList()) {
+        // 只删除未完成的章节
+        if (completedEpisodes.contains(ep)) continue;
         var directory = Directory(comicPath + ep.toString());
         if (directory.existsSync()) {
           directory.deleteSync(recursive: true);
@@ -436,6 +479,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       }
     }
   }
+
 
   Map<String, dynamic> toBaseMap() {
     Map<String, List<String>>? convertedData;
