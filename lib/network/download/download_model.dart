@@ -585,6 +585,29 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   FutureOr<DownloadedItem> toDownloadedItem();
 
+  /// 获取每个章节的下载进度
+  /// 
+  /// 返回 Map，key 是章节索引（links Map 的 key），value 是 `(downloaded, total)` 元组
+  Map<int, ({int downloaded, int total})> get episodeProgress =>
+      _imageQueue?.getEpisodeProgress() ?? {};
+
+  /// 取消指定章节的下载
+  /// 
+  /// [episodeIndex] 是 links Map 的 key，即章节编号
+  void cancelEpisode(int episodeIndex) {
+    _imageQueue?.cancelEpisode(episodeIndex);
+    // 同步从 links 中移除，防止后续重试时再次加入队列
+    links?.remove(episodeIndex);
+  }
+
+  /// 获取章节名称（子类可覆写）
+  /// 
+  /// [episodeIndex] 是 links Map 的 key，即章节编号
+  /// 默认返回 "第X章"
+  String getEpisodeName(int episodeIndex) {
+    return "第$episodeIndex章";
+  }
+
   @override
   String toString() {
     return "$id: $downloadedPages/$totalPages";

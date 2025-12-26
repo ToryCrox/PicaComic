@@ -280,6 +280,33 @@ class DownloadQueueManager {
     _notifyListeners();
   }
 
+  /// 取消指定任务的指定章节
+  /// 
+  /// [taskId] 任务ID
+  /// [episodeIndex] 章节索引（links Map 的 key）
+  void cancelEpisode(String taskId, int episodeIndex) {
+    // 先检查运行中的任务
+    final runningTask = _runningTasks[taskId];
+    if (runningTask != null) {
+      runningTask.cancelEpisode(episodeIndex);
+      Log.i('DownloadQueueManager: Cancelled episode $episodeIndex for running task $taskId');
+      _notifyListeners();
+      return;
+    }
+
+    // 再检查等待队列中的任务
+    for (var task in _waitingQueue) {
+      if (task.id == taskId) {
+        task.cancelEpisode(episodeIndex);
+        Log.i('DownloadQueueManager: Cancelled episode $episodeIndex for waiting task $taskId');
+        _notifyListeners();
+        return;
+      }
+    }
+
+    Log.w('DownloadQueueManager: Task $taskId not found for episode cancellation');
+  }
+
   /// 获取所有任务（等待 + 运行中）
   List<DownloadingTask> getAllTasks() {
     return [..._runningTasks.values, ..._waitingQueue];

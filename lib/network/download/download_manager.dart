@@ -379,6 +379,16 @@ class DownloadManager implements Listenable {
     }
   }
 
+  /// 取消指定下载任务的指定章节
+  /// 
+  /// [id] 下载任务ID
+  /// [episodeIndex] 章节索引（links Map 的 key）
+  void cancelEpisode(String id, int episodeIndex) {
+    _queueManager.cancelEpisode(id, episodeIndex);
+    _saveInfo();
+    notifyListeners();
+  }
+
   Future<DownloadedItem?> getComicOrNull(String id) async {
     return _getComicWithDb(id);
   }

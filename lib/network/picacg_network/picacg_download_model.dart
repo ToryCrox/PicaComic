@@ -130,6 +130,16 @@ class PicDownloadingTask extends DownloadingTask {
         super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
+  String getEpisodeName(int episodeIndex) {
+    // episodeIndex 是 links 的 key（从1开始），对应 _eps 的索引是 episodeIndex - 1
+    final index = episodeIndex - 1;
+    if (index >= 0 && index < _eps.length) {
+      return _eps[index];
+    }
+    return super.getEpisodeName(episodeIndex);
+  }
+
+  @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
     if (await DownloadManager().isExists(id)) {

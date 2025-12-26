@@ -177,6 +177,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   int downloadPages = 0;
   int? pagesCount;
   int? speed;
+  bool _isExpanded = false;
 
   @override
   initState() {
@@ -217,8 +218,26 @@ class _DownloadingTileState extends State<_DownloadingTile> {
     });
   }
 
+  /// 判断是否为单章节漫画（如 EH、Hitomi 等）
+  bool get _isSingleEpisode {
+    final progress = comic.episodeProgress;
+    // 单章节的情况：没有进度数据，或者只有一个章节
+    return progress.isEmpty || progress.length <= 1;
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildMainTile(context),
+        if (_isExpanded && !_isSingleEpisode) _buildEpisodeList(context),
+      ],
+    );
+  }
+
+  Widget _buildMainTile(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: SizedBox(
@@ -244,25 +263,43 @@ class _DownloadingTileState extends State<_DownloadingTile> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    comic.title,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const Spacer(),
-                  Text(
-                    getProgressText(),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(value: value),
-                  const SizedBox(height: 4),
-                ],
+              child: InkWell(
+                onTap: _isSingleEpisode ? null : () {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            comic.title,
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w500),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!_isSingleEpisode)
+                          Icon(
+                            _isExpanded ? Icons.expand_less : Icons.expand_more,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      getProgressText(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(value: value),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 4),
@@ -289,6 +326,112 @@ class _DownloadingTileState extends State<_DownloadingTile> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEpisodeList(BuildContext context) {
+    final progress = comic.episodeProgress;
+    if (progress.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final sortedKeys = progress.keys.toList()..sort();
+
+    return Container(
+      margin: const EdgeInsets.only(left: 100, right: 12, bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.start,
+        spacing: 12,
+        runSpacing: 10,
+        children: sortedKeys.map((epIndex) {
+          final ep = progress[epIndex]!;
+          final epName = comic.getEpisodeName(epIndex);
+          final epValue = ep.total > 0 ? ep.downloaded / ep.total : 0.0;
+          final isCompleted = ep.downloaded >= ep.total && ep.total > 0;
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isCompleted
+                  ? Colors.green.withOpacity(0.15)
+                  : context.colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isCompleted
+                    ? Colors.green.withOpacity(0.5)
+                    : context.colorScheme.outline.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 完成状态指示器
+                if (isCompleted)
+                  const Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: Colors.green,
+                  )
+                else
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      value: epValue,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                // 章节名称
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 100),
+                  child: Text(
+                    epName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isCompleted
+                          ? Colors.green.shade700
+                          : context.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // 取消按钮（仅未完成时显示）
+                if (!isCompleted) ...[
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () {
+                      showConfirmDialog(
+                        context,
+                        "取消".tl,
+                        "取消下载 $epName ?".tl,
+                        () {
+                          downloadManager.cancelEpisode(comic.id, epIndex);
+                          setState(() {});
+                        },
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: context.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

@@ -192,6 +192,17 @@ class JmDownloadingTask extends DownloadingTask {
         super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
+  String getEpisodeName(int episodeIndex) {
+    // episodeIndex 是 links 的 key（对于禁漫，与 comic.series 的 key 一致，从1开始）
+    // comic.epNames 的索引是从0开始
+    final index = episodeIndex - 1;
+    if (comic.epNames.isNotEmpty && index >= 0 && index < comic.epNames.length) {
+      return comic.epNames[index];
+    }
+    return "第$episodeIndex章";
+  }
+
+  @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
     if (await DownloadManager().isExists(id)) {

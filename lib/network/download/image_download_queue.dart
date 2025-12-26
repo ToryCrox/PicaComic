@@ -391,8 +391,53 @@ class ImageDownloadQueue {
     return 'Total: $totalCount, Completed: $completedCount, Downloading: $downloadingCount, Waiting: $waitingCount, Failed: $failedCount';
   }
 
+  /// 获取每个章节的进度
+  /// 
+  /// 返回 Map，key 是章节索引，value 是 `(downloaded, total)` 元组
+  Map<int, ({int downloaded, int total})> getEpisodeProgress() {
+    final result = <int, ({int downloaded, int total})>{};
+    for (var entry in _episodeTotalCounts.entries) {
+      final ep = entry.key;
+      final total = entry.value;
+      final completed = _episodeCompletedCounts[ep] ?? 0;
+      result[ep] = (downloaded: completed, total: total);
+    }
+    return result;
+  }
+
+  /// 取消指定章节的所有下载任务
+  /// 
+  /// 从等待队列中移除该章节的任务，并标记正在下载的任务为已取消
+  void cancelEpisode(int episodeIndex) {
+    Log.i('ImageDownloadQueue: Cancelling episode $episodeIndex');
+
+    // 从等待队列中移除该章节的任务
+    _waitingQueue.removeWhere((item) => item.episodeIndex == episodeIndex);
+
+    // 标记正在下载的该章节任务为已取消
+    final downloadingKeys = _downloadingItems.keys.toList();
+    for (var key in downloadingKeys) {
+      final item = _downloadingItems[key];
+      if (item != null && item.episodeIndex == episodeIndex) {
+        item.state = ImageDownloadTaskState.canceled;
+        _downloadingItems.remove(key);
+      }
+    }
+
+    // 从失败列表中移除该章节的任务
+    _failedItems.removeWhere((key, item) => item.episodeIndex == episodeIndex);
+
+    // 更新统计数据
+    _episodeTotalCounts.remove(episodeIndex);
+    _episodeCompletedCounts.remove(episodeIndex);
+    _completedEpisodes.remove(episodeIndex);
+
+    Log.i('ImageDownloadQueue: Episode $episodeIndex cancelled. Remaining: $totalCount');
+  }
+
   /// 清理资源
   void dispose() {
     cancelAll();
   }
 }
+

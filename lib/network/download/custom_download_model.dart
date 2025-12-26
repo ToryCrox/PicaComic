@@ -187,6 +187,19 @@ class CustomDownloadingTask extends DownloadingTask {
   }
 
   @override
+  String getEpisodeName(int episodeIndex) {
+    // episodeIndex 是 links 的 key（从1开始），对应 chapters 的索引是 episodeIndex - 1
+    if (comic.chapters != null) {
+      final index = episodeIndex - 1;
+      final values = comic.chapters!.values.toList();
+      if (index >= 0 && index < values.length) {
+        return values[index];
+      }
+    }
+    return super.getEpisodeName(episodeIndex);
+  }
+
+  @override
   Future<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
     if (await DownloadManager().isExists(id)) {
