@@ -46,6 +46,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/tools/save_image.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';

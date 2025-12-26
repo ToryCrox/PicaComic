@@ -155,7 +155,7 @@ class JmDownloadingTask extends DownloadingTask {
       item.url,
       {},
       epsId: epsId,
-      scrambleId: "220980",
+      scrambleId: kJmScrambleId,
       bookId: bookId,
     );
   }
@@ -169,7 +169,7 @@ class JmDownloadingTask extends DownloadingTask {
       link,
       {},
       epsId: comic.series[links!.keys.toList()[downloadingEp]]!,
-      scrambleId: "220980",
+      scrambleId: kJmScrambleId,
       bookId: bookId,
     );
   }

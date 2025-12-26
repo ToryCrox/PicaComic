@@ -640,7 +640,13 @@ class ImageManager {
     }
   }
 
-  ///获取禁漫图片, 如果缓存中没有, 则尝试下载
+  /// 获取禁漫图片, 如果缓存中没有, 则尝试下载
+  /// 
+  /// - [url] 图片 URL
+  /// - [headers] 请求头
+  /// - [epsId] 章节 ID，用于图片反混淆算法
+  /// - [scrambleId] 混淆 ID，用于确定是否需要反混淆，通常使用 [kJmScrambleId]
+  /// - [bookId] 漫画 ID，用于图片反混淆算法
   Stream<DownloadProgress> getJmImage(
     String url,
     Map<String, String>? headers, {

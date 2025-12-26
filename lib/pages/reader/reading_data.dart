@@ -252,7 +252,7 @@ class JmReadingData extends ReadingData {
     }
     return ImageManager().getJmImage(url, null,
         epsId: eps.keys.elementAtOrNull(ep-1) ?? id,
-        scrambleId: "220980",
+        scrambleId: kJmScrambleId,
         bookId: bookId);
   }
 

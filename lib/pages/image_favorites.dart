@@ -17,6 +17,7 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/network/jm_network/jm_image.dart';
 
 import 'reader/comic_reading_page.dart';
 
@@ -363,7 +364,7 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
         case "jm":
           stream = ImageManager().getJmImage(image.otherInfo["url"], null,
               epsId: image.otherInfo["epsId"],
-              scrambleId: "220980",
+              scrambleId: kJmScrambleId,
               bookId: image.otherInfo["bookId"]);
         case "hitomi":
           stream = ImageManager().getHitomiImage(
