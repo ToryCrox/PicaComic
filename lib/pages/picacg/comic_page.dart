@@ -280,6 +280,16 @@ void _downloadComic(
       showToast(message: "已加入下载队列".tl);
     },
     downloaded,
+    onEpisodeDelete: (ep) async {
+      var downloadedComic = await downloadManager.getComicOrNull(comic.id);
+      if (downloadedComic != null) {
+        if (downloadedComic.downloadedEps.length == 1) {
+          await downloadManager.delete([comic.id]);
+        } else {
+          await downloadManager.deleteEpisode(downloadedComic, ep);
+        }
+      }
+    },
   );
   if (UiMode.m1(App.globalContext!)) {
     showModalBottomSheet(

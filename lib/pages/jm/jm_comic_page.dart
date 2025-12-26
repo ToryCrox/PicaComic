@@ -244,7 +244,17 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
             downloadManager.addJmDownload(comic, selectedEps);
             App.globalBack();
             showToast(message: "已加入下载队列".tl);
-          }, downloaded);
+          }, downloaded, onEpisodeDelete: (ep) async {
+            var downloadedComic =
+                await downloadManager.getComicOrNull("jm${comic.id}");
+            if (downloadedComic != null) {
+              if (downloadedComic.downloadedEps.length == 1) {
+                await downloadManager.delete(["jm${comic.id}"]);
+              } else {
+                await downloadManager.deleteEpisode(downloadedComic, ep);
+              }
+            }
+          });
         });
   } else {
     showSideBar(
@@ -253,7 +263,17 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
           downloadManager.addJmDownload(comic, selectedEps);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
-        }, downloaded),
+        }, downloaded, onEpisodeDelete: (ep) async {
+          var downloadedComic =
+              await downloadManager.getComicOrNull("jm${comic.id}");
+          if (downloadedComic != null) {
+            if (downloadedComic.downloadedEps.length == 1) {
+              await downloadManager.delete(["jm${comic.id}"]);
+            } else {
+              await downloadManager.deleteEpisode(downloadedComic, ep);
+            }
+          }
+        }),
         useSurfaceTintColor: true);
   }
 }

@@ -112,7 +112,17 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
               DownloadManager().addCustomDownload(data!, selectedEps);
               App.globalBack();
               showToast(message: "已加入下载队列".tl);
-            }, downloaded);
+            }, downloaded, onEpisodeDelete: (ep) async {
+              var downloadedComic =
+                  await downloadManager.getComicOrNull(downloadId);
+              if (downloadedComic != null) {
+                if (downloadedComic.downloadedEps.length == 1) {
+                  await downloadManager.delete([downloadId]);
+                } else {
+                  await downloadManager.deleteEpisode(downloadedComic, ep);
+                }
+              }
+            });
           });
     } else {
       showSideBar(
@@ -121,7 +131,17 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
             DownloadManager().addCustomDownload(data!, selectedEps);
             App.globalBack();
             showToast(message: "已加入下载队列".tl);
-          }, downloaded),
+          }, downloaded, onEpisodeDelete: (ep) async {
+            var downloadedComic =
+                await downloadManager.getComicOrNull(downloadId);
+            if (downloadedComic != null) {
+              if (downloadedComic.downloadedEps.length == 1) {
+                await downloadManager.delete([downloadId]);
+              } else {
+                await downloadManager.deleteEpisode(downloadedComic, ep);
+              }
+            }
+          }),
           useSurfaceTintColor: true);
     }
   }

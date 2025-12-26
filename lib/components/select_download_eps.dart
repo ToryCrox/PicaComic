@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/components/components.dart';
 
 class SelectDownloadChapter extends StatefulWidget {
   const SelectDownloadChapter(this.eps, this.finishSelect, this.downloadedEps,
-      {Key? key})
+      {Key? key, this.onEpisodeDelete})
       : super(key: key);
   final List<String> eps;
   final void Function(List<int>) finishSelect;
   final List<int> downloadedEps;
+  final Future<void> Function(int)? onEpisodeDelete;
 
   @override
   State<SelectDownloadChapter> createState() => _SelectDownloadChapterState();
@@ -41,17 +43,29 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
                   padding: const EdgeInsets.all(4),
                   child: InkWell(
                     borderRadius: const BorderRadius.all(Radius.circular(16)),
-                    onTap: widget.downloadedEps.contains(i)
-                        ? null
-                        : () {
-                            setState(() {
-                              if (selected.contains(i)) {
-                                selected.remove(i);
-                              } else {
-                                selected.add(i);
-                              }
-                            });
-                          },
+                    onTap: () {
+                      if (widget.downloadedEps.contains(i)) {
+                        if (widget.onEpisodeDelete != null) {
+                          showConfirmDialog(context, "删除".tl, "确认删除已下载的章节?".tl,
+                              () async {
+                            await widget.onEpisodeDelete!(i);
+                            if (mounted) {
+                              setState(() {
+                                widget.downloadedEps.remove(i);
+                              });
+                            }
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          if (selected.contains(i)) {
+                            selected.remove(i);
+                          } else {
+                            selected.add(i);
+                          }
+                        });
+                      }
+                    },
                     child: AnimatedContainer(
                       decoration: BoxDecoration(
                         borderRadius:
