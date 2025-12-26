@@ -177,7 +177,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   int downloadPages = 0;
   int? pagesCount;
   int? speed;
-  bool _isExpanded = false;
+  bool _isExpanded = true;
 
   @override
   initState() {
@@ -398,9 +398,9 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                 const SizedBox(width: 6),
                 // 章节名称
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 100),
+                  constraints: const BoxConstraints(maxWidth: 160),
                   child: Text(
-                    epName,
+                    "$epName (${ep.downloaded}/${ep.total})",
                     style: TextStyle(
                       fontSize: 12,
                       color: isCompleted
