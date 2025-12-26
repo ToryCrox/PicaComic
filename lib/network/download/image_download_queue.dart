@@ -178,6 +178,20 @@ class ImageDownloadQueue {
       _downloadingItems.isEmpty && 
       _failedItems.isEmpty;
 
+  /// 是否处于流式模式（动态添加任务）
+  bool _streamMode = false;
+
+  /// 设置是否为流式模式
+  /// 
+  /// 如果为 true，队列为空时不会自动结束，而是等待新任务
+  /// 如果设置为 false 且队列为空，会触发完成回调
+  void setStreamMode(bool enable) {
+    _streamMode = enable;
+    if (!_streamMode && _isRunning) {
+      _scheduleNext();
+    }
+  }
+
   /// 添加图片到队列
   void addImage(ImageDownloadQueueItem item) {
     final key = item.key;
@@ -196,6 +210,11 @@ class ImageDownloadQueue {
     // 统计章节图片总数
     _episodeTotalCounts[item.episodeIndex] = 
         (_episodeTotalCounts[item.episodeIndex] ?? 0) + 1;
+        
+    // 如果正在运行，尝试调度
+    if (_isRunning) {
+      _scheduleNext();
+    }
   }
 
 
@@ -305,6 +324,11 @@ class ImageDownloadQueue {
 
     // 检查是否全部完成
     if (_waitingQueue.isEmpty && _downloadingItems.isEmpty) {
+      // 如果处于流式模式，等待新任务，不结束
+      if (_streamMode) {
+        return;
+      }
+
       if (_failedItems.isEmpty) {
         Log.i('ImageDownloadQueue: All tasks completed successfully');
         _isRunning = false;

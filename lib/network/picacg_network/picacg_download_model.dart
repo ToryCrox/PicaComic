@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/image_download_queue.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
-import '../../base.dart';
 import '../download/download_manager.dart';
 import 'methods.dart';
 import 'models.dart';
@@ -106,6 +104,50 @@ class PicDownloadingTask extends DownloadingTask {
   }
 
   @override
+  Future<void> loadImages(ImageDownloadQueue queue) async {
+    // 1. 获取章节列表（如果尚未获取）
+    if (_eps.isEmpty) {
+      _eps = (await network.getEps(id)).data;
+    }
+    
+    links ??= {};
+    
+    // 2. 对要下载的章节进行排序，确保按顺序下载
+    final sortedEps = List<int>.from(_downloadEps)..sort();
+    
+    // 3. 逐个章节获取图片链接并加入队列（生产者模式）
+    for (var i in sortedEps) {
+      final epNum = i + 1;
+      
+      // 如果 links 中已经有了（可能是恢复下载），直接使用，否则请求网络
+      List<String> urls;
+      if (links!.containsKey(epNum)) {
+        urls = links![epNum]!;
+      } else {
+        urls = (await network.getComicContent(id, epNum)).data;
+        links![epNum] = urls;
+      }
+      
+      // 将该章节的图片加入队列
+      for (var j = 0; j < urls.length; j++) {
+        // Picacg 始终有章节目录
+        var downloadTo = "$path/$epNum";
+        var basename = j.toString();
+        
+        var item = ImageDownloadQueueItem(
+          url: urls[j],
+          episodeIndex: epNum, // 1-based index
+          imageIndex: j,
+          savePath: downloadTo,
+          fileBaseName: basename,
+        );
+        
+        queue.addImage(item);
+      }
+    }
+  }
+
+  @override
   Stream<DownloadProgress> downloadImage(String link) {
     return ImageManager().getImage(getImageUrl(link));
   }
@@ -137,6 +179,13 @@ class PicDownloadingTask extends DownloadingTask {
       return _eps[index];
     }
     return super.getEpisodeName(episodeIndex);
+  }
+
+  @override
+  void cancelEpisode(int episodeIndex) {
+    super.cancelEpisode(episodeIndex);
+    // 从 _downloadEps 中移除（_downloadEps 存储的是 0-based索引）
+    _downloadEps.remove(episodeIndex - 1);
   }
 
   @override

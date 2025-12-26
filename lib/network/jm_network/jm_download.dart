@@ -130,6 +130,61 @@ class JmDownloadingTask extends DownloadingTask {
     return res;
   }
 
+  @override
+  Future<void> loadImages(ImageDownloadQueue queue) async {
+    // 1. 处理单章漫画的特殊情况
+    if (comic.series.isEmpty) {
+      comic.series[1] = id.replaceFirst("jm", "");
+    }
+
+    links ??= {};
+
+    // 2. 对要下载的章节进行排序，确保按顺序下载
+    final sortedEps = List<int>.from(_downloadEps)..sort();
+
+    // 3. 逐个章节获取并入队
+    for (var i in sortedEps) {
+      final key = i + 1;
+      
+      // 检查 series 中是否有该章节（理论上应该有，除非数据不一致）
+      if (!comic.series.containsKey(key)) continue;
+
+      // 如果 links 中已有（恢复下载），直接使用，否则请求
+      if (!links!.containsKey(key)) {
+        // 复用 getOneEp 逻辑，它会将结果写入 links (因为我们将 links 传给它... 等等，getOneEp 接受 res 参数)
+        // 我们需要创建一个临时 map 或者直接把 links 当作 res 传进去?
+        // getOneEp 签名: Future<void> getOneEp(int key, Map<int, List<String>> res)
+        // links 的类型是 Map<int, List<String>>?
+        await getOneEp(key, links!);
+      }
+
+      final urls = links![key];
+      if (urls == null) continue;
+
+      // 4. 入队
+      for (var j = 0; j < urls.length; j++) {
+        // JM 根据是否有章节分目录
+        // 参照 getLinks 的实现，其实没有写目录逻辑，但是 DownloadingTask 默认逻辑是：
+        // var downloadTo = haveEps ? "$path/$ep" : path;
+        // JM 的 haveEps 也是 true (based on type != ... list)
+        // 只要不是 Hentai/Hitomi/HtManga/Nhentai
+        
+        var downloadTo = "$path/$key";
+        var basename = j.toString();
+        
+        var item = ImageDownloadQueueItem(
+          url: urls[j],
+          episodeIndex: key,
+          imageIndex: j,
+          savePath: downloadTo,
+          fileBaseName: basename,
+        );
+        
+        queue.addImage(item);
+      }
+    }
+  }
+
   /// 从图片链接中提取 bookId
   String _getBookIdFromLink(String link) {
     for (int i = link.length - 1; i >= 0; i--) {
@@ -200,6 +255,13 @@ class JmDownloadingTask extends DownloadingTask {
       return comic.epNames[index];
     }
     return "第$episodeIndex章";
+  }
+
+  @override
+  void cancelEpisode(int episodeIndex) {
+    super.cancelEpisode(episodeIndex);
+    // 从 _downloadEps 中移除（_downloadEps 存储的是 0-based索引）
+    _downloadEps.remove(episodeIndex - 1);
   }
 
   @override

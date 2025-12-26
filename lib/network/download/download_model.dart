@@ -255,14 +255,8 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   @Deprecated('Use _imageQueue instead')
   final _downloading = <String, _ImageDownloadWrapper>{};
 
-  /// 初始化图片下载队列
-  void _initializeImageQueue() {
-    if (links == null || links!.isEmpty) {
-      Log.w('DownloadingTask: Cannot initialize image queue without links');
-      return;
-    }
-
-    // 创建图片下载队列
+  /// 创建图片下载队列实例
+  void _createImageQueue() {
     _imageQueue = ImageDownloadQueue(
       maxConcurrentDownloads: allowedLoadingNumber,
       downloadFunction: _downloadImageWrapper,
@@ -290,7 +284,19 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         _onEpisodeDownloaded(episodeIndex);
       },
     );
+  }
 
+
+  /// 流式获取图片链接并入队
+  /// 
+  /// 子类可以覆写此方法以实现边解析边下载。
+  /// 默认实现是调用 getLinks() 一次性获取所有链接并入队。
+  Future<void> loadImages(ImageDownloadQueue queue) async {
+    // 默认实现保持原有行为：一次性获取所有链接
+    if (links == null || links!.isEmpty) {
+      links = await getLinks();
+    }
+    
     // 将所有图片添加到队列
     for (var ep in links!.keys) {
       var urls = links![ep]!;
@@ -306,7 +312,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
           fileBaseName: basename,
         );
         
-        _imageQueue!.addImage(item);
+        queue.addImage(item);
       }
     }
   }
@@ -347,19 +353,16 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       await onStart();
       if (_runtimeKey != currentKey) return;
       
-      // 获取图片链接和封面
-      links ??= await getLinks();
+      // 下载封面
       await downloadCover();
       
       // 初始化图片下载队列
       if (_imageQueue == null) {
-        _initializeImageQueue();
+        _createImageQueue();
       }
       
-      if (_imageQueue == null) {
-        throw Exception('Failed to initialize image download queue');
-      }
-
+      final queue = _imageQueue!;
+      
       // 启动速度统计
       runRecorder();
       
@@ -371,16 +374,31 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         "${downloadManager.downloading.length} Tasks",
       );
 
-      // 启动图片下载队列
-      await _imageQueue!.start();
+      // 设置流式模式：告诉队列我们稍后会添加图片，即使现在是空的也不要结束
+      queue.setStreamMode(true);
+      
+      // 启动队列（注意：这里不立即 await，否则会死锁，因为 streamMode=true 且队列可能为空）
+      final queueFuture = queue.start();
+      
+      try {
+        // 加载图片链接（可以是流式的，也可以是一次性的）
+        await loadImages(queue);
+      } finally {
+        // 完成加载，关闭流模式。
+        // 此时如果队列为空（没加载到任何东西），或者任务都做完了，queueFuture 就会完成。
+        queue.setStreamMode(false);
+      }
+      
+      // 等待队列处理完成
+      await queueFuture;
       
       // 检查是否被取消
       if (_runtimeKey != currentKey) return;
 
       // 检查下载结果
-      if (_imageQueue!.failedCount > 0) {
+      if (queue.failedCount > 0) {
         // 有失败的图片，触发重试
-        throw Exception('${_imageQueue!.failedCount} images failed to download');
+        throw Exception('${queue.failedCount} images failed to download');
       }
 
       // 下载完成
