@@ -207,7 +207,7 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
       data!.description, []));
 
   @override
-  String get downloadedId => "jm${data?.id}";
+  String get downloadedId => "jm$id";
 
   @override
   String get sourceKey => "jm";
