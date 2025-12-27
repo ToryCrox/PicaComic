@@ -59,7 +59,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   /// 判断状态是否处于筛选模式
   bool _isFilteringState(DownloadPageState state) {
-    return state.keyword.isNotEmpty ||
+    return state.isSearching ||
+        state.keyword.isNotEmpty ||
         state.downloadTypeFilter != null ||
         state.excludeLocal ||
         state.selectedTagIds.isNotEmpty;
@@ -238,7 +239,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final pageState = ref.watch(downloadPageStateProvider(_pageId));
 
     // Check if filtering
-    bool isFiltering = pageState.keyword.isNotEmpty ||
+    bool isFiltering = pageState.isSearching ||
+        pageState.keyword.isNotEmpty ||
         pageState.downloadTypeFilter != null ||
         pageState.excludeLocal ||
         pageState.selectedTagIds.isNotEmpty;
@@ -248,6 +250,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       leading = IconButton(
         onPressed: () {
           // clear filters
+          if (pageState.isSearching) setIsSearching(ref, _pageId, false);
           if (pageState.keyword.isNotEmpty) updateKeyword(ref, _pageId, "");
           if (pageState.selectedTagIds.isNotEmpty)
             updateTagFilter(ref, _pageId, null); // clear all
@@ -284,7 +287,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   }
 
   Widget _buildTitle(BuildContext context, DownloadPageState pageState) {
-    if (pageState.keyword.isNotEmpty && !pageState.isSelecting) {
+    if (pageState.isSearching && !pageState.isSelecting) {
       return TextField(
         controller: _searchController,
         decoration:
@@ -420,7 +423,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       IconButton(
         icon: const Icon(Icons.search),
         onPressed: () {
-          updateKeyword(ref, _pageId, " "); // trigger search UI
+          setIsSearching(ref, _pageId, true); // trigger search UI
         },
       ),
       // 类型筛选

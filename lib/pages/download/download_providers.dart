@@ -182,7 +182,6 @@ class ComicUserTagsNotifier
 // 实例状态层 (Instance Ephemeral State)
 // ============================================================================
 
-/// 下载页面的实例状态
 class DownloadPageState {
   /// 搜索关键词
   final String keyword;
@@ -205,6 +204,9 @@ class DownloadPageState {
   /// 排序版本号（用于触发排序更新）
   final int sortVersion;
 
+  /// 是否处于搜索模式
+  final bool isSearching;
+
   const DownloadPageState({
     this.keyword = '',
     this.isSelecting = false,
@@ -213,6 +215,7 @@ class DownloadPageState {
     this.downloadTypeFilter,
     this.excludeLocal = false,
     this.sortVersion = 0,
+    this.isSearching = false,
   });
 
   DownloadPageState copyWith({
@@ -224,6 +227,7 @@ class DownloadPageState {
     bool? excludeLocal,
     bool clearDownloadTypeFilter = false,
     int? sortVersion,
+    bool? isSearching,
   }) {
     return DownloadPageState(
       keyword: keyword ?? this.keyword,
@@ -235,6 +239,7 @@ class DownloadPageState {
           : (downloadTypeFilter ?? this.downloadTypeFilter),
       excludeLocal: excludeLocal ?? this.excludeLocal,
       sortVersion: sortVersion ?? this.sortVersion,
+      isSearching: isSearching ?? this.isSearching,
     );
   }
 }
@@ -255,14 +260,24 @@ final downloadPageStateProvider =
 /// 更新搜索关键词
 void updateKeyword(WidgetRef ref, String pageId, String keyword) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    return state.copyWith(keyword: keyword);
+    return state.copyWith(
+      keyword: keyword,
+      isSearching: keyword.isNotEmpty ? true : state.isSearching,
+    );
   });
 }
 
 /// 进入选择模式
 void enterSelecting(WidgetRef ref, String pageId) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    return state.copyWith(isSelecting: true);
+    return state.copyWith(isSelecting: true, isSearching: false);
+  });
+}
+
+/// 切换搜索模式
+void setIsSearching(WidgetRef ref, String pageId, bool isSearching) {
+  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
+    return state.copyWith(isSearching: isSearching, keyword: isSearching ? state.keyword : '');
   });
 }
 
