@@ -36,7 +36,9 @@ class DownloadPage extends ConsumerStatefulWidget {
 
 class _DownloadPageState extends ConsumerState<DownloadPage>
     with AutomaticKeepAliveClientMixin {
-  final String _pageId = "main_download_page";
+  /// 每个 DownloadPage 实例的唯一标识符
+  /// 用于隔离不同页面实例的筛选/搜索等状态
+  late final String _pageId;
 
   @override
   bool get wantKeepAlive => true;
@@ -80,6 +82,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   @override
   void initState() {
     super.initState();
+    // 为每个页面实例生成唯一 ID，确保筛选/搜索状态独立
+    _pageId = "download_page_${UniqueKey().hashCode}";
     _searchController = TextEditingController();
     _scrollController = ScrollController();
   }
