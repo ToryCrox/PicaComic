@@ -5,7 +5,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'accounts_page.dart';
-import 'package:pica_comic/pages/download_page.dart';
+import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/tools.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'history_page.dart';

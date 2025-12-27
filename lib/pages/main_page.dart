@@ -4,7 +4,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/network/webdav.dart';
-import 'package:pica_comic/pages/download_page.dart';
+import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/local/local_comic_page.dart';
 import 'package:pica_comic/tools/app_links.dart';
 import 'package:pica_comic/tools/background_service.dart';

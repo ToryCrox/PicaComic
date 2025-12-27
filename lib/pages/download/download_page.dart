@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/pages/components/download_tag_filter_panel.dart';
-import 'package:pica_comic/pages/tag_management_page.dart' hide TagInfo;
+import 'tag_management_page.dart' hide TagInfo;
 import 'package:pica_comic/pages/rename_download_dialog.dart';
 import 'package:pica_comic/pages/update_size_dialog.dart';
-import 'package:pica_comic/pages/tag_assignment_dialog.dart';
+import 'tag_assignment_dialog.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_model.dart';
-import 'package:pica_comic/pages/download/components/download_tile.dart';
+import 'components/download_tile.dart';
 
 import 'package:pica_comic/components/components.dart';
 
@@ -22,9 +22,9 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/tools/extensions.dart';
 
-import 'download/download_providers.dart';
-import 'download/components/download_list.dart';
-import 'download/components/download_menus.dart';
+import 'download_providers.dart';
+import 'components/download_list.dart';
+import 'components/download_menus.dart';
 
 import 'import_local_comic_dialog.dart';
 import 'local_repository_management_page.dart';

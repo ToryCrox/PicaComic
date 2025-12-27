@@ -19,13 +19,13 @@ import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
-import 'package:pica_comic/pages/downloading_page.dart';
-import 'package:pica_comic/pages/import_local_comic_dialog.dart';
-import 'package:pica_comic/pages/local_repository_management_page.dart';
+import 'package:pica_comic/pages/download/downloading_page.dart';
+import 'package:pica_comic/pages/download/import_local_comic_dialog.dart';
+import 'package:pica_comic/pages/download/local_repository_management_page.dart';
 import 'package:pica_comic/pages/rename_download_dialog.dart';
 
-import 'package:pica_comic/pages/tag_assignment_dialog.dart';
-import 'package:pica_comic/pages/tag_management_page.dart';
+import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
+import 'package:pica_comic/pages/download/tag_management_page.dart';
 import 'package:pica_comic/pages/update_size_dialog.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';

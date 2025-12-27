@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
 
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
@@ -12,8 +12,8 @@ import 'package:pica_comic/pages/main_page.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/pages/settings/settings_page.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/pages/download_page.dart';
-import 'package:pica_comic/pages/downloading_page.dart';
+import 'package:pica_comic/pages/download/download_page.dart';
+import 'package:pica_comic/pages/download/downloading_page.dart';
 import 'package:window_manager/window_manager.dart';
 import '../pages/local/local_comic_page.dart';
 import '../tools/prefs_helper.dart';
