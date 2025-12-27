@@ -109,11 +109,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       if (next.keyword != _searchController.text) {
         _searchController.text = next.keyword;
       }
-      
+
       // 监听筛选状态变化，处理滚动位置的保存和恢复
       final wasFiltering = previous != null && _isFilteringState(previous);
       final isFiltering = _isFilteringState(next);
-      
+
       if (!wasFiltering && isFiltering) {
         // 进入筛选模式时保存滚动位置
         _saveScrollPosition();
@@ -128,25 +128,23 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
 
     return Scaffold(
-      floatingActionButton: !isSelecting
-          ? _buildFAB(context)
-          : null,
+      floatingActionButton: !isSelecting ? _buildFAB(context) : null,
       body: NotificationListener<ScrollUpdateNotification>(
         onNotification: (notification) {
-          // 检测滚动方向，控制 tag filter 的显示/隐藏
-          final direction =
-              notification.scrollDelta != null && notification.scrollDelta! > 0
-                  ? ScrollDirection.reverse
-                  : ScrollDirection.forward;
-          final wasShowing = _showTagFilter;
+          if (notification.scrollDelta == null) return false;
+          final ScrollDirection direction = notification.scrollDelta! < 0
+              ? ScrollDirection.forward
+              : ScrollDirection.reverse;
+          var showTagFilter = _showTagFilter;
           if (direction == ScrollDirection.reverse) {
             _showTagFilter = false;
           } else if (direction == ScrollDirection.forward) {
             _showTagFilter = true;
           }
-          if (_showTagFilter != wasShowing) {
-            setState(() {});
-          }
+          if (_showTagFilter == showTagFilter) return true;
+          setState(() {
+            _showTagFilter = _showTagFilter;
+          });
           return false;
         },
         child: CustomScrollView(
@@ -179,7 +177,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             // Tag Filter
             if (!isSelecting)
               SliverPersistentHeader(
-                // 根据滚动方向决定是否固定显示
                 pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
                 floating: !SmoothScrollProvider.isMouseScroll,
                 delegate: _SliverAppBarDelegate(
@@ -297,7 +294,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     } else {
       final summaryAsync = ref.watch(downloadedComicsSummaryProvider(_pageId));
       final summary = summaryAsync.when(
-        skipLoadingOnReload: true,  // 避免排序时闪烁
+        skipLoadingOnReload: true, // 避免排序时闪烁
         data: (s) => s,
         loading: () => "",
         error: (_, __) => "",
