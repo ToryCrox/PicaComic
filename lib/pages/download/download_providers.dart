@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
@@ -41,7 +42,7 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
   }
 
   Future<List<DownloadedItem>> _loadComics() async {
-    // 使用默认排序加载所有漫画
+    // 使用固定排序加载漫画，实际排序在 filteredComicsProvider 中进行（内存排序）
     return await DownloadManager().getAll('time', 'desc');
   }
 
@@ -159,6 +160,9 @@ class DownloadPageState {
   /// 排除本地
   final bool excludeLocal;
 
+  /// 排序版本号（用于触发排序更新）
+  final int sortVersion;
+
   const DownloadPageState({
     this.keyword = '',
     this.isSelecting = false,
@@ -166,6 +170,7 @@ class DownloadPageState {
     this.selectedTagIds = const {},
     this.downloadTypeFilter,
     this.excludeLocal = false,
+    this.sortVersion = 0,
   });
 
   DownloadPageState copyWith({
@@ -176,6 +181,7 @@ class DownloadPageState {
     DownloadType? downloadTypeFilter,
     bool? excludeLocal,
     bool clearDownloadTypeFilter = false,
+    int? sortVersion,
   }) {
     return DownloadPageState(
       keyword: keyword ?? this.keyword,
@@ -186,6 +192,7 @@ class DownloadPageState {
           ? null
           : (downloadTypeFilter ?? this.downloadTypeFilter),
       excludeLocal: excludeLocal ?? this.excludeLocal,
+      sortVersion: sortVersion ?? this.sortVersion,
     );
   }
 }
@@ -252,38 +259,123 @@ void clearSelection(WidgetRef ref, String pageId) {
 }
 
 /// 更新标签筛选
+/// 
+/// 同类别只能选一个标签，不同类别可以多选
 void updateTagFilter(WidgetRef ref, String pageId, int? tagId) {
+  // 获取所有标签信息以便判断类别
+  final tagsAsync = ref.read(downloadTagsProvider);
+  final allTags = tagsAsync.valueOrNull ?? [];
+  
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
     if (tagId == null) {
       return state.copyWith(selectedTagIds: {});
     }
+    
+    // 获取要选择的标签的类别
+    final tagInfo = allTags.firstWhere(
+      (t) => t.id == tagId,
+      orElse: () => TagInfo(id: tagId, name: '', comicCount: 0),
+    );
+    final tagCategory = tagInfo.category;
+    
     final newIds = Set<int>.from(state.selectedTagIds);
+    
+    // 如果已选中该标签，则取消选择
     if (newIds.contains(tagId)) {
       newIds.remove(tagId);
     } else {
+      // 移除同类的其他标签
+      newIds.removeWhere((id) {
+        final existingTag = allTags.firstWhere(
+          (t) => t.id == id,
+          orElse: () => TagInfo(id: id, name: '', comicCount: 0, category: -1),
+        );
+        return existingTag.category == tagCategory;
+      });
+      // 添加新标签
       newIds.add(tagId);
     }
+    
     return state.copyWith(selectedTagIds: newIds);
   });
 }
 
 /// 更新下载类型筛选
+/// 
+/// 选择特定类型时会自动取消"排除本地"选项
 void updateDownloadTypeFilter(
     WidgetRef ref, String pageId, DownloadType? type) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
     if (type == state.downloadTypeFilter) {
       return state.copyWith(clearDownloadTypeFilter: true);
     } else {
-      return state.copyWith(downloadTypeFilter: type);
+      // 选择特定类型时，取消排除本地选项
+      return state.copyWith(downloadTypeFilter: type, excludeLocal: false);
     }
   });
 }
 
 /// 更新排除本地筛选
+///
+/// 启用"排除本地"时会自动取消特定类型选择
 void updateExcludeLocal(WidgetRef ref, String pageId, bool exclude) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
+    if (exclude) {
+      // 启用排除本地时，取消特定类型选择
+      return state.copyWith(excludeLocal: exclude, clearDownloadTypeFilter: true);
+    }
     return state.copyWith(excludeLocal: exclude);
   });
+}
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+/// 触发排序更新
+/// 
+/// 通过增加 sortVersion 来触发 filteredComicsProvider 重新计算
+void triggerSortUpdate(WidgetRef ref, String pageId) {
+  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
+    final currentVersion = state.sortVersion;
+    return state.copyWith(sortVersion: currentVersion + 1);
+  });
+}
+
+/// 在内存中对漫画列表进行排序
+/// 
+/// 根据 appdata.settings[26] 的设置进行排序，避免每次排序变化都从数据库重新读取
+List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
+  if (comics.isEmpty) return comics;
+
+  final sortType = appdata.settings[26][0];   // 0:时间, 1:标题, 2:副标题, 3:大小
+  final isAscending = appdata.settings[26][1] == "1";
+
+  final sorted = List<DownloadedItem>.from(comics);
+
+  sorted.sort((a, b) {
+    int result;
+    switch (sortType) {
+      case "1": // 标题
+        result = a.name.compareTo(b.name);
+        break;
+      case "2": // 副标题
+        result = a.subTitle.compareTo(b.subTitle);
+        break;
+      case "3": // 大小
+        result = (a.comicSize ?? 0).compareTo(b.comicSize ?? 0);
+        break;
+      case "0": // 时间（默认）
+      default:
+        final aTime = a.time ?? DateTime(1970);
+        final bTime = b.time ?? DateTime(1970);
+        result = aTime.compareTo(bTime);
+        break;
+    }
+    return isAscending ? result : -result;
+  });
+
+  return sorted;
 }
 
 // ============================================================================
@@ -362,7 +454,10 @@ final filteredComicsProvider = FutureProvider.autoDispose
     }
   }
 
-  return filtered;
+  // 在内存中进行排序（避免每次排序变化都从数据库重新读取）
+  final sortResult = _sortComics(filtered);
+
+  return sortResult;
 });
 
 /// 选中数量 Provider (用于精确刷新标题栏)

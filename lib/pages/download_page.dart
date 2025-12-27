@@ -19,11 +19,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
-// For appdata
+import 'package:pica_comic/base.dart';
+import 'package:pica_comic/tools/extensions.dart';
 
 import 'download/download_providers.dart';
 import 'download/components/download_list.dart';
 import 'download/components/download_menus.dart';
+
+import 'import_local_comic_dialog.dart';
+import 'local_repository_management_page.dart';
+import 'downloading_page.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key, this.showBack = true});
@@ -123,10 +128,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
     return Scaffold(
       floatingActionButton: !isSelecting
-          ? FloatingActionButton(
-              onPressed: () => _scrollToTop(context),
-              child: const Icon(Icons.arrow_upward),
-            )
+          ? _buildFAB(context)
           : null,
       body: NotificationListener<ScrollUpdateNotification>(
         onNotification: (notification) {
@@ -188,13 +190,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             // List
             DownloadList(
               pageId: _pageId,
-              onRefresh: () async => ref.refresh(allDownloadedComicsProvider),
-              onRefreshTags: () {
-                ref.refresh(downloadTagsProvider);
-                ref.refresh(allDownloadedComicsProvider);
+              onRefresh: () {
+                ref.invalidate(allDownloadedComicsProvider);
               },
-              onShowInfo: (index) {
-                // TODO: Implement info showing if needed
+              onRefreshTags: () {
+                ref.invalidate(downloadTagsProvider);
+                ref.invalidate(allDownloadedComicsProvider);
               },
             ),
             SliverPadding(
@@ -206,9 +207,31 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     );
   }
 
-  void _scrollToTop(BuildContext context) {
-    _scrollController.animateTo(0,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  /// 构建 FAB - 切换正序/倒序排序
+  Widget _buildFAB(BuildContext context) {
+    // 判断当前是否为倒序（desc），settings[26][1] == "1" 表示升序（asc），否则为降序（desc）
+    final isDescending = appdata.settings[26][1] != "1";
+
+    return FloatingActionButton(
+      enableFeedback: true,
+      onPressed: () {
+        // 切换正序/倒序
+        if (isDescending) {
+          // 当前是倒序，切换为正序
+          appdata.settings[26] = appdata.settings[26].setValueAt("1", 1);
+        } else {
+          // 当前是正序，切换为倒序
+          appdata.settings[26] = appdata.settings[26].setValueAt("0", 1);
+        }
+        appdata.updateSettings();
+        // 触发排序更新（内存排序，不重新从数据库读取）
+        triggerSortUpdate(ref, _pageId);
+      },
+      tooltip: isDescending ? "切换为正序".tl : "切换为倒序".tl,
+      child: isDescending
+          ? const Icon(Icons.arrow_downward)
+          : const Icon(Icons.arrow_upward),
+    );
   }
 
   Widget _buildAppBarContent(BuildContext context) {
@@ -271,6 +294,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     } else {
       final summaryAsync = ref.watch(downloadedComicsSummaryProvider(_pageId));
       final summary = summaryAsync.when(
+        skipLoadingOnReload: true,  // 避免排序时闪烁
         data: (s) => s,
         loading: () => "",
         error: (_, __) => "",
@@ -342,12 +366,64 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   List<Widget> _buildActions(
       BuildContext context, DownloadPageState pageState) {
     return [
+      // 标签管理
+      Tooltip(
+        message: "标签管理".tl,
+        child: IconButton(
+          icon: const Icon(Icons.label_outline),
+          onPressed: () async {
+            final tagId = await App.globalTo(() => const TagManagementPage());
+            if (tagId != null && tagId is int) {
+              updateTagFilter(ref, _pageId, tagId);
+            }
+          },
+        ),
+      ),
+      // 导入本地漫画
+      Tooltip(
+        message: "导入本地漫画".tl,
+        child: IconButton(
+          icon: const Icon(Icons.folder_open),
+          onPressed: () async {
+            await showDialog(
+              context: context,
+              builder: (context) => const ImportLocalComicDialog(),
+            );
+            ref.refresh(allDownloadedComicsProvider);
+          },
+        ),
+      ),
+      // 存储库管理
+      Tooltip(
+        message: "存储库管理".tl,
+        child: IconButton(
+          icon: const Icon(Icons.storage),
+          onPressed: () {
+            App.globalTo(() => const LocalRepositoryManagementPage());
+          },
+        ),
+      ),
+      // 下载管理器
+      Tooltip(
+        message: "下载管理器".tl,
+        child: IconButton(
+          icon: const Icon(Icons.download_for_offline),
+          onPressed: () {
+            showPopUpWidget(
+              App.globalContext!,
+              const DownloadingPage(),
+            );
+          },
+        ),
+      ),
+      // 搜索
       IconButton(
         icon: const Icon(Icons.search),
         onPressed: () {
           updateKeyword(ref, _pageId, " "); // trigger search UI
         },
       ),
+      // 类型筛选
       Builder(
         builder: (context) => IconButton(
           icon: const Icon(Icons.filter_list),
@@ -357,6 +433,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           },
         ),
       ),
+      // 排序
       IconButton(
         icon: const Icon(Icons.sort),
         onPressed: () {
@@ -366,6 +443,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           );
         },
       ),
+      // 更多菜单
       IconButton(
         icon: const Icon(Icons.more_vert),
         onPressed: () {

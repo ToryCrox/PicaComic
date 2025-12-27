@@ -88,6 +88,38 @@ void showSelectingMenu({
         },
       ),
       PopupMenuItem(
+        child: Text("删除".tl),
+        onTap: () {
+          if (selectedComics.isEmpty) return;
+          Future.delayed(const Duration(milliseconds: 200), () {
+            showDialog(
+              context: App.globalContext!,
+              builder: (context) => AlertDialog(
+                title: Text("确认删除".tl),
+                content: Text("${"确认删除".tl} ${selectedComics.length} ${"项".tl}?"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("取消".tl),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await DownloadManager().delete(
+                        selectedComics.map((e) => e.id).toList(),
+                      );
+                      onExitSelecting();
+                      onRefresh();
+                    },
+                    child: Text("确认".tl),
+                  ),
+                ],
+              ),
+            );
+          });
+        },
+      ),
+      PopupMenuItem(
         child: Text("管理标签".tl),
         onTap: () => Future.delayed(
           const Duration(milliseconds: 200),

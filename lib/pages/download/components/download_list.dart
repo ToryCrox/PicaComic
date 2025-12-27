@@ -9,14 +9,23 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/pages/tag_assignment_dialog.dart';
+import 'package:pica_comic/pages/local/local_thumbs_page.dart';
+import 'package:pica_comic/pages/search_result_page.dart';
+import 'package:pica_comic/tools/extensions.dart';
+import 'package:pica_comic/tools/io_extensions.dart';
+import 'package:pica_comic/tools/image_utils.dart';
+import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:open_file/open_file.dart';
+import 'package:path/path.dart' as Path;
 
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
 import '../download_providers.dart';
 import 'download_tile.dart';
 import 'download_menus.dart';
+import 'comic_info_view.dart';
 
 /// 下载列表组件
 ///
@@ -27,13 +36,11 @@ class DownloadList extends ConsumerWidget {
     required this.pageId,
     required this.onRefresh,
     required this.onRefreshTags,
-    required this.onShowInfo,
   });
 
   final String pageId;
   final VoidCallback onRefresh;
   final VoidCallback onRefreshTags;
-  final void Function(int index) onShowInfo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,12 +196,63 @@ class DownloadList extends ConsumerWidget {
               onRemoveComic: () {
                 // Provider will automatically update when DownloadManager notifies
               },
-              onShowInfo: () => onShowInfo(index),
+              onShowInfo: () {
+                showDownloadedComicInfo(
+                  context: context,
+                  comic: item,
+                  onRefresh: onRefresh,
+                );
+              },
+              onShowImageList: () => _goLocalComicPage(item),
             );
           },
         ),
       ),
     );
+  }
+
+  /// 打开图片列表页面
+  void _goLocalComicPage(DownloadedItem comic) async {
+    var dirPath = await downloadManager.getFullDirectory(comic.id);
+    App.globalTo(() => LocalThumbsPage(
+          dirPath: dirPath,
+          onItemTap: (index, filePath) async {
+            if (index <= 0) {
+              comic.read();
+              return;
+            }
+            int ep = 0;
+            final file = File(filePath);
+            final absPath = file.absolute.path;
+            if (comic.type == DownloadType.picacg ||
+                comic.type == DownloadType.jm) {
+              final fileParent = file.parent;
+              final fileParentPath = Path.normalize(file.parent.absolute.path);
+              for (final e in comic.downloadedEps) {
+                final epDirPath = Path.normalize("$dirPath/$e");
+                if (epDirPath == fileParentPath) {
+                  ep = e;
+                  sFileRelativeFromPath = fileParent.path;
+                  final imageNames =
+                      (await fileParent.list(recursive: true).toList())
+                          .where(predictImageFile)
+                          .sortedByName()
+                          .map((e) => e.name)
+                          .toList();
+                  index = imageNames.indexOf(Path.basename(absPath));
+                  if (index < 0) {
+                    index = 0;
+                  }
+                  index += 1;
+                  break;
+                }
+              }
+            }
+            debugPrint(
+                "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
+            comic.read(initialPage: index, ep: ep);
+          },
+        ));
   }
 
   void _showTagMenu(
@@ -242,6 +300,48 @@ class DownloadList extends ConsumerWidget {
           text: "本地搜索".tl,
           onClick: () {
             updateKeyword(ref, pageId, tag);
+          },
+        ),
+        DesktopMenuEntry(
+          text: "搜索漫画".tl,
+          onClick: () {
+            String searchTag = tag;
+            if (!isPrimary) {
+              // 查找原始标签
+              searchTag = comic.tags.firstWhere(
+                (t) => t.translateTagsToCN == tag,
+                orElse: () => tag,
+              );
+            } else {
+              // 检查用户标签是否对应原始标签
+              var originalTag = comic.tags.firstWhereOrNull(
+                (t) => t.translateTagsToCN == tag || t == tag,
+              );
+              if (originalTag != null) {
+                searchTag = originalTag;
+              }
+            }
+            // 根据漫画类型确定搜索来源
+            String sourceKey = "picacg";
+            if (comic.type == DownloadType.ehentai) {
+              sourceKey = "ehentai";
+            } else if (comic.type == DownloadType.jm) {
+              sourceKey = "jm";
+            } else if (comic.type == DownloadType.hitomi) {
+              sourceKey = "hitomi";
+            } else if (comic.type == DownloadType.htmanga) {
+              sourceKey = "htmanga";
+            } else if (comic.type == DownloadType.nhentai) {
+              sourceKey = "nhentai";
+            } else if (comic.type == DownloadType.other) {
+              if (comic is CustomDownloadedItem) {
+                sourceKey = comic.sourceKey;
+              }
+            }
+            context.to(() => SearchResultPage(
+                  keyword: searchTag,
+                  sourceKey: sourceKey,
+                ));
           },
         ),
       ],
