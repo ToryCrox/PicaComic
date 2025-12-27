@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'components/download_tile.dart';
 
@@ -57,13 +58,54 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
   }
 }
 
-/// 标签数据 Provider
+/// 所有标签的唯一真相源 (Single Source of Truth)
+///
+/// 直接对接 DownloadManager，通过监听 onTagsChanged 流来自动刷新。
+/// 避免每次漫画列表变化时重复调用数据库加载标签。
+final allTagsProvider =
+    AsyncNotifierProvider<AllTagsNotifier, List<DownloadTag>>(
+  AllTagsNotifier.new,
+);
+
+class AllTagsNotifier extends AsyncNotifier<List<DownloadTag>> {
+  StreamSubscription<void>? _subscription;
+
+  @override
+  Future<List<DownloadTag>> build() async {
+    // 监听 DownloadManager 的标签变更通知
+    _subscription?.cancel();
+    _subscription = DownloadManager().onTagsChanged.listen((_) {
+      _refresh();
+    });
+
+    // 当 Provider 被销毁时取消订阅
+    ref.onDispose(() {
+      _subscription?.cancel();
+    });
+
+    // 初始加载数据
+    return await DownloadManager().getAllTags();
+  }
+
+  Future<void> _refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => DownloadManager().getAllTags());
+  }
+
+  /// 手动刷新，供外部调用
+  Future<void> refresh() async {
+    await _refresh();
+  }
+}
+
+/// 标签数据 Provider（包含封面路径等计算后的信息）
 final downloadTagsProvider =
     FutureProvider.autoDispose<List<TagInfo>>((ref) async {
   // 监听已下载漫画的变化，重新计算标签信息（如封面）
   final allComics = await ref.watch(allDownloadedComicsProvider.future);
 
-  final allTags = await DownloadManager().getAllTags();
+  // 监听标签数据变化（从缓存的 Provider 获取，避免重复数据库调用）
+  final allTags = await ref.watch(allTagsProvider.future);
 
   final List<TagInfo> tagInfos = [];
 
