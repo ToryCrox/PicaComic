@@ -1,11 +1,13 @@
 import 'dart:async';
 
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
+import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'components/download_tile.dart';
 
@@ -112,12 +114,8 @@ final downloadTagsProvider =
   for (final tag in allTags) {
     String? coverPath;
     if (tag.coverComicId != null) {
-      try {
-        final comic = allComics.firstWhere((c) => c.id == tag.coverComicId);
-        coverPath = comic.coverPath;
-      } catch (e) {
-        // finding comic failed
-      }
+      coverPath = allComics.firstWhereOrNull((c) => c.id == tag.coverComicId)?.coverPath;
+
     }
 
     tagInfos.add(TagInfo(
@@ -494,11 +492,8 @@ final filteredComicsProvider = FutureProvider.autoDispose
   // 标签过滤
   if (pageState.selectedTagIds.isNotEmpty) {
     final selectedTagNames = pageState.selectedTagIds.map((id) {
-      try {
-        return allTags.firstWhere((element) => element.id == id).name;
-      } catch (e) {
-        return null; // 标签可能已被删除
-      }
+      return allTags.firstWhereOrNull((element) => element.id == id)?.name;
+
     }).whereType<String>().toSet();
 
     if (selectedTagNames.isNotEmpty) {
@@ -593,12 +588,9 @@ final filteredTagsProvider = FutureProvider.autoDispose
 
     tags = tagCountMap.entries
         .map((e) {
-          try {
-            final tagInfo = allTags.firstWhere((t) => t.id == e.key);
-            return tagInfo.copyWith(comicCount: e.value);
-          } catch (e) {
-            return null;
-          }
+          final tagInfo = allTags.firstWhereOrNull((t) => t.id == e.key);
+          return tagInfo?.copyWith(comicCount: e.value);
+
         })
         .whereType<TagInfo>()
         .toList();
