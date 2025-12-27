@@ -163,7 +163,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   @override
   Future<bool> loadFavorite(NhentaiComic data) async {
     return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem())).isNotEmpty;
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data))).isNotEmpty;
   }
 
   @override
@@ -234,12 +234,14 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String get source => "Nhentai";
 
   @override
-  FavoriteItem toLocalFavoriteItem() =>
-      FavoriteItem.fromNhentai(NhentaiComicBrief(data!.title, data!.cover, id,
-          "Unknown", data!.tags["Tags"] ?? const <String>[]));
+  FavoriteItem toLocalFavoriteItem([NhentaiComic? comicData]) {
+    final comic = comicData ?? data!;
+    return FavoriteItem.fromNhentai(NhentaiComicBrief(comic.title, comic.cover,
+        id, "Unknown", comic.tags["Tags"] ?? const <String>[]));
+  }
 
   @override
-  String get downloadedId => "nhentai${data!.id}";
+  String get downloadedId => "nhentai$id";
 
   @override
   String get sourceKey => 'nhentai';

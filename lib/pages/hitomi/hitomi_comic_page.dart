@@ -169,7 +169,7 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
 
   @override
   Future<bool> loadFavorite(HitomiComic data) async {
-    return (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem()))
+    return (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data)))
         .isNotEmpty;
   }
 
@@ -180,8 +180,8 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   String get source => "hitomi";
 
   @override
-  FavoriteItem toLocalFavoriteItem() =>
-      FavoriteItem.fromHitomi(data!.toBrief(link, cover!));
+  FavoriteItem toLocalFavoriteItem([HitomiComic? comicData]) =>
+      FavoriteItem.fromHitomi((comicData ?? data!).toBrief(link, cover!));
 
   @override
   String get downloadedId => "hitomi${data!.id}";

@@ -196,20 +196,21 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   }
 
   @override
-  FavoriteItem toLocalFavoriteItem() {
+  FavoriteItem toLocalFavoriteItem([KemonoPost? comicData]) {
+    final post = comicData ?? data!;
     return FavoriteItem(
       target: id,
-      name: data?.title ?? "Unknown",
-      coverPath: data?.cover ?? "",
-      author: data?.userName ?? "",
+      name: post.title,
+      coverPath: post.cover,
+      author: post.userName,
       type: FavoriteType('kemono'.hashCode),
-      tags: [data?.service ?? ""],
+      tags: [post.service],
     );
   }
 
   @override
   Future<bool> loadFavorite(KemonoPost data) async {
-    return (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem())).isNotEmpty;
+    return (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data))).isNotEmpty;
   }
   
   @override

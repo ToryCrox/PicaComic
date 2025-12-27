@@ -148,7 +148,7 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   @override
   Future<bool> loadFavorite(JmComicInfo data) async {
     return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem()))
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data)))
             .isNotEmpty;
   }
 
@@ -199,11 +199,15 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   String get source => "禁漫天堂".tl;
 
   @override
-  FavoriteItem toLocalFavoriteItem() => FavoriteItem.fromJmComic(JmComicBrief(
-      id,
-      data!.author.elementAtOrNull(0) ?? "",
-      data!.name,
-      data!.description, []));
+  FavoriteItem toLocalFavoriteItem([JmComicInfo? comicData]) {
+    final comic = comicData ?? data!;
+    return FavoriteItem.fromJmComic(JmComicBrief(
+        id,
+        comic.author.elementAtOrNull(0) ?? "",
+        comic.name,
+        comic.description,
+        []));
+  }
 
   @override
   String get downloadedId => "jm$id";

@@ -114,7 +114,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   @override
   Future<bool> loadFavorite(Gallery data) async {
     return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem()))
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data)))
             .isNotEmpty;
   }
 
@@ -330,8 +330,8 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   String get source => "EHentai";
 
   @override
-  FavoriteItem toLocalFavoriteItem() =>
-      FavoriteItem.fromEhentai(data!.toBrief());
+  FavoriteItem toLocalFavoriteItem([Gallery? comicData]) =>
+      FavoriteItem.fromEhentai((comicData ?? data!).toBrief());
 
   @override
   void download() {

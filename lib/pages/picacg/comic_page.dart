@@ -191,7 +191,7 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   @override
   Future<bool> loadFavorite(ComicItem data) async {
     return data.isFavourite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem())).isNotEmpty;
+        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data))).isNotEmpty;
   }
 
   @override
@@ -241,14 +241,17 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   String get source => "Picacg";
 
   @override
-  FavoriteItem toLocalFavoriteItem() => FavoriteItem(
-        target: id,
-        name: data!.title,
-        coverPath: data!.thumbUrl,
-        author: data!.author,
-        type: FavoriteType.picacg,
-        tags: data!.tags,
-      );
+  FavoriteItem toLocalFavoriteItem([ComicItem? comicData]) {
+    final comic = comicData ?? data!;
+    return FavoriteItem(
+      target: id,
+      name: comic.title,
+      coverPath: comic.thumbUrl,
+      author: comic.author,
+      type: FavoriteType.picacg,
+      tags: comic.tags,
+    );
+  }
 
   @override
   String get downloadedId => id;

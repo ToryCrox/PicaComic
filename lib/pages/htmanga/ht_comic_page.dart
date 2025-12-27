@@ -181,8 +181,8 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String get source => "绅士漫画".tl;
 
   @override
-  FavoriteItem toLocalFavoriteItem() =>
-      FavoriteItem.fromHtcomic(data!.toBrief());
+  FavoriteItem toLocalFavoriteItem([HtComicInfo? comicData]) =>
+      FavoriteItem.fromHtcomic((comicData ?? data!).toBrief());
 
   @override
   String get downloadedId => "Ht${data!.id}";

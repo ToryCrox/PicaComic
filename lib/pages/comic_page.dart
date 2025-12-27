@@ -261,11 +261,12 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   String? get title => data?.title;
 
   @override
-  FavoriteItem toLocalFavoriteItem() {
+  FavoriteItem toLocalFavoriteItem([ComicInfoData? comicData]) {
+    var comic = comicData ?? data!;
     var tags = <String>[];
-    data!.tags.forEach((key, value) => tags.addAll(value));
-    return FavoriteItem.fromBaseComic(CustomComic(data!.title,
-        data!.subTitle ?? "", data!.cover, id, tags, "", sourceKey));
+    comic.tags.forEach((key, value) => tags.addAll(value));
+    return FavoriteItem.fromBaseComic(CustomComic(comic.title,
+        comic.subTitle ?? "", comic.cover, id, tags, "", sourceKey));
   }
 
   @override
@@ -814,7 +815,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   /// can be translated into the user's language.
   String get source;
 
-  FavoriteItem toLocalFavoriteItem();
+  FavoriteItem toLocalFavoriteItem([T? comicData]);
 
   bool? get favoriteOnPlatformInitial => null;
 
