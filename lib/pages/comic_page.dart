@@ -1240,17 +1240,56 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   Widget buildLocalTagCard(String text, BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: ElevationOverlay.applySurfaceTint(
-            colorScheme.surface, colorScheme.surfaceTint, 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-          child: Text(text, style: const TextStyle(fontSize: 13)),
+    List<PopupMenuEntry<dynamic>> buildPopMenus() {
+      return [
+        PopupMenuItem(
+          child: Text("复制".tl),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: (text)));
+            showToast(message: "已复制".tl);
+          },
+        ),
+      ];
+    }
+
+    return GestureDetector(
+      onLongPressStart: (details) {
+        showMenu(
+            context: App.globalContext!,
+            position: RelativeRect.fromLTRB(
+                details.globalPosition.dx,
+                details.globalPosition.dy,
+                details.globalPosition.dx,
+                details.globalPosition.dy),
+            items: buildPopMenus());
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        child: InkWell(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          onTap: () => tapOnTag(text, "本地标签"),
+          onSecondaryTapDown: (details) {
+            showMenu(
+                context: App.globalContext!,
+                position: RelativeRect.fromLTRB(
+                    details.globalPosition.dx,
+                    details.globalPosition.dy,
+                    details.globalPosition.dx,
+                    details.globalPosition.dy),
+                items: buildPopMenus());
+          },
+          child: Card(
+            margin: EdgeInsets.zero,
+            color: ElevationOverlay.applySurfaceTint(
+                colorScheme.surface, colorScheme.surfaceTint, 3),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: Text(text, style: const TextStyle(fontSize: 13)),
+            ),
+          ),
         ),
       ),
     );
