@@ -14,6 +14,7 @@ import 'package:pica_comic/components/components.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/network/download/download_manager.dart';
@@ -46,6 +47,36 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   /// 控制 tag filter 栏显示/隐藏
   bool _showTagFilter = true;
 
+  /// 保存的滚动位置（用于退出筛选模式时恢复）
+  double? _savedScrollPosition;
+
+  /// 判断状态是否处于筛选模式
+  bool _isFilteringState(DownloadPageState state) {
+    return state.keyword.isNotEmpty ||
+        state.downloadTypeFilter != null ||
+        state.excludeLocal ||
+        state.selectedTagIds.isNotEmpty;
+  }
+
+  /// 保存当前滚动位置
+  void _saveScrollPosition() {
+    if (_scrollController.hasClients) {
+      _savedScrollPosition = _scrollController.offset;
+    }
+  }
+
+  /// 恢复滚动位置
+  void _restoreScrollPosition() {
+    if (_savedScrollPosition != null && _scrollController.hasClients) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients && _savedScrollPosition != null) {
+          _scrollController.jumpTo(_savedScrollPosition!);
+          _savedScrollPosition = null;
+        }
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +98,18 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     ref.listen(downloadPageStateProvider(_pageId), (previous, next) {
       if (next.keyword != _searchController.text) {
         _searchController.text = next.keyword;
+      }
+      
+      // 监听筛选状态变化，处理滚动位置的保存和恢复
+      final wasFiltering = previous != null && _isFilteringState(previous);
+      final isFiltering = _isFilteringState(next);
+      
+      if (!wasFiltering && isFiltering) {
+        // 进入筛选模式时保存滚动位置
+        _saveScrollPosition();
+      } else if (wasFiltering && !isFiltering) {
+        // 退出筛选模式时恢复滚动位置
+        _restoreScrollPosition();
       }
     });
 
