@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-
-
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
@@ -16,7 +14,6 @@ import 'package:pica_comic/network/nhentai_network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 
-
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/ehentai/eh_gallery_page.dart';
@@ -26,14 +23,9 @@ import 'package:pica_comic/pages/jm/jm_comic_page.dart';
 import 'package:pica_comic/pages/nhentai/comic_page.dart';
 import 'package:pica_comic/pages/picacg/comic_page.dart';
 
-
-
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
-
-
-
 
 /// 下载的漫画卡片组件
 ///
@@ -96,13 +88,16 @@ class DownloadedComicTile extends ComicTile {
                               .colorScheme
                               .onSecondaryContainer),
                       const SizedBox(width: 8),
-                      Text("目录".tl,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer)),
+                      Text(
+                        "目录".tl,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -129,13 +124,16 @@ class DownloadedComicTile extends ComicTile {
                               .colorScheme
                               .onSecondaryContainer),
                       const SizedBox(width: 8),
-                      Text("标签".tl,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer)),
+                      Text(
+                        "标签".tl,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer,
+                        ),
+                      ),
                     ],
                   ),
                 ),
