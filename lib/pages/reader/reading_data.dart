@@ -19,7 +19,7 @@ abstract class ReadingData {
 
   Map<String, String>? get eps;
 
-  //Future<bool> get downloaded => DownloadManager().isExists(downloadId);
+  //Future<bool> get downloaded => downloadManager.isExists(downloadId);
   bool _isDownloaded = false;
 
   List<int> downloadedEps = [];
@@ -39,12 +39,12 @@ abstract class ReadingData {
   Stream<Res<List<String>>> loadEp(int ep) async* {
     history ??= await HistoryManager().findSync(id);
     history?.readEpisode.add(ep);
-    _isDownloaded = await DownloadManager().isExists(downloadId);
+    _isDownloaded = await downloadManager.isExists(downloadId);
     if(_isDownloaded && downloadedEps.isEmpty){
-      downloadedEps = (await DownloadManager().getComicOrNull(downloadId))!.downloadedEps;
+      downloadedEps = (await downloadManager.getComicOrNull(downloadId))!.downloadedEps;
     }
     if (dirPath.isNotEmpty) {
-      final imageList = await DownloadManager().getAllImagesByDir(dirPath);
+      final imageList = await downloadManager.getAllImagesByDir(dirPath);
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
       if (isReversed) {
         yield Res(imageFileUriList.reversed.toList());
@@ -53,8 +53,8 @@ abstract class ReadingData {
       }
     } else if (_isDownloaded && checkEpDownloaded(ep)){
       final e = hasEp ? ep : 0;
-      final downloadDir = await DownloadManager().getImageDirectory(downloadId, e);
-      final imageList = await DownloadManager().getAllImageFileList(downloadId, e);
+      final downloadDir = await downloadManager.getImageDirectory(downloadId, e);
+      final imageList = await downloadManager.getAllImageFileList(downloadId, e);
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
       debugPrint("loadEp $id $ep, imageFileUriList： ${imageList.map((e) => e.replaceFirst(downloadDir, '')).toList()}");
       yield Res(imageFileUriList);
@@ -85,7 +85,7 @@ abstract class ReadingData {
   /// [page] starts from 0, [ep] starts from 1
   Stream<DownloadProgress> loadImage(int ep, int page, String url, {String? title}) async* {
     if (_isDownloaded && checkEpDownloaded(ep)) {
-      final imageFile = await DownloadManager().getImage(downloadId, hasEp ? ep : 0, page);
+      final imageFile = await downloadManager.getImage(downloadId, hasEp ? ep : 0, page);
       yield DownloadProgress(
           1, 1, "", imageFile.path);
     } else {
@@ -396,7 +396,7 @@ class CustomReadingData extends ReadingData{
   final ComicSource? source;
 
   @override
-  String get downloadId => DownloadManager().generateId(sourceKey, id);
+  String get downloadId => downloadManager.generateId(sourceKey, id);
 
   @override
   final Map<String, String>? eps;
@@ -496,7 +496,7 @@ class LocalReadingData extends ReadingData {
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) async {
-    return Res([]);
+    return const Res([]);
   }
 
   @override

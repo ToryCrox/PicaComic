@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +49,6 @@ class _LocalComicPageState extends State<LocalComicPage> {
   Future<void> _loadLocalComics() async {
     final parentPath = _parentPath;
     if (parentPath == null) {
-      final downloadManager = DownloadManager();
       final localComics = await downloadManager.getAllLocal();
       final list = <LocalComicModel>[];
       for (final map in localComics) {
@@ -194,7 +192,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     if (dirPaths.isNotEmpty) {
       for (var dirPath in dirPaths) {
         final name = Path.basename(dirPath);
-        await DownloadManager().addLocalItem(
+        await downloadManager.addLocalItem(
           path: dirPath,
           title: name,
           subtitle: '',
@@ -297,7 +295,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
       DesktopMenuEntry(
         text: "阅读".tl,
         onClick: () async {
-          final history = await DownloadManager().getLocalHistory(model.path);
+          final history = await downloadManager.getLocalHistory(model.path);
           final initIndex = history.optInt('pageIndex', 1);
           final isReversed = history.optInt('isReversed') == 1;
           App.globalTo(() => ComicReadingPage.localComic(
@@ -324,7 +322,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         text: "删除".tl,
         onClick: () async {
           if (_parentPath == null) {
-            DownloadManager().deleteLocal(model.path);
+            downloadManager.deleteLocal(model.path);
             _loadLocalComics();
           } else {
             showDialog(

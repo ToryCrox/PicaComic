@@ -111,9 +111,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
           await for (var file in draggedDir.list(recursive: true)) {
             if (file is File && predictImageFile(file)) {
               imageCount++;
-              if (firstImagePath == null) {
-                firstImagePath = file.path;
-              }
+              firstImagePath ??= file.path;
             }
           }
         } catch (e) {

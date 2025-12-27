@@ -35,25 +35,20 @@ import 'package:pica_comic/tools/debounce.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
-import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/shared_compute.dart';
-import 'package:pica_comic/tools/str_ext.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
-import 'package:synchronized/synchronized.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'dart:math';
 
 typedef DownloadingCallback = void Function();
 
+final downloadManager = DownloadManager._();
+
 class DownloadManager implements Listenable {
-  static DownloadManager? cache;
-
-  factory DownloadManager() => cache ?? (cache = DownloadManager._create());
-
-  DownloadManager._create();
+  DownloadManager._();
 
   ///下载目录
   String? path;
@@ -359,7 +354,7 @@ class DownloadManager implements Listenable {
       case 'htmanga':
         return 'Ht$comicID';
       case 'nhentai':
-        return '$comicID';
+        return comicID;
       default:
         return generateId(sourceKey, comicID);
     }
@@ -461,7 +456,7 @@ class DownloadManager implements Listenable {
           Log.d('delete comic path: $dirPath');
           await comic.delete(recursive: true);
         } catch (e, s) {
-          showToast(message: 'delete error ${dirPath}');
+          showToast(message: 'delete error $dirPath');
           Log.e('delete comic error $e', stackTrace: s);
           if (e is PathNotFoundException) {
             //忽略
@@ -604,7 +599,7 @@ class DownloadManager implements Listenable {
   }
 
   Future<File?> getDownloadImageOrNull(String title, int ep, int index) async {
-    final directory = findValidDirectoryName(DownloadManager().path!, title);
+    final directory = findValidDirectoryName(path!, title);
     String downloadPath;
     if (ep == 0) {
       downloadPath = "$path/$directory/";
@@ -1364,9 +1359,7 @@ extension AddDownloadExt on DownloadManager {
           await for (var file in entity.list(recursive: true)) {
             if (file is File && predictImageFile(file)) {
               imageCount++;
-              if (firstImagePath == null) {
-                firstImagePath = file.path;
-              }
+              firstImagePath ??= file.path;
             }
           }
         } catch (e) {

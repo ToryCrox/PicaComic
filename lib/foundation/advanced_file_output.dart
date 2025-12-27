@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:logger/logger.dart';
-import 'package:pica_comic/foundation/logger_pretty_printer.dart';
 
 extension _NumExt on num {
   String toDigits(int digits) => toString().padLeft(digits, '0');
@@ -226,12 +224,12 @@ class MAdvancedFileOutput extends LogOutput {
         .toList();
 
     // If the number of files is less than the limit, don't delete anything
-    if (files.length <= _maxRotatedFilesCount!) return;
+    if (files.length <= _maxRotatedFilesCount) return;
 
     files.sort(_fileSorter);
 
     final filesToDelete =
-        files.sublist(0, files.length - _maxRotatedFilesCount!);
+        files.sublist(0, files.length - _maxRotatedFilesCount);
     for (final file in filesToDelete) {
       try {
         await file.delete();

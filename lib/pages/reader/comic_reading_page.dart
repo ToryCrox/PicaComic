@@ -12,8 +12,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
-import 'package:image_size_getter/file_input.dart';
-import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -22,14 +20,11 @@ import 'package:pica_comic/components/custom_slider.dart';
 import 'package:pica_comic/components/scrollable_list/src/item_positions_listener.dart';
 import 'package:pica_comic/components/scrollable_list/src/scrollable_positioned_list.dart';
 import 'package:pica_comic/components/window_frame.dart';
-import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_loader/file_image_loader.dart';
 import 'package:pica_comic/foundation/image_loader/stream_image_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/cache_network.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/base.dart';
@@ -40,7 +35,6 @@ import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/tools/image_size_getter.dart';
 import 'package:pica_comic/tools/iterable_extension.dart';
-import 'package:pica_comic/tools/keep_screen_on.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/tools/save_image.dart';
@@ -194,7 +188,7 @@ class ComicReadingPage extends StatelessWidget {
     final order = allDirPaths.indexOf(dirPath);
     StateController.put(ComicReadingPageLogic(
         order > 0 ? order + 1 : 1, readingData, initialPage, () {
-      DownloadManager().addOrUpdateLocalHistory(
+      downloadManager.addOrUpdateLocalHistory(
           path: dirPath,
           isReversed: isReversed,
           pageIndex: StateController.find<ComicReadingPageLogic>().index,
@@ -292,7 +286,7 @@ class ComicReadingPage extends StatelessWidget {
       if (logic.isFullScreen) {
         logic.fullscreen();
       }
-      if (!DownloadManager().isDownloading) {
+      if (!downloadManager.isDownloading) {
         ImageManager.clearTasks();
       }
       // 更新漫画详情页面

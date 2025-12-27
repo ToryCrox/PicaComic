@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
-import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/str_ext.dart';
 import 'package:image/image.dart' as img;

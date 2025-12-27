@@ -5,8 +5,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/res.dart';
@@ -21,7 +19,6 @@ import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
 
-import '../../foundation/cache_manager.dart';
 import '../../foundation/disk_cache.dart';
 import '../../tools/type_util.dart';
 

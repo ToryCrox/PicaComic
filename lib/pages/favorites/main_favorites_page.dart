@@ -9,7 +9,6 @@ import 'package:pica_comic/components/components.dart';
 import "package:pica_comic/foundation/app.dart";
 import "package:pica_comic/foundation/local_favorites.dart";
 import "package:pica_comic/foundation/log.dart";
-import "package:pica_comic/network/download/download_manager.dart";
 import "package:pica_comic/tools/translations.dart";
 
 import "../../network/net_fav_to_local.dart";
@@ -152,7 +151,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                 () {
                   var comics = controller.selectedComics;
                   for (var comic in comics) {
-                    DownloadManager().addFavoriteDownload(comic);
+                    downloadManager.addFavoriteDownload(comic);
                   }
                   showToast(message: "已添加下载任务".tl);
                 },
@@ -759,7 +758,7 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
   }
 
   Future<void> onRefresh(context) async {
-    return startFolderSync(context, await folderSync()!);
+    return startFolderSync(context, await folderSync());
   }
 
   Widget buildFolderComics(String folder) {
@@ -847,7 +846,7 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
       floatingActionButton: AnimatedSwitcher(
         duration: const Duration(milliseconds: 150),
         reverseDuration: const Duration(milliseconds: 150),
-        child: showFB && folderSync() != null ? buildFAB() : const SizedBox(),
+        child: showFB ? buildFAB() : const SizedBox(),
         transitionBuilder: (widget, animation) {
           var tween =
               Tween<Offset>(begin: const Offset(0, 1), end: const Offset(0, 0));

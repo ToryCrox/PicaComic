@@ -85,12 +85,12 @@ void main(List<String> args) async {
         stdout.write('\r  进度: $current/$total ($percent%)');
       });
       // 清除进度行并显示完成信息
-      stdout.write('\r' + ' ' * 60 + '\r'); // 清除当前行
+      stdout.write('\r${' ' * 60}\r'); // 清除当前行
       print('  完成: $zipName');
       successCount++;
     } catch (e) {
       // 清除进度行并显示失败信息
-      stdout.write('\r' + ' ' * 60 + '\r'); // 清除当前行
+      stdout.write('\r${' ' * 60}\r'); // 清除当前行
       print('  失败: $zipName');
       failCount++;
       errors[zipName] = e.toString();

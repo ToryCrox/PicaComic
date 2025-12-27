@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -86,8 +85,8 @@ class FavoriteDownloadingTask extends DownloadingTask{
       return;
     }
     pause();
-    DownloadManager().downloading.removeFirst();
-    DownloadManager().downloading.addFirst(downloadLogic);
+    downloadManager.downloading.removeFirst();
+    downloadManager.downloading.addFirst(downloadLogic);
     downloadLogic.start();
   }
 

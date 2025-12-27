@@ -294,11 +294,15 @@ class _EhLoginPageState extends State<EhLoginPage> {
 
     var cookies =
         cookiesMap.entries.map((e) => Cookie(e.key, e.value)).toList();
-    cookies.forEach((element) => element.domain = ".e-hentai.org");
+    for (var element in cookies) {
+      element.domain = ".e-hentai.org";
+    }
     await EhNetwork()
         .cookieJar
         .saveFromResponse(Uri.parse("https://e-hentai.org"), cookies);
-    cookies.forEach((element) => element.domain = ".exhentai.org");
+    for (var element in cookies) {
+      element.domain = ".exhentai.org";
+    }
     await EhNetwork()
         .cookieJar
         .saveFromResponse(Uri.parse("https://exhentai.org"), cookies);

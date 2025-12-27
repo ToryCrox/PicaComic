@@ -95,7 +95,7 @@ class _InputDialogState extends State<InputDialog> {
         },
         decoration: InputDecoration(
           hintText: widget.hint,
-          helperStyle: TextStyle(
+          helperStyle: const TextStyle(
             //color: context.color.textTertiary,
             fontSize: 10,
           ),

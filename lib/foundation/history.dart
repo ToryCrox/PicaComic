@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -349,7 +348,7 @@ class HistoryManager {
     }
     // do not clear previous history
     for (var element in history) {
-      if (findSync(element.target) == null) addHistory(element);
+      
     }
     vacuum();
   }

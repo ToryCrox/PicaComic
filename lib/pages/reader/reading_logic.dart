@@ -92,7 +92,7 @@ class ComicReadingPageLogic extends StateController {
   Map<String, Size?> get imageSize => _imageSize;
   final _hasComputeImageSizes = <String>{};
 
-  List<StreamSubscription> _imageSizeSubscriptions = [];
+  final List<StreamSubscription> _imageSizeSubscriptions = [];
 
   Future<void> loadImageSizes([int? fromIndex]) async {
     int startIndex = index - 1;
@@ -166,9 +166,9 @@ class ComicReadingPageLogic extends StateController {
   bool isDispose = false;
 
   void disposeAll() {
-    _imageSizeSubscriptions.forEach((element) {
+    for (var element in _imageSizeSubscriptions) {
       element.cancel();
-    });
+    }
     _imageSizeSubscriptions.clear();
     isDispose = true;
   }
@@ -664,7 +664,7 @@ class ComicReadingPageLogic extends StateController {
   void handleKeyboard(KeyEvent event) {
     bool hasEvent = false;
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      Log.d('handleKeyboard key: ${event}');
+      Log.d('handleKeyboard key: $event');
       bool reverse = appdata.settings[9] == "2" || appdata.settings[9] == "6";
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
@@ -687,7 +687,7 @@ class ComicReadingPageLogic extends StateController {
           break;
       }
     } else if (event is KeyUpEvent) {
-      Log.d('handleKeyboard key: ${event}');
+      Log.d('handleKeyboard key: $event');
       if ((DateTime.now().millisecondsSinceEpoch - _lastKeyboardTime).abs() <
           1000) {
         Log.i('handleKeyboard Keyboard repeat event ignored $event');

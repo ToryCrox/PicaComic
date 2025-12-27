@@ -81,7 +81,7 @@ void main(List<String> args) async {
       // 截断过长的目录名以便显示
       var displayDirName = dirName;
       if (displayDirName.length > 39) {
-        displayDirName = displayDirName.substring(0, 36) + '...';
+        displayDirName = '${displayDirName.substring(0, 36)}...';
       }
       print('${'SKIP'.padRight(6)} | ${displayDirName.padRight(40)} | ${res.skipReason}');
     }

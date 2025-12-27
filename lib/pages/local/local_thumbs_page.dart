@@ -51,7 +51,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   bool _isSelectedMode = false;
 
-  String _fileSize = '';
+  final String _fileSize = '';
 
   late ComicFileSort _fileSort = ComicFileSort.values
           .asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
@@ -344,7 +344,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
           if (widget.onItemTap != null) {
             widget.onItemTap?.call(-1, '');
           } else {
-            final history = await DownloadManager().getLocalHistory(widget.dirPath);
+            final history = await downloadManager.getLocalHistory(widget.dirPath);
             final initIndex = history.optInt('pageIndex', 1);
             final isReversed = history.optInt('isReversed') == 1;
             App.globalTo(

@@ -1,5 +1,4 @@
 import 'dart:async' show Future, StreamController, scheduleMicrotask;
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:ui' as ui show Codec;
 import 'dart:ui';

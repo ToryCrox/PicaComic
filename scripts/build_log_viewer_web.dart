@@ -11,7 +11,7 @@ void main() async {
   print('开始构建日志查看器 Web 应用...');
   
   // 1. 进入 Web 目录
-  final webDir = 'packages/log_viewer_web';
+  const webDir = 'packages/log_viewer_web';
   final webDirFile = Directory(webDir);
   
   if (!webDirFile.existsSync()) {

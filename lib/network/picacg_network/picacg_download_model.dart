@@ -6,7 +6,6 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import '../download/download_manager.dart';
 import 'methods.dart';
-import 'models.dart';
 import 'dart:io';
 
 class DownloadedComic extends DownloadedItem {
@@ -191,9 +190,9 @@ class PicDownloadingTask extends DownloadingTask {
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (await DownloadManager().isExists(id)) {
+    if (await downloadManager.isExists(id)) {
       var comic =
-          (await DownloadManager().getComicOrNull(id))! as DownloadedComic;
+          (await downloadManager.getComicOrNull(id))! as DownloadedComic;
       previous = comic.downloadedEps;
     }
     var downloaded = (_downloadEps + previous).toSet().toList();
@@ -209,9 +208,9 @@ class PicDownloadingTask extends DownloadingTask {
   @override
   FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) async {
     var previous = <int>[];
-    if (await DownloadManager().isExists(id)) {
+    if (await downloadManager.isExists(id)) {
       var existingComic =
-          (await DownloadManager().getComicOrNull(id))! as DownloadedComic;
+          (await downloadManager.getComicOrNull(id))! as DownloadedComic;
       previous = existingComic.downloadedEps;
     }
     // completedEpisodes 是 links Map 的 key（章节编号，从1开始）

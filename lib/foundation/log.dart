@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/foundation/log_viewer_integration.dart';
-import 'package:pica_comic/tools/extensions.dart';
-import 'package:pica_comic/tools/throttle.dart';
 
 import 'advanced_file_output.dart';
 import 'app.dart';
@@ -152,7 +150,7 @@ class LogManager {
   static File? _logFile;
   static IOSink? _logSink;
 
-  static bool _isWriting = false;
+  static const bool _isWriting = false;
 
   static void writeLog(LogLevel level, String title, String content) {
     IOSink? logSink = _logSink ??= _logFile?.openWrite(mode: FileMode.append);

@@ -122,7 +122,7 @@ void setProxy(BuildContext context) {
 }
 
 void setDownloadFolder() async {
-  if (DownloadManager().downloading.isNotEmpty) {
+  if (downloadManager.downloading.isNotEmpty) {
     showToast(message: "请在下载任务完成后进行操作".tl);
     return;
   }
@@ -252,7 +252,7 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                  child: Text("${"现在的路径为".tl}: ${DownloadManager().path}"),
+                  child: Text("${"现在的路径为".tl}: ${downloadManager.path}"),
                 )
               ],
             ),

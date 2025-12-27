@@ -103,7 +103,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: InputDecoration(
                   labelText: "分类".tl,
                   border: const OutlineInputBorder(),

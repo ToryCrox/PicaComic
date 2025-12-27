@@ -10,7 +10,6 @@ import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/tools/map_extension.dart';
@@ -350,7 +349,7 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
       var type = image.id.split("-")[0];
       bool hasEp =  type == "jm";
 
-      final downloadFile = await DownloadManager()
+      final downloadFile = await downloadManager
           .getDownloadImageOrNull(image.title, hasEp ? image.ep : 0, image.page);
       if (downloadFile != null) {
         return await downloadFile.readAsBytes();

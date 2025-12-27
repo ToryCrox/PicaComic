@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -31,7 +30,7 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
   Future<List<DownloadedItem>> build() async {
     // 监听 DownloadManager 的变更通知
     _subscription?.cancel();
-    _subscription = DownloadManager().onComicsChanged.listen((_) {
+    _subscription = downloadManager.onComicsChanged.listen((_) {
       _refresh();
     });
 
@@ -46,7 +45,7 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
 
   Future<List<DownloadedItem>> _loadComics() async {
     // 使用固定排序加载漫画，实际排序在 filteredComicsProvider 中进行（内存排序）
-    return await DownloadManager().getAll('time', 'desc');
+    return await downloadManager.getAll('time', 'desc');
   }
 
   Future<void> _refresh() async {
@@ -76,7 +75,7 @@ class AllTagsNotifier extends AsyncNotifier<List<DownloadTag>> {
   Future<List<DownloadTag>> build() async {
     // 监听 DownloadManager 的标签变更通知
     _subscription?.cancel();
-    _subscription = DownloadManager().onTagsChanged.listen((_) {
+    _subscription = downloadManager.onTagsChanged.listen((_) {
       _refresh();
     });
 
@@ -86,12 +85,12 @@ class AllTagsNotifier extends AsyncNotifier<List<DownloadTag>> {
     });
 
     // 初始加载数据
-    return await DownloadManager().getAllTags();
+    return await downloadManager.getAllTags();
   }
 
   Future<void> _refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => DownloadManager().getAllTags());
+    state = await AsyncValue.guard(() => downloadManager.getAllTags());
   }
 
   /// 手动刷新，供外部调用
@@ -151,7 +150,7 @@ class ComicUserTagsNotifier
   Future<Map<String, List<String>>> build() async {
     // 监听 DownloadManager 的标签变更通知
     _tagsSubscription?.cancel();
-    _tagsSubscription = DownloadManager().onTagsChanged.listen((_) {
+    _tagsSubscription = downloadManager.onTagsChanged.listen((_) {
       _refresh();
     });
 
@@ -161,13 +160,13 @@ class ComicUserTagsNotifier
     });
 
     // 初始加载数据
-    return await DownloadManager().getAllComicTagsMap();
+    return await downloadManager.getAllComicTagsMap();
   }
 
   Future<void> _refresh() async {
     state = const AsyncValue.loading();
     state =
-        await AsyncValue.guard(() => DownloadManager().getAllComicTagsMap());
+        await AsyncValue.guard(() => downloadManager.getAllComicTagsMap());
   }
 
   /// 手动刷新，供外部调用

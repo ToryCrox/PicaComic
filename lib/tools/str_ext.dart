@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:collection/collection.dart';
 
 
 final sDigits = _initDigitsMap();

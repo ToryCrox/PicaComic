@@ -2,7 +2,6 @@ import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
@@ -26,11 +25,11 @@ import '../../tools/io_tools.dart';
 
 extension LocalFavoritesExt on FavoriteItem {
   Future<void> addDownload() async {
-    if (await DownloadManager().isExists(toDownloadId())) {
+    if (await downloadManager.isExists(toDownloadId())) {
       return;
     }
     try {
-      DownloadManager().addFavoriteDownload(this);
+      downloadManager.addFavoriteDownload(this);
     } catch (e) {
       Log.e("Failed to add a download.\n Missing comic source config file.");
     }
@@ -341,7 +340,7 @@ class LocalFavoriteTile extends ComicTile {
 
   @override
   Widget? get badge => FutureBuilder<bool>(
-        future: DownloadManager().isExists(comic.toDownloadId()),
+        future: downloadManager.isExists(comic.toDownloadId()),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done &&
               snapshot.hasData &&
@@ -363,14 +362,14 @@ class LocalFavoriteTile extends ComicTile {
 
   @override
   Widget get image => FutureBuilder<bool>(
-        future: DownloadManager().isExists(comic.toDownloadId()),
+        future: downloadManager.isExists(comic.toDownloadId()),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done &&
               snapshot.hasData &&
               snapshot.data!) {
             // 漫画已下载，显示下载的封面
             return FutureBuilder<File>(
-              future: DownloadManager().getCover(comic.toDownloadId()),
+              future: downloadManager.getCover(comic.toDownloadId()),
               builder: (context, coverSnapshot) {
                 if (coverSnapshot.hasData) {
                   return Image.file(
@@ -640,9 +639,9 @@ class LocalFavoriteTile extends ComicTile {
   }
 
   Future<void> readComic() async {
-    if (await DownloadManager().isExists(comic.toDownloadId())) {
+    if (await downloadManager.isExists(comic.toDownloadId())) {
       var download =
-          await DownloadManager().getComicOrNull(comic.toDownloadId());
+          await downloadManager.getComicOrNull(comic.toDownloadId());
       if (download != null) {
         download.read();
         return;
@@ -998,7 +997,7 @@ void copyAllTo(String source, List<FavoriteItem> comics) {
                 builder: (context, snapshot) {
                   final folderNames = snapshot.data ?? [];
                   if (folderNames.isEmpty) {
-                    return SizedBox();
+                    return const SizedBox();
                   }
                   return SizedBox(
                     width: 280,

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -44,7 +43,9 @@ class DownloadedComicTile extends ComicTile {
   final void Function() onTap;
   final void Function() onLongTap;
   final void Function(TapDownDetails details) onSecondaryTap;
+  @override
   final void Function(String tag)? onTagTap;
+  @override
   final void Function(String tag)? onPrimaryTagTap;
   @override
   final void Function(String tag, TapDownDetails details)? onTagSecondaryTap;
@@ -55,6 +56,7 @@ class DownloadedComicTile extends ComicTile {
   final VoidCallback? onManageTags;
   final VoidCallback? onOpenFolder;
 
+  @override
   List<String>? get tags => tag
       .map((e) => App.locale.languageCode == "zh" ? e.translateTagsToCN : e)
       .toList();

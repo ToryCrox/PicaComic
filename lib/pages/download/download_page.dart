@@ -17,7 +17,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -249,10 +248,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           // clear filters
           if (pageState.isSearching) setIsSearching(ref, _pageId, false);
           if (pageState.keyword.isNotEmpty) updateKeyword(ref, _pageId, "");
-          if (pageState.selectedTagIds.isNotEmpty)
+          if (pageState.selectedTagIds.isNotEmpty) {
             updateTagFilter(ref, _pageId, null); // clear all
-          if (pageState.downloadTypeFilter != null)
+          }
+          if (pageState.downloadTypeFilter != null) {
             updateDownloadTypeFilter(ref, _pageId, null);
+          }
           if (pageState.excludeLocal) updateExcludeLocal(ref, _pageId, false);
         },
         icon: const Icon(Icons.close),
@@ -496,10 +497,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   context: context,
                   builder: (context) => AlertDialog(
                         title: Text("确认删除".tl),
-                        content: Text("确认删除".tl +
-                            " ${state.selectedIds.length} " +
-                            "项".tl +
-                            "?"),
+                        content: Text("${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?"),
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(context),
@@ -507,7 +505,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                           TextButton(
                               onPressed: () async {
                                 Navigator.pop(context);
-                                await DownloadManager()
+                                await downloadManager
                                     .delete(state.selectedIds.toList());
                                 exitSelecting(ref, _pageId);
                               },

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -197,10 +196,10 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   }
 
   void updateStatistic() {
-    if(comic != DownloadManager().downloading.first) {
+    if(comic != downloadManager.downloading.first) {
       return;
     }
-    comic = DownloadManager().downloading.first;
+    comic = downloadManager.downloading.first;
     speed = comic.currentSpeed;
     downloadPages = comic.downloadedPages;
     pagesCount = comic.totalPages;
@@ -316,7 +315,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                   IconButton(
                     icon: const Icon(Icons.vertical_align_top),
                     onPressed: () {
-                      DownloadManager().moveToFirst(comic);
+                      downloadManager.moveToFirst(comic);
                       widget.onComicPositionChange();
                     },
                   ),
@@ -456,7 +455,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
 
   String getProgressText() {
     if (pagesCount == null) {
-      if (comic == DownloadManager().downloading.first) {
+      if (comic == downloadManager.downloading.first) {
         return "获取图片信息...".tl;
       } else {
         return "";

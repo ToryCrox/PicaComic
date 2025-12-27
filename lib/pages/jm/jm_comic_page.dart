@@ -18,7 +18,6 @@ import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
-import '../../network/download/download_manager.dart';
 import '../../network/jm_network/jm_models.dart';
 import '../../network/jm_network/jm_network.dart';
 import 'jm_comments_page.dart';
@@ -231,7 +230,7 @@ void downloadComic(JmComicInfo comic, BuildContext context) async {
 
   var downloaded = <int>[];
   final downloadedComic =
-      await DownloadManager().getComicOrNull("jm${comic.id}");
+      await downloadManager.getComicOrNull("jm${comic.id}");
   if (downloadedComic != null) {
     downloaded.addAll(downloadedComic.downloadedEps);
   }

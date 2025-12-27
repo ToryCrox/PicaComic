@@ -18,7 +18,6 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/stack.dart' as stack;
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/favorites/local_favorites.dart';
@@ -109,7 +108,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           context: App.globalContext!,
           builder: (context) {
             return SelectDownloadChapter(eps, (selectedEps) {
-              DownloadManager().addCustomDownload(data!, selectedEps);
+              downloadManager.addCustomDownload(data!, selectedEps);
               App.globalBack();
               showToast(message: "已加入下载队列".tl);
             }, downloaded, onEpisodeDelete: (ep) async {
@@ -128,7 +127,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       showSideBar(
           App.globalContext!,
           SelectDownloadChapter(eps, (selectedEps) {
-            DownloadManager().addCustomDownload(data!, selectedEps);
+            downloadManager.addCustomDownload(data!, selectedEps);
             App.globalBack();
             showToast(message: "已加入下载队列".tl);
           }, downloaded, onEpisodeDelete: (ep) async {
@@ -275,8 +274,8 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   @override
   bool? get favoriteOnPlatformInitial => data?.isFavorite;
 
-  ComicPageLogic<ComicInfoData> get logic =>
-      StateController.find<ComicPageLogic<ComicInfoData>>(tag: tag);
+  ComicPageLogic<ComicInfoData>? get logic =>
+      StateController.findOrNull<ComicPageLogic<ComicInfoData>>(tag: tag);
 
   @override
   void openFavoritePanel() {
@@ -300,7 +299,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           update();
         }
       },
-      favoriteOnPlatform: logic.favoriteOnPlatform,
+      favoriteOnPlatform: logic?.favoriteOnPlatform,
       selectFolderCallback: (folder, type) async {
         if (type == 1) {
           LocalFavoritesManager().addComic(folder, toLocalFavoriteItem());
@@ -309,7 +308,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           var res = await comicSource!.favoriteData!.addOrDelFavorite!(
               id, folder, true);
           if (!comicSource!.favoriteData!.multiFolder && res.success) {
-            logic.favoriteOnPlatform = true;
+            logic?.favoriteOnPlatform = true;
             update();
           }
           return res;
@@ -319,7 +318,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
         var res =
             await comicSource!.favoriteData!.addOrDelFavorite!(id, '0', false);
         if (res.success) {
-          logic.favoriteOnPlatform = false;
+          logic?.favoriteOnPlatform = false;
         }
         return res;
       },
@@ -702,6 +701,9 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   ComicPageLogic<T> get _logic =>
       StateController.find<ComicPageLogic<T>>(tag: tag);
 
+  ComicPageLogic<T>? get _logicOrNull =>
+      StateController.findOrNull<ComicPageLogic<T>>(tag: tag);
+
   /// title
   String? get title;
 
@@ -717,7 +719,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   /// get comic data
   @nonVirtual
-  T? get data => _logic.data;
+  T? get data => _logicOrNull?.data;
 
   /// Used by StateController.
   ///
@@ -765,13 +767,13 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   ThumbnailsData? get thumbnailsCreator;
 
   @nonVirtual
-  ThumbnailsData? get thumbnails => _logic.thumbnailsData;
+  ThumbnailsData? get thumbnails => _logicOrNull?.thumbnailsData;
 
   Widget? recommendationBuilder(T data);
 
   /// update widget state
   @nonVirtual
-  void update() => _logic.update();
+  void update() => _logicOrNull?.update();
 
   /// get context
   BuildContext get context => App.mainNavigatorKey!.currentContext!;
@@ -787,10 +789,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   Map<String, String> get headers => {};
 
   @nonVirtual
-  bool get favorite => _logic.favorite;
+  bool get favorite => _logicOrNull?.favorite ?? false;
 
   @nonVirtual
-  set favorite(bool f) => _logic.favorite = f;
+  set favorite(bool f) => _logicOrNull?.favorite = f;
 
   Future<bool> loadFavorite(T data);
 
@@ -1844,7 +1846,9 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     if (thumbnails == null ||
         (thumbnails!.thumbnails.isEmpty &&
             !tag.contains("Hitomi") &&
-            !tag.contains("Eh"))) return [];
+            !tag.contains("Eh"))) {
+      return [];
+    }
     if (thumbnails!.thumbnails.isEmpty) {
       thumbnails!.get(update);
     }

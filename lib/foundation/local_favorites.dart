@@ -9,7 +9,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
@@ -132,7 +131,7 @@ class FavoriteItem {
             : target,
         ComicType.htManga => "ht$target",
         ComicType.nhentai => "nhentai$target",
-        _ => DownloadManager().generateId(type.comicSource.key, target)
+        _ => downloadManager.generateId(type.comicSource.key, target)
       };
     } catch (e) {
       return "**Invalid ID**";
@@ -855,7 +854,7 @@ class LocalFavoritesManager {
       return file;
     }
     if (item.coverPath.startsWith("file://")) {
-      var data = await DownloadManager()
+      var data = await downloadManager
           .getCover(item.coverPath.replaceFirst("file://", ""));
       file.createSync(recursive: true);
       file.writeAsBytesSync(data.readAsBytesSync());

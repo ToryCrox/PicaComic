@@ -10,7 +10,6 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
-import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
@@ -192,7 +191,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
       id,
     );
 
-    DownloadManager().addCustomDownload(comicData, [0]);
+    downloadManager.addCustomDownload(comicData, [0]);
     showToast(message: "已加入下载队列".tl);
   }
 

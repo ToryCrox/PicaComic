@@ -145,15 +145,15 @@ abstract class ComicTile extends StatelessWidget {
                         title: Text("打开下载目录".tl),
                         onTap: () async {
                           context.pop();
-                          final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
+                          final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
                           if (downloadId.isEmpty) {
                             showToast(message: "无法生成下载ID".tl);
                             return;
                           }
-                          final isDownloaded = await DownloadManager()
+                          final isDownloaded = await downloadManager
                               .isExists(downloadId);
                           if (isDownloaded) {
-                            final path = await DownloadManager()
+                            final path = await downloadManager
                                 .getFullDirectory(downloadId);
                             if (path.isNotEmpty) {
                               OpenFile.open(path);
@@ -278,12 +278,12 @@ abstract class ComicTile extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () async {
-                final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
+                final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
                 if (downloadId.isEmpty) {
                   showToast(message: "无法生成下载ID".tl);
                   return;
                 }
-                final path = await DownloadManager()
+                final path = await downloadManager
                     .getFullDirectory(downloadId);
                 if (path.isNotEmpty) {
                   OpenFile.open(path);
@@ -350,14 +350,14 @@ abstract class ComicTile extends StatelessWidget {
         DesktopMenuEntry(
           text: "打开下载目录".tl,
           onClick: () async {
-            final downloadId = DownloadManager().getDownloadIdFromComicId(sourceKey, comicID);
+            final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
             if (downloadId.isEmpty) {
               showToast(message: "无法生成下载ID".tl);
               return;
             }
-            final isDownloaded = await DownloadManager().isExists(downloadId);
+            final isDownloaded = await downloadManager.isExists(downloadId);
             if (isDownloaded) {
-              final path = await DownloadManager()
+              final path = await downloadManager
                   .getFullDirectory(downloadId);
               if (path.isNotEmpty) {
                 OpenFile.open(path);

@@ -11,7 +11,6 @@ import 'package:pica_comic/network/http_client.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 import 'dart:io';
 import '../../tools/io_tools.dart';
-import '../download/download_manager.dart';
 import 'eh_main_network.dart';
 import 'get_gallery_id.dart';
 
@@ -199,7 +198,7 @@ class EhDownloadingTask extends DownloadingTask {
           _currentSpeed = speed;
           updateInfo?.call();
           if (current == total) {
-            if (DownloadManager().downloading.firstOrNull != this) return;
+            if (downloadManager.downloading.firstOrNull != this) return;
             finish();
           }
         }, onError!);

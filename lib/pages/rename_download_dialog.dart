@@ -91,7 +91,7 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
         continue;
       }
 
-      final error = await DownloadManager()
+      final error = await downloadManager
           .renameComicDirectory(task.comic.id, task.newName);
 
       if (mounted) {

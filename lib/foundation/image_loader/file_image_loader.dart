@@ -33,7 +33,7 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
       FileImageProvider key, {
         required ImageDecoderCallback decode,
       }) async {
-    var file = await DownloadManager().getImageAsync(id, ep, index);
+    var file = await downloadManager.getImageAsync(id, ep, index);
     final int lengthInBytes = await file.length();
     if (lengthInBytes == 0) {
       // The file may become available later.

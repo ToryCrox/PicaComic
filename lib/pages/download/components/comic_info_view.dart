@@ -34,7 +34,7 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
 
   void deleteEpisode(int i) {
     showConfirmDialog(context, "确认删除".tl, "要删除这个章节吗".tl, () async {
-      var message = await DownloadManager().deleteEpisode(comic, i);
+      var message = await downloadManager.deleteEpisode(comic, i);
       if (message == null) {
         setState(() {});
         widget.onRefresh?.call();

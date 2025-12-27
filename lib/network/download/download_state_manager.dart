@@ -81,7 +81,7 @@ class DownloadState {
   double get progress => totalImages > 0 ? downloadedImages / totalImages : 0.0;
 
   /// 进度百分比文本
-  String get progressText => '${downloadedImages}/${totalImages}';
+  String get progressText => '$downloadedImages/$totalImages';
 
   /// 进度百分比
   int get progressPercent => (progress * 100).toInt();

@@ -10,7 +10,6 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
@@ -105,7 +104,7 @@ void showSelectingMenu({
                   TextButton(
                     onPressed: () async {
                       Navigator.pop(context);
-                      await DownloadManager().delete(
+                      await downloadManager.delete(
                         selectedComics.map((e) => e.id).toList(),
                       );
                       onExitSelecting();

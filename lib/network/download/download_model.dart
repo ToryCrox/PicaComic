@@ -17,7 +17,6 @@ import 'package:pica_comic/tools/image_utils.dart';
 
 import '../../base.dart';
 import '../app_dio.dart';
-import 'download_manager.dart';
 import 'image_download_queue.dart';
 import 'download_error_handler.dart';
 import '../../foundation/local_repository_manager.dart';
@@ -124,7 +123,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   String? directory;
 
   String get path {
-    var downloadPath = DownloadManager().path!;
+    var downloadPath = downloadManager.path!;
     return "$downloadPath/$directory";
   }
 
@@ -207,13 +206,13 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   @mustCallSuper
   FutureOr<void> onStart() async {
     if (directory == null) {
-      if (await DownloadManager().isExists(id)) {
-        directory = await DownloadManager().getDirectoryName(id);
+      if (await downloadManager.isExists(id)) {
+        directory = await downloadManager.getDirectoryName(id);
       } else {
         // 生成新的目录名格式: [type][id]title
         String sanitizedTitle = sanitizeFileName(title);
         String subPath = '[${type.name}][$id]$sanitizedTitle';
-        directory = findValidDirectoryName(DownloadManager().path!, subPath);
+        directory = findValidDirectoryName(downloadManager.path!, subPath);
         Directory(path).createSync(recursive: true);
       }
     }
@@ -233,7 +232,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       );
       
       if (downloadedItem != null) {
-        await DownloadManager().addToDb(downloadedItem, directory!);
+        await downloadManager.addToDb(downloadedItem, directory!);
         Log.i('DownloadingTask: Saved episode $episodeIndex for $id to database');
       }
     } catch (e, s) {
@@ -406,7 +405,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       stopRecorder();
       
       // 只有当这是队列中第一个任务时才调用 onFinish
-      if (DownloadManager().downloading.firstOrNull == this) {
+      if (downloadManager.downloading.firstOrNull == this) {
         onFinish?.call();
       }
     } catch (e, s) {
@@ -754,7 +753,7 @@ abstract mixin class _TransferSpeedMixin {
   void onNextSecond(Timer t) {
     _currentSpeed = _bytesSinceLastSecond;
     _bytesSinceLastSecond = 0;
-    DownloadManager().notifyListeners();
+    downloadManager.notifyListeners();
   }
 
   void runRecorder() {

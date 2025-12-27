@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/res.dart';
@@ -267,8 +266,8 @@ void _downloadComic(
     }
   }
   var downloaded = <int>[];
-  if (await DownloadManager().isExists(comic.id)) {
-    var downloadedComic = (await DownloadManager().getComicOrNull(comic.id))!
+  if (await downloadManager.isExists(comic.id)) {
+    var downloadedComic = (await downloadManager.getComicOrNull(comic.id))!
       as DownloadedComic;
     downloaded.addAll(downloadedComic.downloadedEps);
   }

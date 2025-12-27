@@ -1,7 +1,5 @@
-import "package:pica_comic/base.dart";
 import "package:pica_comic/foundation/history.dart";
 import "package:pica_comic/network/base_comic.dart";
-import "package:pica_comic/network/jm_network/jm_models.dart";
 import "package:pica_comic/tools/map_extension.dart";
 
 class Profile {

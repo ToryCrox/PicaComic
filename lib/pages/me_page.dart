@@ -340,7 +340,7 @@ class _DownloadCountTextState extends State<_DownloadCountText> {
   }
 
   Future<void> _loadCount() async {
-    final count = await DownloadManager().getTotal();
+    final count = await downloadManager.getTotal();
     if (mounted) {
       setState(() {
         _count = count.toString();

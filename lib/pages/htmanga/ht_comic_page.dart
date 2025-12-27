@@ -50,17 +50,17 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   @override
   void download() async {
     final id = "Ht${data!.id}";
-    if (await DownloadManager().isExists(id)) {
+    if (await downloadManager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in DownloadManager().downloading) {
+    for (var i in downloadManager.downloading) {
       if (i.id == id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    DownloadManager().addHtDownload(data!);
+    downloadManager.addHtDownload(data!);
     showToast(message: "已加入下载队列".tl);
   }
 

@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -8,7 +6,6 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 
 import '../../tools/io_tools.dart';
-import 'download_manager.dart';
 
 class CustomDownloadedItem extends DownloadedItem {
   @override
@@ -202,8 +199,8 @@ class CustomDownloadingTask extends DownloadingTask {
   @override
   Future<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (await DownloadManager().isExists(id)) {
-      var comic = await DownloadManager().getComicOrNull(id);
+    if (await downloadManager.isExists(id)) {
+      var comic = await downloadManager.getComicOrNull(id);
       previous = comic!.downloadedEps;
     }
     var downloaded = (_downloadEps + previous).toSet().toList();

@@ -14,7 +14,6 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:zip_flutter/zip_flutter.dart';
@@ -347,7 +346,7 @@ Future<String> exportDataToFile(bool includeDownload, String outPath) async {
   var path = App.dataPath;
   try {
     var appdataString = const JsonEncoder().convert(appdata.toJson());
-    var downloadPath = includeDownload ? DownloadManager().path : null;
+    var downloadPath = includeDownload ? downloadManager.path : null;
     var res = await compute<List<String?>, String?>(
         (message) =>
             _exportData(message[0]!, message[1]!, message[2], message[3]!),
@@ -421,7 +420,7 @@ Future<bool> importData([String? filePath]) async {
     }
   }
   SingleInstanceCookieJar.instance?.dispose();
-  DownloadManager().dispose();
+  downloadManager.dispose();
   String data = '';
   try {
     data = await compute<List<String>, String>((data) async {
@@ -474,7 +473,7 @@ Future<bool> importData([String? filePath]) async {
     }, [
       path,
       filePath,
-      DownloadManager().path!,
+      downloadManager.path!,
       appdata.settings[46],
       (enableCheck ? "1" : "0")
     ]);
@@ -484,7 +483,7 @@ Future<bool> importData([String? filePath]) async {
   } finally {
     await ComicSource.reload();
     SingleInstanceCookieJar.instance?.init();
-    await DownloadManager().init();
+    await downloadManager.init();
     Directory("$path/dataTemp").deleteSync(recursive: true);
   }
   var json = const JsonDecoder().convert(data);
