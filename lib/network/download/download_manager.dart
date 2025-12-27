@@ -68,7 +68,7 @@ class DownloadManager implements Listenable {
 
   ///是否正在下载（委托给 _queueManager）
   bool get isDownloading => _queueManager.isRunning;
-  
+
   set isDownloading(bool value) {
     // 为了向后兼容保留 setter，但不做任何操作
     // 实际状态由 _queueManager 管理
@@ -97,6 +97,18 @@ class DownloadManager implements Listenable {
   /// 触发已下载列表变化通知
   void _notifyComicsChanged() {
     _comicsChangedController.add(null);
+  }
+
+  /// 用于通知标签变化的 StreamController (添加/移除标签时触发)
+  final StreamController<void> _tagsChangedController =
+      StreamController<void>.broadcast();
+
+  /// 当标签变化时触发的 Stream (只更新标签相关数据，不重新加载漫画列表)
+  Stream<void> get onTagsChanged => _tagsChangedController.stream;
+
+  /// 触发标签变化通知
+  void _notifyTagsChanged() {
+    _tagsChangedController.add(null);
   }
 
   @override
@@ -180,14 +192,16 @@ class DownloadManager implements Listenable {
         var json = const JsonDecoder().convert(await file.readAsString());
         for (var item in json["downloading"]) {
           // 添加任务到队列管理器
-          final task = downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
+          final task =
+              downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
           _queueManager.enqueue(task);
         }
-        
+
         // 如果有任务被加载，记录一下，但不自动启动
         // 用户需要手动点击开始按钮来恢复下载
         if (_queueManager.totalTasksCount > 0) {
-          Log.i('DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session');
+          Log.i(
+              'DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session');
           // 通知 UI 有未完成的任务
           notifyListeners();
         }
@@ -250,11 +264,11 @@ class DownloadManager implements Listenable {
   Future<void> init() async {
     if (_runInit) return;
     _runInit = true;
-    
+
     // 初始化队列管理器
     _queueManager = DownloadQueueManager(maxConcurrentTasks: 1);
     _queueManager.addListener(notifyListeners);
-    
+
     await _getPath();
     await _getInfo();
     await _initDb();
@@ -342,16 +356,17 @@ class DownloadManager implements Listenable {
     if (tasks.isNotEmpty) {
       final finishedTask = tasks.first;
       _queueManager.onTaskFinished(finishedTask.id);
-      
+
       // 只有标记为需要保存的下载任务才会保存到数据库
       if (finishedTask.shouldSaveToDatabase) {
-        await addToDb(await finishedTask.toDownloadedItem(), finishedTask.directory!);
+        await addToDb(
+            await finishedTask.toDownloadedItem(), finishedTask.directory!);
       }
     }
-    
+
     await _saveInfo();
     _notifyComicsChanged();
-    
+
     // 队列管理器会自动调度下一个任务
     // 如果没有更多任务，会自动停止
     if (_queueManager.totalTasksCount == 0) {
@@ -385,14 +400,14 @@ class DownloadManager implements Listenable {
     await _queueManager.removeTask(id);
     _saveInfo();
     notifyListeners();
-    
+
     if (_queueManager.totalTasksCount == 0) {
       notifications.endProgress();
     }
   }
 
   /// 取消指定下载任务的指定章节
-  /// 
+  ///
   /// [id] 下载任务ID
   /// [episodeIndex] 章节索引（links Map 的 key）
   void cancelEpisode(String id, int episodeIndex) {
@@ -705,7 +720,7 @@ extension AddDownloadExt on DownloadManager {
   void _addDownloadTask(DownloadingTask task) {
     _queueManager.enqueue(task);
     _saveInfo();
-    notifyListeners();  // 立即通知 UI 更新
+    notifyListeners(); // 立即通知 UI 更新
     if (!isDownloading) {
       start();
     }
@@ -723,7 +738,8 @@ extension AddDownloadExt on DownloadManager {
   /// - downloadEps: 下载的章节
   void addEhDownload(Gallery gallery, [int type = 0]) {
     final id = getGalleryId(gallery.link);
-    final task = EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type);
+    final task =
+        EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type);
     _addDownloadTask(task);
   }
 
@@ -751,7 +767,8 @@ extension AddDownloadExt on DownloadManager {
 
   void addNhentaiDownload(NhentaiComic comic) {
     final id = "nhentai${comic.id}";
-    final task = NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    final task =
+        NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
     _addDownloadTask(task);
   }
 
@@ -772,7 +789,8 @@ extension AddDownloadExt on DownloadManager {
       6 => "nhentai${comic.target}",
       _ => generateId(comic.type.comicSource.key, comic.target)
     };
-    final task = FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    final task =
+        FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
     _addDownloadTask(task);
   }
 
@@ -785,7 +803,8 @@ extension AddDownloadExt on DownloadManager {
     DateTime? publishedDate,
     String? coverUrl,
   }) {
-    final id = "kemono-attachment-$postId-${DateTime.now().millisecondsSinceEpoch}";
+    final id =
+        "kemono-attachment-$postId-${DateTime.now().millisecondsSinceEpoch}";
     final task = KemonoAttachmentDownloadingTask(
       files: files,
       customDownloadPath: downloadPath,
@@ -858,7 +877,6 @@ extension AddDownloadExt on DownloadManager {
       jsonEncode(item.toJson()),
     );
   }
-
 
   /// 更新漫画大小
   Future<void> updateSize(String id, double size) async {
@@ -1126,6 +1144,7 @@ extension AddDownloadExt on DownloadManager {
   /// 为漫画添加标签
   Future<void> addTagToComic(String comicId, int tagId) async {
     await _db.addTagToComic(comicId, tagId);
+    _notifyTagsChanged();
   }
 
   /// 为漫画添加多个标签
@@ -1133,11 +1152,13 @@ extension AddDownloadExt on DownloadManager {
     for (var tagId in tagIds) {
       await _db.addTagToComic(comicId, tagId);
     }
+    _notifyTagsChanged();
   }
 
   /// 从漫画移除标签
   Future<void> removeTagFromComic(String comicId, int tagId) async {
     await _db.removeTagFromComic(comicId, tagId);
+    _notifyTagsChanged();
   }
 
   /// 获取漫画的所有标签

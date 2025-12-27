@@ -15,9 +15,10 @@ import 'package:pica_comic/components/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
- // For appdata
+// For appdata
 
 import 'download/download_providers.dart';
 import 'download/components/download_list.dart';
@@ -40,16 +41,22 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   bool get wantKeepAlive => true;
 
   late final TextEditingController _searchController;
+  late final ScrollController _scrollController;
+
+  /// 控制 tag filter 栏显示/隐藏
+  bool _showTagFilter = true;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _scrollController = ScrollController();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -74,68 +81,92 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               child: const Icon(Icons.arrow_upward),
             )
           : null,
-      body: CustomScrollView(
-        controller: PrimaryScrollController.of(context),
-        slivers: [
-          // AppBar
-          if (!isSelecting)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                minHeight: 56,
-                maxHeight: 56,
-                child: _buildAppBarContent(context),
+      body: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (notification) {
+          // 检测滚动方向，控制 tag filter 的显示/隐藏
+          final direction =
+              notification.scrollDelta != null && notification.scrollDelta! > 0
+                  ? ScrollDirection.reverse
+                  : ScrollDirection.forward;
+          final wasShowing = _showTagFilter;
+          if (direction == ScrollDirection.reverse) {
+            _showTagFilter = false;
+          } else if (direction == ScrollDirection.forward) {
+            _showTagFilter = true;
+          }
+          if (_showTagFilter != wasShowing) {
+            setState(() {});
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // AppBar
+            if (!isSelecting)
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  minHeight: 56,
+                  maxHeight: 56,
+                  child: _buildAppBarContent(context),
+                ),
               ),
-            ),
-          // Selection AppBar
-          if (isSelecting)
-            SliverAppBar(
-              pinned: true,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              leading: IconButton(
-                onPressed: () {
-                  exitSelecting(ref, _pageId);
-                },
-                icon: const Icon(Icons.close),
+            // Selection AppBar
+            if (isSelecting)
+              SliverAppBar(
+                pinned: true,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                leading: IconButton(
+                  onPressed: () {
+                    exitSelecting(ref, _pageId);
+                  },
+                  icon: const Icon(Icons.close),
+                ),
+                title: Text("已选择 $selectedCount 项"),
+                actions: _buildSelectionActions(context, selectedCount),
               ),
-              title: Text("已选择 $selectedCount 项"),
-              actions: _buildSelectionActions(context, selectedCount),
-            ),
-          // Tag Filter
-          if (!isSelecting)
-             SliverPersistentHeader(
-               pinned: true,
-               delegate: _SliverAppBarDelegate(
-                 minHeight: 48,
-                 maxHeight: 48,
-                 child: _buildTagFilter(context),
-               ),
-             ),
-          // List
-          DownloadList(
-            pageId: _pageId,
-            onRefresh: () async => ref.refresh(allDownloadedComicsProvider),
-            onRefreshTags: () {
-                 ref.refresh(downloadTagsProvider);
-                 ref.refresh(allDownloadedComicsProvider);
-            },
-            onShowInfo: (index) {
+            // Tag Filter
+            if (!isSelecting)
+              SliverPersistentHeader(
+                // 根据滚动方向决定是否固定显示
+                pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
+                floating: !SmoothScrollProvider.isMouseScroll,
+                delegate: _SliverAppBarDelegate(
+                  minHeight: 48,
+                  maxHeight: 48,
+                  child: _buildTagFilter(context),
+                ),
+              ),
+            // List
+            DownloadList(
+              pageId: _pageId,
+              onRefresh: () async => ref.refresh(allDownloadedComicsProvider),
+              onRefreshTags: () {
+                ref.refresh(downloadTagsProvider);
+                ref.refresh(allDownloadedComicsProvider);
+              },
+              onShowInfo: (index) {
                 // TODO: Implement info showing if needed
-            },
-          ),
-          SliverPadding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom)),
-        ],
+              },
+            ),
+            SliverPadding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom)),
+          ],
+        ),
       ),
     );
   }
 
   void _scrollToTop(BuildContext context) {
-      PrimaryScrollController.of(context).animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    _scrollController.animateTo(0,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
   Widget _buildAppBarContent(BuildContext context) {
     final pageState = ref.watch(downloadPageStateProvider(_pageId));
-    
+
     // Check if filtering
     bool isFiltering = pageState.keyword.isNotEmpty ||
         pageState.downloadTypeFilter != null ||
@@ -146,11 +177,13 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     if (isFiltering) {
       leading = IconButton(
         onPressed: () {
-            // clear filters
-            if (pageState.keyword.isNotEmpty) updateKeyword(ref, _pageId, "");
-            if (pageState.selectedTagIds.isNotEmpty) updateTagFilter(ref, _pageId, null); // clear all
-            if (pageState.downloadTypeFilter != null) updateDownloadTypeFilter(ref, _pageId, null);
-            if (pageState.excludeLocal) updateExcludeLocal(ref, _pageId, false);
+          // clear filters
+          if (pageState.keyword.isNotEmpty) updateKeyword(ref, _pageId, "");
+          if (pageState.selectedTagIds.isNotEmpty)
+            updateTagFilter(ref, _pageId, null); // clear all
+          if (pageState.downloadTypeFilter != null)
+            updateDownloadTypeFilter(ref, _pageId, null);
+          if (pageState.excludeLocal) updateExcludeLocal(ref, _pageId, false);
         },
         icon: const Icon(Icons.close),
       );
@@ -182,11 +215,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   Widget _buildTitle(BuildContext context, DownloadPageState pageState) {
     if (pageState.keyword.isNotEmpty && !pageState.isSelecting) {
-       return TextField(
-            controller: _searchController, 
-            decoration: InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
-            onChanged: (v) => updateKeyword(ref, _pageId, v),
-        );
+      return TextField(
+        controller: _searchController,
+        decoration:
+            InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+        onChanged: (v) => updateKeyword(ref, _pageId, v),
+      );
     } else {
       final summaryAsync = ref.watch(downloadedComicsSummaryProvider(_pageId));
       final summary = summaryAsync.when(
@@ -199,7 +233,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       if (pageState.selectedTagIds.isNotEmpty) {
         final tags = ref.watch(downloadTagsProvider).valueOrNull ?? [];
         final tagNames = pageState.selectedTagIds
-            .map((id) => tags.firstWhere((t) => t.id == id, orElse: () => TagInfo(id: id, name: "", comicCount: 0)).name)
+            .map((id) => tags
+                .firstWhere((t) => t.id == id,
+                    orElse: () => TagInfo(id: id, name: "", comicCount: 0))
+                .name)
             .where((name) => name.isNotEmpty)
             .join(', ');
         if (tagNames.isNotEmpty) {
@@ -224,10 +261,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       }
 
       if (pageState.isSelecting) {
-         final count = ref.watch(selectedCountProvider(_pageId));
-         return Text("已选择 @num 个项目$suffix".tlParams({"num": count.toString()}));
+        final count = ref.watch(selectedCountProvider(_pageId));
+        return Text("已选择 @num 个项目$suffix".tlParams({"num": count.toString()}));
       } else {
-         return Text('${"已下载".tl}$summary$suffix');
+        return Text('${"已下载".tl}$summary$suffix');
       }
     }
   }
@@ -255,54 +292,58 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     }
   }
 
-  List<Widget> _buildActions(BuildContext context, DownloadPageState pageState) {
-      return [
-          IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () {
-                  updateKeyword(ref, _pageId, " "); // trigger search UI
-              },
-          ),
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () {
-                 showDownloadTypeFilterMenu(buttonContext: context, ref: ref, pageId: _pageId);
-              },
-            ),
-          ),
-          IconButton(
-              icon: const Icon(Icons.sort),
-              onPressed: () {
-                  showComicSortDialog(
-                    context: context, 
-                    onRefresh: () => ref.refresh(allDownloadedComicsProvider),
-                  );
-              },
-          ),
-           IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () {
-                  showMenu(context: context, position: RelativeRect.fill, items: [
-                      PopupMenuItem(child: Text("多选".tl), onTap: () => enterSelecting(ref, _pageId)),
-                  ]);
-              },
-          ),
-      ];
+  List<Widget> _buildActions(
+      BuildContext context, DownloadPageState pageState) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.search),
+        onPressed: () {
+          updateKeyword(ref, _pageId, " "); // trigger search UI
+        },
+      ),
+      Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(Icons.filter_list),
+          onPressed: () {
+            showDownloadTypeFilterMenu(
+                buttonContext: context, ref: ref, pageId: _pageId);
+          },
+        ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.sort),
+        onPressed: () {
+          showComicSortDialog(
+            context: context,
+            onRefresh: () => ref.refresh(allDownloadedComicsProvider),
+          );
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () {
+          showMenu(context: context, position: RelativeRect.fill, items: [
+            PopupMenuItem(
+                child: Text("多选".tl),
+                onTap: () => enterSelecting(ref, _pageId)),
+          ]);
+        },
+      ),
+    ];
   }
 
   List<Widget> _buildSelectionActions(BuildContext context, int count) {
-      return [
-        Tooltip(
-          message: "更多".tl,
-          child: IconButton(
-            icon: const Icon(Icons.more_horiz),
-            onPressed: () {
-              _showSelectingMenu(context);
-            },
-          ),
+    return [
+      Tooltip(
+        message: "更多".tl,
+        child: IconButton(
+          icon: const Icon(Icons.more_horiz),
+          onPressed: () {
+            _showSelectingMenu(context);
+          },
         ),
-      ];
+      ),
+    ];
   }
 
   void _showSelectingMenu(BuildContext context) {
@@ -314,29 +355,41 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         PopupMenuItem(
           child: Text("全选".tl),
           onTap: () async {
-             final comics = await ref.read(filteredComicsProvider(_pageId).future);
-             selectAll(ref, _pageId, comics.map((e) => e.id).toList());
+            final comics =
+                await ref.read(filteredComicsProvider(_pageId).future);
+            selectAll(ref, _pageId, comics.map((e) => e.id).toList());
           },
         ),
         PopupMenuItem(
-          child: Text("删除".tl), // Added based on user feedback, though missing in legacy file, it's essential.
+          child: Text("删除"
+              .tl), // Added based on user feedback, though missing in legacy file, it's essential.
           onTap: () {
-             final state = ref.read(downloadPageStateProvider(_pageId));
-             if (state.selectedIds.isEmpty) return;
-             Future.delayed(const Duration(milliseconds: 200), () {
-                 showDialog(context: context, builder: (context) => AlertDialog(
-                     title: Text("确认删除".tl),
-                     content: Text("确认删除".tl + " ${state.selectedIds.length} " + "项".tl + "?"),
-                     actions: [
-                         TextButton(onPressed: () => Navigator.pop(context), child: Text("取消".tl)),
-                         TextButton(onPressed: () async {
-                             Navigator.pop(context);
-                             await DownloadManager().delete(state.selectedIds.toList());
-                             exitSelecting(ref, _pageId);
-                         }, child: Text("确认".tl)),
-                     ],
-                 ));
-             });
+            final state = ref.read(downloadPageStateProvider(_pageId));
+            if (state.selectedIds.isEmpty) return;
+            Future.delayed(const Duration(milliseconds: 200), () {
+              showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                        title: Text("确认删除".tl),
+                        content: Text("确认删除".tl +
+                            " ${state.selectedIds.length} " +
+                            "项".tl +
+                            "?"),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text("取消".tl)),
+                          TextButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await DownloadManager()
+                                    .delete(state.selectedIds.toList());
+                                exitSelecting(ref, _pageId);
+                              },
+                              child: Text("确认".tl)),
+                        ],
+                      ));
+            });
           },
         ),
         PopupMenuItem(
@@ -345,13 +398,17 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             const Duration(milliseconds: 200),
             () async {
               final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics = await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics.where((e) => state.selectedIds.contains(e.id)).toList();
-              
+              final comics =
+                  await ref.read(filteredComicsProvider(_pageId).future);
+              final selectedComics = comics
+                  .where((e) => state.selectedIds.contains(e.id))
+                  .toList();
+
               final suggestedTags = [
                 ...selectedComics.map((e) => e.name),
                 ...selectedComics.map((e) => e.subTitle),
-                ...selectedComics.expand((e) => e.tags), // simplified getting tags
+                ...selectedComics
+                    .expand((e) => e.tags), // simplified getting tags
               ];
 
               final result = await showDialog<bool>(
@@ -375,8 +432,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             const Duration(milliseconds: 200),
             () async {
               final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics = await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics.where((e) => state.selectedIds.contains(e.id)).toList();
+              final comics =
+                  await ref.read(filteredComicsProvider(_pageId).future);
+              final selectedComics = comics
+                  .where((e) => state.selectedIds.contains(e.id))
+                  .toList();
 
               await showDialog(
                 context: App.globalContext!,
@@ -394,11 +454,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         PopupMenuItem(
           child: Text("查看漫画详情".tl),
           onTap: () => Future.delayed(const Duration(milliseconds: 200), () {
-             final state = ref.read(downloadPageStateProvider(_pageId));
-             if (state.selectedIds.length != 1) {
+            final state = ref.read(downloadPageStateProvider(_pageId));
+            if (state.selectedIds.length != 1) {
               showToast(message: "请选择一个漫画".tl);
             } else {
-               // Logic to view comic info
+              // Logic to view comic info
             }
           }),
         ),
@@ -408,8 +468,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             const Duration(milliseconds: 200),
             () async {
               final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics = await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics.where((e) => state.selectedIds.contains(e.id)).toList();
+              final comics =
+                  await ref.read(filteredComicsProvider(_pageId).future);
+              final selectedComics = comics
+                  .where((e) => state.selectedIds.contains(e.id))
+                  .toList();
 
               await showDialog(
                 context: App.globalContext!,
@@ -429,109 +492,124 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   }
 
   Widget _buildTagFilter(BuildContext context) {
-      final tagsAsync = ref.watch(filteredTagsProvider(_pageId));
-      final pageState = ref.watch(downloadPageStateProvider(_pageId));
-      
-      return tagsAsync.when(
-          skipLoadingOnReload: true,
-          data: (tags) {
-             // 限制显示数量 (legacy behavior: max 20)
-             var displayTags = tags;
-             if (displayTags.length > 20) {
-                displayTags = displayTags.sublist(0, 20);
-             }
+    final tagsAsync = ref.watch(filteredTagsProvider(_pageId));
+    final pageState = ref.watch(downloadPageStateProvider(_pageId));
 
-             return Material(
-               elevation: 1,
-               surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-               child: Container(
-                 width: double.infinity,
-                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                 child: Row(
-                   children: [
-                     Expanded(
-                       child: SingleChildScrollView(
-                         scrollDirection: Axis.horizontal,
-                         child: Row(
-                           children: [
-                             for (var tag in displayTags)
-                               Padding(
-                                 padding: const EdgeInsets.only(right: 4),
-                                 child: InkWell(
-                                   key: ValueKey(tag.id),
-                                   onTap: () => updateTagFilter(ref, _pageId, tag.id),
-                                   borderRadius: BorderRadius.circular(8),
-                                   child: Container(
-                                     padding: const EdgeInsets.symmetric(
-                                         horizontal: 8, vertical: 4),
-                                     decoration: BoxDecoration(
-                                       color: pageState.selectedTagIds.contains(tag.id)
-                                           ? Theme.of(context).colorScheme.primary
-                                           : TagCategory.fromValue(tag.category)
-                                               .color
-                                               .withOpacity(0.2),
-                                       borderRadius: BorderRadius.circular(8),
-                                       border: pageState.selectedTagIds.contains(tag.id)
-                                           ? null
-                                           : Border.all(
-                                               color: TagCategory.fromValue(tag.category)
-                                                   .color,
-                                               width: 1,
-                                             ),
-                                     ),
-                                     child: Text(
-                                       tag.name,
-                                       style: TextStyle(
-                                         fontSize: 12,
-                                         color: pageState.selectedTagIds.contains(tag.id)
-                                             ? Theme.of(context).colorScheme.onPrimary
-                                             : Theme.of(context).colorScheme.onSurface,
-                                       ),
-                                     ),
-                                   ),
-                                 ),
-                               ),
-                           ],
-                         ),
-                       ),
-                     ),
-                     const SizedBox(width: 8),
-                     IconButton(
-                       onPressed: () {
-                         showModalBottomSheet(
-                           context: context,
-                           isScrollControlled: true,
-                           constraints: const BoxConstraints(maxWidth: 1000),
-                           backgroundColor: Colors.transparent,
-                           builder: (context) => DownloadTagFilterPanel(
-                             tags: tags,
-                             selectedTagId: pageState.selectedTagIds.isNotEmpty ? pageState.selectedTagIds.first : null,
-                             onTagSelected: (id) {
-                               updateTagFilter(ref, _pageId, id);
-                               Navigator.pop(context);
-                             },
-                             onClose: () => Navigator.pop(context),
-                             onManageTags: () {
-                               Navigator.pop(context);
-                               App.globalTo(() => const TagManagementPage());
-                             },
-                             onTagsReordered: () {
-                               ref.refresh(downloadTagsProvider);
-                             },
-                           ),
-                         );
-                       },
-                       icon: const Icon(Icons.keyboard_arrow_down),
-                       tooltip: "展开标签".tl,
-                     ),
-                   ],
-                 ),
-               ),
-             );
-          },
-          loading: () => const SizedBox(height: 48, child: Center(child: CircularProgressIndicator())),
-          error: (e, s) => const SizedBox(height: 48),
-      );
+    return tagsAsync.when(
+      skipLoadingOnReload: true,
+      data: (tags) {
+        // 限制显示数量 (legacy behavior: max 20)
+        var displayTags = tags;
+        if (displayTags.length > 20) {
+          displayTags = displayTags.sublist(0, 20);
+        }
+
+        return Material(
+          elevation: 1,
+          surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var tag in displayTags)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: InkWell(
+                              key: ValueKey(tag.id),
+                              onTap: () =>
+                                  updateTagFilter(ref, _pageId, tag.id),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: pageState.selectedTagIds
+                                          .contains(tag.id)
+                                      ? Theme.of(context).colorScheme.primary
+                                      : TagCategory.fromValue(tag.category)
+                                          .color
+                                          .withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      pageState.selectedTagIds.contains(tag.id)
+                                          ? null
+                                          : Border.all(
+                                              color: TagCategory.fromValue(
+                                                      tag.category)
+                                                  .color,
+                                              width: 1,
+                                            ),
+                                ),
+                                child: Text(
+                                  tag.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: pageState.selectedTagIds
+                                            .contains(tag.id)
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimary
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () async {
+                    // 获取所有标签用于展开的标签面板
+                    final allTags = await ref.read(downloadTagsProvider.future);
+                    if (!context.mounted) return;
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => DownloadTagFilterPanel(
+                        tags: allTags,
+                        selectedTagId: pageState.selectedTagIds.isNotEmpty
+                            ? pageState.selectedTagIds.first
+                            : null,
+                        onTagSelected: (id) {
+                          updateTagFilter(ref, _pageId, id);
+                          Navigator.pop(context);
+                        },
+                        onClose: () => Navigator.pop(context),
+                        onManageTags: () {
+                          Navigator.pop(context);
+                          App.globalTo(() => const TagManagementPage());
+                        },
+                        onTagsReordered: () {
+                          ref.refresh(downloadTagsProvider);
+                        },
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.keyboard_arrow_down),
+                  tooltip: "展开标签".tl,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+          height: 48, child: Center(child: CircularProgressIndicator())),
+      error: (e, s) => const SizedBox(height: 48),
+    );
   }
 }
 
