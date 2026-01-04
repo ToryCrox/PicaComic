@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
-
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
-
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/ehentai/eh_gallery_page.dart';
@@ -215,6 +213,67 @@ void toComicInfoPage(DownloadedItem comic) {
   } else if (comic.type == DownloadType.local) {
     // 本地漫画不支持查看详情页面，可以显示提示
     showToast(message: "本地漫画不支持查看详情".tl);
+  }
+}
+
+/// 从正在下载的任务导航到漫画详情页
+void toDownloadingComicInfoPage(DownloadingTask task) {
+  var context = App.mainNavigatorKey!.currentContext!;
+  switch (task.type) {
+    case DownloadType.picacg:
+      context.to(() => PicacgComicPage(task.id, null));
+      break;
+    case DownloadType.ehentai:
+      // E-Hentai: 需要检查是否是 EhDownloadingTask 以获取完整 link
+      if (task is EhDownloadingTask) {
+        context.to(() => EhGalleryPage.fromLink(task.gallery.link));
+      } else {
+        // 如果不是 EhDownloadingTask，尝试构造完整链接
+        final link = task.id.contains('/') ? task.id : 'https://e-hentai.org/g/$task.id/';
+        context.to(() => EhGalleryPage.fromLink(link));
+      }
+      break;
+    case DownloadType.jm:
+      // JM: ID 格式为 "jm{id}"，需要去掉 "jm" 前缀
+      final jmId = task.id.startsWith('jm') ? task.id.substring(2) : task.id;
+      context.to(() => JmComicPage(jmId));
+      break;
+    case DownloadType.hitomi:
+      // Hitomi: 需要检查是否是 HitomiDownloadingTask 以获取 link
+      if (task is HitomiDownloadingTask) {
+        context.to(() => HitomiComicPage.fromLink(task.link));
+      } else {
+        // 如果不是 HitomiDownloadingTask，尝试使用 ID 构造链接
+        final hitomiId = task.id.startsWith('hitomi') ? task.id.substring(6) : task.id;
+        context.to(() => HitomiComicPage.fromLink(hitomiId));
+      }
+      break;
+    case DownloadType.htmanga:
+      // HTManga: ID 格式为 "Ht{id}"，需要去掉 "Ht" 前缀
+      final htId = task.id.startsWith('Ht') ? task.id.substring(2) : task.id;
+      context.to(() => HtComicPage(htId));
+      break;
+    case DownloadType.nhentai:
+      // Nhentai: ID 格式为 "nhentai{id}"，需要去掉前缀
+      final nhentaiId = task.id.startsWith('nhentai') ? task.id.replaceFirst('nhentai', '') : task.id;
+      context.to(() => NhentaiComicPage(nhentaiId));
+      break;
+    case DownloadType.other:
+      // 自定义源：需要检查是否是 CustomDownloadingTask
+      if (task is CustomDownloadingTask) {
+        context.to(() => ComicPage(sourceKey: task.comic.sourceKey, id: task.comic.comicId));
+      } else {
+        showToast(message: "无法打开该漫画详情".tl);
+      }
+      break;
+    case DownloadType.favorite:
+      // 收藏夹下载不支持查看详情
+      showToast(message: "收藏夹下载不支持查看详情".tl);
+      break;
+    case DownloadType.local:
+      // 本地漫画不支持查看详情
+      showToast(message: "本地漫画不支持查看详情".tl);
+      break;
   }
 }
 

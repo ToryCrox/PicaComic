@@ -6,6 +6,7 @@ import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/pages/download/components/download_tile.dart' show toDownloadingComicInfoPage;
 
 class DownloadingPage extends StatefulWidget {
   const DownloadingPage({Key? key}) : super(key: key);
@@ -236,32 +237,44 @@ class _DownloadingTileState extends State<_DownloadingTile> {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: SizedBox(
         height: 114,
-        width: double.infinity,
         child: Row(
           children: [
-            Container(
-              width: 84,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: context.colorScheme.secondaryContainer,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: AnimatedImage(
-                image: CachedImageProvider(comic.cover,
-                    headers: {"User-Agent": webUA}),
+            // 封面区域：点击导航到详情页
+            InkWell(
+              onTap: () {
+                toDownloadingComicInfoPage(comic);
+              },
+              child: Container(
                 width: 84,
                 height: double.infinity,
-                fit: BoxFit.cover,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: context.colorScheme.secondaryContainer,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: AnimatedImage(
+                  image: CachedImageProvider(comic.cover,
+                      headers: {"User-Agent": webUA}),
+                  width: 84,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 8),
+            // 内容区域
             Expanded(
               child: InkWell(
-                onTap: _isSingleEpisode ? null : () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
+                onTap: () {
+                  if (_isSingleEpisode) {
+                    // 单章节漫画：导航到详情页
+                    toDownloadingComicInfoPage(comic);
+                  } else {
+                    // 多章节漫画：展开/收起
+                    setState(() {
+                      _isExpanded = !_isExpanded;
+                    });
+                  }
                 },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
