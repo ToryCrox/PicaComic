@@ -128,20 +128,19 @@ class DownloadQueueManager {
     }
   }
 
-  /// 将任务移到队列首位
+  /// 将任务移到队列首位并立即开始下载
   void moveToFirst(String taskId) {
-    // 如果任务正在运行，先暂停所有任务
+    DownloadingTask? targetTask;
+
+    // 检查任务是否正在运行
     if (_runningTasks.containsKey(taskId)) {
-      Log.i('DownloadQueueManager: Task $taskId is already running, pausing to move to first');
-      final task = _runningTasks[taskId]!;
-      pause();
-      _waitingQueue.addFirst(task);
-      start();
+      // 任务正在运行，已经在最前面了
+      Log.i('DownloadQueueManager: Task $taskId is already running');
+      _notifyListeners();
       return;
     }
 
-    // 从等待队列中找到任务并移到首位
-    DownloadingTask? targetTask;
+    // 从等待队列中找到任务
     _waitingQueue.removeWhere((task) {
       if (task.id == taskId) {
         targetTask = task;
@@ -150,18 +149,39 @@ class DownloadQueueManager {
       return false;
     });
 
-    if (targetTask != null) {
-      _waitingQueue.addFirst(targetTask!);
-      Log.i('DownloadQueueManager: Moved task $taskId to first');
-      _notifyListeners();
-
-      // 如果队列正在运行，需要重新调度
-      if (_isRunning && _runningTasks.isEmpty) {
-        _scheduleNext();
-      }
-    } else {
-      Log.w('DownloadQueueManager: Task $taskId not found in waiting queue');
+    if (targetTask == null) {
+      Log.w('DownloadQueueManager: Task $taskId not found');
+      return;
     }
+
+    // 暂停当前运行的任务，并将它们移回等待队列
+    if (_runningTasks.isNotEmpty) {
+      final runningTasks = _runningTasks.values.toList();
+
+      // 暂停所有运行中的任务
+      for (var task in runningTasks) {
+        task.pause();
+      }
+
+      // 清空运行中的任务
+      _runningTasks.clear();
+
+      // 将运行中的任务按顺序添加到等待队列（保留相对顺序）
+      for (var i = runningTasks.length - 1; i >= 0; i--) {
+        _waitingQueue.addFirst(runningTasks[i]);
+      }
+    }
+
+    // 将目标任务添加到等待队列首位
+    _waitingQueue.addFirst(targetTask!);
+
+    // 调度下一个任务（会立即开始下载目标任务）
+    if (_isRunning) {
+      _scheduleNext();
+    }
+
+    Log.i('DownloadQueueManager: Moved task $taskId to front and rescheduled');
+    _notifyListeners();
   }
 
   /// 启动队列处理

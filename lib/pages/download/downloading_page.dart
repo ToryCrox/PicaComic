@@ -31,13 +31,8 @@ class _DownloadingPageState extends State<DownloadingPage> {
   }
 
   void onChange() {
-    if(downloadManager.error) {
-      setState(() {});
-    } else if (downloadManager.downloading.length != comics.length) {
-      rebuild();
-    } else if (key.currentState != null){
-      key.currentState!.updateUi();
-    }
+    // 总是重建以确保列表顺序正确更新
+    rebuild();
   }
 
   void rebuild() {
