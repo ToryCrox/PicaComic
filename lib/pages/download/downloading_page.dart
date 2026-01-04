@@ -311,23 +311,54 @@ class _DownloadingTileState extends State<_DownloadingTile> {
             ),
             const SizedBox(width: 4),
             SizedBox(
-              width: 50,
+              width: 60,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Spacer(),
+                  // 取消按钮
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, size: 20),
                     onPressed: widget.cancel,
+                    tooltip: "取消".tl,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 4),
+                  // 暂停/继续按钮（仅对当前任务显示）
+                  if (comic == downloadManager.downloading.first)
+                    IconButton(
+                      icon: Icon(
+                        comic.isPaused() ? Icons.play_arrow : Icons.pause,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        if (comic.isPaused()) {
+                          // 已暂停状态 - 继续下载
+                          downloadManager.start();
+                        } else {
+                          // 正在下载状态 - 暂停下载
+                          downloadManager.pause();
+                        }
+                        setState(() {});
+                      },
+                      tooltip: comic.isPaused() ? "继续".tl : "暂停".tl,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                    ),
+                  if (comic != downloadManager.downloading.first)
+                    const SizedBox(height: 40), // 占位保持布局一致
+                  const SizedBox(height: 4),
+                  // 置顶按钮
                   IconButton(
-                    icon: const Icon(Icons.vertical_align_top),
+                    icon: const Icon(Icons.vertical_align_top, size: 20),
                     onPressed: () {
                       downloadManager.moveToFirst(comic);
                       widget.onComicPositionChange();
                     },
+                    tooltip: "置顶".tl,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
                   ),
-                  const Spacer(),
                 ],
               ),
             ),

@@ -618,11 +618,20 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   }
 
   /// 获取章节名称（子类可覆写）
-  /// 
+  ///
   /// [episodeIndex] 是 links Map 的 key，即章节编号
   /// 默认返回 "第X章"
   String getEpisodeName(int episodeIndex) {
     return "第$episodeIndex章";
+  }
+
+  /// 检查任务是否处于暂停状态
+  ///
+  /// 当任务在队列首位但下载管理器未运行时，视为暂停状态
+  bool isPaused() {
+    if (downloadManager.downloading.isEmpty) return false;
+    if (downloadManager.downloading.first != this) return false;
+    return !downloadManager.isDownloading;
   }
 
   @override
