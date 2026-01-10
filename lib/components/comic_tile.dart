@@ -8,7 +8,6 @@ class ComicTileMenuOption {
   const ComicTileMenuOption(this.title, this.icon, this.onTap);
 }
 
-
 abstract class ComicTile extends StatelessWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
@@ -145,13 +144,14 @@ abstract class ComicTile extends StatelessWidget {
                         title: Text("打开下载目录".tl),
                         onTap: () async {
                           context.pop();
-                          final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+                          final downloadId = downloadManager
+                              .getDownloadIdFromComicId(sourceKey, comicID);
                           if (downloadId.isEmpty) {
                             showToast(message: "无法生成下载ID".tl);
                             return;
                           }
-                          final isDownloaded = await downloadManager
-                              .isExists(downloadId);
+                          final isDownloaded =
+                              await downloadManager.isExists(downloadId);
                           if (isDownloaded) {
                             final path = await downloadManager
                                 .getFullDirectory(downloadId);
@@ -266,12 +266,13 @@ abstract class ComicTile extends StatelessWidget {
     }
     return Consumer(builder: (context, ref, child) {
       final downloadedIds = ref.watch(downloadedIdsProvider);
-      final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
-      
+      final downloadId =
+          downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+
       if (!downloadedIds.contains(downloadId)) {
         return const SizedBox.shrink();
       }
-      
+
       return Positioned(
         right: detailedMode ? 16 : 6,
         top: 8,
@@ -283,8 +284,7 @@ abstract class ComicTile extends StatelessWidget {
                 showToast(message: "无法生成下载ID".tl);
                 return;
               }
-              final path = await downloadManager
-                  .getFullDirectory(downloadId);
+              final path = await downloadManager.getFullDirectory(downloadId);
               if (path.isNotEmpty) {
                 OpenFile.open(path);
               } else {
@@ -349,15 +349,15 @@ abstract class ComicTile extends StatelessWidget {
         DesktopMenuEntry(
           text: "打开下载目录".tl,
           onClick: () async {
-            final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+            final downloadId =
+                downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
             if (downloadId.isEmpty) {
               showToast(message: "无法生成下载ID".tl);
               return;
             }
             final isDownloaded = await downloadManager.isExists(downloadId);
             if (isDownloaded) {
-              final path = await downloadManager
-                  .getFullDirectory(downloadId);
+              final path = await downloadManager.getFullDirectory(downloadId);
               if (path.isNotEmpty) {
                 OpenFile.open(path);
               } else {
@@ -444,8 +444,8 @@ abstract class ComicTile extends StatelessWidget {
                     constraints: const BoxConstraints(minWidth: 24),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: CustomPaint(
-                      painter: _ReadingHistoryPainter(
-                          history.page, history.maxPage),
+                      painter:
+                          _ReadingHistoryPainter(history.page, history.maxPage),
                     ),
                   )
               ],
@@ -471,11 +471,12 @@ abstract class ComicTile extends StatelessWidget {
             AspectRatio(
               aspectRatio: 0.68,
               child: Container(
-                  decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(8)),
-                  clipBehavior: Clip.antiAlias,
-                  child: image),
+                decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8)),
+                clipBehavior: Clip.antiAlias,
+                child: image,
+              ),
             ),
             const SizedBox(
               width: 16,
@@ -524,37 +525,38 @@ abstract class ComicTile extends StatelessWidget {
               ),
             ),
             Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.5),
-                          ]),
-                      borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(8),
-                          bottomRight: Radius.circular(8))),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                    child: Text(
-                      title.replaceAll("\n", ""),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14.0,
-                        color: Colors.white,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.5),
+                        ]),
+                    borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(8),
+                        bottomRight: Radius.circular(8))),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                  child: Text(
+                    title.replaceAll("\n", ""),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14.0,
+                      color: Colors.white,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                )),
+                ),
+              ),
+            ),
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
@@ -566,7 +568,7 @@ abstract class ComicTile extends StatelessWidget {
                   child: const SizedBox.expand(),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -636,9 +638,7 @@ class _ComicDescriptionState extends State<_ComicDescription> {
             style: const TextStyle(fontSize: 10.0),
             maxLines: 1,
           ),
-        const SizedBox(
-          height: 4,
-        ),
+        const SizedBox(height: 4),
         if (tags.isNotEmpty || primaryTags.isNotEmpty)
           Expanded(
             child: LayoutBuilder(
@@ -819,9 +819,12 @@ class _ReadingHistoryPainter extends CustomPainter {
       );
       textPainter2.layout();
       textPainter2.paint(
-          canvas,
-          Offset(size.width - textPainter2.width,
-              size.height - textPainter2.height));
+        canvas,
+        Offset(
+          size.width - textPainter2.width,
+          size.height - textPainter2.height,
+        ),
+      );
     }
   }
 
@@ -845,7 +848,8 @@ class NormalComicTile extends ComicTile {
       this.headers,
       this.tags,
       sourceKey,
-      super.key}) : _sourceKey = sourceKey;
+      super.key})
+      : _sourceKey = sourceKey;
 
   final String description_;
   final String coverPath;
@@ -1049,11 +1053,13 @@ class CustomComicTile extends ComicTile {
 
   @override
   void onTap_() {
-    App.mainNavigatorKey!.currentContext!.to(() => ComicPage(
-          sourceKey: comic.sourceKey,
-          id: comic.id,
-          cover: comic.cover,
-        ));
+    App.mainNavigatorKey!.currentContext!.to(
+      () => ComicPage(
+        sourceKey: comic.sourceKey,
+        id: comic.id,
+        cover: comic.cover,
+      ),
+    );
   }
 
   @override
@@ -1148,8 +1154,10 @@ Widget buildComicTile(BuildContext context, BaseComic item, String sourceKey,
       addonMenuOptions,
     );
   } else {
-    return CustomComicTile(item as CustomComic,
-        addonMenuOptions: addonMenuOptions);
+    return CustomComicTile(
+      item as CustomComic,
+      addonMenuOptions: addonMenuOptions,
+    );
   }
 }
 
