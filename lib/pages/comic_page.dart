@@ -630,7 +630,8 @@ class ComicPageLogic<T extends Object> extends StateController {
       Future<Res<T>> Function() loadData,
       Future<T?> Function() loadCacheData,
       Future<bool> Function(T) loadFavorite,
-      String Function() getId) async {
+      String Function() getId,
+      String Function() getDownloadedId) async {
     final cache = await loadCacheData();
     if (cache != null) {
       data = cache;
@@ -641,6 +642,8 @@ class ComicPageLogic<T extends Object> extends StateController {
         favorite = b;
         update();
       });
+      // 加载本地标签（缓存数据已加载）
+      loadLocalTags(getDownloadedId());
     }
 
     var [res, _] = await Future.wait(
@@ -659,6 +662,8 @@ class ComicPageLogic<T extends Object> extends StateController {
         favorite = b;
         update();
       });
+      // 加载本地标签（网络数据已加载）
+      loadLocalTags(getDownloadedId());
     }
     loading = false;
     update();
@@ -851,7 +856,6 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           initState: (logic) {
             tagsStack.push(_logic);
             _logic.favoriteOnPlatform = favoriteOnPlatformInitial;
-            _logic.loadLocalTags(downloadedId);
           },
           dispose: (logic) {
             tagsStack.pop();
@@ -860,7 +864,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             _logic.width = constraints.maxWidth;
             _logic.height = constraints.maxHeight;
             if (logic.loading) {
-              logic.get(loadData, loadCachedData, loadFavorite, () => id);
+              logic.get(loadData, loadCachedData, loadFavorite, () => id, () => downloadedId);
               return buildLoading(context);
             } else if (logic.message != null) {
               return NetworkError(
