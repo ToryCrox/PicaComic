@@ -115,23 +115,52 @@ class EhDownloadingTask extends DownloadingTask {
   }
 
   @override
-  Map<String, dynamic> toMap() => {
-        "gallery": gallery.toJson(),
-        "downloadType": downloadType,
-        "_downloadLink": _downloadLink,
-        "_currentBytes": _currentBytes,
-        "_totalBytes": _totalBytes,
-        ...super.toBaseMap()
-      };
+  Map<String, dynamic> toMap() {
+    // 创建 gallery 的副本，移除可能过期的认证信息
+    final galleryJson = gallery.toJson();
+    if (galleryJson['auth'] != null) {
+      final auth = Map<String, dynamic>.from(galleryJson['auth']);
+      // 移除会过期的字段，避免下次恢复时使用过期的认证
+      auth.remove('showKey');
+      auth.remove('mpvKey');
+      auth.remove('imgKey');
+      // 确保清理可能遗留的 loading 状态
+      if (auth['showKey'] == 'loading') {
+        auth.remove('showKey');
+      }
+      galleryJson['auth'] = auth;
+    }
+    
+    return {
+      "gallery": galleryJson,
+      "downloadType": downloadType,
+      "_downloadLink": _downloadLink,
+      "_currentBytes": _currentBytes,
+      "_totalBytes": _totalBytes,
+      ...super.toBaseMap()
+    };
+  }
 
   @override
   Future<void> onStart() async {
     await super.onStart();
-    // clear showKey and imageKey
-    // imageKey is saved through the network cache mechanism
-    gallery.auth?.remove("showKey");
+    
+    // 彻底重置所有认证相关的状态，确保从保存数据恢复时不会使用过期的认证
+    if (gallery.auth != null) {
+      gallery.auth!.remove("showKey");
+      gallery.auth!.remove("mpvKey");
+      gallery.auth!.remove("imgKey");
+      // 确保没有留下 "loading" 状态，防止死锁
+      if (gallery.auth!["showKey"] == "loading") {
+        gallery.auth!.remove("showKey");
+      }
+    }
+    
+    // 清除图片缓存，强制重新获取新的图片链接
     await CacheManager().deleteKeyword("exhentai.org");
     await CacheManager().deleteKeyword("e-hentai.org");
+    
+    Log.d(() => 'EhDownloadingTask: 已重置认证状态 id=$id');
   }
 
   int? _currentBytes;

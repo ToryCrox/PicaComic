@@ -284,9 +284,20 @@ class ImageManager {
       Log.d("getEhImageNew $cacheKey, readerLink:'$readerLink'");
 
       Future<void> getShowKey() async {
+        // 添加超时机制，避免永久等待导致卡死
+        final timeout = DateTime.now().add(const Duration(seconds: 30));
+        
         while (gallery.auth!["showKey"] == "loading") {
+          // 检查是否超时
+          if (DateTime.now().isAfter(timeout)) {
+            // 超时后强制清理状态，允许重试
+            gallery.auth!.remove("showKey");
+            Log.e("ImageManager: 等待 showKey 超时，强制清理状态 gid=$gid");
+            throw TimeoutException("等待 showKey 超时");
+          }
           await Future.delayed(const Duration(milliseconds: 100));
         }
+        
         if (gallery.auth!["showKey"] != null ||
             gallery.auth!["mpvKey"] != null) {
           return;
@@ -303,6 +314,7 @@ class ImageManager {
             var match = RegExp(r'showkey="(.*?)"').firstMatch(script.text);
             final showKey = match!.group(1)!;
             gallery.auth!["showKey"] = showKey;
+            Log.d(() => "ImageManager: 成功获取 showKey gid=$gid");
           } else {
             final script = html
                 .querySelectorAll("script")
@@ -325,9 +337,14 @@ class ImageManager {
             gallery.auth!["imgKey"] =
                 jsonDecode(imageListScript).map((e) => e["k"]).join(",");
             gallery.auth!.remove("showKey");
+            Log.d(() => "ImageManager: 成功获取 mpvKey gid=$gid");
           }
         } catch (e) {
+          // 确保异常时完全清理所有认证状态，防止状态污染
           gallery.auth!.remove("showKey");
+          gallery.auth!.remove("mpvKey");
+          gallery.auth!.remove("imgKey");
+          Log.e("ImageManager: 获取认证失败 gid=$gid, error=$e");
           rethrow;
         }
       }
