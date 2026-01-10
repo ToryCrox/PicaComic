@@ -1,161 +1,162 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code (claude.ai/code) 在此仓库中工作时提供指导。
 
-## Common Development Commands
+## 常用开发命令
 
 ```bash
-# Get dependencies
+# 获取依赖
 flutter pub get
 
-# Run in debug mode
+# 调试模式运行
 flutter run
 flutter run -d windows
 flutter run -d android
 
-# Build for release
+# 构建发布版本
 flutter build windows
 flutter build apk
 flutter build ios
 
-# Analyze code
+# 代码分析
 flutter analyze
 
-# Run tests
+# 运行测试
 flutter test
 ```
 
-Windows deployment: `build_win.bat` copies build artifacts to Program Files.
+Windows 部署: `build_win.bat` 将构建产物复制到 Program Files。
 
-## Architecture Overview
+## 架构概览
 
-Pica Comic is a multi-source comic reader using a **plugin-like architecture** where each comic source implements a uniform interface.
+Pica Comic 是一个使用**插件式架构**的多源漫画阅读器，每个漫画源实现统一的接口。
 
-### Directory Structure
+### 目录结构
 ```
 lib/
-├── base.dart              # Appdata singleton (global settings, history)
-├── init.dart              # App initialization
-├── main.dart              # Entry point
-├── comic_source/          # Source abstraction layer
-├── network/               # Per-source network implementations
-├── pages/                 # UI screens
-├── foundation/            # State management, utilities
-├── components/            # Reusable widgets
-└── tools/                 # Helper functions
+├── base.dart              # Appdata 单例（全局设置、历史记录）
+├── init.dart              # 应用初始化
+├── main.dart              # 入口文件
+├── comic_source/          # 漫画源抽象层
+├── network/               # 每个源的网络实现
+├── pages/                 # UI 页面
+├── foundation/            # 状态管理、工具类
+├── components/            # 可复用组件
+└── tools/                 # 辅助函数
 ```
 
-### Core Pattern: ComicSource Interface
+### 核心模式：ComicSource 接口
 
-**Key file**: `lib/comic_source/comic_source.dart`
+**关键文件**: [lib/comic_source/comic_source.dart](lib/comic_source/comic_source.dart)
 
-Every comic source (picacg, ehentai, jm, hitomi, htmanga, nhentai) implements `ComicSource`:
+每个漫画源（picacg、ehentai、jm、hitomi、htmanga、nhentai、kemono）都实现 `ComicSource`：
 
 ```dart
 ComicSource {
-  name, key                      // Identity
-  account: AccountConfig?        // Login/logout
-  categoryData: CategoryData?    // Category browsing
-  favoriteData: FavoriteData?    // Favorites management
-  explorePages: List<ExplorePageData>  // Browse features
-  searchPageData: SearchPageData?      // Search
-  loadComicInfo: LoadComicFunc?        // Get comic details
-  loadComicPages: LoadComicPagesFunc?  // Get page URLs
-  data: Map<String, dynamic>     // Persistent source data
+  name, key                      // 身份标识
+  account: AccountConfig?        // 登录/登出
+  categoryData: CategoryData?    // 分类浏览
+  favoriteData: FavoriteData?    // 收藏管理
+  explorePages: List<ExplorePageData>  // 发现页面
+  searchPageData: SearchPageData?      // 搜索
+  loadComicInfo: LoadComicFunc?        // 获取漫画详情
+  loadComicPages: LoadComicPagesFunc?  // 获取页面 URL
+  data: Map<String, dynamic>     // 持久化源数据
 }
 ```
 
-**Source registration**: `ComicSource.sources` holds all active sources
-- Built-in: 6 hardcoded sources
-- Custom: JS-based extensions loaded from `${App.dataPath}/comic_source/*.js`
+**源注册**: `ComicSource.sources` 保存所有活跃的源
+- 内置源: 7 个硬编码源
+- 自定义源: 从 `${App.dataPath}/comic_source/*.js` 加载的 JS 扩展
 
-### Network Layer
+### 网络层
 
-Each source has its own network module in `lib/network/`:
+每个源在 `lib/network/` 下有自己的网络模块：
 - `picacg_network/`, `eh_network/`, `jm_network/`, `hitomi_network/`, `htmanga_network/`, `nhentai_network/`
 
-**Response pattern**: All network calls return `Res<T>`:
+**响应模式**: 所有网络调用返回 `Res<T>`：
 ```dart
 Res<T> {
-  _data: T?           // Success data
-  errorMessage: String?  // Error if present
-  subData: dynamic    // Extra data (e.g., maxPage)
+  _data: T?           // 成功数据
+  errorMessage: String?  // 错误信息（如果有）
+  subData: dynamic    // 额外数据（如 maxPage）
 }
 ```
 
-### State Management
+### 状态管理
 
-**Key file**: `lib/foundation/state_controller.dart`
+**关键文件**: [lib/foundation/state_controller.dart](lib/foundation/state_controller.dart)
 
-Uses a service locator + observable pattern:
+使用服务定位器 + 可观察模式：
 ```dart
-StateController.put<T>(controller)  // Register
-StateController.find<T>()           // Retrieve
-controller.update()                 // Notify subscribers
+StateController.put<T>(controller)  // 注册
+StateController.find<T>()           // 检索
+controller.update()                 // 通知订阅者
 ```
 
-`StateBuilder` widget binds controllers to UI and triggers rebuilds on updates.
+`StateBuilder` widget 将控制器绑定到 UI，在更新时触发重建。
 
-### Reader System
+### 阅读器系统
 
-**Location**: `lib/pages/reader/`
+**位置**: [lib/pages/reader/](lib/pages/reader/)
 
-**ReadingData** (abstract base) - defines how to load pages per source:
+**ReadingData** (抽象基类) - 定义每个源如何加载页面：
 ```dart
 abstract class ReadingData {
-  Stream<Res<List<String>>> loadEp(int ep)  // Load page URLs
-  Stream<DownloadProgress> loadImage(ep, page, url)  // Stream with progress
+  Stream<Res<List<String>>> loadEp(int ep)  // 加载页面 URL
+  Stream<DownloadProgress> loadImage(ep, page, url)  // 带进度的流
   ImageProvider createImageProvider(ep, page, url)
 }
 ```
 
-**ComicReadingPageLogic** (`reading_logic.dart`) - main controller:
-- `PageController` for page-by-page mode
-- `ItemScrollController` for continuous scroll mode
-- `PhotoViewController` per image for zoom
+**ComicReadingPageLogic** ([reading_logic.dart](lib/pages/reader/reading_logic.dart)) - 主控制器：
+- `PageController` 用于逐页模式
+- `ItemScrollController` 用于连续滚动模式
+- 每个图片的 `PhotoViewController` 用于缩放
 
-Reading modes: page-by-page, continuous vertical, dual-page spread.
+阅读模式: 逐页、连续垂直、双页 spread。
 
-### Data Persistence
+### 数据持久化
 
-| Data | Storage | Location |
-|------|---------|----------|
-| Settings | JSON + SharedPreferences | `${App.dataPath}/settings` |
-| History | SQLite | `history` table |
-| Downloads | Files + SQLite | `${App.dataPath}/downloads/` |
-| Source data | JSON per source | `comic_source/{key}.data` |
-| Image cache | Disk LRU | Managed by `DiskCache` |
+| 数据 | 存储 | 位置 |
+|------|------|------|
+| 设置 | JSON + SharedPreferences | `${App.dataPath}/settings` |
+| 历史记录 | SQLite | `history` 表 |
+| 下载 | 文件 + SQLite | `${App.dataPath}/downloads/` |
+| 源数据 | 每个源的 JSON | `comic_source/{key}.data` |
+| 图片缓存 | 磁盘 LRU | 由 `DiskCache` 管理 |
 
-### Data Flow: Loading a Comic
+### 数据流：加载漫画
 
-1. User taps comic → navigate with `sourceKey` + `id`
-2. `ComicSource.find(sourceKey)` → get source
-3. `source.loadComicInfo(id)` → fetch `ComicInfoData`
-4. User selects episode → create `ReadingData` subclass
-5. `readingData.loadEp(ep)` → stream of image URLs
+1. 用户点击漫画 → 使用 `sourceKey` + `id` 导航
+2. `ComicSource.find(sourceKey)` → 获取源
+3. `source.loadComicInfo(id)` → 获取 `ComicInfoData`
+4. 用户选择章节 → 创建 `ReadingData` 子类
+5. `readingData.loadEp(ep)` → 图片 URL 流
 6. `readingData.loadImage()` → `Stream<DownloadProgress>`
-7. `ImageProvider` renders to UI
+7. `ImageProvider` 渲染到 UI
 
-### Key Design Patterns
+### 关键设计模式
 
-- **Source-agnostic UI**: All UI code works with `ComicSource` interface, not specific sources
-- **Stream-based loading**: Image loading returns streams for progress UI and cancellation
-- **Lazy initialization**: Sources and data loaded on-demand
-- **Dual favorites**: Network favorites (from source API) + local SQLite favorites
-- **Configuration-driven pages**: Category/search UI built from `*Data` configs, not hardcoded
+- **源无关 UI**: 所有 UI 代码使用 `ComicSource` 接口，而非特定源
+- **基于流的加载**: 图片加载返回流以显示进度 UI 和支持取消
+- **延迟初始化**: 源和数据按需加载
+- **双重收藏夹**: 网络收藏夹（来自源 API）+ 本地 SQLite 收藏夹
+- **配置驱动页面**: 分类/搜索 UI 从 `*Data` 配置构建，而非硬编码
 
-### Extension System
+### 扩展系统
 
-**File**: `lib/comic_source/parser.dart`
+**文件**: [lib/comic_source/parser.dart](lib/comic_source/parser.dart)
 
-Custom sources via JavaScript (QuickJS engine):
-- Load from `${App.dataPath}/comic_source/*.js`
-- Implement same `ComicSource` interface
-- Seamlessly integrated with built-in sources
+通过 JavaScript (QuickJS 引擎) 实现自定义源：
+- 从 `${App.dataPath}/comic_source/*.js` 加载
+- 实现相同的 `ComicSource` 接口
+- 与内置源无缝集成
 
-## Platform Notes
+## 平台说明
 
-- Flutter 3.35.7 with several forked dependencies
-- Primary: Android; also supports Windows, iOS, macOS
-- Desktop: window management via `window_manager`
-- Uses `event_bus` for cross-component communication
+- Flutter 3.35.7，多个 fork 的依赖
+- 主要平台: Android；也支持 Windows、iOS、macOS
+- 桌面端: 通过 `window_manager` 进行窗口管理
+- 使用 `event_bus` 进行跨组件通信
+- 使用 `flutter_riverpod` 进行部分状态管理
