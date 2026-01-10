@@ -41,6 +41,7 @@ import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/tools/image_utils.dart';
+import 'package:synchronized/synchronized.dart';
 import 'dart:math';
 
 typedef DownloadingCallback = void Function();
@@ -81,6 +82,9 @@ class DownloadManager implements Listenable {
   final DownloadDatabase _db = DownloadDatabase();
 
   final List<VoidCallback> _listeners = [];
+
+  /// 数据库操作锁，防止并发写入导致 SQLite 死锁
+  static final Lock _dbLock = Lock();
 
   /// 用于通知已下载列表变化的 StreamController
   final StreamController<void> _comicsChangedController =
@@ -898,22 +902,28 @@ extension AddDownloadExt on DownloadManager {
   /// 添加或更新下载记录到数据库（公开方法，供 DownloadingTask 使用）
   Future<void> addToDb(DownloadedItem item, String directory,
       [DateTime? time]) async {
-    Log.d(() => 'DB DownloadManager: 添加/更新下载记录 id=${item.id}, name=${item.name}, directory=$directory');
-    await _db.addToDownload(
-      item.id,
-      item.name,
-      item.subTitle,
-      (time ?? DateTime.now()).millisecondsSinceEpoch,
-      directory,
-      item.comicSize ?? 0,
-      jsonEncode(item.toJson()),
-    );
+    // 使用锁保护数据库写入，防止并发导致的 SQLite 死锁
+    await DownloadManager._dbLock.synchronized(() async {
+      Log.d(() => 'DB DownloadManager: 添加/更新下载记录 id=${item.id}, name=${item.name}, directory=$directory');
+      await _db.addToDownload(
+        item.id,
+        item.name,
+        item.subTitle,
+        (time ?? DateTime.now()).millisecondsSinceEpoch,
+        directory,
+        item.comicSize ?? 0,
+        jsonEncode(item.toJson()),
+      );
+    });
   }
 
   /// 更新漫画大小
   Future<void> updateSize(String id, double size) async {
-    Log.d(() => 'DB DownloadManager: 更新漫画大小 id=$id, size=$size MB');
-    await _db.updateDownloadSize(id, size);
+    // 使用锁保护数据库写入
+    await DownloadManager._dbLock.synchronized(() async {
+      Log.d(() => 'DB DownloadManager: 更新漫画大小 id=$id, size=$size MB');
+      await _db.updateDownloadSize(id, size);
+    });
   }
 
   Future<bool> isExists(String id) async {
@@ -923,9 +933,12 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<void> _deleteFromDb(String id) async {
-    Log.d(() => 'DB DownloadManager: 从数据库删除下载记录 id=$id');
-    await _db.deleteDownload(id);
-    _cache.remove(id);
+    // 使用锁保护数据库删除操作
+    await DownloadManager._dbLock.synchronized(() async {
+      Log.d(() => 'DB DownloadManager: 从数据库删除下载记录 id=$id');
+      await _db.deleteDownload(id);
+      _cache.remove(id);
+    });
   }
 
   Future<DownloadedItem?> _getComicWithDb(String id) async {
