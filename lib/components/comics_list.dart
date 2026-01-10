@@ -23,7 +23,8 @@ class ComicsPageLogic<T> extends StateController {
 
   bool showFloatingButton = true;
 
-  void get(Future<Res<List<T>>> Function(int) getComics, [Future<List<T>> Function()? getComicsCache]) async {
+  void get(Future<Res<List<T>>> Function(int) getComics,
+      [Future<List<T>> Function()? getComicsCache]) async {
     if (loadingData) return;
     loadingData = true;
     Future.microtask(() => update());
@@ -580,8 +581,7 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
         children: [
           const Icon(Icons.search_off, size: 56),
           const SizedBox(height: 12),
-          Text("无匹配结果".tl,
-              style: Theme.of(context).textTheme.titleMedium),
+          Text("无匹配结果".tl, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
         ],
       ),
@@ -589,7 +589,8 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   }
 
   Widget buildItem(BuildContext context, T item) {
-    return buildComicTile(context, item, sourceKey, addonMenuOptions: addonMenuOptions);
+    return buildComicTile(context, item, sourceKey,
+        addonMenuOptions: addonMenuOptions);
   }
 }
 
@@ -651,7 +652,7 @@ class _SliverGridComics extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
-            (context, index) {
+        (context, index) {
           if (index == comics.length - 1) {
             onLastItemBuild?.call();
           }

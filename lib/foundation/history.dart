@@ -216,7 +216,9 @@ class HistoryManager {
   // 数据库版本号
   static const int _databaseVersion = 1;
 
-  final Map<String, bool> _cachedHistory = {};
+  final Map<String, bool> _cachedHistory_ = {};
+
+  final Map<String, History> _memoryCache = {};
 
   Future<void> tryUpdateDb() async {
     var file = File("${App.dataPath}/history_temp.db");
@@ -299,6 +301,13 @@ class HistoryManager {
 
     _initialized = true;
     _initCompleter.complete(_db);
+    
+    // 加载所有历史记录到内存
+    var res = await _db!.query(kTableHistory);
+    for (var element in res) {
+      var history = History.fromRow(element);
+      _memoryCache[history.target] = history;
+    }
     
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
@@ -398,7 +407,9 @@ class HistoryManager {
       );
     }
     saveData();
-    _cachedHistory[newItem.target] = true;
+    saveData();
+    _cachedHistory_[newItem.target] = true;
+    _memoryCache[newItem.target] = newItem;
   }
 
   ///退出阅读器时调用此函数, 修改阅读位置
@@ -419,6 +430,9 @@ class HistoryManager {
       where: '$kHistoryTarget = ?',
       whereArgs: [history.target],
     );
+
+    // 更新内存缓存
+    _memoryCache[history.target] = history;
     
     if (updateMePage) {
       scheduleMicrotask(() {
@@ -431,7 +445,8 @@ class HistoryManager {
     await _ensureInitialized();
     final db = _db!;
     await db.delete(kTableHistory);
-    _cachedHistory.clear();
+    _cachedHistory_.clear();
+    _memoryCache.clear();
   }
 
   void remove(String id) async {
@@ -442,12 +457,20 @@ class HistoryManager {
       where: '$kHistoryTarget = ?',
       whereArgs: [id],
     );
-    _cachedHistory[id] = false;
+    _cachedHistory_[id] = false;
+    _memoryCache.remove(id);
   }
 
   Future<History?> find(String target) async {
+    if(_memoryCache.containsKey(target)) {
+      return _memoryCache[target];
+    }
     await _ensureInitialized();
     return findSync(target);
+  }
+
+  History? findInCache(String target) {
+    return _memoryCache[target];
   }
 
   Future<void> updateCache() async {
@@ -455,7 +478,9 @@ class HistoryManager {
     final db = _db!;
     final res = await db.query(kTableHistory);
     for (var element in res) {
-      _cachedHistory[element[kHistoryTarget] as String] = true;
+      _cachedHistory_[element[kHistoryTarget] as String] = true;
+      var history = History.fromRow(element);
+      _memoryCache[history.target] = history;
     }
   }
 
@@ -464,12 +489,19 @@ class HistoryManager {
     //   // 不等待updateCache完成，而是直接查询数据库
     //   return _findDirect(target);
     // }
-    if (_cachedHistory[target] == false) {
+    if (_cachedHistory_[target] == false) {
       return SynchronousFuture(null);
+    }
+    
+    if (_memoryCache.containsKey(target)){
+      return SynchronousFuture(_memoryCache[target]);
     }
 
     return _findDirect(target).then((e) {
-      _cachedHistory[target] = e != null;
+      _cachedHistory_[target] = e != null;
+      if(e != null){
+        _memoryCache[target] = e;
+      }
       return e;
     });
   }

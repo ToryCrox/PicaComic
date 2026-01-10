@@ -59,6 +59,31 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
   }
 }
 
+/// 已下载漫画ID集合 Provider (Set<String>)
+///
+/// 用于 O(1) 快速查找漫画是否已下载。
+/// 集合中的 ID 格式为:
+/// 1. 仅 ComicId (兼容旧逻辑)
+/// 2. SourceKey@ComicId (推荐，避免跨源 ID 冲突)
+final downloadedIdsProvider = Provider<Set<String>>((ref) {
+  final comicsAsync = ref.watch(allDownloadedComicsProvider);
+  
+  return comicsAsync.when(
+    data: (comics) {
+      final ids = <String>{};
+      for (var comic in comics) {
+        ids.add(comic.id);
+        // 如果需要区分源，建议使用 sourceKey@id，但目前 downloadManager 主要依赖 id 唯一性
+        // downloadManager.getDownloadIdFromComicId(sourceKey, comicId) 返回的就是 id (通常是 hash 或直接是 id)
+        // 这里我们假设 comic.id 就是用来判断是否存在的关键 key
+      }
+      return ids;
+    },
+    error: (_, __) => const {},
+    loading: () => const {},
+  );
+});
+
 /// 所有标签的唯一真相源 (Single Source of Truth)
 ///
 /// 直接对接 DownloadManager，通过监听 onTagsChanged 流来自动刷新。

@@ -264,52 +264,51 @@ abstract class ComicTile extends StatelessWidget {
     if (comicID == null || sourceKey == null) {
       return const SizedBox.shrink();
     }
-    return FutureBuilder<bool>(
-      future: downloadManager.isExists(
-          downloadManager.getDownloadIdFromComicId(sourceKey, comicID)),
-      builder: (context, snapshot) {
-        if (snapshot.data != true) {
-          return const SizedBox.shrink();
-        }
-        return Positioned(
-          right: detailedMode ? 16 : 6,
-          top: 8,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () async {
-                final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
-                if (downloadId.isEmpty) {
-                  showToast(message: "无法生成下载ID".tl);
-                  return;
-                }
-                final path = await downloadManager
-                    .getFullDirectory(downloadId);
-                if (path.isNotEmpty) {
-                  OpenFile.open(path);
-                } else {
-                  showToast(message: "目录不存在".tl);
-                }
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.folder_open,
-                  size: 18,
-                  color: Colors.white,
-                ),
+    return Consumer(builder: (context, ref, child) {
+      final downloadedIds = ref.watch(downloadedIdsProvider);
+      final downloadId = downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+      
+      if (!downloadedIds.contains(downloadId)) {
+        return const SizedBox.shrink();
+      }
+      
+      return Positioned(
+        right: detailedMode ? 16 : 6,
+        top: 8,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              if (downloadId.isEmpty) {
+                showToast(message: "无法生成下载ID".tl);
+                return;
+              }
+              final path = await downloadManager
+                  .getFullDirectory(downloadId);
+              if (path.isNotEmpty) {
+                OpenFile.open(path);
+              } else {
+                showToast(message: "目录不存在".tl);
+              }
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.folder_open,
+                size: 18,
+                color: Colors.white,
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
   }
 
   void onSecondaryTap_(TapDownDetails details) {
@@ -402,114 +401,108 @@ abstract class ComicTile extends StatelessWidget {
       return _buildWithDownloadIcon(child, detailedMode);
     }
 
-    return FutureBuilder<History?>(
-        future: HistoryManager().find(comicID!),
-        builder: (context, snapshot) {
-          var history = snapshot.data;
-          if (history?.page == 0) {
-            history!.page = 1;
-          }
+    var history = HistoryManager().findInCache(comicID!);
+    if (history?.page == 0) {
+      history!.page = 1;
+    }
 
-          if (!isFavorite && history == null) {
-            return _buildWithDownloadIcon(child, detailedMode);
-          }
+    if (!isFavorite && history == null) {
+      return _buildWithDownloadIcon(child, detailedMode);
+    }
 
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: child,
-              ),
-              Positioned(
-                left: detailedMode ? 16 : 6,
-                top: 8,
-                child: Container(
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: child,
+        ),
+        Positioned(
+          left: detailedMode ? 16 : 6,
+          top: 8,
+          child: Container(
+            height: 24,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              children: [
+                if (isFavorite)
+                  Container(
+                    height: 24,
+                    width: 24,
+                    color: Colors.green,
+                    child: const Icon(
+                      Icons.bookmark_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Row(
-                    children: [
-                      if (isFavorite)
-                        Container(
-                          height: 24,
-                          width: 24,
-                          color: Colors.green,
-                          child: const Icon(
-                            Icons.bookmark_rounded,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      if (history != null)
-                        Container(
-                          height: 24,
-                          color: Colors.blue.withOpacity(0.9),
-                          constraints: const BoxConstraints(minWidth: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: CustomPaint(
-                            painter: _ReadingHistoryPainter(
-                                history.page, history.maxPage),
-                          ),
-                        )
-                    ],
-                  ),
-                ),
-              ),
-              // 打开下载目录图标
-              _buildDownloadIcon(detailedMode),
-            ],
-          );
-        });
+                if (history != null)
+                  Container(
+                    height: 24,
+                    color: Colors.blue.withOpacity(0.9),
+                    constraints: const BoxConstraints(minWidth: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: CustomPaint(
+                      painter: _ReadingHistoryPainter(
+                          history.page, history.maxPage),
+                    ),
+                  )
+              ],
+            ),
+          ),
+        ),
+        // 打开下载目录图标
+        _buildDownloadIcon(detailedMode),
+      ],
+    );
   }
 
   Widget _buildDetailedMode(BuildContext context) {
-    return LayoutBuilder(builder: (context, constrains) {
-      final height = constrains.maxHeight - 16;
-      return _ComicTileInkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap_,
-        onLongPress: enableLongPressed ? onLongTap_ : null,
-        onSecondaryTap: onSecondaryTap_,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-          child: Row(
-            children: [
-              Container(
-                  width: height * 0.68,
-                  height: double.infinity,
+    return _ComicTileInkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap_,
+      onLongPress: enableLongPressed ? onLongTap_ : null,
+      onSecondaryTap: onSecondaryTap_,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+        child: Row(
+          children: [
+            AspectRatio(
+              aspectRatio: 0.68,
+              child: Container(
                   decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(8)),
                   clipBehavior: Clip.antiAlias,
                   child: image),
-              SizedBox.fromSize(
-                size: const Size(16, 5),
+            ),
+            const SizedBox(
+              width: 16,
+            ),
+            Expanded(
+              child: _ComicDescription(
+                //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
+                title: pages == null
+                    ? title.replaceAll("\n", "")
+                    : "[${pages}P]${title.replaceAll("\n", "")}",
+                user: subTitle,
+                description: description,
+                subDescription: buildSubDescription(context),
+                badge: badge,
+                primaryTags: primaryTags,
+                tags: tags,
+                maxLines: maxLines,
+                onTagTap: onTagTap,
+                onPrimaryTagTap: onPrimaryTagTap,
+                onTagSecondaryTap: onTagSecondaryTap,
+                onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
               ),
-              Expanded(
-                child: _ComicDescription(
-                  //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
-                  title: pages == null
-                      ? title.replaceAll("\n", "")
-                      : "[${pages}P]${title.replaceAll("\n", "")}",
-                  user: subTitle,
-                  description: description,
-                  subDescription: buildSubDescription(context),
-                  badge: badge,
-                  primaryTags: primaryTags,
-                  tags: tags,
-                  maxLines: maxLines,
-                  onTagTap: onTagTap,
-                  onPrimaryTagTap: onPrimaryTagTap,
-                  onTagSecondaryTap: onTagSecondaryTap,
-                  onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    });
+      ),
+    );
   }
 
   Widget _buildBriefMode(BuildContext context) {
