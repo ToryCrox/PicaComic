@@ -283,7 +283,8 @@ class EhDownloadingTask extends DownloadingTask {
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    return DownloadedGallery(gallery, await getFolderSize(Directory(path)));
+    final size = await getFolderSize(Directory(path));
+    return DownloadedGallery(gallery, size);
   }
 }
 

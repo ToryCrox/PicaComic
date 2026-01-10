@@ -22,10 +22,22 @@ import '../foundation/app.dart';
 
 Future<double> getFolderSize(Directory path) async {
   double total = 0;
-  for (var f in path.listSync(recursive: true)) {
-    if (FileSystemEntity.typeSync(f.path) == FileSystemEntityType.file) {
-      total += File(f.path).lengthSync() / 1024 / 1024;
+  try {
+    // 使用异步操作避免阻塞主线程
+    await for (var entity in path.list(recursive: true)) {
+      if (entity is File) {
+        try {
+          // 使用异步的 length() 而不是同步的 lengthSync()
+          final length = await entity.length();
+          total += length / 1024 / 1024;
+        } catch (e) {
+          // 忽略无法访问的文件（可能被删除或权限问题）
+          Log.d(() => 'getFolderSize: 无法读取文件大小 ${entity.path}: $e');
+        }
+      }
     }
+  } catch (e, s) {
+    Log.e('getFolderSize: 计算文件夹大小失败 ${path.path}: $e\n$s');
   }
   return total;
 }

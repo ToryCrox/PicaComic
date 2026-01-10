@@ -11,7 +11,6 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
-import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 
@@ -120,7 +119,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   int _retryTimes = 0;
 
-  String? directory;
+  String directory = '';
 
   String get path {
     var downloadPath = downloadManager.path!;
@@ -205,17 +204,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   @mustCallSuper
   FutureOr<void> onStart() async {
-    if (directory == null) {
-      if (await downloadManager.isExists(id)) {
-        directory = await downloadManager.getDirectoryName(id);
-      } else {
-        // 生成新的目录名格式: [type][id]title
-        String sanitizedTitle = sanitizeFileName(title);
-        String subPath = '[${type.name}][$id]$sanitizedTitle';
-        directory = findValidDirectoryName(downloadManager.path!, subPath);
-        Directory(path).createSync(recursive: true);
-      }
-    }
+    // directory 在 _addDownloadTask 中已经确保初始化
   }
 
   /// 章节下载完成时调用，保存增量数据到数据库
@@ -223,7 +212,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// [episodeIndex] 是 links Map 的 key，即章节编号（通常从1开始）
   Future<void> _onEpisodeDownloaded(int episodeIndex) async {
     if (!shouldSaveToDatabase) return;
-    if (directory == null) return;
+    if (directory.trim().isEmpty) return;
     
     try {
       // 生成包含已完成章节的下载记录
@@ -232,7 +221,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       );
       
       if (downloadedItem != null) {
-        await downloadManager.addToDb(downloadedItem, directory!);
+        await downloadManager.addToDb(downloadedItem, directory);
         Log.i('DownloadingTask: Saved episode $episodeIndex for $id to database');
       }
     } catch (e, s) {

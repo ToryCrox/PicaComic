@@ -198,18 +198,19 @@ class DownloadManager implements Listenable {
       try {
         var json = const JsonDecoder().convert(await file.readAsString());
         for (var item in json["downloading"]) {
-          // 添加任务到队列管理器
           final task =
               downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
-          _queueManager.enqueue(task);
+          // 直接调用 _addDownloadTask，统一处理 directory 初始化
+          _addDownloadTask(task, skipSave: true);
         }
 
+        // 恢复完成后统一保存一次
+        await _saveInfo();
+
         // 如果有任务被加载，记录一下，但不自动启动
-        // 用户需要手动点击开始按钮来恢复下载
         if (_queueManager.totalTasksCount > 0) {
           Log.i(
               'DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session');
-          // 通知 UI 有未完成的任务
           notifyListeners();
         }
       } catch (e, s) {
@@ -375,9 +376,8 @@ class DownloadManager implements Listenable {
 
       // 只有标记为需要保存的下载任务才会保存到数据库
       if (finishedTask.shouldSaveToDatabase) {
-        Log.d(() => 'DB DownloadManager: 保存下载任务到数据库 id=${finishedTask.id}');
-        await addToDb(
-            await finishedTask.toDownloadedItem(), finishedTask.directory!);
+        final downloadedItem = await finishedTask.toDownloadedItem();
+        await addToDb(downloadedItem, finishedTask.directory);
       }
     }
 
@@ -751,14 +751,56 @@ DownloadingTask downloadingItemFromMap(
 
 extension AddDownloadExt on DownloadManager {
   /// 添加下载任务的通用方法（消除重复代码）
-  void _addDownloadTask(DownloadingTask task) {
+  /// 
+  /// [skipSave] 跳过保存，用于批量添加任务时提高性能
+  void _addDownloadTask(DownloadingTask task, {bool skipSave = false}) async {
     Log.d(() => 'DownloadManager: 添加下载任务 id=${task.id}, title=${task.title}');
+    
+    // 确保 directory 不为空
+    if (task.directory.trim().isEmpty) {
+      // 尝试从数据库恢复
+      if (await isExists(task.id)) {
+        task.directory = await getDirectoryName(task.id);
+      }
+      // 如果还是空，生成新的
+      if (task.directory.trim().isEmpty) {
+        task.directory = _generateDirectoryName(task);
+        Directory(task.path).createSync(recursive: true);
+      }
+    }
+    
     _queueManager.enqueue(task);
-    _saveInfo();
-    notifyListeners(); // 立即通知 UI 更新
+    if (!skipSave) {
+      _saveInfo();
+    }
+    notifyListeners();
     if (!isDownloading) {
       start();
     }
+  }
+
+  /// 生成任务的目录名称，格式: [type][id]title
+  /// 
+  /// 使用 title 生成目录名，如果失败则使用 id 作为后备，确保永远不为空
+  String _generateDirectoryName(DownloadingTask task) {
+    String sanitizedTitle;
+    try {
+      final titleToUse = task.title.isNotEmpty ? task.title : task.id;
+      sanitizedTitle = sanitizeFileName(titleToUse);
+      if (sanitizedTitle.trim().isEmpty) {
+        sanitizedTitle = task.id;
+      }
+    } catch (e) {
+      Log.w('DownloadManager: sanitizeFileName 失败，使用 id: $e');
+      sanitizedTitle = task.id;
+    }
+    // 复用统一的目录名格式
+    return _buildDirectoryName(task.type.name, task.id, sanitizedTitle);
+  }
+  
+  /// 构建目录名称的通用方法，格式: [type][id]title
+  String _buildDirectoryName(String type, String id, String title) {
+    return '[$type][$id]$title';
   }
 
   ///添加哔咔漫画下载
@@ -1322,7 +1364,7 @@ extension AddDownloadExt on DownloadManager {
   /// 根据漫画信息生成新的目录名
   String generateDirectoryName(DownloadedItem item) {
     String sanitizedTitle = sanitizeFileName(item.name);
-    return '[${item.type.name}][${item.id}]$sanitizedTitle';
+    return _buildDirectoryName(item.type.name, item.id, sanitizedTitle);
   }
 
   /// 生成唯一的本地漫画ID（带冲突检测）
