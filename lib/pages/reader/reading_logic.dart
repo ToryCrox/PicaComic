@@ -1,5 +1,13 @@
 part of pica_reader;
 
+/// 滚动记录，用于计算滚动速度
+class _ScrollRecord {
+  final double position;
+  final int timestamp;
+
+  _ScrollRecord(this.position, this.timestamp);
+}
+
 extension PageControllerExtension on PageController {
   void animatedJumpToPage(int page) {
     final current = this.page?.round() ?? 0;
@@ -511,6 +519,14 @@ class ComicReadingPageLogic extends StateController {
 
   /// 键盘翻页后恢复自动翻页的定时器
   Timer? _keyboardPageTurnDebounceTimer;
+
+  /// 滚动位置和时间记录，用于计算手松开时的速度
+  final List<_ScrollRecord> _scrollRecords = [];
+  
+  /// 手松开时的滚动速度
+  ///
+  /// 在 onPointerUp 时计算并保存，在惯性滚动结束后使用
+  double? _releaseVelocity;
 
   void stopAutoPageTurning() {
     runningAutoPageTurning = false;

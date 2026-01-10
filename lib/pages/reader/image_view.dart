@@ -432,6 +432,21 @@ extension ImageExt on ComicReadingPage {
         onPointerUp: (details) {
           // 用户停止交互, 尝试恢复自动翻页
           logic.userInteracting = false;
+          
+          // 在手松开时计算速度（仅上下连续阅读模式）
+          if (logic.readingMethod == ReadingMethod.topToBottomContinuously &&
+              logic._scrollRecords.length >= 2) {
+            final secondLast = logic._scrollRecords[logic._scrollRecords.length - 2];
+            final last = logic._scrollRecords.last;
+            final timeDiff = (last.timestamp - secondLast.timestamp) / 1000.0;
+            
+            if (timeDiff > 0) {
+              final positionDiff = last.position - secondLast.position;
+              logic._releaseVelocity = positionDiff / timeDiff;
+              Log.d(() => "onPointerUp velocity: ${logic._releaseVelocity} (timeDiff: ${timeDiff}s, positionDiff: $positionDiff)");
+            }
+          }
+          
           if (!logic.scrollController.position.isScrollingNotifier.value) {
             logic.resumeAutoPageTurning();
           }
@@ -450,11 +465,24 @@ extension ImageExt on ComicReadingPage {
                 notification.dragDetails != null) {
               logic.pauseAutoPageTurning();
             }
-            if (notification is ScrollEndNotification) {
-              logic.resumeAutoPageTurning();
-            }
             if (notification is ScrollUpdateNotification) {
               TapController.lastScrollTime = DateTime.now();
+              
+              // 仅在上下连续阅读模式中记录滚动位置和时间
+              if (logic.readingMethod == ReadingMethod.topToBottomContinuously &&
+                  logic.scrollController.hasClients) {
+                final now = DateTime.now().millisecondsSinceEpoch;
+                final position = logic.scrollController.position.pixels;
+                
+                // 添加当前滚动记录
+                logic._scrollRecords.add(_ScrollRecord(position, now));
+                
+                // 只保留最后3个记录点，用于计算即时速度
+                if (logic._scrollRecords.length > 3) {
+                  logic._scrollRecords.removeAt(0);
+                }
+              }
+              
               // update floating button
               var length = logic.data.eps?.length ?? 1;
               if (!logic.scrollController.hasClients) return false;
@@ -473,6 +501,40 @@ extension ImageExt on ComicReadingPage {
               }
 
               return true;
+            }
+            if (notification is ScrollEndNotification) {
+              // 仅在上下连续阅读模式中处理手势速度
+              if (logic.readingMethod == ReadingMethod.topToBottomContinuously) {
+                Log.d(() => "ScrollEndNotification releaseVelocity: ${logic._releaseVelocity}");
+                
+                // 使用手松开时保存的速度
+                if (logic._releaseVelocity != null) {
+                  final velocity = logic._releaseVelocity!;
+                  const velocityThreshold = 500.0; // pixels/second
+                  
+                  // 向下滚动(velocity > 0,查看后面内容) → 启动自动翻页
+                  if (velocity > velocityThreshold && !logic.runningAutoPageTurning) {
+                    logic.runningAutoPageTurning = true;
+                    logic.autoPageTurning();
+                    logic.update();
+                    Log.d(() => "启动自动翻页 (velocity: $velocity)");
+                  }
+                  // 向上滚动(velocity < 0,查看前面内容) → 关闭自动翻页
+                  else if (velocity < -velocityThreshold && logic.runningAutoPageTurning) {
+                    logic.stopAutoPageTurning();
+                    logic.update();
+                    Log.d(() => "关闭自动翻页 (velocity: $velocity)");
+                  }
+                  
+                  // 清除保存的速度
+                  logic._releaseVelocity = null;
+                }
+                
+                // 清除滚动记录
+                logic._scrollRecords.clear();
+              }
+              // 恢复自动翻页(原有逻辑)
+              logic.resumeAutoPageTurning();
             }
             return false;
           },
