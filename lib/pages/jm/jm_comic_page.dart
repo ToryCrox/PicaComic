@@ -21,6 +21,8 @@ import '../../foundation/ui_mode.dart';
 import '../../network/jm_network/jm_models.dart';
 import '../../network/jm_network/jm_network.dart';
 import 'jm_comments_page.dart';
+import '../../foundation/disk_cache.dart';
+import '../../network/jm_network/jm_download.dart';
 
 class JmComicPage extends BaseComicPage<JmComicInfo> {
   const JmComicPage(this.id, {super.key});
@@ -138,8 +140,17 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
 
   @override
   Future<JmComicInfo?> loadCachedData() async {
-    return await DiskCache.readModel(
+    var data = await DiskCache.readModel(
         cacheKey, (map) => JmComicInfo.fromMap(map));
+    if (data != null) return data;
+    final downloadedId = "jm$id";
+    if (await downloadManager.isExists(downloadedId)) {
+      var downloaded = await downloadManager.getComicOrNull(downloadedId);
+      if (downloaded is DownloadedJmComic) {
+        return downloaded.comic;
+      }
+    }
+    return null;
   }
 
   @override

@@ -643,7 +643,9 @@ class ComicPageLogic<T extends Object> extends StateController {
         update();
       });
       // 加载本地标签（缓存数据已加载）
-      loadLocalTags(getDownloadedId());
+      await loadLocalTags(getDownloadedId());
+      loading = false;
+      update();
     }
 
     var [res, _] = await Future.wait(
@@ -663,7 +665,7 @@ class ComicPageLogic<T extends Object> extends StateController {
         update();
       });
       // 加载本地标签（网络数据已加载）
-      loadLocalTags(getDownloadedId());
+      await loadLocalTags(getDownloadedId());
     }
     loading = false;
     update();
@@ -866,7 +868,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             if (logic.loading) {
               logic.get(loadData, loadCachedData, loadFavorite, () => id, () => downloadedId);
               return buildLoading(context);
-            } else if (logic.message != null) {
+            } else if (logic.message != null && logic.data == null) {
               return NetworkError(
                 message: logic.message!,
                 retry: logic.refresh_,
@@ -1623,18 +1625,37 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Divider(),
-          SizedBox(
-              width: 100,
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
               child: Row(
                 children: [
-                  const SizedBox(
-                    width: 18,
-                  ),
                   Text(
                     "信息".tl,
                     style: const TextStyle(
                         fontWeight: FontWeight.w500, fontSize: 18),
-                  )
+                  ),
+                  if (logic.message != null)
+                    Tooltip(
+                      message: logic.message!,
+                      child: IconButton(
+                        icon: const Icon(Icons.offline_bolt, color: Colors.orange),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text("网络错误".tl),
+                              content: Text(logic.message!),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text("确认".tl),
+                                )
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               )),
           const SizedBox(

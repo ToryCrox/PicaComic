@@ -18,6 +18,7 @@ import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 import '../../foundation/disk_cache.dart';
+import '../../network/hitomi_network/hitomi_download_model.dart';
 
 class HitomiComicPage extends BaseComicPage<HitomiComic> {
   HitomiComicPage(HitomiComicBrief comic, {super.key})
@@ -79,7 +80,16 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
 
   @override
   Future<HitomiComic?> loadCachedData() async {
-    return await DiskCache.readModel(cacheKey, (map) => HitomiComic.fromMap(map));
+    var data = await DiskCache.readModel(cacheKey, (map) => HitomiComic.fromMap(map));
+    if (data != null) return data;
+    final downloadedId = "hitomi$id";
+    if (await downloadManager.isExists(downloadedId)) {
+      var downloaded = await downloadManager.getComicOrNull(downloadedId);
+      if (downloaded is DownloadedHitomiComic) {
+        return downloaded.comic;
+      }
+    }
+    return null;
   }
 
   @override

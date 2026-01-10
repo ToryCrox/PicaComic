@@ -21,6 +21,7 @@ import 'package:pica_comic/components/components.dart';
 
 import '../../foundation/disk_cache.dart';
 import '../../tools/type_util.dart';
+import '../../network/eh_network/eh_download_model.dart';
 
 class EhGalleryPage extends BaseComicPage<Gallery> {
   EhGalleryPage(EhGalleryBrief brief, {super.key})
@@ -105,8 +106,18 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
 
   @override
   Future<Gallery?> loadCachedData() async {
-    return await DiskCache.readModel(cacheKey, (map) => Gallery.fromJson(map));
+    var data = await DiskCache.readModel(cacheKey, (map) => Gallery.fromJson(map));
+    if (data != null) return data;
+    final downloadedId = getGalleryId(data?.link ?? "");
+    if (downloadedId.isNotEmpty && await downloadManager.isExists(downloadedId)) {
+      var downloaded = await downloadManager.getComicOrNull(downloadedId);
+      if (downloaded is DownloadedGallery) {
+        return downloaded.gallery;
+      }
+    }
+    return null;
   }
+
 
   @override
   int? get pages => int.tryParse(data?.maxPage ?? "");
