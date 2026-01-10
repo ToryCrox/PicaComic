@@ -611,6 +611,58 @@ class DownloadDatabase {
     );
   }
 
+  /// 批量为漫画添加/移除标签
+  Future<void> batchUpdateComicTags(List<String> comicIds, List<int> addTagIds,
+      List<int> removeTagIds) async {
+    final db = await _getDatabase();
+    await db.transaction((txn) async {
+      for (var comicId in comicIds) {
+        // 1. 添加标签
+        for (var tagId in addTagIds) {
+          await txn.insert(
+            kTableComicTags,
+            {
+              kComicTagsComicId: comicId,
+              kComicTagsTagId: tagId,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+
+          // 更新标签时间戳
+          await txn.update(
+            kTableTags,
+            {kTagUpdatedTime: DateTime.now().millisecondsSinceEpoch},
+            where: '$kTagId = ?',
+            whereArgs: [tagId],
+          );
+
+          // 检查并自动设置封面
+          final tagRes = await txn.query(kTableTags,
+              columns: [kTagCoverComicId],
+              where: '$kTagId = ?',
+              whereArgs: [tagId]);
+          if (tagRes.isNotEmpty && tagRes.first[kTagCoverComicId] == null) {
+            await txn.update(
+              kTableTags,
+              {kTagCoverComicId: comicId},
+              where: '$kTagId = ?',
+              whereArgs: [tagId],
+            );
+          }
+        }
+
+        // 2. 移除标签
+        for (var tagId in removeTagIds) {
+          await txn.delete(
+            kTableComicTags,
+            where: '$kComicTagsComicId = ? AND $kComicTagsTagId = ?',
+            whereArgs: [comicId, tagId],
+          );
+        }
+      }
+    });
+  }
+
   /// 更新标签排序
   Future<void> updateTagSortOrder(int tagId, int sortOrder) async {
     final db = await _getDatabase();

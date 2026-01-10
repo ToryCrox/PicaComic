@@ -31,6 +31,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   final _originalTagIds = <int>{};
   final selectedTagIds = <int>{};
   bool loading = true;
+  bool isApplying = false;
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   String _searchQuery = '';
@@ -180,25 +181,18 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   }
 
   Future<void> _applyTags() async {
+    setState(() {
+      isApplying = true;
+    });
     try {
-      final addTags = selectedTagIds.difference(_originalTagIds);
-      final removeTags = _originalTagIds.difference(selectedTagIds);
+      final addTags = selectedTagIds.difference(_originalTagIds).toList();
+      final removeTags = _originalTagIds.difference(selectedTagIds).toList();
       Log.d(
           'selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
       Log.d("添加标签: $addTags, 删除标签: $removeTags");
 
-      // 为所有选中的漫画设置标签
-      for (var comicId in widget.comicIds) {
-        // 添加新标签
-        for (var tagId in addTags) {
-          await downloadManager.addTagToComic(comicId, tagId);
-        }
-
-        // 移除取消选中的标签
-        for (var tagId in removeTags) {
-          await downloadManager.removeTagFromComic(comicId, tagId);
-        }
-      }
+      // 批量更新标签
+      await downloadManager.batchUpdateTags(widget.comicIds, addTags, removeTags);
 
       if (mounted) {
         showToast(message: "标签更新成功".tl);
@@ -207,6 +201,9 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     } catch (e) {
       if (mounted) {
         showToast(message: "标签更新失败: $e".tl);
+        setState(() {
+          isApplying = false;
+        });
       }
     }
   }
@@ -444,12 +441,17 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: isApplying ? null : () => Navigator.pop(context, false),
           child: Text("取消".tl),
         ),
         TextButton(
-          onPressed: _applyTags,
-          child: Text("确认".tl),
+          onPressed: isApplying ? null : _applyTags,
+          child: isApplying
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Text("确认".tl),
         ),
       ],
     );

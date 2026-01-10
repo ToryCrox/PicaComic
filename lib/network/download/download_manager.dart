@@ -1279,6 +1279,15 @@ extension AddDownloadExt on DownloadManager {
     _notifyTagsChanged();
   }
 
+  /// 批量更新标签
+  Future<void> batchUpdateTags(List<String> comicIds, List<int> addTagIds,
+      List<int> removeTagIds) async {
+    Log.d(() =>
+        'DB DownloadManager: 批量更新标签 comicIds count=${comicIds.length}, add=${addTagIds.length}, remove=${removeTagIds.length}');
+    await _db.batchUpdateComicTags(comicIds, addTagIds, removeTagIds);
+    _notifyTagsChanged();
+  }
+
   /// 获取漫画的所有标签
   Future<List<DownloadTag>> getComicTags(String comicId) async {
     Log.d(() => 'DB DownloadManager: 获取漫画的所有标签 comicId=$comicId');
