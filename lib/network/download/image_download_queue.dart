@@ -343,7 +343,13 @@ class ImageDownloadQueue {
     }
   }
 
-  /// 下载单个图片
+  /// 单张图片的最大重试次数
+  static const _maxItemRetries = 3;
+
+  /// 单张图片重试的初始延迟（毫秒）
+  static const _itemRetryInitialDelayMs = 500;
+
+  /// 下载单个图片（带自动重试）
   Future<void> _downloadItem(ImageDownloadQueueItem item) async {
     final key = item.key;
     item.state = ImageDownloadTaskState.downloading;
@@ -363,19 +369,38 @@ class ImageDownloadQueue {
 
       // 通知进度更新
       onProgressUpdate?.call(completedCount, totalCount);
-      
+
       // 检查章节是否完成
       _checkEpisodeCompleted(item.episodeIndex);
     } catch (e) {
-      // 下载失败
-      Log.e('ImageDownloadQueue: Failed to download $key: $e');
-      
-      item.state = ImageDownloadTaskState.failed;
-      item.error = e;
+      // 下载失败，检查是否可以重试
       item.retryCount++;
-      
-      _downloadingItems.remove(key);
-      _failedItems[key] = item;
+
+      if (item.retryCount < _maxItemRetries) {
+        // 可以重试：延迟后重新加入等待队列
+        final delay = _itemRetryInitialDelayMs * (1 << (item.retryCount - 1)); // 指数退避
+        Log.w('ImageDownloadQueue: Failed to download $key (attempt ${item.retryCount}/$_maxItemRetries), retrying in ${delay}ms: $e');
+
+        _downloadingItems.remove(key);
+        item.state = ImageDownloadTaskState.waiting;
+        item.error = null;
+
+        // 延迟后重新加入队列
+        Future.delayed(Duration(milliseconds: delay), () {
+          if (!_isRunning) return;
+          _waitingQueue.addLast(item);
+          _scheduleNext();
+        });
+      } else {
+        // 达到最大重试次数，标记为最终失败
+        Log.e('ImageDownloadQueue: Failed to download $key after $_maxItemRetries attempts: $e');
+
+        item.state = ImageDownloadTaskState.failed;
+        item.error = e;
+
+        _downloadingItems.remove(key);
+        _failedItems[key] = item;
+      }
 
       // 通知进度更新
       onProgressUpdate?.call(completedCount, totalCount);
