@@ -266,8 +266,25 @@ class DownloadQueueManager {
       return;
     }
 
-    // 从队列中取出下一个任务
-    final task = _waitingQueue.removeFirst();
+    // 从队列中取出下一个未暂停的任务
+    DownloadingTask? task;
+    for (var t in _waitingQueue) {
+      if (!t.userPaused) {
+        task = t;
+        break;
+      }
+    }
+
+    if (task == null) {
+      if (_runningTasks.isEmpty) {
+        Log.i('DownloadQueueManager: No more active tasks, stopping');
+        _isRunning = false;
+        _notifyListeners();
+      }
+      return;
+    }
+
+    _waitingQueue.remove(task);
     _runningTasks[task.id] = task;
     
     Log.i('DownloadQueueManager: Starting task ${task.id}. Running: ${_runningTasks.length}, Waiting: ${_waitingQueue.length}');
@@ -304,6 +321,74 @@ class DownloadQueueManager {
     // 错误处理由任务自己的重试机制处理
     // 这里只记录日志
     _notifyListeners();
+  }
+
+  /// 暂停指定任务
+  Future<void> pauseTask(String taskId) async {
+    // 检查是否在运行中
+    final runningTask = _runningTasks[taskId];
+    if (runningTask != null) {
+      Log.i('DownloadQueueManager: Pausing running task $taskId');
+      runningTask.userPaused = true;
+      await runningTask.stop(); // 停止下载，但不删除文件（stop 的实现已支持保留已完成章节）
+      _runningTasks.remove(taskId);
+      // 将任务放回等待队列首位
+      _waitingQueue.addFirst(runningTask);
+      _notifyListeners();
+
+      // 调度下一个任务
+      if (_isRunning) {
+        _scheduleNext();
+      }
+      return;
+    }
+
+    // 检查是否在等待队列中
+    for (var task in _waitingQueue) {
+      if (task.id == taskId) {
+        Log.i('DownloadQueueManager: Pausing waiting task $taskId');
+        task.userPaused = true;
+        _notifyListeners();
+        return;
+      }
+    }
+
+    Log.w('DownloadQueueManager: Task $taskId not found for pausing');
+  }
+
+  /// 恢复指定任务
+  void resumeTask(String taskId) {
+    bool found = false;
+    
+    // 检查是否在运行中（理论上不应该，因为暂停的任务不会运行，但为了健壮性）
+    if (_runningTasks.containsKey(taskId)) {
+      _runningTasks[taskId]?.userPaused = false;
+      found = true;
+    } 
+    // 检查等待队列
+    else {
+      for (var task in _waitingQueue) {
+        if (task.id == taskId) {
+          task.userPaused = false;
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (found) {
+      Log.i('DownloadQueueManager: Resumed task $taskId');
+      _notifyListeners();
+      // 尝试调度，因为现在有可用的任务了
+      if (_isRunning) {
+        _scheduleNext();
+      } else {
+        // 如果管理器未运行，则启动它
+        start();
+      }
+    } else {
+      Log.w('DownloadQueueManager: Task $taskId not found for resuming');
+    }
   }
 
   /// 取消指定任务的指定章节

@@ -439,6 +439,20 @@ class DownloadManager implements Listenable {
     }
   }
 
+  /// 暂停指定下载任务
+  Future<void> pauseTask(String id) async {
+    Log.d(() => 'DownloadManager: 暂停任务 id=$id');
+    await _queueManager.pauseTask(id);
+    _saveInfo();
+  }
+
+  /// 恢复指定下载任务
+  void resumeTask(String id) {
+    Log.d(() => 'DownloadManager: 恢复任务 id=$id');
+    _queueManager.resumeTask(id);
+    _saveInfo();
+  }
+
   /// 取消指定下载任务的指定章节
   ///
   /// [id] 下载任务ID

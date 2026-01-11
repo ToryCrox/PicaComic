@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as Path;
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -163,6 +164,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   int get allowedLoadingNumber => int.tryParse(appdata.settings[79]) ?? 6;
 
   bool duplicate = false;
+
+  /// 用户手动暂停
+  bool userPaused = false;
 
   /// 是否应该保存到数据库
   /// 
@@ -467,6 +471,11 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     stopRecorder();
     _stopAllTasks();
     notifications.endProgress();
+    if (directory.isEmpty) {
+      showToast(message: '文件夹为空');
+      Log.e("DownloadingTask: stop called with empty directory");
+      return;
+    }
     if (await downloadManager.isExists(id)) {
       if (links == null) return;
       var comicPath = "$path/";
@@ -477,7 +486,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         if (completedEpisodes.contains(ep)) continue;
         var directory = Directory(comicPath + ep.toString());
         if (directory.existsSync()) {
-          directory.deleteSync(recursive: true);
+          await directory.delete(recursive: true);
         }
       }
     } else {
@@ -506,6 +515,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       "index": index,
       "links": convertedData,
       "directory": directory,
+      "userPaused": userPaused,
       "finishedTasks": _downloading.entries
           .where((element) => element.value.isFinished)
           .map((e) => e.key)
@@ -537,6 +547,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         _downloading[task] = _ImageDownloadWrapper.finished();
       }
     }
+    userPaused = map["userPaused"] ?? false;
   }
 
   /// get all image links
@@ -619,8 +630,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   /// 检查任务是否处于暂停状态
   ///
-  /// 当任务在队列首位但下载管理器未运行时，视为暂停状态
+  /// 当任务被用户手动暂停，或在队列首位但下载管理器未运行时，视为暂停状态
   bool isPaused() {
+    if (userPaused) return true;
     if (downloadManager.downloading.isEmpty) return false;
     if (downloadManager.downloading.first != this) return false;
     return !downloadManager.isDownloading;

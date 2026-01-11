@@ -324,29 +324,30 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     constraints: const BoxConstraints(),
                   ),
                   const SizedBox(height: 4),
-                  // 暂停/继续按钮（仅对当前任务显示）
-                  if (comic == downloadManager.downloading.first)
-                    IconButton(
-                      icon: Icon(
-                        comic.isPaused() ? Icons.play_arrow : Icons.pause,
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        if (comic.isPaused()) {
-                          // 已暂停状态 - 继续下载
-                          downloadManager.start();
-                        } else {
-                          // 正在下载状态 - 暂停下载
-                          downloadManager.pause();
-                        }
-                        setState(() {});
-                      },
-                      tooltip: comic.isPaused() ? "继续".tl : "暂停".tl,
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(),
+                  // 暂停/继续按钮
+                  IconButton(
+                    icon: Icon(
+                      comic.isPaused() ? Icons.play_arrow : Icons.pause,
+                      size: 20,
                     ),
-                  if (comic != downloadManager.downloading.first)
-                    const SizedBox(height: 40), // 占位保持布局一致
+                    onPressed: () {
+                      if (comic.isPaused()) {
+                        // 已暂停状态 - 继续下载
+                        if (comic.userPaused) {
+                          downloadManager.resumeTask(comic.id);
+                        } else {
+                          downloadManager.start();
+                        }
+                      } else {
+                        // 正在下载状态 - 暂停下载
+                        downloadManager.pauseTask(comic.id);
+                      }
+                      setState(() {});
+                    },
+                    tooltip: comic.isPaused() ? "继续".tl : "暂停".tl,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
                   const SizedBox(height: 4),
                   // 置顶按钮
                   IconButton(
