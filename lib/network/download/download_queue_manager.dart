@@ -28,6 +28,12 @@ class DownloadQueueManager {
 
   /// 获取正在运行的任务数量
   int get runningTasksCount => _runningTasks.length;
+  
+  /// 获取正在运行的任务ID集合
+  Set<String> get runningTaskIds => _runningTasks.keys.toSet();
+
+  /// 获取等待队列的任务ID集合
+  Set<String> get waitingTaskIds => _waitingQueue.map((e) => e.id).toSet();
 
   /// 获取总任务数量
   int get totalTasksCount => _waitingQueue.length + _runningTasks.length;

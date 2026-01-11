@@ -26,6 +26,7 @@ import 'package:pica_comic/network/cloudflare.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
+import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/show_image_page.dart';
 import 'package:pica_comic/tools/extensions.dart';

@@ -266,49 +266,109 @@ abstract class ComicTile extends StatelessWidget {
     }
     return Consumer(builder: (context, ref, child) {
       final downloadedIds = ref.watch(downloadedIdsProvider);
+      final downloadingItems = ref.watch(downloadingItemsProvider);
       final downloadId =
           downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
 
-      if (!downloadedIds.contains(downloadId)) {
-        return const SizedBox.shrink();
+      if (downloadedIds.contains(downloadId)) {
+        return Positioned(
+          right: detailedMode ? 16 : 6,
+          top: 8,
+          child: _buildIcon(Icons.folder_open, () async {
+            if (downloadId.isEmpty) {
+              showToast(message: "无法生成下载ID".tl);
+              return;
+            }
+            final path = await downloadManager.getFullDirectory(downloadId);
+            if (path.isNotEmpty) {
+              OpenFile.open(path);
+            } else {
+              showToast(message: "目录不存在".tl);
+            }
+          }),
+        );
       }
 
-      return Positioned(
-        right: detailedMode ? 16 : 6,
-        top: 8,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () async {
-              if (downloadId.isEmpty) {
-                showToast(message: "无法生成下载ID".tl);
-                return;
-              }
-              final path = await downloadManager.getFullDirectory(downloadId);
-              if (path.isNotEmpty) {
-                OpenFile.open(path);
-              } else {
-                showToast(message: "目录不存在".tl);
-              }
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.folder_open,
-                size: 18,
-                color: Colors.white,
+      if (downloadingItems.containsKey(downloadId)) {
+        final status = downloadingItems[downloadId]!;
+        if (status == DownloadStatus.downloading) {
+          return Positioned(
+            right: detailedMode ? 16 : 6,
+            top: 8,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  context.to(() => const DownloadPage());
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
               ),
             ),
+          );
+        }
+
+        IconData icon;
+        switch (status) {
+          case DownloadStatus.waiting:
+            icon = Icons.schedule;
+            break;
+          case DownloadStatus.paused:
+            icon = Icons.pause_circle_outline;
+            break;
+          default:
+            icon = Icons.error;
+        }
+
+        return Positioned(
+          right: detailedMode ? 16 : 6,
+          top: 8,
+          child: _buildIcon(icon, () {
+             // 点击跳转下载页面
+             context.to(() => const DownloadPage());
+          }),
+        );
+      }
+
+      return const SizedBox.shrink();
+    });
+  }
+
+  Widget _buildIcon(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.5),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: Colors.white,
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 
   void onSecondaryTap_(TapDownDetails details) {

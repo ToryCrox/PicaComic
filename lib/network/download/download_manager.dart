@@ -62,6 +62,12 @@ class DownloadManager implements Listenable {
     return Queue.from(_queueManager.getAllTasks());
   }
 
+  /// 获取正在运行的任务ID集合
+  Set<String> get runningTaskIds => _queueManager.runningTaskIds;
+
+  /// 获取等待队列的任务ID集合
+  Set<String> get waitingTaskIds => _queueManager.waitingTaskIds;
+
   ///是否正在下载（委托给 _queueManager）
   bool get isDownloading => _queueManager.isRunning;
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/base.dart';
@@ -56,6 +56,68 @@ class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
   /// 手动刷新，供外部调用
   Future<void> refresh() async {
     await _refresh();
+  }
+}
+
+/// 下载状态枚举
+enum DownloadStatus {
+  downloading,
+  waiting,
+  paused, // 所有的暂停状态（包括暂停中/等待中但管理器暂停）
+}
+
+/// 正在下载/等待/暂停的漫画状态 Provider (Map<String, DownloadStatus>)
+///
+/// 监听 DownloadManager 的状态变化，提供当前任务的状态映射。
+final downloadingItemsProvider = StateNotifierProvider<DownloadingItemsNotifier, Map<String, DownloadStatus>>((ref) {
+  return DownloadingItemsNotifier();
+});
+
+class DownloadingItemsNotifier extends StateNotifier<Map<String, DownloadStatus>> {
+  DownloadingItemsNotifier() : super({}) {
+    // 初始状态
+    _update();
+    // 监听 DownloadManager
+    downloadManager.addListener(_update);
+  }
+
+  @override
+  void dispose() {
+    downloadManager.removeListener(_update);
+    super.dispose();
+  }
+
+  void _update() {
+    final Map<String, DownloadStatus> statusMap = {};
+    
+    // 获取当前任务ID
+    final runningIds = downloadManager.runningTaskIds;
+    final waitingIds = downloadManager.waitingTaskIds;
+    final isManagerDownloading = downloadManager.isDownloading;
+
+    // 如果管理器暂停了，所有任务都视为暂停
+    if (!isManagerDownloading) {
+      for (var id in runningIds) {
+        statusMap[id] = DownloadStatus.paused;
+      }
+      for (var id in waitingIds) {
+        statusMap[id] = DownloadStatus.paused;
+      }
+    } else {
+      // 管理器运行中
+      for (var id in runningIds) {
+        statusMap[id] = DownloadStatus.downloading;
+      }
+      for (var id in waitingIds) {
+        // 在等待队列中，视为等待
+        statusMap[id] = DownloadStatus.waiting;
+      }
+    }
+
+    // 只有当 Map 内容发生变化时才更新 state
+    if (!mapEquals(state, statusMap)) {
+      state = statusMap;
+    }
   }
 }
 
