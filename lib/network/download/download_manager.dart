@@ -207,7 +207,7 @@ class DownloadManager implements Listenable {
           final task =
               downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
           // 直接调用 _addDownloadTask，统一处理 directory 初始化
-          _addDownloadTask(task, skipSave: true);
+          _addDownloadTask(task, skipSave: true, autoStart: false);
         }
 
         // 恢复完成后统一保存一次
@@ -759,7 +759,8 @@ extension AddDownloadExt on DownloadManager {
   /// 添加下载任务的通用方法（消除重复代码）
   /// 
   /// [skipSave] 跳过保存，用于批量添加任务时提高性能
-  void _addDownloadTask(DownloadingTask task, {bool skipSave = false}) async {
+  /// [autoStart] 是否自动开始下载
+  void _addDownloadTask(DownloadingTask task, {bool skipSave = false, bool autoStart = true}) async {
     Log.d(() => 'DownloadManager: 添加下载任务 id=${task.id}, title=${task.title}');
     
     // 确保 directory 不为空
@@ -771,7 +772,7 @@ extension AddDownloadExt on DownloadManager {
       // 如果还是空，生成新的
       if (task.directory.trim().isEmpty) {
         task.directory = _generateDirectoryName(task);
-        Directory(task.path).createSync(recursive: true);
+// Directory(task.path).createSync(recursive: true);
       }
     }
     
@@ -780,7 +781,7 @@ extension AddDownloadExt on DownloadManager {
       _saveInfo();
     }
     notifyListeners();
-    if (!isDownloading) {
+    if (!isDownloading && autoStart) {
       start();
     }
   }
