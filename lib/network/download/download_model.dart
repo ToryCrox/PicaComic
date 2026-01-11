@@ -337,7 +337,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     var currentKey = _runtimeKey;
     
     try {
+      Log.i('DownloadingTask: Starting download for $id, path: $path');
       // 初始化
+      await Directory(path).create(recursive: true);
       await onStart();
       if (_runtimeKey != currentKey) return;
       
@@ -563,6 +565,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// 
   /// 默认实现直接调用 [downloadImage]，忽略上下文信息。
   Stream<DownloadProgress> downloadImageWithContext(ImageDownloadQueueItem item) {
+    Log.d("DownloadingTask: Downloading image with context: ${item.url} => ${item.savePath}");
     return downloadImage(item.url);
   }
 

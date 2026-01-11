@@ -359,7 +359,7 @@ class ImageDownloadQueue {
       _downloadingItems.remove(key);
       _completedItems[key] = item;
 
-      Log.d('ImageDownloadQueue: Downloaded $key ($completedCount/$totalCount)');
+      Log.d('ImageDownloadQueue: Downloaded $key ($completedCount/$totalCount), title: ${item.savePath}');
 
       // 通知进度更新
       onProgressUpdate?.call(completedCount, totalCount);
