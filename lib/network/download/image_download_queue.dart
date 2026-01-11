@@ -201,7 +201,7 @@ class ImageDownloadQueue {
         _downloadingItems.containsKey(key) ||
         _failedItems.containsKey(key) ||
         _waitingQueue.any((i) => i.key == key)) {
-      Log.w('ImageDownloadQueue: Item $key already exists');
+      //Log.d('ImageDownloadQueue: Item $key already exists');
       return;
     }
 
@@ -462,6 +462,27 @@ class ImageDownloadQueue {
   /// 清理资源
   void dispose() {
     cancelAll();
+  }
+
+  /// 清空失败的任务（用于重试时保留已完成的任务）
+  void clearFailed() {
+    Log.i('ImageDownloadQueue: Clearing ${_failedItems.length} failed items');
+    _failedItems.clear();
+    // 重置章节统计（只保留已完成的）
+    final failedEps = <int>{};
+    for (var entry in _episodeTotalCounts.entries) {
+      final total = entry.value;
+      final completed = _episodeCompletedCounts[entry.key] ?? 0;
+      if (completed < total) {
+        failedEps.add(entry.key);
+      }
+    }
+    // 移除没有完成的章节统计
+    for (var ep in failedEps) {
+      _episodeTotalCounts.remove(ep);
+      _episodeCompletedCounts.remove(ep);
+      _completedEpisodes.remove(ep);
+    }
   }
 }
 

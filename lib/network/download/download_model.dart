@@ -353,8 +353,13 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       // 初始化图片下载队列
       if (_imageQueue == null) {
         _createImageQueue();
+      } else if (_imageQueue!.failedCount > 0) {
+        // 如果有失败的任务，清空它们以便重试
+        // 保留已完成的任务，避免重新下载
+        Log.d('DownloadingTask: Clearing ${_imageQueue!.failedCount} failed items, keeping ${_imageQueue!.completedCount} completed items');
+        _imageQueue!.clearFailed();
       }
-      
+
       final queue = _imageQueue!;
       
       // 启动速度统计
@@ -421,7 +426,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
           start();
         },
         onFinalFailure: (error) {
-          Log.e('DownloadingTask: Final failure for $id after $_retryTimes retries');
+          Log.e('DownloadingTask: Final failure for $id after $_retryTimes retries\n'
+                'Error type: ${error.type}\n'
+                'Error message: ${error.message}');
           stopRecorder();
           onError?.call();
           _retryTimes = 0;
