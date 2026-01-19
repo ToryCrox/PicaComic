@@ -304,7 +304,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 allDirPaths: _localComics.map((e) => e.path).toList(),
                 initialPage: initIndex,
                 isReversed: isReversed,
-                isAutoFullscreenAndScroll: true,
+                isAutoFullscreenAndScroll: false,
               ));
         },
       ),

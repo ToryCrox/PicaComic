@@ -60,7 +60,7 @@ import 'dart:io';
 import 'package:path/path.dart' as Path;
 
 /// 支持的压缩包扩展名
-const supportedExtensions = {'.7z', '.rar', '.zip'};
+const supportedExtensions = {'.7z', '.rar', '.zip', '.mp4'};
 
 /// 格式化目录名称
 ///
