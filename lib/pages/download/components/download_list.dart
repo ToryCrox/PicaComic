@@ -206,6 +206,8 @@ class DownloadList extends ConsumerWidget {
               onShowImageList: () => _goLocalComicPage(item),
             );
           },
+          isDragDisabled: pageState.isDragDisabled,
+          downloadedItem: item,
         ),
       ),
     );

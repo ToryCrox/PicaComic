@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+import 'package:path/path.dart' as Path;
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -53,6 +56,35 @@ class DownloadedComicTile extends ComicTile {
 
   final VoidCallback? onManageTags;
   final VoidCallback? onOpenFolder;
+
+  /// 是否禁用拖动
+  final bool isDragDisabled;
+
+  /// 下载的漫画项（用于获取图片文件）
+  final DownloadedItem downloadedItem;
+
+  const DownloadedComicTile({
+    super.key,
+    required this.id,
+    required this.size,
+    required this.imagePath,
+    required this.author,
+    required this.name,
+    required this.onTap,
+    required this.onLongTap,
+    required this.onSecondaryTap,
+    required this.type,
+    this.primaryTags = const [],
+    this.tag = const [],
+    this.onTagTap,
+    this.onPrimaryTagTap,
+    this.onTagSecondaryTap,
+    this.onPrimaryTagSecondaryTap,
+    this.onManageTags,
+    this.onOpenFolder,
+    this.isDragDisabled = false,
+    required this.downloadedItem,
+  });
 
   @override
   List<String>? get tags => tag
@@ -145,6 +177,21 @@ class DownloadedComicTile extends ComicTile {
   }
 
   @override
+  void onTap_() => onTap();
+
+  @override
+  void onLongTap_() => onLongTap();
+
+  @override
+  void onSecondaryTap_(TapDownDetails details) => onSecondaryTap(details);
+
+  @override
+  String get subTitle => author;
+
+  @override
+  String get title => name;
+
+  @override
   Widget get image => Image.file(
         imagePath,
         fit: BoxFit.cover,
@@ -154,43 +201,156 @@ class DownloadedComicTile extends ComicTile {
       );
 
   @override
-  void onTap_() => onTap();
-
-  @override
-  String get subTitle => author;
-
-  @override
-  String get title => name;
-
-  @override
-  void onLongTap_() => onLongTap();
-
-  @override
-  void onSecondaryTap_(details) => onSecondaryTap(details);
-
-  @override
   Widget? get badge => Text(type);
 
-  const DownloadedComicTile({
-    required this.id,
-    required this.size,
-    required this.imagePath,
-    required this.author,
-    required this.name,
-    required this.onTap,
-    required this.onLongTap,
-    required this.onSecondaryTap,
-    required this.type,
-    required this.tag,
-    this.primaryTags = const [],
-    this.onTagTap,
-    this.onPrimaryTagTap,
-    this.onTagSecondaryTap,
-    this.onPrimaryTagSecondaryTap,
-    this.onManageTags,
-    this.onOpenFolder,
-    super.key,
+  @override
+  Widget build(BuildContext context) {
+    final baseTile = super.build(context);
+
+    // 将拖拽逻辑封装在 StatefulWidget 中以缓存文件列表
+    return _DownloadedComicTileDragWrapper(
+      downloadedItem: downloadedItem,
+      isDragDisabled: isDragDisabled,
+      child: baseTile,
+    );
+  }
+}
+
+class _DownloadedComicTileDragWrapper extends StatefulWidget {
+  final DownloadedItem downloadedItem;
+  final bool isDragDisabled;
+  final Widget child;
+
+  const _DownloadedComicTileDragWrapper({
+    required this.downloadedItem,
+    required this.isDragDisabled,
+    required this.child,
   });
+
+  @override
+  State<_DownloadedComicTileDragWrapper> createState() =>
+      _DownloadedComicTileDragWrapperState();
+}
+
+class _DownloadedComicTileDragWrapperState
+    extends State<_DownloadedComicTileDragWrapper> {
+  List<File>? _cachedFiles;
+  bool _isScanning = false;
+
+  /// 获取所有图片文件（带简单缓存）
+  Future<List<File>> _getImageFiles() async {
+    if (_cachedFiles != null) return _cachedFiles!;
+    if (_isScanning) {
+      // 避免并发扫描，等待当前扫描完成
+      while (_isScanning) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      return _cachedFiles ?? [];
+    }
+
+    _isScanning = true;
+    try {
+      final dirPath = widget.downloadedItem.directoryPath;
+      if (dirPath.isEmpty) {
+        _cachedFiles = [];
+        return [];
+      }
+
+      final dir = Directory(dirPath);
+      if (!await dir.exists()) {
+        _cachedFiles = [];
+        return [];
+      }
+
+      final imageFiles = <File>[];
+
+      // 递归遍历目录获取所有图片文件
+      await for (var entity in dir.list(recursive: true)) {
+        if (entity is! File) continue;
+
+        final fileName = Path.basename(entity.path);
+
+        // 排除封面文件
+        if (fileName == 'cover.jpg' ||
+            fileName == 'cover.webp' ||
+            fileName == 'cover.png') {
+          continue;
+        }
+
+        // 检查是否为图片文件
+        final ext = Path.extension(fileName).toLowerCase();
+        if (ext == '.jpg' ||
+            ext == '.jpeg' ||
+            ext == '.png' ||
+            ext == '.gif' ||
+            ext == '.webp' ||
+            ext == '.bmp') {
+          imageFiles.add(entity);
+        }
+      }
+
+      // 按照文件名排序，确保顺序正确（可选，但对连贯性有帮助）
+      imageFiles.sort((a, b) => a.path.compareTo(b.path));
+
+      _cachedFiles = imageFiles;
+      return imageFiles;
+    } catch (e) {
+      print('Error getting image files: $e');
+      _cachedFiles = [];
+      return [];
+    } finally {
+      _isScanning = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DragItemWidget(
+      allowedOperations: () => [DropOperation.copy],
+      canAddItemToExistingSession: true,
+      dragItemProvider: (request) async {
+        // 尝试获取文件列表（会触发缓存）
+        final imageFiles = await _getImageFiles();
+        if (imageFiles.isEmpty) return null;
+
+        // 返回第一个文件作为基础
+        final item = DragItem(suggestedName: Path.basename(imageFiles[0].path));
+        item.add(Formats.fileUri(Uri.file(imageFiles[0].path)));
+        return item;
+      },
+      child: DraggableWidget(
+        hitTestBehavior: HitTestBehavior.opaque,
+        isLocationDraggable: (location) {
+          return widget.isDragDisabled;
+        },
+        onDragConfiguration: (configuration, session) async {
+          final imageFiles = await _getImageFiles();
+          if (imageFiles.length <= 1) return configuration;
+
+          final items = <DragConfigurationItem>[];
+          // 复用初始生成的第一个项
+          items.add(configuration.items[0]);
+
+          // 为后续图片添加拖拽项
+          for (int i = 1; i < imageFiles.length; i++) {
+            final file = imageFiles[i];
+            final item = DragItem(suggestedName: Path.basename(file.path));
+            item.add(Formats.fileUri(Uri.file(file.path)));
+            items.add(DragConfigurationItem(
+              item: item,
+              image: configuration.items[0].image, // 复用镜像节省生成开销
+            ));
+          }
+
+          return DragConfiguration(
+            items: items,
+            allowedOperations: configuration.allowedOperations,
+          );
+        },
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 /// 导航到漫画详情页

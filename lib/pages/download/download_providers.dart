@@ -291,6 +291,9 @@ class DownloadPageState {
   /// 是否处于搜索模式
   final bool isSearching;
 
+  /// 是否禁用拖动
+  final bool isDragDisabled;
+
   const DownloadPageState({
     this.keyword = '',
     this.isSelecting = false,
@@ -300,6 +303,7 @@ class DownloadPageState {
     this.excludeLocal = false,
     this.sortVersion = 0,
     this.isSearching = false,
+    this.isDragDisabled = false,
   });
 
   DownloadPageState copyWith({
@@ -312,6 +316,7 @@ class DownloadPageState {
     bool clearDownloadTypeFilter = false,
     int? sortVersion,
     bool? isSearching,
+    bool? isDragDisabled,
   }) {
     return DownloadPageState(
       keyword: keyword ?? this.keyword,
@@ -324,6 +329,7 @@ class DownloadPageState {
       excludeLocal: excludeLocal ?? this.excludeLocal,
       sortVersion: sortVersion ?? this.sortVersion,
       isSearching: isSearching ?? this.isSearching,
+      isDragDisabled: isDragDisabled ?? this.isDragDisabled,
     );
   }
 }
@@ -466,6 +472,13 @@ void updateExcludeLocal(WidgetRef ref, String pageId, bool exclude) {
       return state.copyWith(excludeLocal: exclude, clearDownloadTypeFilter: true);
     }
     return state.copyWith(excludeLocal: exclude);
+  });
+}
+
+/// 切换拖动禁用状态
+void toggleDragDisabled(WidgetRef ref, String pageId) {
+  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
+    return state.copyWith(isDragDisabled: !state.isDragDisabled);
   });
 }
 

@@ -8,9 +8,11 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
   file_selector_linux
   flutter_qjs
+  irondash_engine_context
   open_file_linux
   screen_retriever_linux
   sqlite3_flutter_libs
+  super_native_extensions
   url_launcher_linux
   window_manager
 )

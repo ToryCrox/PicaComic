@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/pages/components/download_tag_filter_panel.dart';
@@ -146,9 +147,19 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           });
           return false;
         },
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.invertedStylus,
+              PointerDeviceKind.trackpad,
+              if (!pageState.isDragDisabled) PointerDeviceKind.mouse,
+            },
+          ),
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
             // AppBar
             if (!isSelecting)
               SliverPersistentHeader(
@@ -201,7 +212,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   /// 构建 FAB - 切换正序/倒序排序
@@ -445,15 +457,49 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         },
       ),
       // 更多菜单
-      IconButton(
-        icon: const Icon(Icons.more_vert),
-        onPressed: () {
-          showMenu(context: context, position: RelativeRect.fill, items: [
-            PopupMenuItem(
-                child: Text("多选".tl),
-                onTap: () => enterSelecting(ref, _pageId)),
-          ]);
-        },
+      Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(Icons.more_vert),
+          onPressed: () {
+            final RenderBox button = context.findRenderObject() as RenderBox;
+            final RenderBox overlay =
+                Navigator.of(context).overlay!.context.findRenderObject()
+                    as RenderBox;
+            final RelativeRect position = RelativeRect.fromRect(
+              Rect.fromPoints(
+                button.localToGlobal(Offset.zero, ancestor: overlay),
+                button.localToGlobal(button.size.bottomRight(Offset.zero),
+                    ancestor: overlay),
+              ),
+              Offset.zero & overlay.size,
+            );
+
+            showMenu(
+              context: context,
+              position: position,
+              items: [
+                PopupMenuItem(
+                  child: Text("多选".tl),
+                  onTap: () => enterSelecting(ref, _pageId),
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(pageState.isDragDisabled
+                          ? Icons.mouse
+                          : Icons.block),
+                      const SizedBox(width: 8),
+                      Text(pageState.isDragDisabled
+                          ? "启用鼠标滚动".tl
+                          : "禁用鼠标滚动".tl),
+                    ],
+                  ),
+                  onTap: () => toggleDragDisabled(ref, _pageId),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     ];
   }
