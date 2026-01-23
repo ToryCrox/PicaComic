@@ -311,6 +311,8 @@ class ComicReadingPage extends StatelessWidget {
         ),
         child: Scaffold(
           backgroundColor: useDarkBackground ? Colors.black : null,
+          extendBody: true,
+          extendBodyBehindAppBar: true,
           endDrawerEnableOpenDragGesture: false,
           key: _scaffoldKey,
           endDrawer: Drawer(

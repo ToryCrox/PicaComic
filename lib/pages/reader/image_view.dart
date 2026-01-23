@@ -29,6 +29,7 @@ extension ImageExt on ComicReadingPage {
         itemPositionsListener: logic.itemScrollListener,
         itemCount: logic.urls.length,
         addSemanticIndexes: false,
+        padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
         scrollController: logic.scrollController,
         scrollBehavior: const MaterialScrollBehavior()
             .copyWith(scrollbars: false, dragDevices: _kTouchLikeDeviceTypes),
@@ -411,7 +412,6 @@ extension ImageExt on ComicReadingPage {
     }
 
     return Positioned.fill(
-      top: App.isDesktop ? MediaQuery.of(context).padding.top : 0,
       child: Listener(
         onPointerSignal: onPointerSignal,
         onPointerPanZoomUpdate: (event) {
