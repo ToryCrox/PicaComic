@@ -102,11 +102,11 @@ extension ContextExt on BuildContext {
 
   void pop() {
     if(Navigator.of(this).canPop()) {
-      return Navigator.of(this).pop();
+      Navigator.of(this).maybePop();
     } else {
       final current = App.navigatorKey.currentState;
       if (current != null && current.canPop()) {
-        current.pop();
+        current.maybePop();
       }
     }
   }

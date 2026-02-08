@@ -62,7 +62,7 @@ class App {
 
   static globalBack() {
     if (Navigator.canPop(globalContext!)) {
-      Navigator.of(globalContext!).pop();
+      Navigator.of(globalContext!).maybePop();
     }
   }
 
