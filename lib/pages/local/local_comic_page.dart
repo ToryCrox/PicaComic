@@ -1,4 +1,4 @@
-import 'package:desktop_drop/desktop_drop.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -174,33 +174,45 @@ class _LocalComicPageState extends State<LocalComicPage> {
             const SizedBox(width: 10),
           ],
         ),
-        body: DropTarget(
-          enable: true,
-          onDragDone: _dropFile,
+        body: DropRegion(
+          formats: Formats.standardFormats,
+          hitTestBehavior: HitTestBehavior.opaque,
+          onDropOver: (event) {
+            if (event.session.items.isEmpty) {
+              return DropOperation.none;
+            }
+            final item = event.session.items.first;
+            if (item.canProvide(Formats.fileUri)) {
+              return DropOperation.copy;
+            }
+            return DropOperation.none;
+          },
+          onPerformDrop: (event) async {
+            final item = event.session.items.first;
+            final reader = item.dataReader!;
+            reader.getValue(Formats.fileUri, (value) {
+              if (value != null) {
+                _dropFile(value.toFilePath());
+              }
+            });
+          },
           child: _buildPage(),
         ),
       ),
     );
   }
 
-  Future _dropFile(DropDoneDetails details) async {
-    List<XFile> files = details.files;
-    final dirPaths = files
-        .map((e) => e.path)
-        .where((element) => FileSystemEntity.isDirectorySync(element))
-        .toList();
-    if (dirPaths.isNotEmpty) {
-      for (var dirPath in dirPaths) {
-        final name = Path.basename(dirPath);
-        await downloadManager.addLocalItem(
-          path: dirPath,
-          title: name,
-          subtitle: '',
-          json: {},
-          size: 0,
-          cover: '',
-        );
-      }
+  Future _dropFile(String path) async {
+    if (FileSystemEntity.isDirectorySync(path)) {
+      final name = Path.basename(path);
+      await downloadManager.addLocalItem(
+        path: path,
+        title: name,
+        subtitle: '',
+        json: {},
+        size: 0,
+        cover: '',
+      );
       _loadLocalComics();
     }
   }

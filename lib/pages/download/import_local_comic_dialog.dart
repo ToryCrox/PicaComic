@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:desktop_drop/desktop_drop.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
@@ -438,25 +438,39 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
             const SizedBox(height: 16),
             // 拖拽区域
             Expanded(
-              child: DropTarget(
-                onDragDone: (details) {
-                  final files = details.files;
-                  if (files.isNotEmpty) {
-                    final path = files.first.path;
-                    final dir = Directory(path);
-                    if (dir.existsSync()) {
-                      final folderName = Path.basename(path);
-                      setState(() {
-                        draggedFolderPath = path;
-                        titlePrefix = folderName;
-                        scannedComics = [];
-                        importResult = '';
-                        //selectedTagIds = [];
-                      });
-                      _titlePrefixController.text = folderName;
-                      _scanComics();
-                    }
+              child: DropRegion(
+                formats: Formats.standardFormats,
+                hitTestBehavior: HitTestBehavior.opaque,
+                onDropOver: (event) {
+                  if (event.session.items.isEmpty) {
+                    return DropOperation.none;
                   }
+                  final item = event.session.items.first;
+                  if (item.canProvide(Formats.fileUri)) {
+                    return DropOperation.copy;
+                  }
+                  return DropOperation.none;
+                },
+                onPerformDrop: (event) async {
+                  final item = event.session.items.first;
+                  final reader = item.dataReader!;
+                  reader.getValue(Formats.fileUri, (value) {
+                    if (value != null) {
+                      final path = value.toFilePath();
+                      final dir = Directory(path);
+                      if (dir.existsSync()) {
+                        final folderName = Path.basename(path);
+                        setState(() {
+                          draggedFolderPath = path;
+                          titlePrefix = folderName;
+                          scannedComics = [];
+                          importResult = '';
+                        });
+                        _titlePrefixController.text = folderName;
+                        _scanComics();
+                      }
+                    }
+                  });
                 },
                 child: Container(
                   decoration: BoxDecoration(
