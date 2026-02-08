@@ -163,6 +163,9 @@ class DownloadList extends ConsumerWidget {
             var path = await downloadManager.getFullDirectory(item.id);
             OpenFile.open(path);
           },
+          onRead: () async {
+            item.read();
+          },
           onTap: () async {
             if (pageState.isSelecting) {
               toggleSelection(ref, pageId, item.id);

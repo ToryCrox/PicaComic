@@ -56,6 +56,7 @@ class DownloadedComicTile extends ComicTile {
 
   final VoidCallback? onManageTags;
   final VoidCallback? onOpenFolder;
+  final VoidCallback? onRead;
 
   /// 是否禁用拖动
   final bool isDragDisabled;
@@ -82,6 +83,7 @@ class DownloadedComicTile extends ComicTile {
     this.onPrimaryTagSecondaryTap,
     this.onManageTags,
     this.onOpenFolder,
+    this.onRead,
     this.isDragDisabled = false,
     required this.downloadedItem,
   });
@@ -101,77 +103,75 @@ class DownloadedComicTile extends ComicTile {
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
       child: Row(
         children: [
+          if (onRead != null)
+            _buildActionItem(
+              context,
+              onTap: onRead!,
+              icon: Icons.menu_book,
+              title: "阅读".tl,
+              isPrimary: true,
+            ),
+          if (onRead != null && (onOpenFolder != null || onManageTags != null))
+            const SizedBox(width: 12),
           if (onOpenFolder != null)
-            Material(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: onOpenFolder,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.folder_open,
-                          size: 18,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer),
-                      const SizedBox(width: 8),
-                      Text(
-                        "目录".tl,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildActionItem(
+              context,
+              onTap: onOpenFolder!,
+              icon: Icons.folder_open,
+              title: "目录".tl,
             ),
           if (onOpenFolder != null && onManageTags != null)
             const SizedBox(width: 12),
           if (onManageTags != null)
-            Material(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: onManageTags,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.label_outline,
-                          size: 18,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer),
-                      const SizedBox(width: 8),
-                      Text(
-                        "标签".tl,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildActionItem(
+              context,
+              onTap: onManageTags!,
+              icon: Icons.label_outline,
+              title: "标签".tl,
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem(
+    BuildContext context, {
+    required VoidCallback onTap,
+    required IconData icon,
+    required String title,
+    bool isPrimary = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final backgroundColor =
+        isPrimary ? colorScheme.primaryContainer : colorScheme.secondaryContainer;
+    final foregroundColor = isPrimary
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSecondaryContainer;
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: foregroundColor),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: foregroundColor,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
