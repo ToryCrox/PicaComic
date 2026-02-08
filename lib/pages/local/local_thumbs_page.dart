@@ -31,9 +31,13 @@ class LocalThumbsPage extends StatefulWidget {
     this.allDirPaths = const [],
   });
 
+  // 目录路径
   final String dirPath;
+  // 同级目录的所有路径，用于跳转上一篇/下一篇
   final List<String> allDirPaths;
+  // 点击回调，如果不为空则使用此回调而不是默认跳转
   final void Function(int, String)? onItemTap;
+  // 是否允许删除
   final bool isEnableDelete;
 
   @override
@@ -49,10 +53,12 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   final _selectedImages = <ImageFile>[];
 
+  // 是否处于多选模式
   bool _isSelectedMode = false;
 
   final String _fileSize = '';
 
+  // 排序方式
   late ComicFileSort _fileSort = ComicFileSort.values
           .asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
       ComicFileSort.asc;
@@ -77,6 +83,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     _imageSizeSubscription?.cancel();
   }
 
+  // 加载目录下所有图片文件
   static Future<List<ImageFile>> loadImagesFilePaths(String dirPath) async {
     final dir = Directory(dirPath);
     //final images = (await dir.list(recursive: true).toList())
@@ -96,6 +103,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     return images;
   }
 
+  // 加载图片并更新状态
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
     final images = await sharedCompute(loadImagesFilePaths, widget.dirPath);
@@ -128,6 +136,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     //_loadAllImageSize();
   }
 
+  // 加载所有图片的大小信息
   Future<void> _loadAllImageSize() async {
     final allImagePathList = _imageFiles.map((e) => e.path).toList();
     final imageFileMap = _imageFiles.groupFoldBy((e) => e.path, (p, e) => e);
@@ -148,6 +157,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
   final _hasViewImageSizes = <String>{};
 
+  // 加载已显示图片的大小信息
   void _loadHasViewImageSizes(List<int> indexList)  {
     final imageFiles = indexList.map((i) => _imageFiles[i].path).toList();
     final needUpdate = imageFiles.where((i) => !_hasViewImageSizes.contains(i)).toList();
@@ -171,6 +181,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   }
 
 
+  // 点击整理Pixiv图片
   Future<void> _pixivSortTap() async {
     final controller = showLoadingDialog(context, message: "正在整理图片...");
     await compute(
@@ -184,7 +195,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     _loadImages();
   }
 
-  /// 整理图片
+  /// 整理Pixiv图片逻辑
+  /// 将散乱的已命名图片按画师ID和作品ID分类整理到文件夹中
   static Future<void> _organizePixivImages(ImageFileList imageFileList) async {
     final imageFiles = imageFileList.list;
     final dir = Directory(imageFileList.dirPath);
@@ -243,7 +255,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 
       String imageFolderPath;
       if (list.length >= 8) {
-        // 8张以上，单独创建一个文件夹
+        // 8张以上，单独创建一个文件夹以作品标题命名
         final imageFolder = '[${first.illustId}]${first.title}';
         imageFolderPath = Path.join(dirPath, userName, imageFolder);
       } else {
@@ -484,6 +496,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     );
   }
 
+  // 右键菜单
   List<DesktopMenuEntry> _menuList(ImageFile imageFile) {
     return [
       if (widget.isEnableDelete)
@@ -522,6 +535,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     ];
   }
 
+  // 删除选中的图片
   Future<void> _deleteImageFileList(List<ImageFile> imageFileList) async {
     await showDialog(
       context: context,
@@ -561,7 +575,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
 }
 
 class ImageFileList {
+  // 图片列表
   final List<ImageFile> list;
+  // 所在目录
   final String dirPath;
 
   const ImageFileList({
@@ -571,8 +587,11 @@ class ImageFileList {
 }
 
 class ImageFile {
+  // 图片路径
   final String path;
+  // 图片尺寸
   Size? size;
+  // 文件大小
   int fileSize;
 
   ImageFile({
@@ -583,16 +602,23 @@ class ImageFile {
 }
 
 enum ComicFileSort {
+  // 升序
   asc,
+  // 降序
   desc,
 }
 
 class _PixivImageInfo {
   final File file;
+  // 画师名
   final String userName;
+  // 作品ID
   final String illustId;
+  // 标题
   final String title;
+  // 分P
   final String part;
+  // 扩展名
   final String ext;
 
   _PixivImageInfo({

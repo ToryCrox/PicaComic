@@ -28,16 +28,22 @@ class LocalComicPage extends StatefulWidget {
 }
 
 class _LocalComicPageState extends State<LocalComicPage> {
+  // 本地漫画列表
   final List<LocalComicModel> _localComics = [];
 
+  // 历史路径栈，用于导航返回
   final List<String> _historyPaths = [];
+  // 当前父级路径，如果为null则表示在根目录
   String? _parentPath;
+  // 当前目录文件总大小
   String _fileSize = '';
 
+  // 文件排序方式
   late ComicFileSort _fileSort = ComicFileSort.values
           .asNameMap()[PrefsHelper.getString('local_comic_folder_sort')] ??
       ComicFileSort.asc;
 
+  // 是否倒序
   bool get isReversed => _fileSort == ComicFileSort.desc;
 
   @override
@@ -46,9 +52,11 @@ class _LocalComicPageState extends State<LocalComicPage> {
     _loadLocalComics();
   }
 
+  // 加载本地漫画列表
   Future<void> _loadLocalComics() async {
     final parentPath = _parentPath;
     if (parentPath == null) {
+      // 加载根目录（已添加的本地漫画）
       final localComics = await downloadManager.getAllLocal();
       final list = <LocalComicModel>[];
       for (final map in localComics) {
@@ -63,10 +71,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
       _fileSize = '';
     } else {
+      // 加载子目录
       _localComics.clear();
       final parentDir = Directory(parentPath);
+      // 设置相对路径基准，用于排序等
       sFileRelativeFromPath = Path.canonicalize(parentDir.path);
 
+      // 获取子目录列表
       final files = (await parentDir.list().toList())
           .whereType<Directory>()
           .sortedByName();
@@ -80,6 +91,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         _localComics.add(comic);
       }
       if (_fileSort == ComicFileSort.desc) {
+        // 如果是倒序，翻转列表
         final newList = List.of(_localComics.reversed);
         _localComics.clear();
         _localComics.addAll(newList);
@@ -93,6 +105,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     setState(() {});
   }
 
+  // 计算并显示当前目录所有文件大小
   Future<void> _loadAllFileSize(final String dir) async {
     int totalFileSize = await sharedCompute(_computeAllFileSize, dir);
     if (_parentPath == dir) {
@@ -102,6 +115,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     }
   }
 
+  // 在后台isolate中计算文件大小
   static Future<int> _computeAllFileSize(final String dir) async {
     int totalFileSize = 0;
     final files = Directory(dir).listSync(recursive: true);
@@ -113,6 +127,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     return totalFileSize;
   }
 
+  // 获取封面图片路径
   Future<String> _getCoverImage(String directory) async {
     final dir = Directory(directory);
     try {
@@ -202,6 +217,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     );
   }
 
+  // 处理拖拽文件/文件夹
   Future _dropFile(String path) async {
     if (FileSystemEntity.isDirectorySync(path)) {
       final name = Path.basename(path);
@@ -217,6 +233,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     }
   }
 
+  // 构建页面主体
   Widget _buildPage() {
     return GridView.builder(
       itemCount: _localComics.length,
@@ -230,6 +247,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     );
   }
 
+  // 构建单个漫画项
   Widget _buildItem(BuildContext context, int index) {
     final model = _localComics[index];
     return InkWell(
@@ -302,6 +320,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         ));
   }
 
+  // 右键菜单列表
   List<DesktopMenuEntry> _menuList(LocalComicModel model) {
     return [
       DesktopMenuEntry(
@@ -392,6 +411,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     ];
   }
 
+  // 重命名文件夹
   Future<void> _renameFolder(LocalComicModel model) async {
     final path = model.path;
     final fileName = Path.basename(path);
@@ -418,11 +438,17 @@ class _LocalComicPageState extends State<LocalComicPage> {
 }
 
 class LocalComicModel {
+  // 漫画路径
   final String path;
+  // 标题
   final String title;
+  // 副标题
   final String subtitle;
+  // 额外数据
   final Map<String, dynamic> json;
+  // 大小
   final double size;
+  // 封面路径
   final String cover;
 
   const LocalComicModel({
