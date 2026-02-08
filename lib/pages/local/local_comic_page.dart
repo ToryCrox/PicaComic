@@ -2,7 +2,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_file/open_file.dart';
+
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
@@ -13,12 +13,15 @@ import 'package:pica_comic/tools/translations.dart';
 import 'dart:io';
 
 import '../../components/components.dart';
+import '../../foundation/file_utils.dart';
 import '../../foundation/app.dart';
+
 import '../../tools/image_utils.dart';
 import '../../tools/input_dialog.dart';
 import '../../tools/type_util.dart';
 import '../reader/comic_reading_page.dart';
-import 'local_thumbs_page.dart';
+import './local_thumbs_page.dart';  // Keep consistency with existing imports or adjust as needed
+
 
 class LocalComicPage extends StatefulWidget {
   const LocalComicPage({Key? key}) : super(key: key);
@@ -235,22 +238,35 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 构建页面主体
   Widget _buildPage() {
-    return GridView.builder(
-      itemCount: _localComics.length,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        mainAxisExtent: 250,
-      ),
-      itemBuilder: _buildItem,
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      // 计算每行显示的列数，根据窗口宽度动态调整
+      // 假设最小宽度为 160，最大宽度为 240
+      int crossAxisCount = (width / 180).floor();
+      if (crossAxisCount < 2) crossAxisCount = 2; // 至少两列
+
+      return GridView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: _localComics.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.7, // 调整宽高比
+        ),
+        itemBuilder: _buildItem,
+      );
+    });
   }
 
   // 构建单个漫画项
   Widget _buildItem(BuildContext context, int index) {
     final model = _localComics[index];
-    return InkWell(
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () async {
           final dir = Directory(model.path);
           final subDirs = (await dir.list().toList()).whereType<Directory>();
@@ -270,15 +286,9 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 allDirPaths: _localComics.map((e) => e.path).toList(),
               ),
             );
-            // App.globalTo(
-            //   () => ComicReadingPage.localComic(
-            //     model.path,
-            //     model.title,
-            //   ),
-            // );
           }
         },
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        borderRadius: BorderRadius.circular(12),
         onSecondaryTapDown: (TapDownDetails details) {
           showDesktopMenu(
             App.globalContext!,
@@ -286,38 +296,130 @@ class _LocalComicPageState extends State<LocalComicPage> {
             _menuList(model),
           );
         },
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-          child: Stack(
-            fit: StackFit.expand,
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withOpacity(0.5),
+              width: 0.5,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (model.cover.isNotEmpty)
-                Positioned.fill(
-                  child: Image.file(
-                    File(model.cover),
-                    fit: BoxFit.contain,
-                    cacheWidth: 200,
-                  ),
-                ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  color: Colors.black.withOpacity(0.5),
-                  child: Text(
-                    model.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (model.cover.isNotEmpty)
+                      Image.file(
+                        File(model.cover),
+                        fit: BoxFit.cover, 
+                        // 使用 cover 填充，如果有裁剪问题可以改 contain 或增加背景色
+                        cacheWidth: 300,
+                      )
+                    else 
+                      ColoredBox(
+                        color: colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.folder, size: 48, color: colorScheme.onSurfaceVariant),
+                      ),
+                    
+                    // 渐变遮罩，增强文字可读性
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 60,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
+
+                    // 右下角按钮组
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 阅读按钮
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () => _readComic(model),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primaryContainer.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.menu_book,
+                                  size: 18,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 打开文件夹按钮
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () {
+                                FileUtils.openFileOrDirectory(model.path);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.secondaryContainer.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.folder_open,
+                                  size: 18,
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Text(
+                  model.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
                   ),
                 ),
               ),
             ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 
   // 右键菜单列表
@@ -325,19 +427,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
     return [
       DesktopMenuEntry(
         text: "阅读".tl,
-        onClick: () async {
-          final history = await downloadManager.getLocalHistory(model.path);
-          final initIndex = history.optInt('pageIndex', 1);
-          final isReversed = history.optInt('isReversed') == 1;
-          App.globalTo(() => ComicReadingPage.localComic(
-                model.path,
-                model.title,
-                allDirPaths: _localComics.map((e) => e.path).toList(),
-                initialPage: initIndex,
-                isReversed: isReversed,
-                isAutoFullscreenAndScroll: false,
-              ));
-        },
+        onClick: () => _readComic(model),
       ),
       DesktopMenuEntry(
         text: "查看详情".tl,
@@ -404,11 +494,26 @@ class _LocalComicPageState extends State<LocalComicPage> {
         onClick: () {
           Future.delayed(const Duration(milliseconds: 100), () {
             var path = model.path;
-            OpenFile.open(path);
+            FileUtils.openFileOrDirectory(path);
           });
         },
       ),
     ];
+  }
+
+  // 阅读漫画
+  Future<void> _readComic(LocalComicModel model) async {
+    final history = await downloadManager.getLocalHistory(model.path);
+    final initIndex = history.optInt('pageIndex', 1);
+    final isReversed = history.optInt('isReversed') == 1;
+    App.globalTo(() => ComicReadingPage.localComic(
+          model.path,
+          model.title,
+          allDirPaths: _localComics.map((e) => e.path).toList(),
+          initialPage: initIndex,
+          isReversed: isReversed,
+          isAutoFullscreenAndScroll: false,
+        ));
   }
 
   // 重命名文件夹
