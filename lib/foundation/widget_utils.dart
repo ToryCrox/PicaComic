@@ -101,14 +101,14 @@ extension ContextExt on BuildContext {
   }
 
   void pop() {
-    if(Navigator.of(this).canPop()) {
-      Navigator.of(this).maybePop();
-    } else {
-      final current = App.navigatorKey.currentState;
-      if (current != null && current.canPop()) {
-        current.maybePop();
+    Navigator.of(this).maybePop().then((value) {
+      if (!value) {
+        final current = App.navigatorKey.currentState;
+        if (current != null && current.canPop()) {
+          current.maybePop();
+        }
       }
-    }
+    });
   }
 
   void showMessage({required String message, Widget? icon, Widget? trailing}) {
