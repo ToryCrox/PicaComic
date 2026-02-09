@@ -105,21 +105,33 @@ base class History extends LinkedListEntry<History> {
 
   int? maxPage;
 
+  void addReadEpisode(int ep) {
+    if (readEpisode.contains(ep)) return;
+    try {
+      readEpisode.add(ep);
+    } catch (e) {
+      readEpisode = readEpisode.toSet();
+      readEpisode.add(ep);
+    }
+  }
+
   History(this.type, this.time, this.title, this.subtitle, this.cover, this.ep,
       this.page, this.target,
-      [this.readEpisode = const <int>{}, this.maxPage]);
+      [Set<int>? readEpisode, this.maxPage])
+      : readEpisode = readEpisode ?? <int>{};
 
   History.fromModel(
       {required HistoryMixin model,
       required this.ep,
       required this.page,
-      this.readEpisode = const <int>{},
+      Set<int>? readEpisode,
       DateTime? time})
       : type = model.historyType,
         title = model.title,
         subtitle = model.subTitle ?? '',
         cover = model.cover,
         target = model.target,
+        readEpisode = readEpisode ?? <int>{},
         time = time ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
@@ -175,6 +187,7 @@ base class History extends LinkedListEntry<History> {
   }) async {
     var history = await HistoryManager().find(model.target);
     if (history != null) {
+      history.addReadEpisode(ep); // Add this line to update read episodes
       return history;
     }
     history = History.fromModel(model: model, ep: ep, page: page);

@@ -38,7 +38,7 @@ abstract class ReadingData {
 
   Stream<Res<List<String>>> loadEp(int ep) async* {
     history ??= await HistoryManager().findSync(id);
-    history?.readEpisode.add(ep);
+    history?.addReadEpisode(ep);
     _isDownloaded = await downloadManager.isExists(downloadId);
     if(_isDownloaded && downloadedEps.isEmpty){
       downloadedEps = (await downloadManager.getComicOrNull(downloadId))!.downloadedEps;
