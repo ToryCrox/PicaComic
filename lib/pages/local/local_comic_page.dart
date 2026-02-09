@@ -239,19 +239,10 @@ class _LocalComicPageState extends State<LocalComicPage> {
             onReload: _loadLocalComics,
             allDirPaths: _localComics.map((e) => e.path).toList(),
             onTap: (history) async {
-              final dir = Directory(model.path);
-              final subDirs = (await dir.list().toList()).whereType<Directory>();
-              if (subDirs.isNotEmpty) {
-                // 如果含有子目录，进入下一级
-                if (_parentPath != null) {
-                  _historyPaths.add(_parentPath!);
-                }
-                _parentPath = model.path;
-                _loadLocalComics();
-              } else {
+              if (history != null) {
                 // 读取漫画
-                final initIndex = history?.optInt('pageIndex', 1) ?? 1;
-                final isReversed = history?.optInt('isReversed') == 1;
+                final initIndex = history.optInt('pageIndex', 1);
+                final isReversed = history.optInt('isReversed') == 1;
                 await App.globalTo(() => ComicReadingPage.localComic(
                       model.path,
                       model.title,
@@ -259,6 +250,28 @@ class _LocalComicPageState extends State<LocalComicPage> {
                       initialPage: initIndex,
                       isReversed: isReversed,
                     ));
+              } else {
+                final dir = Directory(model.path);
+                final subDirs = (await dir.list().toList()).whereType<Directory>();
+                if (subDirs.isNotEmpty) {
+                  // 如果含有子目录，进入下一级
+                  if (_parentPath != null) {
+                    _historyPaths.add(_parentPath!);
+                  }
+                  _parentPath = model.path;
+                  _loadLocalComics();
+                } else {
+                  // 读取漫画
+                  final initIndex = history?.optInt('pageIndex', 1) ?? 1;
+                  final isReversed = history?.optInt('isReversed') == 1;
+                  await App.globalTo(() => ComicReadingPage.localComic(
+                      model.path,
+                      model.title,
+                      allDirPaths: _localComics.map((e) => e.path).toList(),
+                      initialPage: initIndex,
+                      isReversed: isReversed,
+                    ));
+                }
               }
             },
             onSecondaryTap: (details) => _showComicMenu(context, model, details),
