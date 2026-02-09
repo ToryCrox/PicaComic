@@ -29,6 +29,7 @@ import 'components/download_menus.dart';
 import 'import_local_comic_dialog.dart';
 import 'local_repository_management_page.dart';
 import 'downloading_page.dart';
+import 'components/multi_select_drag_dialog.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key, this.showBack = true});
@@ -128,7 +129,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
 
     return Scaffold(
-      floatingActionButton: !isSelecting ? _buildFAB(context) : null,
+      floatingActionButton: isSelecting
+          ? (selectedCount > 0 ? _buildSelectionFAB(context, _pageId) : null)
+          : _buildFAB(context),
       body: NotificationListener<ScrollUpdateNotification>(
         onNotification: (notification) {
           if (notification.scrollDelta == null) return false;
@@ -214,6 +217,26 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       ),
     ),
   );
+  }
+
+  Widget _buildSelectionFAB(BuildContext context, String pageId) {
+    return FloatingActionButton(
+      onPressed: () async {
+        final state = ref.read(downloadPageStateProvider(pageId));
+        final comics = await ref.read(filteredComicsProvider(pageId).future);
+        final selectedComics =
+            comics.where((e) => state.selectedIds.contains(e.id)).toList();
+
+        if (!context.mounted) return;
+
+        showDialog(
+          context: context,
+          builder: (context) =>
+              MultiSelectDragDialog(selectedItems: selectedComics),
+        );
+      },
+      child: const Icon(Icons.drag_handle),
+    );
   }
 
   /// 构建 FAB - 切换正序/倒序排序
