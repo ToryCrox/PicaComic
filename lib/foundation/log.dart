@@ -150,7 +150,7 @@ class LogManager {
   static File? _logFile;
   static IOSink? _logSink;
 
-  static const bool _isWriting = false;
+
 
   static void writeLog(LogLevel level, String title, String content) {
     IOSink? logSink = _logSink ??= _logFile?.openWrite(mode: FileMode.append);
