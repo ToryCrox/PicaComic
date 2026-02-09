@@ -1,5 +1,5 @@
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:file_selector/file_selector.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,7 +20,8 @@ import '../../tools/image_utils.dart';
 import '../../tools/input_dialog.dart';
 import '../../tools/type_util.dart';
 import '../reader/comic_reading_page.dart';
-import './local_thumbs_page.dart';  // Keep consistency with existing imports or adjust as needed
+import './local_thumbs_page.dart';
+import 'pick_out_nyako_dialog.dart';
 
 
 class LocalComicPage extends StatefulWidget {
@@ -172,6 +173,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 },
                 icon: const Icon(Icons.refresh),
               ),
+            IconButton(
+              onPressed: () {
+                showDialog(context: context, builder: (context) => const PickOutNyakoDialog());
+              },
+              icon: const Icon(Icons.auto_fix_high),
+              tooltip: "漫画整理工具".tl,
+            ),
             IconButton(
               onPressed: () {
                 setState(() {
