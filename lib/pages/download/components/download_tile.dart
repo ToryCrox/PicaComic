@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:path/path.dart' as Path;
+import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:super_native_extensions/widget_snapshot.dart';
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -207,6 +209,11 @@ class DownloadedComicTile extends ComicTile {
   Widget build(BuildContext context) {
     final baseTile = super.build(context);
 
+    // 如果禁用拖拽，直接返回基础 Tile，移除所有拖拽相关的包装控件
+    if (isDragDisabled) {
+      return baseTile;
+    }
+
     // 将拖拽逻辑封装在 StatefulWidget 中以缓存文件列表
     return _DownloadedComicTileDragWrapper(
       downloadedItem: downloadedItem,
@@ -321,24 +328,30 @@ class _DownloadedComicTileDragWrapperState
       child: DraggableWidget(
         hitTestBehavior: HitTestBehavior.opaque,
         isLocationDraggable: (location) {
-          return widget.isDragDisabled;
+          // 在包装器存在时（即非禁用状态），始终允许拖拽
+          return true;
         },
         onDragConfiguration: (configuration, session) async {
           final imageFiles = await _getImageFiles();
           if (imageFiles.length <= 1) return configuration;
 
           final items = <DragConfigurationItem>[];
-          // 复用初始生成的第一个项
-          items.add(configuration.items[0]);
 
-          // 为后续图片添加拖拽项
-          for (int i = 1; i < imageFiles.length; i++) {
+          // 使用引用计数包装镜像，防止多个项共享同一个对象时重复释放导致崩溃
+          final refCountingImage = _RefCountingSnapshot(
+            configuration.items[0].image.snapshot,
+            configuration.items[0].image.rect,
+            imageFiles.length,
+          );
+
+          // 为所有图片添加拖拽项
+          for (int i = 0; i < imageFiles.length; i++) {
             final file = imageFiles[i];
             final item = DragItem(suggestedName: Path.basename(file.path));
             item.add(Formats.fileUri(Uri.file(file.path)));
             items.add(DragConfigurationItem(
               item: item,
-              image: configuration.items[0].image, // 复用镜像节省生成开销
+              image: refCountingImage,
             ));
           }
 
@@ -506,6 +519,21 @@ class TagInfo {
       'sort_order': sortOrder,
       'category_sort_order': categorySortOrder,
     };
+  }
+}
+
+/// 引用计数镜像包装器，用于解决批量拖拽时共享镜像导致的重复释放问题
+class _RefCountingSnapshot extends raw.TargetedWidgetSnapshot {
+  int _count;
+  _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count)
+      : super(snapshot, rect);
+
+  @override
+  void dispose() {
+    _count--;
+    if (_count <= 0) {
+      super.dispose();
+    }
   }
 }
 

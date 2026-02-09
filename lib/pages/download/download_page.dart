@@ -157,7 +157,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               PointerDeviceKind.stylus,
               PointerDeviceKind.invertedStylus,
               PointerDeviceKind.trackpad,
-              if (!pageState.isDragDisabled) PointerDeviceKind.mouse,
+              // 开启“鼠标模式” (isDragDisabled == false) 时，禁用鼠标拖拽滚动，允许项拖拽
+              // 关闭“鼠标模式” (isDragDisabled == true) 时，允许鼠标拖拽滚动，禁用项拖拽
+              if (pageState.isDragDisabled) PointerDeviceKind.mouse,
             },
           ),
           child: CustomScrollView(
@@ -509,12 +511,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   child: Row(
                     children: [
                       Icon(pageState.isDragDisabled
-                          ? Icons.mouse
-                          : Icons.block),
+                          ? Icons.mouse_outlined
+                          : Icons.mouse),
                       const SizedBox(width: 8),
                       Text(pageState.isDragDisabled
-                          ? "启用鼠标滚动".tl
-                          : "禁用鼠标滚动".tl),
+                          ? "开启拖拽模式".tl
+                          : "关闭拖拽模式".tl),
                     ],
                   ),
                   onTap: () => toggleDragDisabled(ref, _pageId),
