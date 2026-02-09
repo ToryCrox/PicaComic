@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -453,7 +453,7 @@ void showTileContextMenu({
         text: "打开文件".tl,
         onClick: () async {
           var path = await downloadManager.getFullDirectory(comic.id);
-          OpenFile.open(path);
+          FileUtils.openFileOrDirectory(path);
         },
       ),
     ],

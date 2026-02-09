@@ -159,7 +159,7 @@ abstract class ComicTile extends StatelessWidget {
                             final path = await downloadManager
                                 .getFullDirectory(downloadId);
                             if (path.isNotEmpty) {
-                              OpenFile.open(path);
+                              FileUtils.openFileOrDirectory(path);
                             } else {
                               showToast(message: "目录不存在".tl);
                             }
@@ -284,7 +284,7 @@ abstract class ComicTile extends StatelessWidget {
             }
             final path = await downloadManager.getFullDirectory(downloadId);
             if (path.isNotEmpty) {
-              OpenFile.open(path);
+              FileUtils.openFileOrDirectory(path);
             } else {
               showToast(message: "目录不存在".tl);
             }
@@ -432,7 +432,7 @@ abstract class ComicTile extends StatelessWidget {
             if (isDownloaded) {
               final path = await downloadManager.getFullDirectory(downloadId);
               if (path.isNotEmpty) {
-                OpenFile.open(path);
+                FileUtils.openFileOrDirectory(path);
               } else {
                 showToast(message: "目录不存在".tl);
               }

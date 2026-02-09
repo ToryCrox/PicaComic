@@ -31,7 +31,7 @@ import 'image_favorites.dart';
 import 'show_image_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pica_comic/foundation/file_utils.dart';
 import 'dart:math' as math;
 
 class ComicPage extends StatelessWidget {
@@ -1312,7 +1312,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         onTap: () async {
           final folderPath = await downloadManager.getFullDirectory(downloadedId);
           if (folderPath.isNotEmpty) {
-            OpenFile.open(folderPath);
+            FileUtils.openFileOrDirectory(folderPath);
           } else {
             showToast(message: "无法获取文件夹路径".tl);
           }

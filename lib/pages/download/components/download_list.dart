@@ -16,7 +16,7 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:path/path.dart' as Path;
 
 import 'package:pica_comic/base.dart';
@@ -161,7 +161,7 @@ class DownloadList extends ConsumerWidget {
           },
           onOpenFolder: () async {
             var path = await downloadManager.getFullDirectory(item.id);
-            OpenFile.open(path);
+            FileUtils.openFileOrDirectory(path);
           },
           onRead: () async {
             item.read();
