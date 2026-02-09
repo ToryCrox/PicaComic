@@ -10,6 +10,7 @@ import 'package:synchronized/synchronized.dart';
 const String kTableDownload = 'download';
 const String kTableLocalComic = 'local_comic';
 const String kTableLocalHistory = 'local_history';
+const String kTableLocalFavorite = 'local_favorite';
 const String kTableTags = 'tags';
 const String kTableComicTags = 'comic_tags';
 
@@ -51,6 +52,11 @@ const String kLocalHistoryPageIndex = 'pageIndex';
 const String kLocalHistoryTime = 'time';
 const String kLocalHistoryJson = 'json';
 
+/// local_favorite 表字段常量
+const String kLocalFavoritePath = 'path';
+const String kLocalFavoriteSortOrder = 'sort_order';
+const String kLocalFavoriteTime = 'time';
+
 class DownloadDatabase {
   static DownloadDatabase? _instance;
   static final Lock _lock = Lock();
@@ -77,7 +83,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 4,
+            version: 5,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
             onOpen: (db) async {
@@ -113,6 +119,15 @@ class DownloadDatabase {
     if (oldVersion < 4) {
       await db.execute(
           'ALTER TABLE $kTableTags ADD COLUMN $kTagCategorySortOrder INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $kTableLocalFavorite (
+          $kLocalFavoritePath TEXT PRIMARY KEY,
+          $kLocalFavoriteSortOrder INTEGER DEFAULT 0,
+          $kLocalFavoriteTime INTEGER
+        )
+      ''');
     }
   }
 
@@ -180,6 +195,15 @@ class DownloadDatabase {
         $kLocalHistoryPageIndex INTEGER,
         $kLocalHistoryTime INTEGER,
         $kLocalHistoryJson TEXT
+      )
+    ''');
+
+    // 创建 local_favorite 表
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $kTableLocalFavorite (
+        $kLocalFavoritePath TEXT PRIMARY KEY,
+        $kLocalFavoriteSortOrder INTEGER DEFAULT 0,
+        $kLocalFavoriteTime INTEGER
       )
     ''');
 
@@ -412,6 +436,71 @@ class DownloadDatabase {
     final result = await db.query(
       kTableLocalHistory,
       where: '$kLocalHistoryPath = ?',
+      whereArgs: [path],
+    );
+    return result.isEmpty ? null : result.first;
+  }
+
+  /// 获取所有本地阅读历史
+  Future<List<Map<String, Object?>>> getAllLocalHistory() async {
+    final db = await _getDatabase();
+    return await db.query(
+      kTableLocalHistory,
+      orderBy: '$kLocalHistoryTime DESC',
+    );
+  }
+
+  // ==================== Local Favorite Management Methods ====================
+
+  /// 添加或更新本地收藏
+  Future<void> addOrUpdateLocalFavorite(String path, {int sortOrder = 0}) async {
+    final db = await _getDatabase();
+    await db.insert(
+        kTableLocalFavorite,
+        {
+          kLocalFavoritePath: path,
+          kLocalFavoriteSortOrder: sortOrder,
+          kLocalFavoriteTime: DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// 更新本地收藏排序权重
+  Future<void> updateLocalFavoriteSortOrder(String path, int sortOrder) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableLocalFavorite,
+      {kLocalFavoriteSortOrder: sortOrder},
+      where: '$kLocalFavoritePath = ?',
+      whereArgs: [path],
+    );
+  }
+
+  /// 删除本地收藏
+  Future<void> deleteLocalFavorite(String path) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableLocalFavorite,
+      where: '$kLocalFavoritePath = ?',
+      whereArgs: [path],
+    );
+  }
+
+  /// 获取所有本地收藏
+  Future<List<Map<String, Object?>>> getAllLocalFavorites() async {
+    final db = await _getDatabase();
+    return await db.query(
+      kTableLocalFavorite,
+      orderBy: '$kLocalFavoriteSortOrder DESC, $kLocalFavoriteTime DESC',
+    );
+  }
+
+  /// 检查是否已收藏
+  Future<Map<String, Object?>?> getLocalFavorite(String path) async {
+    final db = await _getDatabase();
+    final result = await db.query(
+      kTableLocalFavorite,
+      where: '$kLocalFavoritePath = ?',
       whereArgs: [path],
     );
     return result.isEmpty ? null : result.first;

@@ -357,8 +357,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
             widget.onItemTap?.call(-1, '');
           } else {
             final history = await downloadManager.getLocalHistory(widget.dirPath);
-            final initIndex = history.optInt('pageIndex', 1);
-            final isReversed = history.optInt('isReversed') == 1;
+            final initIndex = history?.optInt('pageIndex', 1) ?? 1;
+            final isReversed = history?.optInt('isReversed') == 1;
             App.globalTo(
               () => ComicReadingPage.localComic(
                 widget.dirPath,

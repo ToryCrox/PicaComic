@@ -120,7 +120,7 @@ extension ReadComic on DownloadedItem {
     } else if (comic.type == DownloadType.local) {
       final history =
           await downloadManager.getLocalHistory(comic.directoryPath);
-      final initIndex = history.optInt('pageIndex', 1);
+      final initIndex = history?.optInt('pageIndex', 1) ?? 1;
       App.globalTo(
         () => ComicReadingPage.localComic(
           comic.directoryPath,
