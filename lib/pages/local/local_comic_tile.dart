@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'dart:io';
 import 'local_comic_page.dart';
@@ -16,6 +17,7 @@ class LocalComicTile extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>? history) onTap;
   final void Function(TapDownDetails details)? onSecondaryTap;
   final VoidCallback? onLongPress;
+  final Map<String, dynamic>? initialHistory;
 
   const LocalComicTile({
     super.key, 
@@ -25,6 +27,7 @@ class LocalComicTile extends StatefulWidget {
     required this.onTap,
     this.onSecondaryTap,
     this.onLongPress,
+    this.initialHistory,
   });
 
   @override
@@ -41,6 +44,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
   bool _loading = true;
   // 总页数
   int _totalPages = 0;
+  // 封面路径
+  String? _coverPath;
   
   TapDownDetails? _tapDownDetails;
 
@@ -66,23 +71,19 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 加载显示所需数据
   Future<void> _loadData() async {
-    final history = await downloadManager.getLocalHistory(widget.model.path);
+    final history = widget.initialHistory ?? await downloadManager.getLocalHistory(widget.model.path);
     final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
+    // 如果没有预设封面，则尝试异步加载
+    String? coverPath = widget.model.cover;
+    if (coverPath.isEmpty) {
+      coverPath = await _getCoverImage(widget.model.path);
+    }
+    
     int total = history?.optInt('total_pages', 0) ?? 0;
-    if (total == 0 || history == null) {
+    if (total == 0 || (history == null && widget.initialHistory == null)) {
       try {
         final dir = Directory(widget.model.path);
-        // await for is too slow
-        // await for (var entity in dir.list(recursive: true)) {
-        //   if (entity is File && predictImageFile(entity)) {
-        //     total++;
-        //   }
-        // }
-        // Use synchronous list for better performance in this specific case if possible, 
-        // or just keep it async but careful about not blocking. 
-        // Given the requirement "don't calculate every time", we should only calculate if total is 0.
-        // And if we calculate, updates the history.
         
         int calculatedTotal = 0;
         await for (var entity in dir.list(recursive: true)) {
@@ -105,8 +106,21 @@ class _LocalComicTileState extends State<LocalComicTile> {
         _history = history;
         _favorite = favorite;
         _totalPages = total;
+        _coverPath = coverPath;
         _loading = false;
       });
+    }
+  }
+
+  Future<String> _getCoverImage(String directory) async {
+    final dir = Directory(directory);
+    try {
+      if (!dir.existsSync()) return '';
+      final file = await dir.list(recursive: true).firstWhere(predictImageFile);
+      Log.d('cover path: ${file.path}');
+      return file.path;
+    } catch (e) {
+      return '';
     }
   }
 
@@ -167,13 +181,18 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 构建封面
   Widget _buildCover(ColorScheme colorScheme) {
-    if (widget.model.cover.isNotEmpty) {
+    if (_coverPath != null && _coverPath!.isNotEmpty) {
       return Image.file(
-        File(widget.model.cover),
+        File(_coverPath!),
         fit: BoxFit.cover,
         cacheWidth: 300,
+        errorBuilder: (context, error, stackTrace) => _buildFolderIcon(colorScheme),
       );
     }
+    return _buildFolderIcon(colorScheme);
+  }
+
+  Widget _buildFolderIcon(ColorScheme colorScheme) {
     return ColoredBox(
       color: colorScheme.surfaceContainerHighest,
       child: Icon(Icons.folder, size: 48, color: colorScheme.onSurfaceVariant),
