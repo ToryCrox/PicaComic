@@ -49,6 +49,20 @@ class _LocalComicTileState extends State<LocalComicTile> {
     _loadData();
   }
 
+  @override
+  void didUpdateWidget(covariant LocalComicTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.model != widget.model) {
+      setState(() {
+        _history = null;
+        _favorite = null;
+        _totalPages = 0;
+        _loading = true;
+      });
+      _loadData();
+    }
+  }
+
   // 加载显示所需数据
   Future<void> _loadData() async {
     final history = await downloadManager.getLocalHistory(widget.model.path);
