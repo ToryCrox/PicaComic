@@ -410,6 +410,27 @@ class _EhGalleryTile extends ComicTile {
 
   @override
   String? get sourceKey => 'ehentai';
+
+  @override
+  Future<void> Function()? get onDownloadTap => () async {
+    if (await downloadManager.isExists(comicID)) {
+      showToast(message: "已下载".tl);
+      return;
+    }
+    for (var i in downloadManager.downloading) {
+      if (i.id == comicID) {
+        showToast(message: "下载中".tl);
+        return;
+      }
+    }
+    var res = await EhNetwork().getGalleryInfo(gallery.link);
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      downloadManager.addEhDownload(res.data);
+      showToast(message: "已加入下载队列".tl);
+    }
+  };
 }
 
 class _SearchOptions extends StatefulWidget {

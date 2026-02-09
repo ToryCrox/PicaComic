@@ -40,6 +40,9 @@ abstract class ComicTile extends StatelessWidget {
 
   List<ComicTileMenuOption>? get addonMenuOptions => null;
 
+  /// Callback when download button is tapped
+  Future<void> Function()? get onDownloadTap => null;
+
   /// Callback when a tag is tapped
   void Function(String tag)? get onTagTap => null;
 
@@ -285,7 +288,7 @@ abstract class ComicTile extends StatelessWidget {
             } else {
               showToast(message: "目录不存在".tl);
             }
-          }),
+          }, color: Colors.blue),
         );
       }
 
@@ -306,7 +309,7 @@ abstract class ComicTile extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.green.withOpacity(0.8),
                     shape: BoxShape.circle,
                   ),
                   child: Container(
@@ -340,7 +343,17 @@ abstract class ComicTile extends StatelessWidget {
           child: _buildIcon(icon, () {
              // 点击跳转下载页面
              context.to(() => const DownloadPage());
-          }),
+          }, color: Colors.green),
+        );
+      }
+
+
+
+      if (onDownloadTap != null) {
+        return _DownloadButton(
+          onTap: onDownloadTap!,
+          detailedMode: detailedMode,
+          id: comicID,
         );
       }
 
@@ -348,7 +361,7 @@ abstract class ComicTile extends StatelessWidget {
     });
   }
 
-  Widget _buildIcon(IconData icon, VoidCallback onTap) {
+  Widget _buildIcon(IconData icon, VoidCallback onTap, {Color? color}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -358,7 +371,7 @@ abstract class ComicTile extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
+            color: (color ?? Colors.black).withOpacity(0.5),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -1382,3 +1395,128 @@ class _BlockingPaneState extends State<_BlockingPane> {
     context.pop();
   }
 }
+
+class _DownloadButton extends StatefulWidget {
+  final Future<void> Function() onTap;
+  final bool detailedMode;
+  final String? id;
+
+  const _DownloadButton({
+    required this.onTap,
+    required this.detailedMode,
+    this.id,
+  });
+
+  @override
+  State<_DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.id != null) {
+      _isLoading = _loadingIds.contains(widget.id);
+      _loadingIds.addListener(_onLoadingChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.id != null) {
+      _loadingIds.removeListener(_onLoadingChanged);
+    }
+    super.dispose();
+  }
+
+  void _onLoadingChanged() {
+    if (widget.id == null) return;
+    final isLoading = _loadingIds.contains(widget.id);
+    if (isLoading != _isLoading) {
+      if (mounted) {
+        setState(() {
+          _isLoading = isLoading;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: widget.detailedMode ? 16 : 6,
+      top: 8,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isLoading
+              ? null
+              : () async {
+                  if (widget.id != null) {
+                    _loadingIds.add(widget.id!);
+                  } else {
+                    setState(() {
+                      _isLoading = true;
+                    });
+                  }
+                  
+                  try {
+                    await widget.onTap();
+                  } finally {
+                    if (widget.id != null) {
+                      _loadingIds.remove(widget.id!);
+                    } else if (mounted) {
+                      setState(() {
+                        _isLoading = false;
+                      });
+                    }
+                  }
+                },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: _isLoading
+                ? Container(
+                    padding: const EdgeInsets.all(6),
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  )
+                : const Icon(
+                    Icons.download_for_offline,
+                    size: 24,
+                    color: Colors.white,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Global loading state for download buttons
+class _LoadingIds extends ChangeNotifier {
+  final Set<String> _ids = {};
+
+  bool contains(String? id) => id != null && _ids.contains(id);
+
+  void add(String id) {
+    _ids.add(id);
+    notifyListeners();
+  }
+
+  void remove(String id) {
+    _ids.remove(id);
+    notifyListeners();
+  }
+}
+
+final _LoadingIds _loadingIds = _LoadingIds();
