@@ -91,69 +91,36 @@ extension DirectoryExtension on Directory {
   }
 }
 
-String sanitizeFileName(String fileName) {
-  const maxLength = 255;
-
-  // Windows 保留文件名
-  const reservedNames = [
-    'CON',
-    'PRN',
-    'AUX',
-    'NUL',
-    'COM1',
-    'COM2',
-    'COM3',
-    'COM4',
-    'COM5',
-    'COM6',
-    'COM7',
-    'COM8',
-    'COM9',
-    'LPT1',
-    'LPT2',
-    'LPT3',
-    'LPT4',
-    'LPT5',
-    'LPT6',
-    'LPT7',
-    'LPT8',
-    'LPT9'
-  ];
-
+String sanitizeFileName(String fileName, [int maxLength = 255]) {
   // 替换非法字符为空格
   final invalidChars = RegExp(r'[<>:"/\\|?*]');
   var sanitizedFileName = fileName.replaceAll(invalidChars, ' ');
 
-  // 合并连续空格为单个空格
+  // 合合连续空格为单个空格
   sanitizedFileName = sanitizedFileName.replaceAll(RegExp(r'\s+'), ' ');
 
-  // 移除开头和结尾的空格和点号
-  sanitizedFileName = sanitizedFileName.trim();
-  while (sanitizedFileName.startsWith('.') || sanitizedFileName.endsWith('.')) {
-    if (sanitizedFileName.startsWith('.')) {
-      sanitizedFileName = sanitizedFileName.substring(1);
-    }
-    if (sanitizedFileName.endsWith('.')) {
-      sanitizedFileName =
-          sanitizedFileName.substring(0, sanitizedFileName.length - 1);
-    }
-    sanitizedFileName = sanitizedFileName.trim();
-  }
-
-  if (sanitizedFileName.isEmpty) {
-    throw Exception('Invalid File Name: Empty length.');
-  }
-
-  // 检查是否为 Windows 保留文件名
-  final upperName = sanitizedFileName.toUpperCase();
-  if (reservedNames.contains(upperName)) {
-    sanitizedFileName = '_$sanitizedFileName';
-  }
-
-  // 限制长度(考虑 UTF-8 编码)
+  // 限制长度(考虑 UTF-8 编码)并通过清理逻辑移除结尾非法字符
   while (true) {
+    // 移除开头和结尾的空格和点号
+    sanitizedFileName = sanitizedFileName.trim();
+    while (sanitizedFileName.startsWith('.') || sanitizedFileName.endsWith('.')) {
+      if (sanitizedFileName.startsWith('.')) {
+        sanitizedFileName = sanitizedFileName.substring(1);
+      }
+      if (sanitizedFileName.endsWith('.')) {
+        sanitizedFileName =
+            sanitizedFileName.substring(0, sanitizedFileName.length - 1);
+      }
+      sanitizedFileName = sanitizedFileName.trim();
+    }
+
+    if (sanitizedFileName.isEmpty) {
+      throw Exception('Invalid File Name: Empty length.');
+    }
+
     final bytes = utf8.encode(sanitizedFileName);
     if (bytes.length > maxLength) {
+      // 每次截断后, 下一轮循环会再次进行 trim() 和结尾清理
       sanitizedFileName =
           sanitizedFileName.substring(0, sanitizedFileName.length - 1);
     } else {

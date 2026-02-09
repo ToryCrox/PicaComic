@@ -843,7 +843,15 @@ extension AddDownloadExt on DownloadManager {
     String sanitizedTitle;
     try {
       final titleToUse = task.title.isNotEmpty ? task.title : task.id;
-      sanitizedTitle = sanitizeFileName(titleToUse);
+      int? maxLength;
+      if (App.isWindows && path != null) {
+        // Windows MAX_PATH = 260
+        // 预留约 60 字符给章节文件夹(如 /1/)和图片文件名(如 /1.jpg)以及可能的后缀
+        const reserved = 60;
+        maxLength = 260 - path!.length - reserved - task.type.name.length - task.id.length - 4;
+        if (maxLength < 10) maxLength = 10; // 确保标题至少保留一些
+      }
+      sanitizedTitle = sanitizeFileName(titleToUse, maxLength ?? 255);
       if (sanitizedTitle.trim().isEmpty) {
         sanitizedTitle = task.id;
       }
