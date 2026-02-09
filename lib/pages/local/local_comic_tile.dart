@@ -6,6 +6,7 @@ import 'local_comic_page.dart';
 import '../reader/comic_reading_page.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 
+import 'package:pica_comic/foundation/file_utils.dart';
 import '../../tools/image_utils.dart';
 
 class LocalComicTile extends StatefulWidget {
@@ -150,6 +151,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
                     _buildCover(colorScheme),
                     _buildFavoriteButton(),
                     _buildReadButton(colorScheme),
+                    _buildFolderButton(colorScheme),
                     // _buildProgressBar(colorScheme), // Move out of cover stack
                   ],
                 ),
@@ -226,6 +228,33 @@ class _LocalComicTileState extends State<LocalComicTile> {
               Icons.menu_book,
               size: 18,
               color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 构建文件夹按钮
+  Widget _buildFolderButton(ColorScheme colorScheme) {
+    return Positioned(
+      left: 4,
+      bottom: 4,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => FileUtils.openFileOrDirectory(widget.model.path),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withOpacity(0.9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.folder_open,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ),
