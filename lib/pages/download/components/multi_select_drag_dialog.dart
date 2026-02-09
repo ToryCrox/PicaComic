@@ -18,6 +18,7 @@ class MultiSelectDragDialog extends StatefulWidget {
 
 class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
   List<File> _allImageFiles = [];
+  List<DragItem> _allDragItems = [];
   bool _isLoading = true;
 
   @override
@@ -49,25 +50,41 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 
         // 检查是否为图片文件
         final ext = Path.extension(fileName).toLowerCase();
-        if (ext == '.jpg' ||
-            ext == '.jpeg' ||
-            ext == '.png' ||
-            ext == '.gif' ||
-            ext == '.webp' ||
-            ext == '.bmp') {
-          allFiles.add(entity);
-          if (allFiles.length % 20 == 0) {
-            setState(() {
-              _allImageFiles = List.from(allFiles);
-            });
-          }
+      if (ext == '.jpg' ||
+          ext == '.jpeg' ||
+          ext == '.png' ||
+          ext == '.gif' ||
+          ext == '.webp' ||
+          ext == '.bmp') {
+        allFiles.add(entity);
+        final dragItem = DragItem(suggestedName: fileName);
+        dragItem.add(Formats.fileUri(Uri.file(entity.path)));
+        if (allFiles.length % 20 == 0) {
+          final currentFiles = List<File>.from(allFiles);
+          // 在后台预先准备好部分 DragItems，虽然它们是 DataWriterItem 子类，但提前初始化有助于分散负载
+          final currentDragItems = allFiles.map((f) {
+            final item = DragItem(suggestedName: Path.basename(f.path));
+            item.add(Formats.fileUri(Uri.file(f.path)));
+            return item;
+          }).toList();
+          setState(() {
+            _allImageFiles = currentFiles;
+            _allDragItems = currentDragItems;
+          });
         }
+      }
       }
     }
 
     if (mounted) {
+      final finalDragItems = allFiles.map((f) {
+        final item = DragItem(suggestedName: Path.basename(f.path));
+        item.add(Formats.fileUri(Uri.file(f.path)));
+        return item;
+      }).toList();
       setState(() {
         _allImageFiles = allFiles;
+        _allDragItems = finalDragItems;
         _isLoading = false;
       });
     }
@@ -158,7 +175,7 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 
     return _BulkDragWrapper(
       isLoading: _isLoading,
-      allImageFiles: _allImageFiles,
+      allDragItems: _allDragItems,
       child: stack,
     );
   }
@@ -166,7 +183,7 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
   Widget _buildDragSource() {
     return _BulkDragWrapper(
       isLoading: _isLoading,
-      allImageFiles: _allImageFiles,
+      allDragItems: _allDragItems,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -190,28 +207,26 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 /// 批量拖拽包装组件，封装了重复的拖拽逻辑
 class _BulkDragWrapper extends StatelessWidget {
   final bool isLoading;
-  final List<File> allImageFiles;
+  final List<DragItem> allDragItems;
   final Widget child;
 
   const _BulkDragWrapper({
     required this.isLoading,
-    required this.allImageFiles,
+    required this.allDragItems,
     required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading || allImageFiles.isEmpty) {
+    if (isLoading || allDragItems.isEmpty) {
       return child;
     }
 
     return DragItemWidget(
       allowedOperations: () => [DropOperation.copy],
       dragItemProvider: (request) {
-        if (allImageFiles.isEmpty) return null;
-        final item = DragItem(suggestedName: Path.basename(allImageFiles[0].path));
-        item.add(Formats.fileUri(Uri.file(allImageFiles[0].path)));
-        return item;
+        if (allDragItems.isEmpty) return null;
+        return allDragItems[0];
       },
       child: DraggableWidget(
         onDragConfiguration: (configuration, session) {
@@ -219,14 +234,11 @@ class _BulkDragWrapper extends StatelessWidget {
           final refCountingImage = _RefCountingSnapshot(
             configuration.items[0].image.snapshot,
             configuration.items[0].image.rect,
-            allImageFiles.length,
+            allDragItems.length,
           );
-          for (int i = 0; i < allImageFiles.length; i++) {
-            final file = allImageFiles[i];
-            final item = DragItem(suggestedName: Path.basename(file.path));
-            item.add(Formats.fileUri(Uri.file(file.path)));
+          for (int i = 0; i < allDragItems.length; i++) {
             items.add(DragConfigurationItem(
-              item: item,
+              item: allDragItems[i],
               image: refCountingImage,
             ));
           }
