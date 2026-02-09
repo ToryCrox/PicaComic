@@ -468,6 +468,10 @@ class DownloadManager implements Listenable {
     return _db.getLocalHistory(path);
   }
 
+  Future<void> deleteLocalHistory(String path) async {
+    await _db.deleteLocalHistory(path);
+  }
+
   Future<List<Map<String, Object?>>> getAllLocalHistory() async {
     return _db.getAllLocalHistory();
   }

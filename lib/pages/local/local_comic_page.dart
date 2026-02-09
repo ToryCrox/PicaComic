@@ -172,12 +172,12 @@ class _LocalComicPageState extends State<LocalComicPage> {
               icon: Icon(isReversed ? Icons.arrow_downward : Icons.arrow_upward),
             ),
             IconButton(
-              onPressed: () => App.globalTo(() => const LocalHistoryPage()),
+              onPressed: () => App.to(context, () => const LocalHistoryPage()),
               icon: const Icon(Icons.history),
               tooltip: "历史记录".tl,
             ),
             IconButton(
-              onPressed: () => App.globalTo(() => const LocalFavoritesPage()),
+              onPressed: () => App.to(context, () => const LocalFavoritesPage()),
               icon: const Icon(Icons.collections_bookmark),
               tooltip: "本地收藏".tl,
             ),
@@ -284,6 +284,13 @@ class _LocalComicPageState extends State<LocalComicPage> {
                   dirPath: model.path,
                   allDirPaths: _localComics.map((e) => e.path).toList(),
                 ));
+          },
+        ),
+        DesktopMenuEntry(
+          text: "清除历史记录".tl,
+          onClick: () async {
+            await downloadManager.deleteLocalHistory(model.path);
+            _loadLocalComics();
           },
         ),
         DesktopMenuEntry(

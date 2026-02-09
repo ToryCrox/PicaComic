@@ -69,15 +69,17 @@ class _LocalComicTileState extends State<LocalComicTile> {
     final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
     int total = 0;
-    try {
-      final dir = Directory(widget.model.path);
-      await for (var entity in dir.list(recursive: true)) {
-        if (entity is File && predictImageFile(entity)) {
-          total++;
+    if (history != null) {
+      try {
+        final dir = Directory(widget.model.path);
+        await for (var entity in dir.list(recursive: true)) {
+          if (entity is File && predictImageFile(entity)) {
+            total++;
+          }
         }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      // ignore
     }
 
     if (mounted) {
@@ -226,9 +228,9 @@ class _LocalComicTileState extends State<LocalComicTile> {
       right: 0,
       child: LinearProgressIndicator(
         value: value,
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorScheme.surfaceContainerHighest.withOpacity(0.6),
         valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-        minHeight: 4,
+        minHeight: 3,
       ),
     );
   }
@@ -239,7 +241,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
       padding: const EdgeInsets.all(8.0),
       child: Text(
         widget.model.title,
-        maxLines: 2,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
@@ -256,7 +258,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
           allDirPaths: widget.allDirPaths.isEmpty ? [widget.model.path] : widget.allDirPaths,
           initialPage: initIndex,
           isReversed: isReversed,
-        ));
+        )).then((v) => _loadData());
   }
 
   Future<void> _toggleFavorite() async {

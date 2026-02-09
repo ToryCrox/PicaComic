@@ -450,6 +450,17 @@ class DownloadDatabase {
     );
   }
 
+  /// 删除本地阅读历史
+  Future<void> deleteLocalHistory(String path) async {
+    final db = await _getDatabase();
+    await db.delete(
+      kTableLocalHistory,
+      where: '$kLocalHistoryPath = ?',
+      whereArgs: [path],
+    );
+  }
+
+
   // ==================== Local Favorite Management Methods ====================
 
   /// 添加或更新本地收藏
