@@ -88,12 +88,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                       model: model,
                       onReload: _loadFavorites,
                       allDirPaths: _favorites.map((e) => e.path).toList(),
-                      onTap: () async {
+                      onTap: (history) async {
                         // 收藏页点击只能是阅读，因为收藏的是具体项
-                        final history = await downloadManager.getLocalHistory(model.path);
                         final initIndex = history?.optInt('pageIndex', 1) ?? 1;
                         final isReversed = history?.optInt('isReversed') == 1;
-                        App.globalTo(() => ComicReadingPage.localComic(
+                        await App.globalTo(() => ComicReadingPage.localComic(
                               model.path,
                               model.title,
                               allDirPaths: _favorites.map((e) => e.path).toList(),

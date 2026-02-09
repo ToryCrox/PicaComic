@@ -238,7 +238,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
             model: model,
             onReload: _loadLocalComics,
             allDirPaths: _localComics.map((e) => e.path).toList(),
-            onTap: () async {
+            onTap: (history) async {
               final dir = Directory(model.path);
               final subDirs = (await dir.list().toList()).whereType<Directory>();
               if (subDirs.isNotEmpty) {
@@ -250,10 +250,9 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 _loadLocalComics();
               } else {
                 // 读取漫画
-                final history = await downloadManager.getLocalHistory(model.path);
                 final initIndex = history?.optInt('pageIndex', 1) ?? 1;
                 final isReversed = history?.optInt('isReversed') == 1;
-                App.globalTo(() => ComicReadingPage.localComic(
+                await App.globalTo(() => ComicReadingPage.localComic(
                       model.path,
                       model.title,
                       allDirPaths: _localComics.map((e) => e.path).toList(),

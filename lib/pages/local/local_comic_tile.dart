@@ -12,7 +12,7 @@ class LocalComicTile extends StatefulWidget {
   final LocalComicModel model;
   final VoidCallback onReload;
   final List<String> allDirPaths;
-  final VoidCallback onTap;
+  final Future<void> Function(Map<String, dynamic>? history) onTap;
   final void Function(TapDownDetails details)? onSecondaryTap;
   final VoidCallback? onLongPress;
 
@@ -68,14 +68,31 @@ class _LocalComicTileState extends State<LocalComicTile> {
     final history = await downloadManager.getLocalHistory(widget.model.path);
     final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
-    int total = 0;
-    if (history != null) {
+    int total = history?.optInt('total_pages', 0) ?? 0;
+    if (total == 0 || history == null) {
       try {
         final dir = Directory(widget.model.path);
+        // await for is too slow
+        // await for (var entity in dir.list(recursive: true)) {
+        //   if (entity is File && predictImageFile(entity)) {
+        //     total++;
+        //   }
+        // }
+        // Use synchronous list for better performance in this specific case if possible, 
+        // or just keep it async but careful about not blocking. 
+        // Given the requirement "don't calculate every time", we should only calculate if total is 0.
+        // And if we calculate, updates the history.
+        
+        int calculatedTotal = 0;
         await for (var entity in dir.list(recursive: true)) {
           if (entity is File && predictImageFile(entity)) {
-            total++;
+            calculatedTotal++;
           }
+        }
+        total = calculatedTotal;
+        
+        if (history != null && total > 0) {
+          downloadManager.updateLocalHistoryPageCount(widget.model.path, total);
         }
       } catch (e) {
         // ignore
@@ -101,7 +118,10 @@ class _LocalComicTileState extends State<LocalComicTile> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: widget.onTap,
+        onTap: () async {
+          await widget.onTap(_history);
+          _loadData();
+        },
         onSecondaryTapDown: (details) => _tapDownDetails = details,
         onSecondaryTap: () {
           if (_tapDownDetails != null) {
@@ -130,10 +150,11 @@ class _LocalComicTileState extends State<LocalComicTile> {
                     _buildCover(colorScheme),
                     _buildFavoriteButton(),
                     _buildReadButton(colorScheme),
-                    _buildProgressBar(colorScheme),
+                    // _buildProgressBar(colorScheme), // Move out of cover stack
                   ],
                 ),
               ),
+              _buildProgressBar(colorScheme), // Move to here
               _buildTitle(),
             ],
           ),
@@ -214,7 +235,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 构建进度条
   Widget _buildProgressBar(ColorScheme colorScheme) {
-    if (_history == null) return const SizedBox.shrink();
+    if (_history == null) return const SizedBox(height: 3);
     
     final pageIndex = _history?.optInt('pageIndex', 1) ?? 1;
     double value = 0.0;
@@ -222,16 +243,11 @@ class _LocalComicTileState extends State<LocalComicTile> {
       value = (pageIndex / _totalPages).clamp(0.0, 1.0);
     }
     
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: LinearProgressIndicator(
-        value: value,
-        backgroundColor: colorScheme.surfaceContainerHighest.withOpacity(0.6),
-        valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-        minHeight: 3,
-      ),
+    return LinearProgressIndicator(
+      value: value,
+      backgroundColor: colorScheme.surfaceContainerHighest,
+      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+      minHeight: 3,
     );
   }
 

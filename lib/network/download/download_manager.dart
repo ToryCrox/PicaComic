@@ -472,6 +472,10 @@ class DownloadManager implements Listenable {
     await _db.deleteLocalHistory(path);
   }
 
+  Future<void> updateLocalHistoryPageCount(String path, int count) async {
+    await _db.updateLocalHistoryPageCount(path, count);
+  }
+
   Future<List<Map<String, Object?>>> getAllLocalHistory() async {
     return _db.getAllLocalHistory();
   }
@@ -1245,20 +1249,25 @@ extension AddDownloadExt on DownloadManager {
 
   Future<void> addOrUpdateLocalHistory({
     required String path,
-    required bool isReversed,
+    required int isReversed,
     required int pageIndex,
     required int time,
-    Map<String, dynamic> json = const {},
+    int totalPages = 0,
   }) async {
     await _db.addOrUpdateLocalHistory(
       path: path,
-      isReversed: isReversed ? 1 : 0,
+      isReversed: isReversed,
       pageIndex: pageIndex,
       time: time,
-      json: TypeUtil.parseString(json),
+      json: const JsonEncoder().convert({
+        "isReversed": isReversed,
+        "pageIndex": pageIndex,
+        "time": time,
+        "total_pages": totalPages,
+      }),
+      totalPages: totalPages,
     );
   }
-
   Future<Map<String, dynamic>> getLocalHistory(String path) async {
     final result = await _db.getLocalHistory(path);
     if (result == null) return {};

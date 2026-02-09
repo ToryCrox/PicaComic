@@ -51,6 +51,7 @@ const String kLocalHistoryIsReversed = 'isReversed';
 const String kLocalHistoryPageIndex = 'pageIndex';
 const String kLocalHistoryTime = 'time';
 const String kLocalHistoryJson = 'json';
+const String kLocalHistoryTotalPages = 'total_pages';
 
 /// local_favorite 表字段常量
 const String kLocalFavoritePath = 'path';
@@ -59,6 +60,7 @@ const String kLocalFavoriteTime = 'time';
 
 class DownloadDatabase {
   static DownloadDatabase? _instance;
+  static const int kVersion = 7;
   static final Lock _lock = Lock();
 
   factory DownloadDatabase() => _instance ??= DownloadDatabase._internal();
@@ -83,7 +85,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 5,
+            version: 6,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
             onOpen: (db) async {
@@ -128,6 +130,14 @@ class DownloadDatabase {
           $kLocalFavoriteTime INTEGER
         )
       ''');
+    }
+    if (oldVersion < 7) {
+      try {
+        await db.execute(
+            'ALTER TABLE $kTableLocalHistory ADD COLUMN $kLocalHistoryTotalPages INTEGER DEFAULT 0');
+      } catch (e) {
+        // column may already exist
+      }
     }
   }
 
@@ -194,7 +204,8 @@ class DownloadDatabase {
         $kLocalHistoryIsReversed INTEGER,
         $kLocalHistoryPageIndex INTEGER,
         $kLocalHistoryTime INTEGER,
-        $kLocalHistoryJson TEXT
+        $kLocalHistoryJson TEXT,
+        $kLocalHistoryTotalPages INTEGER DEFAULT 0
       )
     ''');
 
@@ -416,6 +427,7 @@ class DownloadDatabase {
     required int pageIndex,
     required int time,
     required String json,
+    int totalPages = 0,
   }) async {
     final db = await _getDatabase();
     await db.insert(
@@ -426,8 +438,20 @@ class DownloadDatabase {
           kLocalHistoryPageIndex: pageIndex,
           kLocalHistoryTime: time,
           kLocalHistoryJson: json,
+          kLocalHistoryTotalPages: totalPages,
         },
         conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// 更新本地阅读历史页数
+  Future<void> updateLocalHistoryPageCount(String path, int count) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableLocalHistory,
+      {kLocalHistoryTotalPages: count},
+      where: '$kLocalHistoryPath = ?',
+      whereArgs: [path],
+    );
   }
 
   /// 获取本地阅读历史

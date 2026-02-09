@@ -190,9 +190,10 @@ class ComicReadingPage extends StatelessWidget {
         order > 0 ? order + 1 : 1, readingData, initialPage, () {
       downloadManager.addOrUpdateLocalHistory(
           path: dirPath,
-          isReversed: isReversed,
+          isReversed: isReversed ? 1 : 0,
           pageIndex: StateController.find<ComicReadingPageLogic>().index,
-          time: DateTime.now().millisecondsSinceEpoch);
+          time: DateTime.now().millisecondsSinceEpoch,
+          totalPages: StateController.find<ComicReadingPageLogic>().length);
     }, isAutoFullscreenAndScroll: isAutoFullscreenAndScroll));
   }
 
