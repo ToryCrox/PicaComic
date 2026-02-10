@@ -118,7 +118,7 @@ class DownloadedComicTile extends ComicTile {
               isPrimary: true,
             ),
           if (onRead != null && (onOpenFolder != null || onManageTags != null))
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
           if (onOpenFolder != null)
             _buildActionItem(
               context,
@@ -127,7 +127,7 @@ class DownloadedComicTile extends ComicTile {
               title: "目录".tl,
             ),
           if (onOpenFolder != null && onManageTags != null)
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
           if (onManageTags != null)
             _buildActionItem(
               context,
@@ -135,7 +135,7 @@ class DownloadedComicTile extends ComicTile {
               icon: Icons.label_outline,
               title: "标签".tl,
             ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           _buildColorTagButton(context),
         ],
       ),
@@ -163,12 +163,12 @@ class DownloadedComicTile extends ComicTile {
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: foregroundColor),
-              const SizedBox(width: 8),
+              Icon(icon, size: 16, color: foregroundColor),
+              const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
@@ -222,23 +222,23 @@ class DownloadedComicTile extends ComicTile {
           }
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (downloadedItem.color?.color != null)
                 Icon(
                   Icons.circle,
-                  size: 18,
+                  size: 16,
                   color: downloadedItem.color!.color!,
                 )
               else
                 Icon(
                   Icons.circle_outlined,
-                  size: 18,
+                  size: 16,
                   color: Theme.of(context).colorScheme.onSecondaryContainer,
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 "标记".tl,
                 style: TextStyle(
