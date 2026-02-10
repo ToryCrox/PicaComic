@@ -812,3 +812,71 @@ void setCacheLimit() {
     ),
   );
 }
+
+void setFont(BuildContext context) {
+  var current = appdata.appSettings.font;
+  var controller = TextEditingController(text: current);
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(builder: (context, setState) {
+        return SimpleDialog(
+          title: Text("设置字体".tl),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: Text("仅在桌面端生效".tl),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: "字体名称".tl,
+                  hintText: "例如: Microsoft YaHei",
+                ),
+                onChanged: (s) {
+                  current = s;
+                },
+                onEditingComplete: () {
+                  setState(() {});
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (var element in {
+              "系统默认".tl: "",
+              "Roboto": "Roboto",
+              "Microsoft YaHei": "Microsoft YaHei",
+              "SimHei": "SimHei",
+              "MiSans": "MiSans",
+            }.entries)
+              ListTile(
+                title: Text(element.key),
+                onTap: () {
+                  controller.text = element.value;
+                  current = element.value;
+                  setState(() {});
+                },
+                trailing:
+                    current == element.value ? const Icon(Icons.check) : null,
+              ),
+            Center(
+              child: FilledButton(
+                onPressed: () {
+                  appdata.appSettings.font = current;
+                  MyApp.updater?.call();
+                  App.globalBack();
+                },
+                child: Text("确认".tl),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        );
+      });
+    },
+  );
+}

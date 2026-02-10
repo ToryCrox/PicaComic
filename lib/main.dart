@@ -201,12 +201,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           theme: ThemeData(
             colorScheme: lightColor,
             useMaterial3: true,
-            //fontFamily: App.isWindows ? "font" : "",
+            fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
+                ? appdata.appSettings.font
+                : null,
           ),
           darkTheme: ThemeData(
             colorScheme: darkColor,
             useMaterial3: true,
-            //fontFamily: App.isWindows ? "font" : "",
+            fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
+                ? appdata.appSettings.font
+                : null,
             brightness: Brightness.dark,
           ),
           themeMode: appdata.appSettings.darkMode == 2

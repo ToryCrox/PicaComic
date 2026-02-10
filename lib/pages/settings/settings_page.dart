@@ -475,7 +475,17 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
               }),
         ListTile(
           title: Text("打开Temp".tl),
+          onTap: () {
+            FileUtils.openFileOrDirectory("${App.dataPath}/temp");
+          },
         ),
+        if (App.isDesktop)
+          ListTile(
+            leading: const Icon(Icons.font_download),
+            title: Text("字体设置".tl),
+            trailing: const Icon(Icons.arrow_right),
+            onTap: () => setFont(context),
+          ),
 
         ListTile(
           title: Text("日志".tl),

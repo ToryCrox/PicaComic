@@ -8,6 +8,7 @@ import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/notification.dart';
+import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -440,4 +441,8 @@ class _Settings {
   set networkFavorites(List<String> pages) {
     appdata.settings[68] = pages.join(',');
   }
+
+  String get font => PrefsHelper.getString("font");
+
+  set font(String value) => PrefsHelper.setString("font", value);
 }
