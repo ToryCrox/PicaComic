@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as Path;
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
+import 'package:pica_comic/tools/shared_compute.dart';
 import 'package:worker_manager/worker_manager.dart';
 
 // 图片尺寸缓存，用于存储已加载的图片尺寸信息
@@ -27,7 +28,7 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
 
   for (var imagePath in imagePaths) {
     // 调整图片路径，去除可能的"file://"前缀
-    final imagePathKey = _adjustImagePath(imagePath);
+    final imagePathKey = adjustImagePath(imagePath);
     // 尝试从缓存中获取图片尺寸信息
     var imageSizeInfo = _imageSizeCache[imagePathKey];
     if (imageSizeInfo != null) {
@@ -55,7 +56,7 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
       final list = checkList.sublist(i, end);
 
       await Future.wait(list.map((imagePath) async {
-        final imagePathKey = _adjustImagePath(imagePath);
+        final imagePathKey = adjustImagePath(imagePath);
         final imageSizeInfo = _imageSizeCache[imagePathKey];
         if (imageSizeInfo == null) return;
 
@@ -89,11 +90,10 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
         : i + batchSize;
     final list = needsCompute.sublist(i, end).toList();
     // 使用共享计算资源并行计算图片尺寸
-    final result = await workerManager
-        .execute<Map<String, ImageSizeInfo>>(() => _loadImageSizes(list));
+    final result = await sharedCompute(loadImageSizes, list);
     // 更新缓存并合并结果
     for (var imagePath in result.keys) {
-      final imagePathKey = _adjustImagePath(imagePath);
+      final imagePathKey = adjustImagePath(imagePath);
       _imageSizeCache[imagePathKey] = result[imagePath]!;
     }
     yield result;
@@ -107,12 +107,13 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
 /// 它遍历每个图片路径，计算其尺寸，并将信息存储在映射中返回
 ///
 /// [imageUrs] 一组图片的路径
-Map<String, ImageSizeInfo> _loadImageSizes(List<String> imageUrs) {
+@pragma('vm:entry-point')
+Map<String, ImageSizeInfo> loadImageSizes(List<String> imageUrs) {
   final imageSizes = <String, ImageSizeInfo>{};
   for (var i = 0; i < imageUrs.length; i++) {
     final url = imageUrs[i];
     // 调整图片路径，去除可能的"file://"前缀
-    String imageFilePath = _adjustImagePath(url);
+    String imageFilePath = adjustImagePath(url);
     final file = File(imageFilePath);
     try {
       // 使用ImageSizeGetter库计算图片尺寸
@@ -120,7 +121,8 @@ Map<String, ImageSizeInfo> _loadImageSizes(List<String> imageUrs) {
       // 将图片尺寸信息添加到结果集中
       imageSizes[url] = ImageSizeInfo(
         imagePath: file.path,
-        size: Size(sizeResult.size.width.toDouble(), sizeResult.size.height.toDouble()),
+        width: sizeResult.size.width.toDouble(),
+        height: sizeResult.size.height.toDouble(),
         fileSize: file.lengthSync(),
         lastModifiedTime: file.lastModifiedSync().millisecondsSinceEpoch,
       );
@@ -138,7 +140,7 @@ Map<String, ImageSizeInfo> _loadImageSizes(List<String> imageUrs) {
 /// 这是为了统一路径格式，确保路径在不同环境下的一致性
 ///
 /// [imagePath] 图片的路径
-String _adjustImagePath(String imagePath) {
+String adjustImagePath(String imagePath) {
   String absolutePath = imagePath;
   if (imagePath.startsWith("file://")) {
     absolutePath = imagePath.substring(7);
@@ -151,13 +153,17 @@ String _adjustImagePath(String imagePath) {
 /// 此类用于存储图片的路径、尺寸和最后修改时间
 class ImageSizeInfo {
   final String imagePath;
-  final Size size;
+  final double width;
+  final double height;
   final int fileSize;
   final int lastModifiedTime;
 
+  Size get size => Size(width, height);
+
   ImageSizeInfo({
     required this.imagePath,
-    required this.size,
+    required this.width,
+    required this.height,
     required this.fileSize,
     required this.lastModifiedTime,
   });
