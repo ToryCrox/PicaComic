@@ -1101,6 +1101,7 @@ extension AddDownloadExt on DownloadManager {
             ? result[kDownloadSize] as double
             : (result[kDownloadSize] as int).toDouble(),
         directory: result[kDownloadDirectory] as String? ?? "",
+        color: result[kDownloadColor] as String?,
       );
       if (comic != null) {
         map[comic.id] = comic;
