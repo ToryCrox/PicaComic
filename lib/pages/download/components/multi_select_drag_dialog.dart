@@ -29,6 +29,9 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 
   Future<void> _loadAllImages() async {
     List<File> allFiles = [];
+    List<DragItem> allDragItems = [];
+    int count = 0;
+
     for (var item in widget.selectedItems) {
       final dirPath = item.directoryPath;
       if (dirPath.isEmpty) continue;
@@ -37,6 +40,7 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
       if (!await dir.exists()) continue;
 
       await for (var entity in dir.list(recursive: true)) {
+        if (!mounted) return;
         if (entity is! File) continue;
 
         final fileName = Path.basename(entity.path);
@@ -50,41 +54,31 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 
         // 检查是否为图片文件
         final ext = Path.extension(fileName).toLowerCase();
-      if (ext == '.jpg' ||
-          ext == '.jpeg' ||
-          ext == '.png' ||
-          ext == '.gif' ||
-          ext == '.webp' ||
-          ext == '.bmp') {
-        allFiles.add(entity);
-        final dragItem = DragItem(suggestedName: fileName);
-        dragItem.add(Formats.fileUri(Uri.file(entity.path)));
-        if (allFiles.length % 20 == 0) {
-          final currentFiles = List<File>.from(allFiles);
-          // 在后台预先准备好部分 DragItems，虽然它们是 DataWriterItem 子类，但提前初始化有助于分散负载
-          final currentDragItems = allFiles.map((f) {
-            final item = DragItem(suggestedName: Path.basename(f.path));
-            item.add(Formats.fileUri(Uri.file(f.path)));
-            return item;
-          }).toList();
-          setState(() {
-            _allImageFiles = currentFiles;
-            _allDragItems = currentDragItems;
-          });
+        if (const {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}.contains(ext)) {
+          final dragItem = DragItem(suggestedName: fileName);
+          dragItem.add(Formats.fileUri(Uri.file(entity.path)));
+          
+          allFiles.add(entity);
+          allDragItems.add(dragItem);
+          count++;
+
+          // 节流刷新：每 50 个文件刷新一次 UI
+          if (count % 50 == 0) {
+            setState(() {
+              _allImageFiles = List.from(allFiles);
+              _allDragItems = List.from(allDragItems);
+            });
+            // 出让执行权，防止密集的微任务阻塞 UI 渲染
+            await Future.delayed(Duration.zero);
+          }
         }
-      }
       }
     }
 
     if (mounted) {
-      final finalDragItems = allFiles.map((f) {
-        final item = DragItem(suggestedName: Path.basename(f.path));
-        item.add(Formats.fileUri(Uri.file(f.path)));
-        return item;
-      }).toList();
       setState(() {
         _allImageFiles = allFiles;
-        _allDragItems = finalDragItems;
+        _allDragItems = allDragItems;
         _isLoading = false;
       });
     }
