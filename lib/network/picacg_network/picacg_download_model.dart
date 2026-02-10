@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../download/models/download_color_tag.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
@@ -13,22 +14,26 @@ class DownloadedComic extends DownloadedItem {
   List<String> chapters;
   List<int> downloadedChapters;
   double? size;
+  @override
+  DownloadColorTag? color;
 
   DownloadedComic(
-      this.comicItem, this.chapters, this.size, this.downloadedChapters);
+      this.comicItem, this.chapters, this.size, this.downloadedChapters, {this.color});
 
   @override
   Map<String, dynamic> toJson() => {
         "comicItem": comicItem.toJson(),
         "chapters": chapters,
         "size": size,
-        "downloadedChapters": downloadedChapters
+        "downloadedChapters": downloadedChapters,
+        "color": color?.name,
       };
 
   DownloadedComic.fromJson(Map<String, dynamic> json)
       : comicItem = ComicItem.fromJson(json["comicItem"]),
         chapters = List<String>.from(json["chapters"]),
         size = json["size"],
+        color = DownloadColorTag.fromString(json["color"]),
         downloadedChapters = [] {
     if (json["downloadedChapters"] == null) {
       //旧版本中的数据不包含这一项

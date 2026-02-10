@@ -7,6 +7,8 @@ import 'package:pica_comic/network/download/download_model.dart';
 
 import '../../tools/io_tools.dart';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
 class CustomDownloadedItem extends DownloadedItem {
   @override
   double? comicSize;
@@ -41,6 +43,8 @@ class CustomDownloadedItem extends DownloadedItem {
   final String sourceName;
 
   final String cover;
+  @override
+  DownloadColorTag? color;
 
   CustomDownloadedItem(
       this.comicSize,
@@ -53,7 +57,8 @@ class CustomDownloadedItem extends DownloadedItem {
       this.sourceKey,
       this.sourceName,
       this.cover,
-      this.comicId);
+      this.comicId,
+      {this.color});
 
   @override
   Map<String, dynamic> toJson() => {
@@ -67,7 +72,8 @@ class CustomDownloadedItem extends DownloadedItem {
         "sourceKey": sourceKey,
         "sourceName": sourceName,
         "cover": cover,
-        "comicId": comicId
+        "comicId": comicId,
+        "color": color?.name,
       };
 
   CustomDownloadedItem.fromJson(Map<String, dynamic> json)
@@ -83,7 +89,8 @@ class CustomDownloadedItem extends DownloadedItem {
         sourceKey = json["sourceKey"],
         sourceName = json["sourceName"],
         cover = json["cover"],
-        comicId = json["comicId"];
+        comicId = json["comicId"],
+        color = DownloadColorTag.fromString(json["color"]);
 }
 
 class CustomDownloadingTask extends DownloadingTask {

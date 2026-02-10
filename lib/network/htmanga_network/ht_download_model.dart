@@ -6,12 +6,16 @@ import 'package:pica_comic/network/download/download_model.dart';
 import '../../foundation/image_manager.dart';
 import '../../tools/io_tools.dart';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
 class DownloadedHtComic extends DownloadedItem {
-  DownloadedHtComic(this.comic, this.size);
+  DownloadedHtComic(this.comic, this.size, {this.color});
 
   HtComicInfo comic;
 
   double? size;
+  @override
+  DownloadColorTag? color;
 
   @override
   double? get comicSize => size;
@@ -35,11 +39,12 @@ class DownloadedHtComic extends DownloadedItem {
   DownloadType get type => DownloadType.htmanga;
 
   @override
-  Map<String, dynamic> toJson() => {"comic": comic.toJson(), "size": size};
+  Map<String, dynamic> toJson() => {"comic": comic.toJson(), "size": size, "color": color?.name};
 
   DownloadedHtComic.fromJson(Map<String, dynamic> json)
       : comic = HtComicInfo.fromJson(json["comic"]),
-        size = json["size"];
+        size = json["size"],
+        color = DownloadColorTag.fromString(json["color"]);
 
   @override
   set comicSize(double? value) => size = value;

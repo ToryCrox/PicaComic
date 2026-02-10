@@ -7,22 +7,27 @@ import '../../tools/io_tools.dart';
 import 'hitomi_models.dart';
 import 'dart:io';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
 class DownloadedHitomiComic extends DownloadedItem {
   HitomiComic comic;
   double? size;
   String cover;
   String link;
+  @override
+  DownloadColorTag? color;
 
-  DownloadedHitomiComic(this.comic, this.size, this.link, this.cover);
+  DownloadedHitomiComic(this.comic, this.size, this.link, this.cover, {this.color});
 
   Map<String, dynamic> toMap() =>
-      {"comic": comic.toMap(), "size": size, "link": link, "cover": cover};
+      {"comic": comic.toMap(), "size": size, "link": link, "cover": cover, "color": color?.name};
 
   DownloadedHitomiComic.fromMap(Map<String, dynamic> map)
       : comic = HitomiComic.fromMap(map["comic"]),
         size = map["size"],
         link = map["link"],
-        cover = map["cover"];
+        cover = map["cover"],
+        color = DownloadColorTag.fromString(map["color"]);
 
   @override
   double? get comicSize => size;

@@ -103,10 +103,14 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     return images;
   }
 
+  static Future<List<ImageFile>> Function() _buildLoadImagesTask(String dirPath) {
+    return () => loadImagesFilePaths(dirPath);
+  }
+
   // 加载图片并更新状态
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    final images = await workerManager.execute<List<ImageFile>>(() => loadImagesFilePaths(widget.dirPath));
+    final images = await workerManager.execute<List<ImageFile>>(_buildLoadImagesTask(widget.dirPath));
     //final images = await loadImagesFilePaths(widget.dirPath);
     final diff = DateTime.now().difference(t1);
     if (diff.inMilliseconds < 300) {

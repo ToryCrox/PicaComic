@@ -14,6 +14,7 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/image_utils.dart';
+import 'models/download_color_tag.dart';
 
 import '../../base.dart';
 import '../app_dio.dart';
@@ -48,6 +49,9 @@ abstract class DownloadedItem {
 
   /// tags
   List<String> get tags;
+
+  ///Color tag
+  DownloadColorTag? color;
 
   Map<String, dynamic> toJson();
 

@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // ignore: unused_import
+import 'package:flutter/rendering.dart'; // ignore: unused_import
+
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:path/path.dart' as Path;
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
@@ -24,6 +26,8 @@ import 'package:pica_comic/pages/htmanga/ht_comic_page.dart';
 import 'package:pica_comic/pages/jm/jm_comic_page.dart';
 import 'package:pica_comic/pages/nhentai/comic_page.dart';
 import 'package:pica_comic/pages/picacg/comic_page.dart';
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -131,6 +135,8 @@ class DownloadedComicTile extends ComicTile {
               icon: Icons.label_outline,
               title: "标签".tl,
             ),
+          const SizedBox(width: 12),
+          _buildColorTagButton(context),
         ],
       ),
     );
@@ -169,6 +175,76 @@ class DownloadedComicTile extends ComicTile {
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: foregroundColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorTagButton(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTapDown: (details) async {
+          final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+          final targetPosition = overlay.globalToLocal(details.globalPosition);
+          final position = RelativeRect.fromRect(
+             Rect.fromPoints(targetPosition, targetPosition),
+             Offset.zero & overlay.size,
+          );
+          final color = await showMenu<DownloadColorTag>(
+            context: context,
+            position: position,
+            items: [
+              for (var tag in DownloadColorTag.values)
+                PopupMenuItem(
+                  value: tag,
+                  child: Row(
+                    children: [
+                      if (tag.color != null)
+                        Icon(Icons.circle, color: tag.color!, size: 18)
+                      else
+                        const Icon(Icons.circle_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      Text(tag.label),
+                    ],
+                  ),
+                ),
+            ],
+          );
+          if (color != null) {
+            downloadManager.updateColor(downloadedItem.id, color);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (downloadedItem.color?.color != null)
+                Icon(
+                  Icons.circle,
+                  size: 18,
+                  color: downloadedItem.color!.color!,
+                )
+              else
+                Icon(
+                  Icons.circle_outlined,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              const SizedBox(width: 8),
+              Text(
+                "标记".tl,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
                 ),
               ),
             ],

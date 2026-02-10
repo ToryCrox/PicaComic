@@ -14,6 +14,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/download_queue_manager.dart';
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
@@ -310,10 +311,14 @@ class DownloadManager implements Listenable {
         data["downloading"].add(item.toMap());
       }
       final saveItem = SaveInfoItem(data, path ?? '');
-      workerManager.execute(() => saveToFile(saveItem));
+      workerManager.execute(_buildSaveTask(saveItem));
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
     });
+  }
+
+  static Future<void> Function() _buildSaveTask(SaveInfoItem item) {
+    return () => saveToFile(item);
   }
 
   static Future<void> saveToFile(SaveInfoItem item) async {
@@ -968,6 +973,7 @@ extension AddDownloadExt on DownloadManager {
     required DateTime time,
     double? size,
     String? directory,
+    String? color,
   }) {
     DownloadedItem comic;
     try {
@@ -999,6 +1005,9 @@ extension AddDownloadExt on DownloadManager {
       if (size != null && size > 0) {
         comic.comicSize = size;
       }
+      if (color != null) {
+        comic.color = DownloadColorTag.fromString(color);
+      }
       return comic;
     } catch (e, s) {
       Log.e("IO Failed to get a downloaded comic info:\n$e\n$s");
@@ -1020,6 +1029,7 @@ extension AddDownloadExt on DownloadManager {
         directory,
         item.comicSize ?? 0,
         jsonEncode(item.toJson()),
+        color: item.color?.name,
       );
     });
   }
@@ -1064,6 +1074,7 @@ extension AddDownloadExt on DownloadManager {
           ? result[kDownloadSize] as double
           : (result[kDownloadSize] as int).toDouble(),
       directory: result[kDownloadDirectory] as String? ?? "",
+      color: result[kDownloadColor] as String?,
     );
   }
 
@@ -1149,6 +1160,7 @@ extension AddDownloadExt on DownloadManager {
                 ? e[kDownloadSize] as double
                 : (e[kDownloadSize] as int).toDouble(),
             directory: e[kDownloadDirectory] as String?,
+            color: e[kDownloadColor] as String?,
           ),
         )
         .whereType<DownloadedItem>() // 过滤掉 null 值
@@ -1716,6 +1728,23 @@ extension AddDownloadExt on DownloadManager {
       Log.e('重命名目录失败: $e', stackTrace: s);
       return '重命名失败: $e';
     }
+  }
+
+  /// 更新漫画颜色
+  Future<void> updateColor(String id, DownloadColorTag? color) async {
+    Log.d(() => 'DB DownloadManager: 更新漫画颜色 id=$id, color=${color?.name}');
+    await _db.updateDownloadColor(id, color?.name);
+    _notifyComicsChanged();
+  }
+
+  /// 批量更新漫画颜色
+  Future<void> batchUpdateColor(List<String> ids, DownloadColorTag? color) async {
+    Log.d(() => 'DB DownloadManager: 批量更新漫画颜色 ids=$ids, color=${color?.name}');
+    final colorName = color?.name;
+    for (var id in ids) {
+      await _db.updateDownloadColor(id, colorName);
+    }
+    _notifyComicsChanged();
   }
 }
 

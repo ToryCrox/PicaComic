@@ -12,20 +12,28 @@ import 'package:zip_flutter/zip_flutter.dart';
 import 'dart:io';
 import '../../tools/io_tools.dart';
 import 'eh_main_network.dart';
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'get_gallery_id.dart';
 
 class DownloadedGallery extends DownloadedItem {
   Gallery gallery;
   double? size;
+  @override
+  DownloadColorTag? color;
 
-  DownloadedGallery(this.gallery, this.size);
+  DownloadedGallery(this.gallery, this.size, {this.color});
 
   @override
-  Map<String, dynamic> toJson() => {"gallery": gallery.toJson(), "size": size};
+  Map<String, dynamic> toJson() => {
+        "gallery": gallery.toJson(),
+        "size": size,
+        "color": color?.name,
+      };
 
   DownloadedGallery.fromJson(Map<String, dynamic> map)
       : gallery = Gallery.fromJson(map["gallery"]),
-        size = map["size"];
+        size = map["size"],
+        color = DownloadColorTag.fromString(map["color"]);
 
   @override
   DownloadType get type => DownloadType.ehentai;

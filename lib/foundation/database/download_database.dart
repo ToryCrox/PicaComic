@@ -22,6 +22,7 @@ const String kDownloadTime = 'time';
 const String kDownloadDirectory = 'directory';
 const String kDownloadSize = 'size';
 const String kDownloadJson = 'json';
+const String kDownloadColor = 'color';
 
 /// tags 表字段常量
 const String kTagId = 'id';
@@ -60,7 +61,6 @@ const String kLocalFavoriteTime = 'time';
 
 class DownloadDatabase {
   static DownloadDatabase? _instance;
-  static const int kVersion = 7;
   static final Lock _lock = Lock();
 
   factory DownloadDatabase() => _instance ??= DownloadDatabase._internal();
@@ -85,7 +85,7 @@ class DownloadDatabase {
 
       _db = await databaseFactory.openDatabase(dbPath,
           options: OpenDatabaseOptions(
-            version: 6,
+            version: 8,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
             onOpen: (db) async {
@@ -139,6 +139,14 @@ class DownloadDatabase {
         // column may already exist
       }
     }
+    if (oldVersion < 8) {
+      try {
+        await db.execute(
+            'ALTER TABLE $kTableDownload ADD COLUMN $kDownloadColor TEXT');
+      } catch (e) {
+        // column may already exist
+      }
+    }
   }
 
   /// 创建标签相关表
@@ -181,7 +189,8 @@ class DownloadDatabase {
         $kDownloadTime INTEGER,
         $kDownloadDirectory TEXT,
         $kDownloadSize REAL,
-        $kDownloadJson TEXT
+        $kDownloadJson TEXT,
+        $kDownloadColor TEXT
       )
     ''');
 
@@ -251,8 +260,9 @@ class DownloadDatabase {
     int time,
     String directory,
     double size,
-    String json,
-  ) async {
+    String json, {
+    String? color,
+  }) async {
     final db = await _getDatabase();
     await db.insert(
         kTableDownload,
@@ -264,8 +274,20 @@ class DownloadDatabase {
           kDownloadDirectory: directory,
           kDownloadSize: size,
           kDownloadJson: json,
+          kDownloadColor: color,
         },
         conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// 更新下载项颜色
+  Future<void> updateDownloadColor(String id, String? color) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableDownload,
+      {kDownloadColor: color},
+      where: '$kDownloadId = ?',
+      whereArgs: [id],
+    );
   }
 
   /// 更新目录

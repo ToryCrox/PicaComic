@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/pages/components/download_tag_filter_panel.dart';
 import 'tag_management_page.dart' hide TagInfo;
@@ -619,6 +620,43 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               }
             },
           ),
+        ),
+        PopupMenuItem(
+          child: Text("标记颜色".tl),
+          onTap: () async {
+            final state = ref.read(downloadPageStateProvider(_pageId));
+            if (state.selectedIds.isEmpty) return;
+            // Delay to allow menu to close
+            Future.delayed(const Duration(milliseconds: 200), () async {
+              final color = await showDialog<DownloadColorTag>(
+                context: context,
+                builder: (context) => SimpleDialog(
+                  title: Text("选择颜色".tl),
+                  children: [
+                    for (var tag in DownloadColorTag.values)
+                      SimpleDialogOption(
+                        onPressed: () => Navigator.pop(context, tag),
+                        child: Row(
+                          children: [
+                            if (tag.color != null)
+                              Icon(Icons.circle, color: tag.color!, size: 24)
+                            else
+                              const Icon(Icons.circle_outlined, size: 24),
+                            const SizedBox(width: 12),
+                            Text(tag.label),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+
+              if (color != null) {
+                await downloadManager.batchUpdateColor(state.selectedIds.toList(), color);
+                exitSelecting(ref, _pageId);
+              }
+            });
+          },
         ),
         PopupMenuItem(
           child: Text("重命名下载目录".tl),

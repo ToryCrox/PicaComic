@@ -10,22 +10,28 @@ import 'dart:io';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'jm_network.dart';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
 class DownloadedJmComic extends DownloadedItem {
   JmComicInfo comic;
   double? size;
   List<int> downloadedChapters;
+  @override
+  DownloadColorTag? color;
 
-  DownloadedJmComic(this.comic, this.size, this.downloadedChapters);
+  DownloadedJmComic(this.comic, this.size, this.downloadedChapters, {this.color});
 
   Map<String, dynamic> toMap() => {
         "comic": comic.toJson(),
         "size": size,
-        "downloadedChapters": downloadedChapters
+        "downloadedChapters": downloadedChapters,
+        "color": color?.name,
       };
 
   DownloadedJmComic.fromMap(Map<String, dynamic> map)
       : comic = JmComicInfo.fromMap(map["comic"]),
         size = map["size"],
+        color = DownloadColorTag.fromString(map["color"]),
         downloadedChapters = [] {
     if (map["downloadedChapters"] == null) {
       //旧版本中的数据不包含这一项

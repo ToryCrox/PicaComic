@@ -6,9 +6,11 @@ import 'package:pica_comic/tools/translations.dart';
 import '../../foundation/image_manager.dart';
 import '../../tools/io_tools.dart';
 
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
 class NhentaiDownloadedComic extends DownloadedItem {
   NhentaiDownloadedComic(
-      this.comicID, this.title, this.size, this.cover, this.tags);
+      this.comicID, this.title, this.size, this.cover, this.tags, {this.color});
 
   final String comicID;
 
@@ -17,6 +19,8 @@ class NhentaiDownloadedComic extends DownloadedItem {
   final double? size;
 
   final String cover;
+  @override
+  DownloadColorTag? color;
 
   @override
   double? get comicSize => size;
@@ -41,14 +45,15 @@ class NhentaiDownloadedComic extends DownloadedItem {
 
   @override
   Map<String, dynamic> toJson() =>
-      {'comicID': comicID, 'title': title, 'size': size, 'cover': cover};
+      {'comicID': comicID, 'title': title, 'size': size, 'cover': cover, 'color': color?.name};
 
   NhentaiDownloadedComic.fromJson(Map<String, dynamic> json)
       : comicID = json["comicID"],
         title = json["title"],
         size = json["size"],
         tags = List.from(json["tags"] ?? []),
-        cover = json["cover"];
+        cover = json["cover"],
+        color = DownloadColorTag.fromString(json["color"]);
 
   @override
   set comicSize(double? value) {}
