@@ -22,6 +22,7 @@ import 'package:pica_comic/tools/block_screenshot.dart';
 import 'package:pica_comic/tools/mouse_listener.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:worker_manager/worker_manager.dart';
 
 import 'components/components.dart';
 import 'network/webdav.dart';
@@ -36,6 +37,7 @@ void main(List<String> args) {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     await init();
+    await workerManager.init(isolatesCount: 3, dynamicSpawning: true);
     FlutterError.onError = (details) {
       Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
     };

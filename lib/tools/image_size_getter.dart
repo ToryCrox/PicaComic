@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as Path;
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
-import 'package:pica_comic/tools/shared_compute.dart';
+import 'package:worker_manager/worker_manager.dart';
 
 // 图片尺寸缓存，用于存储已加载的图片尺寸信息
 Map<String, ImageSizeInfo> _imageSizeCache = {};
@@ -48,7 +48,7 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
         : i + batchSize;
     final list = needsCompute.sublist(i, end).toList();
     // 使用共享计算资源并行计算图片尺寸
-    final result = await sharedCompute(_loadImageSizes, list);
+    final result = await workerManager.execute<Map<String, ImageSizeInfo>>(() => _loadImageSizes(list));
     // 更新缓存并合并结果
     for (var imagePath in result.keys) {
       final imagePathKey = _adjustImagePath(imagePath);

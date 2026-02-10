@@ -35,7 +35,7 @@ import 'package:pica_comic/tools/debounce.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
-import 'package:pica_comic/tools/shared_compute.dart';
+import 'package:worker_manager/worker_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
@@ -310,7 +310,7 @@ class DownloadManager implements Listenable {
         data["downloading"].add(item.toMap());
       }
       final saveItem = SaveInfoItem(data, path ?? '');
-      sharedCompute(saveToFile, saveItem);
+      workerManager.execute(() => saveToFile(saveItem));
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
     });

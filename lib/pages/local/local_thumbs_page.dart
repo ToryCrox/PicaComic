@@ -19,7 +19,7 @@ import '../../network/download/download_manager.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';
-import '../../tools/shared_compute.dart';
+import 'package:worker_manager/worker_manager.dart';
 import '../reader/comic_reading_page.dart';
 
 class LocalThumbsPage extends StatefulWidget {
@@ -106,7 +106,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   // 加载图片并更新状态
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    final images = await sharedCompute(loadImagesFilePaths, widget.dirPath);
+    final images = await workerManager.execute<List<ImageFile>>(() => loadImagesFilePaths(widget.dirPath));
     //final images = await loadImagesFilePaths(widget.dirPath);
     final diff = DateTime.now().difference(t1);
     if (diff.inMilliseconds < 300) {
