@@ -22,6 +22,9 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
   Map<String, ImageSizeInfo> imageSizeResult = <String, ImageSizeInfo>{};
   // 需要计算尺寸的图片路径列表
   final needsCompute = <String>[];
+  // 需要检查缓存有效性的图片路径列表
+  final checkList = <String>[];
+
   for (var imagePath in imagePaths) {
     // 调整图片路径，去除可能的"file://"前缀
     final imagePathKey = _adjustImagePath(imagePath);
@@ -30,14 +33,52 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
     if (imageSizeInfo != null) {
       // 如果缓存存在，则添加到结果集中
       imageSizeResult[imagePath] = imageSizeInfo;
+      checkList.add(imagePath);
     } else {
       // 如果缓存不存在，则添加到需要计算尺寸的列表中
       needsCompute.add(imagePath);
     }
   }
+
   // 如果结果集不为空，则立即返回当前结果集
   if (imageSizeResult.isNotEmpty) {
     yield imageSizeResult;
+  }
+
+  // 检查缓存的图片是否有效
+  if (checkList.isNotEmpty) {
+    const checkBatchSize = 50;
+    for (int i = 0; i < checkList.length; i += checkBatchSize) {
+      final end = i + checkBatchSize > checkList.length
+          ? checkList.length
+          : i + checkBatchSize;
+      final list = checkList.sublist(i, end);
+
+      await Future.wait(list.map((imagePath) async {
+        final imagePathKey = _adjustImagePath(imagePath);
+        final imageSizeInfo = _imageSizeCache[imagePathKey];
+        if (imageSizeInfo == null) return;
+
+        try {
+          final file = File(imagePathKey);
+          if (!file.existsSync()) {
+            _imageSizeCache.remove(imagePathKey);
+            needsCompute.add(imagePath);
+            return;
+          }
+          final stat = await file.stat();
+          if (stat.size != imageSizeInfo.fileSize ||
+              stat.modified.millisecondsSinceEpoch !=
+                  imageSizeInfo.lastModifiedTime) {
+            _imageSizeCache.remove(imagePathKey);
+            needsCompute.add(imagePath);
+          }
+        } catch (e) {
+          _imageSizeCache.remove(imagePathKey);
+          needsCompute.add(imagePath);
+        }
+      }));
+    }
   }
 
   const batchSize = 20;
@@ -48,7 +89,8 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
         : i + batchSize;
     final list = needsCompute.sublist(i, end).toList();
     // 使用共享计算资源并行计算图片尺寸
-    final result = await workerManager.execute<Map<String, ImageSizeInfo>>(() => _loadImageSizes(list));
+    final result = await workerManager
+        .execute<Map<String, ImageSizeInfo>>(() => _loadImageSizes(list));
     // 更新缓存并合并结果
     for (var imagePath in result.keys) {
       final imagePathKey = _adjustImagePath(imagePath);
