@@ -513,6 +513,8 @@ class CachingFile{
 
   final File file;
 
+  File get _tmpFile => File("${file.path}.tmp");
+
   final List<int> _buffer = [];
 
   String? fileType;
@@ -520,14 +522,18 @@ class CachingFile{
   Future<void> writeBytes(List<int> data) async{
     _buffer.addAll(data);
     if(_buffer.length > 1024 * 1024){
-      await file.writeAsBytes(_buffer, mode: FileMode.append);
+      await _tmpFile.writeAsBytes(_buffer, mode: FileMode.append);
       _buffer.clear();
     }
   }
 
   Future<void> close() async{
     if(_buffer.isNotEmpty){
-      await file.writeAsBytes(_buffer, mode: FileMode.append);
+      await _tmpFile.writeAsBytes(_buffer, mode: FileMode.append);
+    }
+
+    if(await _tmpFile.exists()){
+      await _tmpFile.rename(file.path);
     }
 
     final expires = DateTime.now().add(kDefaultCacheExpireDuration).millisecondsSinceEpoch;
@@ -545,11 +551,15 @@ class CachingFile{
   }
 
   Future<void> cancel() async{
+    await _tmpFile.deleteIgnoreError();
     await file.deleteIgnoreError();
   }
 
   void reset() {
     _buffer.clear();
+    if(_tmpFile.existsSync()) {
+      _tmpFile.deleteSync();
+    }
     if(file.existsSync()) {
       file.deleteSync();
     }

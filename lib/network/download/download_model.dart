@@ -722,11 +722,13 @@ class _ImageDownloadWrapper {
           if (progress.finished) {
             var data = progress.data ?? await progress.getFile().readAsBytes();
             var type = detectFileType(data);
-            var file = File("$path/$fileBaseName${type.ext}");
-            if (!await file.exists()) {
-              await file.create(recursive: true);
+            var finalFile = File("$path/$fileBaseName${type.ext}");
+            var tmpFile = File("${finalFile.path}.tmp");
+            if (!await tmpFile.parent.exists()) {
+              await tmpFile.parent.create(recursive: true);
             }
-            await file.writeAsBytes(data);
+            await tmpFile.writeAsBytes(data);
+            await tmpFile.rename(finalFile.path);
             isFinished = true;
             final cachingFile = progress.cachingFile;
             if (cachingFile != null) {
