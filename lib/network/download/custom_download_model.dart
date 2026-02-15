@@ -97,13 +97,13 @@ class CustomDownloadingTask extends DownloadingTask {
   CustomDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
       super.whenError, super.updateInfo, super.id,
       {super.type = DownloadType.other})
-      : source = ComicSource.find(comic.sourceKey)!;
+      : source = ComicSource.find(comic.sourceKey);
 
   final ComicInfoData comic;
 
   final List<int> _downloadEps;
 
-  late final ComicSource source;
+  final ComicSource? source;
 
   @override
   String get cover => comic.cover;
@@ -112,9 +112,9 @@ class CustomDownloadingTask extends DownloadingTask {
   bool get haveEps => comic.chapters != null;
 
   Stream<DownloadProgress> _getImage(String url) {
-    if (source.getImageLoadingConfig != null) {
-      int ep = links!.keys.elementAt(downloadingEp);
-      var config = source.getImageLoadingConfig!(url, comic.comicId,
+    if (source?.getImageLoadingConfig != null) {
+      int ep = (links?.keys.length ?? 0) > downloadingEp ? links!.keys.elementAt(downloadingEp) : 0;
+      var config = source!.getImageLoadingConfig!(url, comic.comicId,
           comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId);
       return ImageManager()
           .getImage(config["url"] ?? url, Map.from(config['headers'] ?? {}));
@@ -134,9 +134,9 @@ class CustomDownloadingTask extends DownloadingTask {
 
     while (retry < 3) {
       try {
-        links[i + 1] = (await source.loadComicPages!(
+        links[i + 1] = (await source?.loadComicPages?.call(
                 comic.comicId, comic.chapters!.keys.elementAt(i)))
-            .data;
+            ?.data ?? [];
         return;
       } catch (e) {
         await Future.delayed(const Duration(seconds: 3));
@@ -162,8 +162,8 @@ class CustomDownloadingTask extends DownloadingTask {
       }
       await Future.wait(futures);
     } else {
-      var res = await source.loadComicPages!(comic.comicId, null);
-      links[0] = res.data;
+      var res = await source?.loadComicPages?.call(comic.comicId, null);
+      links[0] = res?.data ?? [];
     }
     return links;
   }
@@ -186,9 +186,8 @@ class CustomDownloadingTask extends DownloadingTask {
       String id)
       : comic = ComicInfoData.fromJson(map["comic"]),
         _downloadEps = List<int>.from(map["_downloadEps"]),
-        super.fromMap(map, whenFinish, whenError, updateInfo) {
-    source = ComicSource.find(comic.sourceKey)!;
-  }
+        source = ComicSource.find(ComicInfoData.fromJson(map["comic"]).sourceKey),
+        super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   String getEpisodeName(int episodeIndex) {
@@ -223,7 +222,7 @@ class CustomDownloadingTask extends DownloadingTask {
       comic.subTitle ?? "",
       tags,
       comic.sourceKey,
-      source.name,
+      source?.name ?? "Unknown",
       comic.cover,
       comic.comicId,
     );

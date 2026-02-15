@@ -16,6 +16,7 @@ abstract class BaseComic {
   const BaseComic();
 }
 
+@Deprecated("Custom comic source is no longer supported.")
 class CustomComic extends BaseComic {
   @override
   final String title;

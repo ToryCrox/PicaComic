@@ -74,6 +74,7 @@ extension LocalFavoritesExt on FavoriteItem {
       coverPath = res.data.cover;
     } else {
       var comicSource = type.comicSource;
+      if (comicSource == null) return false;
       var res = await comicSource.loadComicInfo!(target);
       if (res.error) return false;
       name = res.data.title;
@@ -434,9 +435,13 @@ class LocalFavoriteTile extends ComicTile {
   BuildContext get context => App.mainNavigatorKey!.currentContext!;
 
   void showInfo() {
+    if (comic.type.comicSource == null) {
+      showToast(message: "漫画源已移除".tl);
+      return;
+    }
     context.to(
       () => ComicPage(
-          sourceKey: comic.type.comicSource.key,
+          sourceKey: comic.type.comicSource!.key,
           id: comic.target,
           cover: comic.coverPath),
     );
@@ -778,7 +783,12 @@ class LocalFavoriteTile extends ComicTile {
         }
       default:
         {
-          var res = await comic.type.comicSource.loadComicInfo!(comic.target);
+          if (comic.type.comicSource == null) {
+            showToast(message: "漫画源已移除".tl);
+            controller.close();
+            return;
+          }
+          var res = await comic.type.comicSource!.loadComicInfo!(comic.target);
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -1196,7 +1206,12 @@ Future<void> checkFolder(String name) async {
             available = false;
           }
         default:
-          var res = await comic.type.comicSource.loadComicInfo!(comic.target);
+          var source = comic.type.comicSource;
+          if (source == null) {
+            available = false;
+            break;
+          }
+          var res = await source.loadComicInfo!(comic.target);
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {

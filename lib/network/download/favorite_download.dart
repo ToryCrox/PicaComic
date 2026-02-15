@@ -35,6 +35,7 @@ class FavoriteDownloadingTask extends DownloadingTask{
 
   @override
   Future<void> onStart() async{
+    await super.onStart();
     try {
       switch(comic.type.key){
         case 0: {
@@ -72,6 +73,7 @@ class FavoriteDownloadingTask extends DownloadingTask{
         }
         default: {
           var comicSource = comic.type.comicSource;
+          if (comicSource == null) throw "Comic source not found";
           var comicInfoData = await comicSource.loadComicInfo!(comic.target);
           var downloadedEp = List.generate(comicInfoData.data.chapters?.length ?? 0, (index) => index);
           downloadLogic = CustomDownloadingTask(comicInfoData.data, downloadedEp,

@@ -797,8 +797,7 @@ DownloadingTask downloadingItemFromMap(
       return NhentaiDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
     case 6:
-      return CustomDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+      throw "Custom downloading task is no longer supported";
     case 7:
       return FavoriteDownloadingTask.fromMap(
           map, whenFinish, whenError, updateInfo, map["id"]);
@@ -919,11 +918,9 @@ extension AddDownloadExt on DownloadManager {
     _addDownloadTask(task);
   }
 
+  @Deprecated("Custom download is no longer supported.")
   void addCustomDownload(ComicInfoData comic, List<int> downloadEps) {
-    var id = generateId(comic.sourceKey, comic.comicId);
-    final task = CustomDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, id);
-    _addDownloadTask(task);
+    throw "Custom download is no longer supported";
   }
 
   void addFavoriteDownload(FavoriteItem comic) {
@@ -934,7 +931,7 @@ extension AddDownloadExt on DownloadManager {
       3 => "hitomi${RegExp(r"\d+(?=\.html)").firstMatch(comic.target)![0]!}",
       4 => "Ht${comic.target}",
       6 => "nhentai${comic.target}",
-      _ => generateId(comic.type.comicSource.key, comic.target)
+      _ => comic.type.comicSource == null ? throw "Comic Source Not Found" : generateId(comic.type.comicSource!.key, comic.target)
     };
     final task =
         FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);

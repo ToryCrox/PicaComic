@@ -9,12 +9,10 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/update.dart';
-import 'package:pica_comic/tools/extensions.dart';
+import '../foundation/history.dart';
+import '../foundation/log.dart';
+import '../tools/extensions.dart';
 import '../base.dart';
-import '../foundation/js_engine.dart';
 import '../network/base_comic.dart';
 import '../network/res.dart';
 import 'built_in/ehentai.dart';
@@ -28,8 +26,6 @@ import 'built_in/picacg.dart';
 part 'category.dart';
 
 part 'favorites.dart';
-
-part 'parser.dart';
 
 /// build comic list, [Res.subData] should be maxPage or null if there is no limit.
 typedef ComicListBuilder = Future<Res<List<BaseComic>>> Function(int page);
@@ -74,27 +70,10 @@ class ComicSource {
         s.initData?.call(s);
       }
     }
-    final path = "${App.dataPath}/comic_source";
-    if (!(await Directory(path).exists())) {
-      Directory(path).create();
-      return;
-    }
-    await for (var entity in Directory(path).list()) {
-      if (entity is File && entity.path.endsWith(".js")) {
-        try {
-          var source = await ComicSourceParser()
-              .parse(await entity.readAsString(), entity.absolute.path);
-          sources.add(source);
-        } catch (e, s) {
-          Log.e("ComicSource $e\n$s");
-        }
-      }
-    }
   }
 
   static Future reload() async {
     sources.clear();
-    JsEngine().runCode("ComicSource.sources = {};");
     await init();
   }
 

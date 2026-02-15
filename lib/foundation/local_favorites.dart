@@ -71,14 +71,13 @@ final class FavoriteType {
     return ComicType.other;
   }
 
-  ComicSource get comicSource {
+  ComicSource? get comicSource {
     if (key <= 6) {
       var key = comicType.name.toLowerCase();
-      return ComicSource.find(key)!;
+      return ComicSource.find(key);
     }
     return ComicSource.sources
-            .firstWhereOrNull((element) => element.intKey == key) ??
-        (throw "Comic Source Not Found");
+        .firstWhereOrNull((element) => element.intKey == key);
   }
 
   String get name {
@@ -86,7 +85,7 @@ final class FavoriteType {
       return comicType.name;
     } else {
       try {
-        return comicSource.name;
+        return comicSource?.name ?? "**Unknown**";
       } catch (e) {
         return "**Unknown**";
       }
@@ -131,7 +130,7 @@ class FavoriteItem {
             : target,
         ComicType.htManga => "ht$target",
         ComicType.nhentai => "nhentai$target",
-        _ => downloadManager.generateId(type.comicSource.key, target)
+        _ => type.comicSource == null ? target : downloadManager.generateId(type.comicSource!.key, target)
       };
     } catch (e) {
       return "**Invalid ID**";

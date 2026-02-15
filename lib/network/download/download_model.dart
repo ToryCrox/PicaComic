@@ -836,7 +836,10 @@ class LocalDownloadedItem extends DownloadedItem {
     required this.tags,
     required this.repositoryName,
     this.coverImagePath,
-  });
+    DownloadColorTag? color,
+  }) {
+    this.color = color;
+  }
 
   @override
   Map<String, dynamic> toJson() => {
@@ -848,6 +851,7 @@ class LocalDownloadedItem extends DownloadedItem {
         "tags": tags,
         "repositoryName": repositoryName,
         "coverImagePath": coverImagePath,
+        "color": color?.name,
       };
 
   LocalDownloadedItem.fromJson(Map<String, dynamic> json)
@@ -858,7 +862,9 @@ class LocalDownloadedItem extends DownloadedItem {
         subTitle = json["subTitle"] ?? "",
         tags = List<String>.from(json["tags"] ?? []),
         repositoryName = json["repositoryName"],
-        coverImagePath = json["coverImagePath"];
+        coverImagePath = json["coverImagePath"] {
+    color = DownloadColorTag.fromString(json["color"]);
+  }
 
   @override
   String get directoryPath {
