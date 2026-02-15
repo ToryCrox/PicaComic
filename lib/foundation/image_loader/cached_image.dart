@@ -38,7 +38,7 @@ class CachedImageProvider
 
     var stream = sourceKey == null 
       ? manager.getImage(url, headers)
-      : manager.getCustomThumbnail(url, sourceKey!);
+      : manager.getCustomThumbnail(url, sourceKey!, headers);
     await for (var progress in stream) {
       if (progress.currentBytes == progress.expectedBytes) {
         finishProgress = progress;
