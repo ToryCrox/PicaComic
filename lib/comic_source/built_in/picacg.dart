@@ -6,7 +6,6 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/network/res.dart';
@@ -54,7 +53,7 @@ final picacg = ComicSource.named(
   ),
   account: AccountConfig.named(
     login: (account, pwd) async {
-      var picacg = ComicSource.find('picacg')!;
+      var picacg = ComicSource.find(ComicType.picacg.name)!;
       var res = await network.login(account, pwd);
       if (res.error) {
         return Res.fromErrorRes(res);
@@ -72,7 +71,7 @@ final picacg = ComicSource.named(
       return const Res(true);
     },
     logout: () {
-      var picacg = ComicSource.find('picacg')!;
+      var picacg = ComicSource.find(ComicType.picacg.name)!;
       picacg.data['user'] = null;
       picacg.data['token'] = null;
       picacg.saveData();
@@ -214,14 +213,15 @@ class _PicComicTile extends ComicTile {
   List<String>? get tags => comic.tags;
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          comic.path,
-        ),
+  Widget get image => PicaImage(
+        url: comic.path,
+        headers: {
+          "sourceKey": ComicType.picacg.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override

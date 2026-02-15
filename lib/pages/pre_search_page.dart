@@ -392,7 +392,7 @@ class PreSearchPage extends StatelessWidget {
                 controller.text.replaceLast(words[words.length - 1], "");
           }
           if (text.contains(" ")) {
-            if (logic.target == '3' &&
+            if (logic.target == ComicType.jm &&
                 ["male", "female", "language"].contains(type?.name)) {
               text = text.replaceAll(" ", '_');
               text = "${type?.name}:$text";
@@ -400,7 +400,7 @@ class PreSearchPage extends StatelessWidget {
               text = "\"$text\"";
             }
           }
-          if (logic.target == '1') {
+          if (logic.target == ComicType.ehentai) {
             if (type != null) {
               controller.text += "${type.name}:$text ";
             } else {
@@ -724,6 +724,7 @@ class PreSearchPage extends StatelessWidget {
             "hitomi" => ComicType.hitomi,
             "HtComic" => ComicType.htmanga,
             "Nhentai" => ComicType.nhentai,
+            "kemono" => ComicType.kemono,
             _ => ComicType.fromString(tag.split(':').first)
           };
           final keyword = tag.substring(tag.indexOf(':') + 1);

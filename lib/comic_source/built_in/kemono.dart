@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/foundation/def.dart';
@@ -176,7 +175,7 @@ final kemono = ComicSource.named(
       null,
       0,
       null,
-      'kemono',
+      ComicType.kemono.name,
       id,
     ));
   },
@@ -260,15 +259,16 @@ class _KemonoPostTile extends ComicTile {
   }
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          post.cover,
-          headers: KemonoNetwork.getImageHeaders(),
-        ),
+  Widget get image => PicaImage(
+        url: post.cover,
+        headers: {
+          ...KemonoNetwork.getImageHeaders(),
+          "sourceKey": ComicType.kemono.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override
@@ -331,15 +331,16 @@ class _KemonoCreatorTile extends ComicTile {
   }
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          creator.cover,
-          headers: KemonoNetwork.getImageHeaders(),
-        ),
+  Widget get image => PicaImage(
+        url: creator.cover,
+        headers: {
+          ...KemonoNetwork.getImageHeaders(),
+          "sourceKey": ComicType.kemono.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override

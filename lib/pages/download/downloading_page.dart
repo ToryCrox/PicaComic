@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -252,9 +251,13 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                   color: context.colorScheme.secondaryContainer,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: AnimatedImage(
-                  image: CachedImageProvider(comic.cover,
-                      headers: {"User-Agent": webUA}),
+                child: PicaImage(
+                  url: comic.cover,
+                  headers: {
+                    "User-Agent": webUA,
+                    "sourceKey": comic.type.toComicType().name,
+                    "isThumbnail": "true",
+                  },
                   width: 84,
                   height: double.infinity,
                   fit: BoxFit.cover,

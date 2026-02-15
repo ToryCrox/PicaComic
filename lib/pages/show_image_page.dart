@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/tools/save_image.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -18,7 +18,7 @@ class ShowImagePage extends StatelessWidget {
       ),
       body: PhotoView(
         minScale: PhotoViewComputedScale.contained * 0.9,
-        imageProvider: CachedImageProvider(url),
+        imageProvider: CachedNetworkImageProvider(url, cacheManager: picaImageManager),
         loadingBuilder: (context, event) {
           return Container(
             decoration: const BoxDecoration(color: Colors.black),
@@ -50,9 +50,9 @@ class ShowImagePageWithHero extends StatelessWidget {
             child: IconButton(
               icon: const Icon(Icons.download),
               onPressed: () async{
-                var file = await ImageManager().getFile(url);
+                var file = await picaImageManager.getFileFromCache(url);
                 if(file != null){
-                  saveImage(file);
+                  saveImage(file.file);
                 }
               }
           ))
@@ -62,7 +62,7 @@ class ShowImagePageWithHero extends StatelessWidget {
         tag: tag,
         child: PhotoView(
           minScale: PhotoViewComputedScale.contained * 0.9,
-          imageProvider: CachedImageProvider(url),
+          imageProvider: CachedNetworkImageProvider(url, cacheManager: picaImageManager),
           loadingBuilder: (context, event) {
             return Container(
               decoration: const BoxDecoration(color: Colors.black),

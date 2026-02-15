@@ -1,5 +1,6 @@
 part of 'components.dart';
 
+
 class Avatar extends StatelessWidget {
   const Avatar(
       {Key? key,
@@ -57,19 +58,16 @@ class Avatar extends StatelessWidget {
                         image: AssetImage("images/avatar_small.png"),
                         fit: BoxFit.cover,
                       )
-                    : AnimatedImage(
-                        image: CachedImageProvider(avatarUrl,
-                            headers: {"User-Agent": webUA}),
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.medium),
+                    : PicaImage(
+                        url: avatarUrl,
+                        headers: {"User-Agent": webUA},
+                        fit: BoxFit.cover),
               ),
             ),
             if (frame != null && appdata.settings[5] == "1")
               Positioned(
-                child: Image(
-                  image: CachedImageProvider(
-                    frame!,
-                  ),
+                child: PicaImage(
+                  url: frame!,
                 ),
               ),
           ],

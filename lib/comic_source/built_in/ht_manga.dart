@@ -4,7 +4,6 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
@@ -138,7 +137,7 @@ final htManga = ComicSource.named(
   account: AccountConfig.named(
     registerWebsite: "https://www.wnacg.com/albums.html",
     login: (account, pwd) async {
-      var htManga = ComicSource.find('htmanga')!;
+      var htManga = ComicSource.find(ComicType.htmanga.name)!;
       var res = await HtmangaNetwork().login(account, pwd);
       if (!res.error) {
         htManga.data['name'] = account;
@@ -148,7 +147,7 @@ final htManga = ComicSource.named(
       return res;
     },
     logout: () {
-      ComicSource.find('htmanga')!.data['name'] = null;
+      ComicSource.find(ComicType.htmanga.name)!.data['name'] = null;
       HtmangaNetwork().logout();
     },
   ),
@@ -220,17 +219,16 @@ class _HtComicTile extends ComicTile {
   String get description => comic.time.trim();
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          comic.image,
-          headers: {
-            "User-Agent": webUA,
-          },
-        ),
+  Widget get image => PicaImage(
+        url: comic.image,
+        headers: {
+          "User-Agent": webUA,
+          "sourceKey": ComicType.htmanga.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override

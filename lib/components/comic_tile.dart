@@ -947,12 +947,13 @@ class NormalComicTile extends ComicTile {
   Widget? get badge => badgeName != null ? Text(badgeName!) : null;
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          coverPath,
-          headers: headers,
-          sourceKey: _comicType?.name,
-        ),
+  Widget get image => PicaImage(
+        url: coverPath,
+        headers: {
+          if (headers != null) ...headers!,
+          if (_comicType?.name != null) 'sourceKey': _comicType!.name,
+          'isThumbnail': 'true',
+        },
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -1114,11 +1115,12 @@ class CustomComicTile extends ComicTile {
   String get description => comic.description;
 
   @override
-  Widget get image => AnimatedImage(
-        image: StreamImageProvider(
-            () =>
-                ImageManager().getCustomThumbnail(comic.cover, comic.sourceKey),
-            comic.id),
+  Widget get image => PicaImage(
+        url: comic.cover,
+        headers: {
+          'sourceKey': comic.sourceKey,
+          'isThumbnail': 'true',
+        },
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,

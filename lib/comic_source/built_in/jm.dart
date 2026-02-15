@@ -7,7 +7,6 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
@@ -293,15 +292,16 @@ class _JmComicTile extends ComicTile {
   String get description => "JM${comic.id}";
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          getJmCoverUrl(comic.id),
-          headers: getImgHeaders(),
-        ),
+  Widget get image => PicaImage(
+        url: getJmCoverUrl(comic.id),
+        headers: {
+          ...getImgHeaders(),
+          "sourceKey": ComicType.jm.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override

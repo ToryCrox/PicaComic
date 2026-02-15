@@ -19,6 +19,8 @@ enum ComicType {
   nhentai,
   /// Kemono
   kemono,
+  /// 本地漫画
+  local,
   /// 其他
   other;
 

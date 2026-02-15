@@ -25,7 +25,7 @@ class _NhSettingsState extends State<NhSettings> {
       showConfirmDialog(App.globalContext!, title, msg, () async {
         NhentaiNetwork().logged = false;
         await cookieJar.deleteUri(Uri.parse(baseUrl));
-        var source = ComicSource.find('nhentai')!;
+        var source = ComicSource.find(ComicType.nhentai.name)!;
         source.data["account"] = null;
         source.saveData();
       });

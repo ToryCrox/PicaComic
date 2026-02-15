@@ -4,7 +4,8 @@ import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/res.dart';
@@ -221,7 +222,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
       color: context.colorScheme.surfaceContainerHighest,
       key: ValueKey('$imageUrl#$index'),
       child: EhThumbnailLoader(
-        image: CachedImageProvider(imageUrl),
+        image: CachedNetworkImageProvider(imageUrl, cacheManager: picaImageManager, headers: headers),
         pageSize: data!.pageSize,
         width: data!.width,
         index: index,

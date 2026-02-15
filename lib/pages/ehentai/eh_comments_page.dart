@@ -5,7 +5,8 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/tools/app_links.dart';
@@ -427,7 +428,7 @@ class _EhComment extends StatelessWidget {
           widgets.add(Text.rich(TextSpan(children: spans)));
           spans = [];
           Widget widget = Image(
-            image: CachedImageProvider(node.attributes['src']!),
+          image: CachedNetworkImageProvider(node.attributes['src']!, cacheManager: picaImageManager),
           );
           if (recognizer != null) {
             widget = MouseRegion(

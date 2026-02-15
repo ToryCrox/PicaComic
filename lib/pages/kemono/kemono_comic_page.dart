@@ -18,7 +18,8 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 
 
@@ -82,9 +83,10 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   @override
   Widget thumbnailImageBuilder(int index, String url) {
     return Image(
-      image: CachedImageProvider(
+      image: CachedNetworkImageProvider(
         url,
         headers: KemonoNetwork.getImageHeaders(),
+        cacheManager: picaImageManager,
       ),
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => const Center(

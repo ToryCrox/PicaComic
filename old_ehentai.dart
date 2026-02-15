@@ -6,6 +6,7 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
@@ -24,7 +25,7 @@ import '../comic_source.dart';
 
 final ehentai = ComicSource.named(
   name: 'ehentai',
-  key: ComicType.ehentai,
+  key: 'ehentai',
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "ehentai",
@@ -149,14 +150,14 @@ final ehentai = ComicSource.named(
       if(!cookies.any((e) => e.name == 'ipb_member_id')) {
         return;
       }
-      var ehentai = ComicSource.find(ComicType.ehentai)!;
+      var ehentai = ComicSource.find('ehentai')!;
       if (ehentai.data['name'] != null) {
         ehentai.data['account'] = 'ok';
       }
       ehentai.saveData();
     },
     logout: () async {
-      var ehentai = ComicSource.find(ComicType.ehentai)!;
+      var ehentai = ComicSource.find('ehentai')!;
       await EhNetwork().cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
       await EhNetwork().cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
       ehentai.data['name'] = '';
@@ -164,7 +165,7 @@ final ehentai = ComicSource.named(
     infoItems: [
       AccountInfoItem(
         title: "用户名",
-        data: () => ComicSource.find(ComicType.ehentai)!.data['name'] ?? '',
+        data: () => ComicSource.find('ehentai')!.data['name'] ?? '',
       ),
       AccountInfoItem(
         title: "",
@@ -238,13 +239,6 @@ final ehentai = ComicSource.named(
   ),
   comicPageBuilder: (context, id, cover) {
     return EhGalleryPage.fromLink(id, comicCover: cover);
-  },
-  getThumbnailLoadingConfig: (url) => {
-    "headers": {
-      "Cookie": EhNetwork().cookiesStr,
-      "User-Agent": webUA,
-      "Referer": EhNetwork().ehBaseUrl,
-    }
   },
 );
 
@@ -342,15 +336,15 @@ class _EhGalleryTile extends ComicTile {
       }.call();
 
   @override
-  Widget get image => PicaImage(
-        url: gallery.coverPath,
-        headers: {
-          "Cookie": EhNetwork().cookiesStr,
-          "User-Agent": webUA,
-          "Referer": EhNetwork().ehBaseUrl,
-          "sourceKey": ComicType.ehentai.name,
-          "isThumbnail": "true",
-        },
+  Widget get image => AnimatedImage(
+        image: CachedImageProvider(
+          gallery.coverPath,
+          headers: {
+            "Cookie": EhNetwork().cookiesStr,
+            "User-Agent": webUA,
+            "Referer": EhNetwork().ehBaseUrl,
+          },
+        ),
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
@@ -360,7 +354,7 @@ class _EhGalleryTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        comicType: ComicType.ehentai,
+        sourceKey: 'ehentai',
         id: gallery.link,
         cover: gallery.cover,
       ),
@@ -415,7 +409,7 @@ class _EhGalleryTile extends ComicTile {
   String get comicID => gallery.link;
 
   @override
-  ComicType? get comicType => ComicType.ehentai;
+  String? get sourceKey => 'ehentai';
 
   @override
   Future<void> Function()? get onDownloadTap => () async {

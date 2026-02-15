@@ -44,6 +44,7 @@ dependencies:
   file_selector: ^1.0.1
   image_picker: ^1.0.2
   flutter_cache_manager: ^3.4.1
+  cached_network_image: ^3.4.1
   # 添加锁
   synchronized: ^3.1.0
   logger: ^2.0.1

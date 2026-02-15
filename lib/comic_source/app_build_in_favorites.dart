@@ -7,7 +7,7 @@ import 'package:pica_comic/network/res.dart';
 import 'comic_source.dart';
 
 final picacgFavorites = FavoriteData(
-    key: "picacg",
+    key: ComicType.picacg.name,
     title: "Picacg",
     multiFolder: false,
     loadComic: (i, [folder]) => PicacgNetwork().getFavorites(i, appdata.settings[30]=="1"),
@@ -20,7 +20,7 @@ final picacgFavorites = FavoriteData(
 
 /// eh较为特殊, 写统一接口有点麻烦, 不要使用这个进行构建页面
 final ehFavorites = FavoriteData(
-    key: "ehentai",
+    key: ComicType.ehentai.name,
     title: "ehentai",
     multiFolder: true,
     loadComic: (i, [folder]) => throw UnimplementedError(),
@@ -28,7 +28,7 @@ final ehFavorites = FavoriteData(
 );
 
 final jmFavorites = FavoriteData(
-    key: "jm",
+    key: ComicType.jm.name,
     title: "禁漫天堂",
     multiFolder: true,
     loadComic: (i, [folder]) => JmNetwork().getFolderComicsPage(folder!, i),
@@ -44,7 +44,7 @@ final jmFavorites = FavoriteData(
 );
 
 final htFavorites = FavoriteData(
-    key: "htmanga",
+    key: ComicType.htmanga.name,
     title: "绅士漫画",
     multiFolder: true,
     loadComic: (i, [folder]) => HtmangaNetwork().getFavoriteFolderComics(folder!, i),
@@ -66,7 +66,7 @@ final htFavorites = FavoriteData(
 );
 
 final nhentaiFavorites = FavoriteData(
-    key: "nhentai",
+    key: ComicType.nhentai.name,
     title: "nhentai",
     multiFolder: false,
     loadComic: (i, [folder]) => NhentaiNetwork().getFavorites(i),

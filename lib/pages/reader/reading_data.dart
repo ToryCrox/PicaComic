@@ -318,7 +318,7 @@ class HtReadingData extends ReadingData {
   bool get hasEp => false;
 
   @override
-  String get sourceKey => "htManga";
+  String get sourceKey => type.name;
 
   @override
   ComicType get type => ComicType.htmanga;
@@ -471,10 +471,10 @@ class LocalReadingData extends ReadingData {
   bool get hasEp => eps != null;
 
   @override
-  String get sourceKey => "localComic";
+  String get sourceKey => type.name;
 
   @override
-  ComicType get type => ComicType.other;
+  ComicType get type => ComicType.local;
 
   @override
   String get downloadId => _title;

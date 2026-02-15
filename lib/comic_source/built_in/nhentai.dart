@@ -8,7 +8,6 @@ import 'package:pica_comic/network/nhentai_network/tags.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -91,7 +90,7 @@ final nhentai = ComicSource.named(
     logout: () {
       NhentaiNetwork().logged = false;
       NhentaiNetwork().logout();
-      var source = ComicSource.find('nhentai')!;
+      var source = ComicSource.find(ComicType.nhentai.name)!;
       source.data["account"] = null;
       source.saveData();
     },
@@ -165,17 +164,16 @@ class _NhentaiComicTile extends ComicTile {
   String get description => comic.lang;
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          comic.cover,
-          headers: {
-            "User-Agent": webUA,
-          },
-        ),
+  Widget get image => PicaImage(
+        url: comic.cover,
+        headers: {
+          "User-Agent": webUA,
+          "sourceKey": ComicType.nhentai.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
-        filterQuality: FilterQuality.medium,
       );
 
   @override

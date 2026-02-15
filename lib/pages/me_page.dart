@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'accounts_page.dart';
 import 'package:pica_comic/pages/download/download_page.dart';
@@ -158,15 +157,16 @@ class _MePageState extends State<MePage> {
                               Theme.of(context).colorScheme.secondaryContainer,
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: AnimatedImage(
-                          image: CachedImageProvider(
-                            history[index].cover,
-                            sourceKey: history[index].type.comicSource?.key.name,
-                          ),
+                        child: PicaImage(
+                          url: history[index].cover,
+                          headers: {
+                            if (history[index].type.comicSource?.key.name != null)
+                              'sourceKey': history[index].type.comicSource!.key.name,
+                            'isThumbnail': 'true',
+                          },
                           width: 96,
                           height: 128,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.medium,
                         ),
                       ),
                     );

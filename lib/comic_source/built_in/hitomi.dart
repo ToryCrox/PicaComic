@@ -4,7 +4,6 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
@@ -106,11 +105,14 @@ class _HiComicTile extends ComicTile {
       }.call();
 
   @override
-  Widget get image => AnimatedImage(
-        image: CachedImageProvider(
-          comic.cover,
-          headers: {"User-Agent": webUA, "Referer": "https://hitomi.la/"},
-        ),
+  Widget get image => PicaImage(
+        url: comic.cover,
+        headers: {
+          "User-Agent": webUA,
+          "Referer": "https://hitomi.la/",
+          "sourceKey": ComicType.hitomi.name,
+          "isThumbnail": "true",
+        },
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,

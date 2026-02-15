@@ -10,9 +10,7 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/cached_image.dart';
-import 'package:pica_comic/foundation/image_loader/stream_image_provider.dart';
-import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/stack.dart' as stack;
@@ -26,6 +24,7 @@ import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'image_favorites.dart';
 import 'show_image_page.dart';
@@ -249,12 +248,13 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   Widget thumbnailImageBuilder(int index, String imageUrl) {
-    return Image(
-      image: StreamImageProvider(
-          () => ImageManager().getCustomThumbnail(imageUrl, comicType.name),
-          imageUrl),
+    return PicaImage(
+      url: imageUrl,
+      headers: {
+        "sourceKey": comicType.name,
+        "isThumbnail": "true",
+      },
       fit: BoxFit.contain,
-      errorBuilder: (context, s, d) => const Icon(Icons.error),
     );
   }
 
@@ -447,14 +447,12 @@ class _CommentsPageState extends State<_CommentsPage> {
                               color: Theme.of(context)
                                   .colorScheme
                                   .secondaryContainer),
-                          child: AnimatedImage(
-                            image: StreamImageProvider(
-                              () => ImageManager().getCustomThumbnail(
-                                _comments![index].avatar!,
-                                widget.data.sourceKey,
-                              ),
-                              _comments![index].avatar!,
-                            ),
+                          child: PicaImage(
+                            url: _comments![index].avatar!,
+                            headers: {
+                              "sourceKey": widget.data.sourceKey,
+                              "isThumbnail": "true",
+                            },
                           ),
                         ),
                   avatarUrl: null,
@@ -1108,8 +1106,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     if (headers["host"] == null && headers["Host"] == null) {
       headers["host"] = Uri.parse(cover!).host;
     }
-    ImageProvider image = StreamImageProvider(
-        () => ImageManager().getCustomThumbnail(cover!, comicType.name), cover!);
+    ImageProvider image = CachedNetworkImageProvider(cover!, cacheManager: picaImageManager, headers: {
+      "sourceKey": comicType.name,
+      "isThumbnail": "true",
+    });
     return GestureDetector(
       child: Container(
         width: width,
@@ -1862,8 +1862,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   Widget _thumbnailImageBuilder(int index) {
     return Image(
-      image:
-          CachedImageProvider(thumbnails!.thumbnails[index], headers: headers),
+      image: CachedNetworkImageProvider(thumbnails!.thumbnails[index], cacheManager: picaImageManager, headers: headers),
       fit: BoxFit.contain,
       errorBuilder: (context, s, d) => const Icon(Icons.error),
     );
