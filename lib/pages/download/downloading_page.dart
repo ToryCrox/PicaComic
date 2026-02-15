@@ -253,11 +253,8 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                 clipBehavior: Clip.antiAlias,
                 child: PicaImage(
                   url: comic.cover,
-                  headers: {
-                    "User-Agent": webUA,
-                    "sourceKey": comic.type.toComicType().name,
-                    "isThumbnail": "true",
-                  },
+                  sourceKey: comic.type.toComicType().name,
+                  isThumbnail: true,
                   width: 84,
                   height: double.infinity,
                   fit: BoxFit.cover,

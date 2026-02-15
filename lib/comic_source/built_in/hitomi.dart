@@ -7,6 +7,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/hitomi/hitomi_comic_page.dart';
 import 'package:pica_comic/pages/hitomi/hitomi_home_page.dart';
@@ -41,9 +42,10 @@ final hitomi = ComicSource.named(
     return HitomiComicPage.fromLink(id, cover: cover);
   },
   getThumbnailLoadingConfig: (url) {
-    return {
-      "headers": {"User-Agent": webUA, "Referer": "https://hitomi.la/"},
-    };
+    return ImageConfig(
+      url: url,
+      headers: {"User-Agent": webUA, "Referer": "https://hitomi.la/"},
+    );
   },
 );
 
@@ -107,12 +109,8 @@ class _HiComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: comic.cover,
-        headers: {
-          "User-Agent": webUA,
-          "Referer": "https://hitomi.la/",
-          "sourceKey": ComicType.hitomi.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.hitomi.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,

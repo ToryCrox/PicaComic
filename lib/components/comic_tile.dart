@@ -949,11 +949,9 @@ class NormalComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: coverPath,
-        headers: {
-          if (headers != null) ...headers!,
-          if (_comicType?.name != null) 'sourceKey': _comicType!.name,
-          'isThumbnail': 'true',
-        },
+        sourceKey: _comicType?.name,
+        isThumbnail: true,
+        headers: headers,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -1117,10 +1115,8 @@ class CustomComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: comic.cover,
-        headers: {
-          'sourceKey': comic.sourceKey,
-          'isThumbnail': 'true',
-        },
+        sourceKey: comic.sourceKey,
+        isThumbnail: true,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,

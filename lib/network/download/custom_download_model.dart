@@ -8,6 +8,7 @@ import 'package:pica_comic/network/download/download_model.dart';
 import '../../tools/io_tools.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
+import 'package:pica_comic/network/image_config.dart';
 
 class CustomDownloadedItem extends DownloadedItem {
   @override
@@ -117,7 +118,7 @@ class CustomDownloadingTask extends DownloadingTask {
       var config = source!.getImageLoadingConfig!(url, comic.comicId,
           comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId);
       return ImageManager()
-          .getImage(config["url"] ?? url, Map.from(config['headers'] ?? {}));
+          .getImage(config?.url ?? url, Map.from(config?.headers ?? {}));
     }
     return ImageManager().getImage(url);
   }

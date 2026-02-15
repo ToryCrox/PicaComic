@@ -7,6 +7,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/kemono/kemono_comic_page.dart';
@@ -197,18 +198,22 @@ final kemono = ComicSource.named(
   },
 
   // 图片加载配置
-  getImageLoadingConfig: (imageKey, comicId, epId) {
-    return {
-      'headers': KemonoNetwork.getImageHeaders(),
-    };
-  },
+  getImageLoadingConfig: (url, comicId, epId) => ImageConfig(
+    url: url,
+    headers: {
+      "User-Agent": webUA,
+      "Referer": "https://kemono.su/",
+    },
+  ),
 
   // 缩略图加载配置
-  getThumbnailLoadingConfig: (imageKey) {
-    return {
-      'headers': KemonoNetwork.getImageHeaders(),
-    };
-  },
+  getThumbnailLoadingConfig: (url) => ImageConfig(
+    url: url,
+    headers: {
+      "User-Agent": webUA,
+      "Referer": "https://kemono.su/",
+    },
+  ),
 
   // ID匹配正则 (用于从URL识别ID)
   idMatcher: RegExp(r'^(patreon|fanbox|fantia|gumroad|subscribestar|dlsite)/user/\d+/post/\d+$'),
@@ -261,11 +266,8 @@ class _KemonoPostTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: post.cover,
-        headers: {
-          ...KemonoNetwork.getImageHeaders(),
-          "sourceKey": ComicType.kemono.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.kemono.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
@@ -333,11 +335,8 @@ class _KemonoCreatorTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: creator.cover,
-        headers: {
-          ...KemonoNetwork.getImageHeaders(),
-          "sourceKey": ComicType.kemono.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.kemono.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,

@@ -16,6 +16,7 @@ import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/file_type.dart';
 
@@ -789,10 +790,10 @@ class ImageManager {
         (throw "Unknown Comic Source $sourceKey");
 
     try {
-      Map<String, dynamic> config;
+      ImageConfig? config;
 
       if (source.getImageLoadingConfig == null) {
-        config = {};
+        config = null;
       } else {
         config = source.getImageLoadingConfig!(url, comicId, epId);
       }
@@ -800,11 +801,11 @@ class ImageManager {
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
 
-      var res = await dio.request<ResponseBody>(config['url'] ?? url,
-          data: config['data'],
+      var res = await dio.request<ResponseBody>(config?.url ?? url,
+          data: config?.data,
           options: Options(
-              method: config['method'] ?? 'GET',
-              headers: config['headers'] ?? {'user-agent': webUA},
+              method: config?.method ?? 'GET',
+              headers: config?.headers ?? {'user-agent': webUA},
               responseType: ResponseType.stream));
 
       List<int> imageData = [];
@@ -814,7 +815,7 @@ class ImageManager {
         expectedBytes = null;
       }
 
-      bool shouldModifyData = config['onResponse'] != null;
+      bool shouldModifyData = config?.onResponse != null;
 
       await for (var data in res.data!.stream) {
         if (!shouldModifyData) {
@@ -833,7 +834,7 @@ class ImageManager {
       Uint8List? result;
 
       if (shouldModifyData) {
-        var data = (config['onResponse']
+        var data = (config!.onResponse
             as JSInvokable)(Uint8List.fromList(imageData));
         imageData.clear();
         if (data is! Uint8List) {
@@ -911,24 +912,22 @@ class ImageManager {
         (throw "Unknown Comic Source $sourceKey");
 
     try {
-      Map<String, dynamic> config;
+      ImageConfig? config;
 
       if (source.getThumbnailLoadingConfig == null) {
-        config = {};
+        config = null;
       } else {
         config = source.getThumbnailLoadingConfig!(url);
       }
 
-      config['headers'] ??= headers;
-
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
 
-      var res = await dio.request<ResponseBody>(config['url'] ?? url,
-          data: config['data'],
+      var res = await dio.request<ResponseBody>(config?.url ?? url,
+          data: config?.data,
           options: Options(
-              method: config['method'] ?? 'GET',
-              headers: config['headers'] ?? {'user-agent': webUA},
+              method: config?.method ?? 'GET',
+              headers: config?.headers ?? headers ?? {'user-agent': webUA},
               responseType: ResponseType.stream));
 
       List<int> imageData = [];
@@ -938,7 +937,7 @@ class ImageManager {
         expectedBytes = null;
       }
 
-      bool shouldModifyData = config['onResponse'] != null;
+      bool shouldModifyData = config?.onResponse != null;
 
       await for (var data in res.data!.stream) {
         if (!shouldModifyData) {
@@ -953,7 +952,7 @@ class ImageManager {
       Uint8List? result;
 
       if (shouldModifyData) {
-        var data = (config['onResponse']
+        var data = (config!.onResponse
             as JSInvokable)(Uint8List.fromList(imageData));
         imageData.clear();
         if (data is! Uint8List) {

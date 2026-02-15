@@ -60,7 +60,6 @@ class Avatar extends StatelessWidget {
                       )
                     : PicaImage(
                         url: avatarUrl,
-                        headers: {"User-Agent": webUA},
                         fit: BoxFit.cover),
               ),
             ),

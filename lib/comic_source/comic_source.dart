@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'package:pica_comic/network/image_config.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
@@ -45,10 +46,10 @@ typedef CommentsLoader = Future<Res<List<Comment>>> Function(
 typedef SendCommentFunc = Future<Res<bool>> Function(
     String id, String? subId, String content, String? replyTo);
 
-typedef GetImageLoadingConfigFunc = Map<String, dynamic> Function(
-    String imageKey, String comicId, String epId)?;
-typedef GetThumbnailLoadingConfigFunc = Map<String, dynamic> Function(
-    String imageKey)?;
+typedef GetImageLoadingConfigFunc = ImageConfig? Function(
+    String imageKey, String comicId, String epId);
+typedef GetThumbnailLoadingConfigFunc = ImageConfig? Function(
+    String imageKey);
 
 class ComicSource {
   static final builtIn = [picacg, ehentai, jm, hitomi, htManga, nhentai, kemono];
@@ -118,10 +119,10 @@ class ComicSource {
   /// Load comic pages.
   final LoadComicPagesFunc? loadComicPages;
 
-  final Map<String, dynamic> Function(
-      String imageKey, String comicId, String epId)? getImageLoadingConfig;
+  final ImageConfig? Function(
+      String url, String comicId, String epId)? getImageLoadingConfig;
 
-  final Map<String, dynamic> Function(String imageKey)?
+  final ImageConfig? Function(String url)?
       getThumbnailLoadingConfig;
 
   final String? matchBriefIdReg;

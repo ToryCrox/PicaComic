@@ -5,8 +5,10 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:file/local.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'dart:typed_data';
 
 final PicaImageManager picaImageManager = PicaImageManager._();
@@ -66,31 +68,32 @@ class PicaHttpFileService extends FileService {
   static int _ehgtLoading = 0;
 
   @override
-  Future<FileServiceResponse> get(String url, {Map<String, String>? headers}) async {
+  Future<FileServiceResponse> get(String url,
+      {Map<String, String>? headers}) async {
     try {
       final sourceKey = headers?['sourceKey'];
-      Map<String, dynamic> config = {};
+      ImageConfig? config;
 
       if (sourceKey != null) {
         final source = ComicSource.find(sourceKey);
         if (source != null) {
           if (headers?['isThumbnail'] == 'true') {
-            config = source.getThumbnailLoadingConfig?.call(url) ?? {};
+            config = source.getThumbnailLoadingConfig?.call(url);
           } else {
             final comicId = headers?['comicId'];
             final epId = headers?['epId'];
             if (comicId != null && epId != null) {
-              config = source.getImageLoadingConfig?.call(url, comicId, epId) ?? {};
+              config = source.getImageLoadingConfig?.call(url, comicId, epId);
             }
           }
         }
       }
 
-      var requestUrl = config['url'] ?? url;
+      var requestUrl = config?.url ?? url;
       if (requestUrl.contains("s.exhentai.org")) {
         requestUrl = requestUrl.replaceFirst("s.exhentai.org", "ehgt.org");
       }
-      
+
       bool isEhgt = requestUrl.contains("ehgt.org");
       if (isEhgt) {
         if (_ehgtLoading < 3) {
@@ -103,9 +106,29 @@ class PicaHttpFileService extends FileService {
           _ehgtLoading++;
         }
       }
-      final requestMethod = config['method'] ?? 'GET';
-      final requestHeaders = config['headers'] ?? headers ?? {};
-      final requestData = config['data'];
+
+      final requestMethod = config?.method ?? 'GET';
+      final requestHeaders = config?.headers ?? Map<String, String>.from(headers ?? {});
+      
+      // Merge headers if config.headers is not null
+      if (config?.headers != null && headers != null) {
+        requestHeaders.addAll(headers);
+        requestHeaders.addAll(config!.headers!);
+      }
+
+      // Add default User-Agent if missing
+      if (!requestHeaders.containsKey('User-Agent') &&
+          !requestHeaders.containsKey('user-agent')) {
+        requestHeaders['User-Agent'] = webUA;
+      }
+      
+      // Strip meta fields
+      requestHeaders.remove('sourceKey');
+      requestHeaders.remove('isThumbnail');
+      requestHeaders.remove('comicId');
+      requestHeaders.remove('epId');
+
+      final requestData = config?.data;
 
       final response = await _dio.request<ResponseBody>(
         requestUrl,
@@ -121,12 +144,7 @@ class PicaHttpFileService extends FileService {
         _ehgtLoading--;
       }
 
-      // Handle custom response processing if needed (like onResponse in ImageManager)
-      // Note: FileServiceResponse doesn't easily support post-processing of streams
-      // without downloading the whole thing first if the logic is complex.
-      // If 'onResponse' is present, we might need a special handler.
-      
-      return PicaDioFileServiceResponse(response, config['onResponse']);
+      return PicaDioFileServiceResponse(response, config?.onResponse);
     } catch (e) {
       if (url.contains("ehgt.org") || url.contains("s.exhentai.org")) {
         _ehgtLoading--;

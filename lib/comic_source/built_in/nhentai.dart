@@ -166,11 +166,8 @@ class _NhentaiComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: comic.cover,
-        headers: {
-          "User-Agent": webUA,
-          "sourceKey": ComicType.nhentai.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.nhentai.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,

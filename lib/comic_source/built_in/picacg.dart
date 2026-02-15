@@ -215,10 +215,8 @@ class _PicComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: comic.path,
-        headers: {
-          "sourceKey": ComicType.picacg.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.picacg.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,

@@ -159,11 +159,8 @@ class _MePageState extends State<MePage> {
                         clipBehavior: Clip.antiAlias,
                         child: PicaImage(
                           url: history[index].cover,
-                          headers: {
-                            if (history[index].type.comicSource?.key.name != null)
-                              'sourceKey': history[index].type.comicSource!.key.name,
-                            'isThumbnail': 'true',
-                          },
+                          sourceKey: history[index].type.comicSource?.key.name,
+                          isThumbnail: true,
                           width: 96,
                           height: 128,
                           fit: BoxFit.cover,

@@ -1116,10 +1116,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           child: PicaImage(
             url: cover!,
             fit: BoxFit.cover,
-            headers: {
-              "sourceKey": comicType.name,
-              "isThumbnail": "true",
-            },
+            sourceKey: comicType.name,
+            isThumbnail: true,
           ),
         ),
       ),

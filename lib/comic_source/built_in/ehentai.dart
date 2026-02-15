@@ -10,6 +10,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/ehentai/accounts.dart';
@@ -239,13 +240,14 @@ final ehentai = ComicSource.named(
   comicPageBuilder: (context, id, cover) {
     return EhGalleryPage.fromLink(id, comicCover: cover);
   },
-  getThumbnailLoadingConfig: (url) => {
-    "headers": {
+  getThumbnailLoadingConfig: (url) => ImageConfig(
+    url: url,
+    headers: {
       "Cookie": EhNetwork().cookiesStr,
       "User-Agent": webUA,
       "Referer": EhNetwork().ehBaseUrl,
-    }
-  },
+    },
+  ),
 );
 
 class _EhGalleryTile extends ComicTile {
@@ -344,13 +346,8 @@ class _EhGalleryTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: gallery.coverPath,
-        headers: {
-          "Cookie": EhNetwork().cookiesStr,
-          "User-Agent": webUA,
-          "Referer": EhNetwork().ehBaseUrl,
-          "sourceKey": ComicType.ehentai.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.ehentai.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,

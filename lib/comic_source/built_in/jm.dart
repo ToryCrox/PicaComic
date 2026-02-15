@@ -11,6 +11,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/jm/jm_comic_page.dart';
@@ -281,6 +282,18 @@ final jm = ComicSource.named(
   comicPageBuilder: (context, id, cover) {
     return JmComicPage(id);
   },
+  getImageLoadingConfig: (url, comicId, epId) {
+    return ImageConfig(
+      url: url,
+      headers: getImgHeaders(),
+    );
+  },
+  getThumbnailLoadingConfig: (url) {
+    return ImageConfig(
+      url: url,
+      headers: getImgHeaders(),
+    );
+  },
 );
 
 class _JmComicTile extends ComicTile {
@@ -294,11 +307,8 @@ class _JmComicTile extends ComicTile {
   @override
   Widget get image => PicaImage(
         url: getJmCoverUrl(comic.id),
-        headers: {
-          ...getImgHeaders(),
-          "sourceKey": ComicType.jm.name,
-          "isThumbnail": "true",
-        },
+        sourceKey: ComicType.jm.name,
+        isThumbnail: true,
         fit: BoxFit.cover,
         height: double.infinity,
         width: double.infinity,
