@@ -4,6 +4,7 @@ import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/def.dart';
 
 class JWRPLogic extends StateController {
   bool loading = true;
@@ -217,7 +218,7 @@ class WeekRecommendationList extends StatelessWidget {
     } else {
       return CustomScrollView(
         slivers: [
-          SliverGridComics(comics: logic.comics[index], sourceKey: "jm"),
+          SliverGridComics(comics: logic.comics[index], comicType: ComicType.jm),
         ],
       );
     }

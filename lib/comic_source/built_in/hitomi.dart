@@ -17,7 +17,7 @@ import 'package:pica_comic/tools/tags_translation.dart';
 
 final hitomi = ComicSource.named(
   name: "hitomi",
-  key: "hitomi",
+  key: ComicType.hitomi,
   filePath: "built-in",
   comicTileBuilderOverride: (context, comic, options) {
     return _HiComicTile(
@@ -120,7 +120,7 @@ class _HiComicTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: 'hitomi',
+        comicType: ComicType.hitomi,
         id: comic.link,
         cover: comic.cover,
       ),
@@ -140,7 +140,7 @@ class _HiComicTile extends ComicTile {
   String get comicID => comic.link;
 
   @override
-  String? get sourceKey => 'hitomi';
+  ComicType? get comicType => ComicType.hitomi;
 
   @override
   final List<ComicTileMenuOption>? addonMenuOptions;

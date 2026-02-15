@@ -116,7 +116,7 @@ class _FloatingSearchBarState extends State<_FloatingSearchBar> {
 }
 
 class PreSearchController extends StateController {
-  String target = '';
+  ComicType target = ComicType.picacg;
 
   SearchPageData get searchPageData =>
       ComicSource.find(target)!.searchPageData!;
@@ -141,22 +141,22 @@ class PreSearchController extends StateController {
     }
   }
 
-  void updateTarget(String i) {
+  void updateTarget(ComicType i) {
     target = i;
     updateOptions();
     update();
   }
 
   PreSearchController() {
-    var searchSource = <String>[];
+    var searchSource = <ComicType>[];
     for (var source in ComicSource.sources) {
       searchSource.add(source.key);
     }
-    if (!searchSource.contains(appdata.appSettings.initialSearchTarget)) {
-      appdata.appSettings.initialSearchTarget = searchSource.first;
+    if (!searchSource.contains(ComicType.fromString(appdata.appSettings.initialSearchTarget))) {
+      appdata.appSettings.initialSearchTarget = searchSource.first.name;
       appdata.updateSettings();
     }
-    target = appdata.appSettings.initialSearchTarget;
+    target = ComicType.fromString(appdata.appSettings.initialSearchTarget);
     updateOptions();
   }
 }
@@ -190,7 +190,9 @@ class PreSearchPage extends StatelessWidget {
     context.to(
       () => SearchResultPage(
         keyword: keyword,
-        sourceKey: type ?? searchController.target,
+        comicType: type != null
+            ? ComicType.fromString(type)
+            : searchController.target,
         options: searchController.options,
       ),
     );
@@ -453,7 +455,7 @@ class PreSearchPage extends StatelessWidget {
                 onTap: () {
                   context.to(
                     () => ComicPage(
-                      sourceKey: key,
+                      comicType: ComicType.fromString(key),
                       id: controller.text,
                     ),
                   );
@@ -539,19 +541,19 @@ class PreSearchPage extends StatelessWidget {
   }
 
   Widget buildTargetSelector(BuildContext context) {
-    buildItem(PreSearchController logic, String id, String text) => Padding(
-          padding: const EdgeInsets.all(4),
-          child: FilterChip(
-            label: Text(text),
-            selected: logic.target == id,
-            onSelected: (b) {
-              logic.updateTarget(id);
-            },
-          ),
-        );
-
     return StateBuilder<PreSearchController>(
       builder: (logic) {
+        buildItem(PreSearchController logic, ComicType id, String text) => Padding(
+              padding: const EdgeInsets.all(4),
+              child: FilterChip(
+                label: Text(text),
+                selected: logic.target == id,
+                onSelected: (b) {
+                  logic.updateTarget(id);
+                },
+              ),
+            );
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -559,7 +561,7 @@ class PreSearchPage extends StatelessWidget {
             ListTile(title: Text("目标".tl)),
             Wrap(
               children: [
-                for (var source in comicSources)
+                for (var source in ComicSource.sources)
                   buildItem(logic, source.key, source.name.tl)
               ],
             ).paddingHorizontal(12),
@@ -715,17 +717,17 @@ class PreSearchPage extends StatelessWidget {
         title: Text(tag.substring(tag.indexOf(':') + 1)),
         subtitle: Text(tag.split(':').first),
         onTap: () {
-          String type = switch (tag.split(':').first) {
-            "Picacg" => 'picacg',
-            "EHentai" => 'ehentai',
-            "JMComic" => 'jm',
-            "hitomi" => 'hitomi',
-            "HtComic" => 'htmanga',
-            "Nhentai" => 'nhentai',
-            _ => tag.split(':').first
+          final comicType = switch (tag.split(':').first) {
+            "Picacg" => ComicType.picacg,
+            "EHentai" => ComicType.ehentai,
+            "JMComic" => ComicType.jm,
+            "hitomi" => ComicType.hitomi,
+            "HtComic" => ComicType.htmanga,
+            "Nhentai" => ComicType.nhentai,
+            _ => ComicType.fromString(tag.split(':').first)
           };
           final keyword = tag.substring(tag.indexOf(':') + 1);
-          search(keyword, type);
+          search(keyword, comicType.name);
         },
       ),
     );

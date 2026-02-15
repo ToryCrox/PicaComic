@@ -3,17 +3,36 @@ import 'package:flutter/material.dart';
 typedef ActionFunc = void Function();
 
 enum ComicType {
+  /// 哔咔
   picacg,
+  /// E-Hentai
   ehentai,
+  /// 禁漫天堂
   jm,
+  /// Hitomi
   hitomi,
-  htManga,
+  /// 绅士漫画
+  htmanga,
+  /// 绅士漫画收藏
   htFavorite,
+  /// nhentai
   nhentai,
+  /// Kemono
+  kemono,
+  /// 其他
   other;
 
   @override
   toString() => name;
+
+  static ComicType fromString(String? name) {
+    for (var value in values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return ComicType.other;
+  }
 }
 
 const String webUA =
@@ -42,11 +61,11 @@ List<MaterialAccentColor> get colors => [
 ];
 
 const builtInSources = [
-  "picacg",
-  "ehentai",
-  "jm",
-  "hitomi",
-  "htmanga",
-  "nhentai",
-  "kemono"
+  ComicType.picacg,
+  ComicType.ehentai,
+  ComicType.jm,
+  ComicType.hitomi,
+  ComicType.htmanga,
+  ComicType.nhentai,
+  ComicType.kemono
 ];

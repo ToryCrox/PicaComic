@@ -20,7 +20,7 @@ import '../comic_source.dart';
 
 final picacg = ComicSource.named(
   name: "picacg",
-  key: "picacg",
+  key: ComicType.picacg,
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "picacg",
@@ -269,7 +269,7 @@ class _PicComicTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: "picacg",
+        comicType: ComicType.picacg,
         id: comic.id,
         cover: comic.cover,
       ),
@@ -292,7 +292,7 @@ class _PicComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
-  String? get sourceKey => 'picacg';
+  ComicType? get comicType => ComicType.picacg;
 
   @override
   final List<ComicTileMenuOption>? addonMenuOptions;

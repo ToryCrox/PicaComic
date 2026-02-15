@@ -28,6 +28,7 @@ import 'package:pica_comic/pages/nhentai/comic_page.dart';
 import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/foundation/def.dart';
 
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -458,7 +459,7 @@ void toComicInfoPage(DownloadedItem comic) {
   } else if (comic is NhentaiDownloadedComic) {
     context.to(() => NhentaiComicPage(comic.id.replaceFirst("nhentai", "")));
   } else if (comic is CustomDownloadedItem) {
-    context.to(() => ComicPage(sourceKey: comic.sourceKey, id: comic.comicId));
+    context.to(() => ComicPage(comicType: ComicType.fromString(comic.type.name), id: comic.comicId));
   } else if (comic.type == DownloadType.local) {
     // 本地漫画不支持查看详情页面，可以显示提示
     showToast(message: "本地漫画不支持查看详情".tl);
@@ -510,7 +511,7 @@ void toDownloadingComicInfoPage(DownloadingTask task) {
     case DownloadType.other:
       // 自定义源：需要检查是否是 CustomDownloadingTask
       if (task is CustomDownloadingTask) {
-        context.to(() => ComicPage(sourceKey: task.comic.sourceKey, id: task.comic.comicId));
+        context.to(() => ComicPage(comicType: ComicType.fromString(task.comic.sourceKey), id: task.comic.comicId));
       } else {
         showToast(message: "无法打开该漫画详情".tl);
       }

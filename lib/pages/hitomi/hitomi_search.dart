@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -169,7 +170,7 @@ class _HitomiComicTileDynamicLoadingState
 
       return buildLoadingWidget();
     } else {
-      return buildComicTile(context, comic!, 'hitomi');
+      return buildComicTile(context, comic!, ComicType.hitomi);
     }
   }
 

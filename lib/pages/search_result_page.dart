@@ -8,10 +8,10 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/pair.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/network/res.dart';
 
 class _SearchPageComicList extends ComicsPage<BaseComic> {
   const _SearchPageComicList({
@@ -19,7 +19,7 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
     required this.keyword,
     required this.options,
     required this.header,
-    required this.sourceKey,
+    required this.comicType,
   });
 
   final String keyword;
@@ -27,22 +27,21 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
   final List<String> options;
 
   @override
-  final String sourceKey;
-
-  @override
   final Widget header;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) async {
-    var loader = ComicSource.find(sourceKey)!.searchPageData!.loadPage!;
-    return await loader(keyword, i, options);
-  }
+  final ComicType comicType;
 
   @override
-  String? get tag => "$sourceKey search page with $keyword";
+  String? get tag => "${comicType.name} search page with $keyword";
 
   @override
   String? get title => null;
+
+  @override
+  Future<Res<List<BaseComic>>> getComics(int i) {
+    return ComicSource.find(comicType)!.searchPageData!.loadPage!(keyword, i, options);
+  }
 }
 
 class SearchResultPage extends StatelessWidget {
@@ -50,19 +49,21 @@ class SearchResultPage extends StatelessWidget {
     super.key,
     required this.keyword,
     this.options = const [],
-    required this.sourceKey,
+    required this.comicType,
   });
 
   final String keyword;
 
   final List<String> options;
 
-  final String sourceKey;
+  final ComicType comicType;
+
+  String get sourceKey => comicType.name;
 
   @override
   Widget build(BuildContext context) {
     var comicSource =
-        ComicSource.find(sourceKey) ?? (throw "source $sourceKey not found");
+        ComicSource.find(comicType) ?? (throw "source ${comicType.name} not found");
     var options = this.options;
     if (comicSource.searchPageData?.searchOptions != null) {
       var searchOptions = comicSource.searchPageData!.searchOptions!;
@@ -79,7 +80,7 @@ class SearchResultPage extends StatelessWidget {
       return _SearchResultPage(
         keyword: keyword,
         options: options,
-        sourceKey: sourceKey,
+        comicType: comicType,
       );
     }
   }
@@ -89,14 +90,16 @@ class _SearchResultPage extends StatefulWidget {
   const _SearchResultPage({
     required this.keyword,
     required this.options,
-    required this.sourceKey,
+    required this.comicType,
   });
 
   final String keyword;
 
   final List<String> options;
 
-  final String sourceKey;
+  final ComicType comicType;
+
+  String get sourceKey => comicType.name;
 
   @override
   State<_SearchResultPage> createState() => _SearchResultPageState();
@@ -109,7 +112,8 @@ class _SearchResultPageState extends State<_SearchResultPage> {
 
   OverlayEntry? get suggestionOverlay => suggestionsController.entry;
   late _SuggestionsController suggestionsController;
-  late var sourceKey = widget.sourceKey;
+  late var comicType = widget.comicType;
+  String get sourceKey => comicType.name;
   late var options = widget.options;
 
   @override
@@ -230,8 +234,8 @@ class _SearchResultPageState extends State<_SearchResultPage> {
         },
         child: _SearchPageComicList(
           keyword: keyword,
-          sourceKey: sourceKey,
-          key: Key(keyword + options.toString() + sourceKey),
+          comicType: comicType,
+          key: Key(keyword + options.toString() + comicType.name),
           header: SliverPersistentHeader(
             pinned: _showFab && SmoothScrollProvider.isMouseScroll,
             floating: !SmoothScrollProvider.isMouseScroll,
@@ -291,7 +295,7 @@ class _SearchResultPageState extends State<_SearchResultPage> {
 
   void changeSource() {
     var sources = ComicSource.sources.where((e) => e.searchPageData != null);
-    String? sourceKey = this.sourceKey;
+    var selectedType = comicType;
     showDialog(
       useSafeArea: false,
       context: context,
@@ -303,13 +307,13 @@ class _SearchResultPageState extends State<_SearchResultPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (var source in sources)
-                  RadioListTile<String>(
+                  RadioListTile<ComicType>(
                     title: Text(source.name),
                     value: source.key,
-                    groupValue: sourceKey,
+                    groupValue: selectedType,
                     onChanged: (value) {
                       setState(() {
-                        sourceKey = value;
+                        selectedType = value!;
                       });
                     },
                   )
@@ -319,26 +323,25 @@ class _SearchResultPageState extends State<_SearchResultPage> {
               Button.filled(
                 child: Text("确认".tl),
                 onPressed: () {
-                  if (sourceKey != null) {
-                    context.pop();
-                    var searchData =
-                        ComicSource.find(sourceKey!)!.searchPageData!;
-                    options = (searchData.searchOptions ?? [])
-                        .map((e) => e.defaultValue)
-                        .toList();
-                    if (searchData.overrideSearchResultBuilder != null) {
-                      this.context.off(() {
-                        return SearchResultPage(
-                          keyword: keyword,
-                          options: options,
-                          sourceKey: sourceKey!,
-                        );
-                      });
-                    } else {
-                      this.setState(() {
-                        this.sourceKey = sourceKey!;
-                      });
-                    }
+                  context.pop();
+                  var searchData =
+                      ComicSource.find(selectedType)!.searchPageData!;
+                  var newOptions = (searchData.searchOptions ?? [])
+                      .map((e) => e.defaultValue)
+                      .toList();
+                  if (searchData.overrideSearchResultBuilder != null) {
+                    this.context.off(() {
+                      return SearchResultPage(
+                        keyword: widget.keyword,
+                        options: newOptions,
+                        comicType: selectedType,
+                      );
+                    });
+                  } else {
+                    this.setState(() {
+                      comicType = selectedType;
+                      options = newOptions;
+                    });
                   }
                 },
               )
@@ -355,7 +358,7 @@ class _SearchResultPageState extends State<_SearchResultPage> {
       useSafeArea: false,
       builder: (context) => _SearchOptions(
         current: options,
-        sourceKey: sourceKey,
+        comicType: comicType,
         onChanged: (options) {
           setState(() {
             this.options = options;
@@ -615,13 +618,13 @@ class _SuggestionsState extends State<_Suggestions> {
 class _SearchOptions extends StatefulWidget {
   const _SearchOptions({
     required this.current,
-    required this.sourceKey,
+    required this.comicType,
     required this.onChanged,
   });
 
   final List<String> current;
 
-  final String sourceKey;
+  final ComicType comicType;
 
   final void Function(List<String>) onChanged;
 
@@ -636,10 +639,9 @@ class _SearchOptionsState extends State<_SearchOptions> {
 
   @override
   void initState() {
-    data = ComicSource.find(widget.sourceKey)!.searchPageData!;
+    data = ComicSource.find(widget.comicType)!.searchPageData!;
     options = widget.current;
-    if (data.searchOptions != null &&
-        options.length != data.searchOptions!.length) {
+    if (data.searchOptions != null) {
       options = data.searchOptions!.map((e) => e.defaultValue).toList();
     }
     super.initState();

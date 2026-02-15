@@ -60,8 +60,8 @@ abstract class ComicTile extends StatelessWidget {
   /// Comic ID, used to identify a comic.
   String? get comicID => null;
 
-  /// Source key, used to generate download ID.
-  String? get sourceKey => null;
+  /// Source type, used to generate download ID.
+  ComicType? get comicType => null;
 
   bool get showFavorite => true;
 
@@ -141,14 +141,14 @@ abstract class ComicTile extends StatelessWidget {
                         showBlockPane();
                       },
                     ),
-                    if (comicID != null && sourceKey != null)
+                    if (comicID != null && comicType != null)
                       ListTile(
                         leading: const Icon(Icons.folder_open),
                         title: Text("打开下载目录".tl),
                         onTap: () async {
                           context.pop();
                           final downloadId = downloadManager
-                              .getDownloadIdFromComicId(sourceKey, comicID);
+                              .getDownloadIdFromComicId(comicType, comicID);
                           if (downloadId.isEmpty) {
                             showToast(message: "无法生成下载ID".tl);
                             return;
@@ -251,7 +251,7 @@ abstract class ComicTile extends StatelessWidget {
 
   /// 构建带下载图标的 widget
   Widget _buildWithDownloadIcon(Widget child, bool detailedMode) {
-    if (comicID == null || sourceKey == null) {
+    if (comicID == null || comicType == null) {
       return child;
     }
     return Stack(
@@ -264,14 +264,14 @@ abstract class ComicTile extends StatelessWidget {
 
   /// 构建下载图标按钮
   Widget _buildDownloadIcon(bool detailedMode) {
-    if (comicID == null || sourceKey == null) {
+    if (comicID == null || comicType == null) {
       return const SizedBox.shrink();
     }
     return Consumer(builder: (context, ref, child) {
       final downloadedIds = ref.watch(downloadedIdsProvider);
       final downloadingItems = ref.watch(downloadingItemsProvider);
       final downloadId =
-          downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+          downloadManager.getDownloadIdFromComicId(comicType, comicID);
 
       if (downloadedIds.contains(downloadId)) {
         return Positioned(
@@ -418,12 +418,12 @@ abstract class ComicTile extends StatelessWidget {
         text: "屏蔽".tl,
         onClick: () => Future.microtask(showBlockPane),
       ),
-      if (comicID != null && sourceKey != null)
+      if (comicID != null && comicType != null)
         DesktopMenuEntry(
           text: "打开下载目录".tl,
           onClick: () async {
             final downloadId =
-                downloadManager.getDownloadIdFromComicId(sourceKey, comicID);
+                downloadManager.getDownloadIdFromComicId(comicType, comicID);
             if (downloadId.isEmpty) {
               showToast(message: "无法生成下载ID".tl);
               return;
@@ -920,9 +920,9 @@ class NormalComicTile extends ComicTile {
       this.badgeName,
       this.headers,
       this.tags,
-      sourceKey,
+      ComicType? comicType,
       super.key})
-      : _sourceKey = sourceKey;
+      : _comicType = comicType;
 
   final String description_;
   final String coverPath;
@@ -932,7 +932,7 @@ class NormalComicTile extends ComicTile {
   final void Function()? onLongTap;
   final String? badgeName;
   final Map<String, String>? headers;
-  final String? _sourceKey;
+  final ComicType? _comicType;
 
   @override
   final List<String>? tags;
@@ -951,7 +951,7 @@ class NormalComicTile extends ComicTile {
         image: CachedImageProvider(
           coverPath,
           headers: headers,
-          sourceKey: _sourceKey,
+          sourceKey: _comicType?.name,
         ),
         fit: BoxFit.cover,
         width: double.infinity,
@@ -968,7 +968,7 @@ class NormalComicTile extends ComicTile {
   String get title => name;
 
   @override
-  String? get sourceKey => _sourceKey;
+  ComicType? get comicType => _comicType;
 }
 
 class ComicTilePlaceholder extends StatelessWidget {
@@ -1128,7 +1128,7 @@ class CustomComicTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: comic.sourceKey,
+        comicType: ComicType.fromString(comic.sourceKey),
         id: comic.id,
         cover: comic.cover,
       ),
@@ -1154,7 +1154,7 @@ class CustomComicTile extends ComicTile {
   String? get comicID => comic.id;
 
   @override
-  String? get sourceKey => comic.sourceKey;
+  ComicType? get comicType => ComicType.other;
 
   @override
   get read => () async {
@@ -1187,13 +1187,13 @@ class CustomComicTile extends ComicTile {
       };
 }
 
-Widget buildComicTile(BuildContext context, BaseComic item, String sourceKey,
+Widget buildComicTile(BuildContext context, BaseComic item, ComicType comicType,
     {List<ComicTileMenuOption>? addonMenuOptions}) {
-  var source = ComicSource.find(sourceKey);
+  var source = ComicSource.find(comicType.name);
   if (source == null) {
-    throw "Comic Source $sourceKey Not Found";
+    throw "Comic Source $comicType Not Found";
   }
-  if (!appdata.appSettings.fullyHideBlockedWorks || sourceKey == 'hitomi') {
+  if (!appdata.appSettings.fullyHideBlockedWorks || comicType == ComicType.hitomi) {
     var blockWord = isBlocked(item);
     if (blockWord != null) {
       return Stack(

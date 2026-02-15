@@ -89,7 +89,7 @@ enum DownloadType {
         ehentai => ComicType.ehentai,
         jm => ComicType.jm,
         hitomi => ComicType.hitomi,
-        htmanga => ComicType.htManga,
+        htmanga => ComicType.htmanga,
         nhentai => ComicType.nhentai,
         other => ComicType.other,
         favorite => ComicType.other,

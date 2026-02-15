@@ -3,7 +3,7 @@ part of pica_settings;
 Widget buildExploreSettings(BuildContext context, bool popUp) {
   var searchSource = <String>[];
   for(var source in ComicSource.sources){
-    searchSource.add(source.key);
+    searchSource.add(source.key.name);
   }
 
   return Column(
@@ -236,6 +236,6 @@ Map<String, String> networkFavorites(){
   return {
     for(var source in ComicSource.sources)
       if(source.favoriteData != null)
-        source.key: source.favoriteData!.title.tl
+        source.key.name: source.favoriteData!.title.tl
   };
 }

@@ -7,6 +7,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_loader/cached_image.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/kemono/kemono_comic_page.dart';
@@ -15,14 +16,14 @@ import 'package:pica_comic/tools/time.dart';
 /// Kemono 漫画源配置
 final kemono = ComicSource.named(
   name: 'Kemono',
-  key: 'kemono',
+  key: ComicType.kemono,
   filePath: 'built-in',
 
   // 账号配置 (预留,暂不实现)
   account: AccountConfig.named(
     logout: () {
       KemonoNetwork().logout();
-      var source = ComicSource.find('kemono');
+      var source = ComicSource.find(ComicType.kemono);
       source?.data["account"] = null;
       source?.saveData();
     },
@@ -165,7 +166,7 @@ final kemono = ComicSource.named(
     }
     
     return Res(ComicInfoData(
-      post.title.isNotEmpty ? post.title : '无标题',
+      post.title,
       post.userName,
       post.cover,
       stripHtml(post.content),
@@ -275,7 +276,7 @@ class _KemonoPostTile extends ComicTile {
     final id = '${post.service}/${post.userId}/${post.id}';
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: 'kemono',
+        comicType: ComicType.kemono,
         id: id,
         cover: post.cover,
       ),
@@ -286,7 +287,7 @@ class _KemonoPostTile extends ComicTile {
   String get comicID => '${post.service}/${post.userId}/${post.id}';
 
   @override
-  String? get sourceKey => 'kemono';
+  ComicType get comicType => ComicType.kemono;
 
   @override
   List<String>? get tags => [post.service];
@@ -353,7 +354,7 @@ class _KemonoCreatorTile extends ComicTile {
   String get comicID => '${creator.service}/user/${creator.id}';
 
   @override
-  String? get sourceKey => 'kemono';
+  ComicType get comicType => ComicType.kemono;
 
   @override
   List<String>? get tags => [creator.service];
@@ -398,7 +399,7 @@ class _KemonoCreatorList extends ComicsPage<KemonoPostBrief> {
   }
 
   @override
-  String get sourceKey => 'kemono';
+  ComicType get comicType => ComicType.kemono;
 
   @override
   String? get tag => 'kemono_creator_${creator.service}_${creator.id}';

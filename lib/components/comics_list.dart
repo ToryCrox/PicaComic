@@ -131,7 +131,7 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   Future<Res<List<T>>> getComics(int i);
 
   /// 漫画源标识符
-  String get sourceKey;
+  ComicType get comicType;
 
   /// 显示一个刷新按钮, 需要Scaffold启用
   bool get withRefreshFloatingButton => false;
@@ -589,7 +589,7 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   }
 
   Widget buildItem(BuildContext context, T item) {
-    return buildComicTile(context, item, sourceKey,
+    return buildComicTile(context, item, comicType,
         addonMenuOptions: addonMenuOptions);
   }
 }
@@ -600,13 +600,13 @@ class SliverGridComics extends StatelessWidget {
   const SliverGridComics({
     super.key,
     required this.comics,
-    required this.sourceKey,
+    required this.comicType,
     this.onLastItemBuild,
   });
 
   final List<BaseComic> comics;
 
-  final String sourceKey;
+  final ComicType comicType;
 
   final void Function()? onLastItemBuild;
 
@@ -627,7 +627,7 @@ class SliverGridComics extends StatelessWidget {
         }
         return _SliverGridComics(
           comics: comics,
-          sourceKey: sourceKey,
+          comicType: comicType,
           onLastItemBuild: onLastItemBuild,
         );
       },
@@ -638,13 +638,13 @@ class SliverGridComics extends StatelessWidget {
 class _SliverGridComics extends StatelessWidget {
   const _SliverGridComics({
     required this.comics,
-    required this.sourceKey,
+    required this.comicType,
     this.onLastItemBuild,
   });
 
   final List<BaseComic> comics;
 
-  final String sourceKey;
+  final ComicType comicType;
 
   final void Function()? onLastItemBuild;
 
@@ -656,7 +656,7 @@ class _SliverGridComics extends StatelessWidget {
           if (index == comics.length - 1) {
             onLastItemBuild?.call();
           }
-          return buildComicTile(context, comics[index], sourceKey);
+          return buildComicTile(context, comics[index], comicType);
         },
         childCount: comics.length,
       ),

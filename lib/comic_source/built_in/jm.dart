@@ -22,7 +22,7 @@ import '../../../network/jm_network/headers.dart';
 
 final jm = ComicSource.named(
   name: '禁漫天堂',
-  key: 'jm',
+  key: ComicType.jm,
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "jm",
@@ -182,7 +182,7 @@ final jm = ComicSource.named(
     login: (account, pwd) async {
       var res = await jmNetwork.login(account, pwd);
       var a = <String>[account, pwd];
-      var source = ComicSource.find('jm')!;
+      var source = ComicSource.find(ComicType.jm)!;
       source.data['account'] = a;
       source.saveData();
       return res;
@@ -193,7 +193,7 @@ final jm = ComicSource.named(
     infoItems: [
       AccountInfoItem(
         title: "用户名",
-        data: () => ComicSource.find('jm')!.data['name'] ?? '',
+        data: () => ComicSource.find(ComicType.jm)!.data['name'] ?? '',
       ),
     ],
   ),
@@ -307,7 +307,7 @@ class _JmComicTile extends ComicTile {
   @override
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
-      () => ComicPage(sourceKey: 'jm', id: comic.id, cover: comic.cover),
+      () => ComicPage(comicType: ComicType.jm, id: comic.id, cover: comic.cover),
     );
   }
 
@@ -353,7 +353,7 @@ class _JmComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
-  String? get sourceKey => 'jm';
+  ComicType? get comicType => ComicType.jm;
 
   @override
   final List<ComicTileMenuOption>? addonMenuOptions;

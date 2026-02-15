@@ -1,4 +1,5 @@
 import 'package:pica_comic/comic_source/built_in/ht_manga.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
@@ -123,8 +124,6 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   @override
   SliverGrid? recommendationBuilder(HtComicInfo data) => null;
 
-  @override
-  String get tag => "Ht ComicPage $id";
 
   @override
   Map<String, List<String>>? get tags =>
@@ -133,7 +132,7 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   @override
   void tapOnTag(String tag, String key) => context.to(() => SearchResultPage(
         keyword: tag,
-        sourceKey: sourceKey,
+        comicType: comicType,
       ));
 
   @override
@@ -195,10 +194,13 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
       FavoriteItem.fromHtcomic((comicData ?? data!).toBrief());
 
   @override
-  String get downloadedId => "Ht${data!.id}";
+  String get downloadedId => "Ht$id";
 
   @override
-  String get sourceKey => 'htmanga';
+  ComicType get comicType => ComicType.htmanga;
+
+  @override
+  String get tag => "HtManga $id";
 }
 
 class HtComicPageLogic extends StateController {

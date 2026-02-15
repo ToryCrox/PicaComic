@@ -165,7 +165,7 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
 
   List<ExplorePagePart>? parts;
 
-  late final String comicSourceKey;
+  late final ComicType comicSourceKey;
 
   int key = 0;
 
@@ -289,7 +289,7 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
 }
 
 class _ComicList extends ComicsPage<BaseComic> {
-  const _ComicList(this.builder, this.tag, this.sourceKey, {this.cacheBuilder});
+  const _ComicList(this.builder, this.tag, this.comicType, {this.cacheBuilder});
 
   @override
   final String tag;
@@ -299,7 +299,7 @@ class _ComicList extends ComicsPage<BaseComic> {
   final ComicListCacheBuilder? cacheBuilder;
 
   @override
-  final String sourceKey;
+  final ComicType comicType;
 
   @override
   Future<List<BaseComic>> getComicsCache() {
@@ -316,11 +316,11 @@ class _ComicList extends ComicsPage<BaseComic> {
 }
 
 class _MixedExplorePage extends StatefulWidget {
-  const _MixedExplorePage(this.data, this.sourceKey, {super.key});
+  const _MixedExplorePage(this.data, this.comicType, {super.key});
 
   final ExplorePageData data;
 
-  final String sourceKey;
+  final ComicType comicType;
 
   @override
   State<_MixedExplorePage> createState() => _MixedExplorePageState();
@@ -335,12 +335,12 @@ class _MixedExplorePageState
         if (cache.isNotEmpty) {
           yield SliverGridComics(
             comics: (cache),
-            sourceKey: widget.sourceKey,
+            comicType: widget.comicType,
           );
           yield const SliverToBoxAdapter(child: Divider());
           cache.clear();
         }
-        yield* _buildExplorePagePart(part, widget.sourceKey);
+        yield* _buildExplorePagePart(part, widget.comicType);
         yield const SliverToBoxAdapter(child: Divider());
       } else {
         cache.addAll(part as List<BaseComic>);
@@ -349,7 +349,7 @@ class _MixedExplorePageState
     if (cache.isNotEmpty) {
       yield SliverGridComics(
         comics: (cache),
-        sourceKey: widget.sourceKey,
+        comicType: widget.comicType,
       );
     }
   }
@@ -380,7 +380,7 @@ class _MixedExplorePageState
 }
 
 Iterable<Widget> _buildExplorePagePart(
-    ExplorePagePart part, String sourceKey) sync* {
+    ExplorePagePart part, ComicType comicType) sync* {
   Widget buildTitle(ExplorePagePart part) {
     return SliverToBoxAdapter(
       child: SizedBox(
@@ -403,7 +403,7 @@ Iterable<Widget> _buildExplorePagePart(
                       context.to(
                         () => SearchResultPage(
                           keyword: part.viewMore!.replaceFirst("search:", ""),
-                          sourceKey: sourceKey,
+                          comicType: comicType,
                         ),
                       );
                     } else if (part.viewMore!.startsWith("category:")) {
@@ -416,8 +416,7 @@ Iterable<Widget> _buildExplorePagePart(
                       context.to(
                         () => CategoryComicsPage(
                           category: c,
-                          categoryKey:
-                              ComicSource.find(sourceKey)!.categoryData!.key,
+                          comicType: comicType,
                           param: p,
                         ),
                       );
@@ -433,7 +432,7 @@ Iterable<Widget> _buildExplorePagePart(
   }
 
   Widget buildComics(ExplorePagePart part) {
-    return SliverGridComics(comics: part.comics, sourceKey: sourceKey);
+    return SliverGridComics(comics: part.comics, comicType: comicType);
   }
 
   yield buildTitle(part);

@@ -348,31 +348,31 @@ class DownloadManager implements Listenable {
   /// - 对于哔咔和eh，直接使用其提供的漫画id
   /// - 禁漫开头加jm，hitomi开头加hitomi
   /// - 其他源使用 generateId 方法生成
-  String getDownloadIdFromComicId(String? sourceKey, String? comicID) {
-    if (sourceKey == null || comicID == null || comicID.isEmpty) return '';
+  String getDownloadIdFromComicId(ComicType? comicType, String? comicID) {
+    if (comicType == null || comicID == null || comicID.isEmpty) return '';
 
-    switch (sourceKey) {
-      case 'picacg':
+    switch (comicType) {
+      case ComicType.picacg:
         return comicID;
-      case 'ehentai':
+      case ComicType.ehentai:
         // ehentai 的 comicID 是完整的链接，需要从中提取 gallery ID
         // 参考 eh_gallery_page.dart 中的 downloadedId 实现
         return getGalleryId(comicID);
-      case 'jm':
+      case ComicType.jm:
         return 'jm$comicID';
-      case 'hitomi':
+      case ComicType.hitomi:
         // 从链接中提取数字ID
         final match = RegExp(r'\d+(?=\.html)').firstMatch(comicID);
         if (match != null) {
           return 'hitomi${match.group(0)}';
         }
         return comicID;
-      case 'htmanga':
+      case ComicType.htmanga:
         return 'Ht$comicID';
-      case 'nhentai':
+      case ComicType.nhentai:
         return comicID;
       default:
-        return generateId(sourceKey, comicID);
+        return generateId(comicType.name, comicID);
     }
   }
 
@@ -931,7 +931,7 @@ extension AddDownloadExt on DownloadManager {
       3 => "hitomi${RegExp(r"\d+(?=\.html)").firstMatch(comic.target)![0]!}",
       4 => "Ht${comic.target}",
       6 => "nhentai${comic.target}",
-      _ => comic.type.comicSource == null ? throw "Comic Source Not Found" : generateId(comic.type.comicSource!.key, comic.target)
+      _ => comic.type.comicSource == null ? throw "Comic Source Not Found" : generateId(comic.type.comicSource!.key.name, comic.target)
     };
     final task =
         FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);

@@ -37,12 +37,12 @@ import 'dart:math' as math;
 class ComicPage extends StatelessWidget {
   const ComicPage({
     super.key,
-    required this.sourceKey,
+    required this.comicType,
     required this.id,
     this.cover,
   });
 
-  final String sourceKey;
+  final ComicType comicType;
 
   final String id;
 
@@ -50,12 +50,12 @@ class ComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var comicSource = ComicSource.find(sourceKey);
+    var comicSource = ComicSource.find(comicType);
     if (comicSource?.comicPageBuilder != null) {
       return comicSource!.comicPageBuilder!(context, id, cover);
     }
     return _ComicPageImpl(
-      sourceKey: sourceKey,
+      comicType: comicType,
       id: id,
       comicCover: cover,
     );
@@ -64,10 +64,13 @@ class ComicPage extends StatelessWidget {
 
 class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   const _ComicPageImpl(
-      {required this.sourceKey, required this.id, this.comicCover});
+      {required this.comicType, required this.id, this.comicCover});
 
   @override
-  final String sourceKey;
+  final ComicType comicType;
+
+  @override
+  String get tag => "${comicType.name} comic page with id: $id";
 
   @override
   final String id;
@@ -79,7 +82,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   void download() async {
-    final downloadId = downloadManager.generateId(sourceKey, id);
+    final downloadId = downloadManager.generateId(comicType.name, id);
     final eps = data!.chapters?.values.toList();
     for (var i in downloadManager.downloading) {
       if (i.id == downloadId) {
@@ -157,7 +160,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
               CustomReadingData(
                 data!.target,
                 data!.title,
-                ComicSource.find(sourceKey)!,
+                ComicSource.find(comicType)!,
                 data!.chapters,
               ),
               0,
@@ -173,7 +176,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   @override
   String? get introduction => data!.description;
 
-  ComicSource? get comicSource => ComicSource.find(sourceKey);
+  ComicSource? get comicSource => ComicSource.find(comicType);
 
   @override
   Future<Res<ComicInfoData>> loadData() async {
@@ -198,7 +201,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
         CustomReadingData(
           data!.target,
           data!.title,
-          ComicSource.find(sourceKey)!,
+          ComicSource.find(comicType)!,
           data!.chapters,
         ),
         history!.page,
@@ -211,14 +214,12 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   Widget? recommendationBuilder(ComicInfoData data) {
     if (data.suggestions == null) return null;
 
-    return SliverGridComics(comics: data.suggestions!, sourceKey: sourceKey);
+    return SliverGridComics(comics: data.suggestions!, comicType: comicType);
   }
 
   @override
   String get source => comicSource!.name;
 
-  @override
-  String get tag => "$key comic page with id: $id";
 
   @override
   Map<String, List<String>>? get tags => data!.tags;
@@ -229,7 +230,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       () => SearchResultPage(
         keyword: tag,
         options: const [],
-        sourceKey: sourceKey,
+        comicType: comicType,
       ),
     );
   }
@@ -250,7 +251,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   Widget thumbnailImageBuilder(int index, String imageUrl) {
     return Image(
       image: StreamImageProvider(
-          () => ImageManager().getCustomThumbnail(imageUrl, sourceKey),
+          () => ImageManager().getCustomThumbnail(imageUrl, comicType.name),
           imageUrl),
       fit: BoxFit.contain,
       errorBuilder: (context, s, d) => const Icon(Icons.error),
@@ -266,7 +267,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
     var tags = <String>[];
     comic.tags.forEach((key, value) => tags.addAll(value));
     return FavoriteItem.fromBaseComic(CustomComic(comic.title,
-        comic.subTitle ?? "", comic.cover, id, tags, "", sourceKey));
+        comic.subTitle ?? "", comic.cover, id, tags, "", comicType.name));
   }
 
   @override
@@ -339,7 +340,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       : null;
 
   @override
-  String get downloadedId => downloadManager.generateId(comicSource!.key, id);
+  String get downloadedId => downloadManager.generateId(comicType.name, id);
 }
 
 class _CommentsPage extends StatefulWidget {
@@ -828,7 +829,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   String get downloadedId;
 
-  String get sourceKey;
+  ComicType get comicType;
 
   void scrollListener() {
     try {
@@ -1108,7 +1109,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       headers["host"] = Uri.parse(cover!).host;
     }
     ImageProvider image = StreamImageProvider(
-        () => ImageManager().getCustomThumbnail(cover!, sourceKey), cover!);
+        () => ImageManager().getCustomThumbnail(cover!, comicType.name), cover!);
     return GestureDetector(
       child: Container(
         width: width,
@@ -1517,7 +1518,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                 buildActionItem(context, 
                     "auto_page_turning".tl, Icons.timer_outlined, () {
                   App.globalTo(() => ComicReadingPage(
-                      CustomReadingData(id, title!, ComicSource.find(sourceKey), {}),
+                      CustomReadingData(id, title!, ComicSource.find(comicType), {}),
                       1,
                       1)..readingData.history = logic.history,
                   );

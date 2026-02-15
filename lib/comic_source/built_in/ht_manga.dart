@@ -16,7 +16,7 @@ import '../comic_source.dart';
 
 final htManga = ComicSource.named(
   name: '绅士漫画',
-  key: 'htmanga',
+  key: ComicType.htmanga,
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "htmanga",
@@ -236,7 +236,7 @@ class _HtComicTile extends ComicTile {
   @override
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(() => ComicPage(
-          sourceKey: 'htmanga',
+          comicType: ComicType.htmanga,
           id: comic.id,
           cover: comic.cover,
         ));
@@ -279,7 +279,7 @@ class _HtComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
-  String? get sourceKey => 'htmanga';
+  ComicType? get comicType => ComicType.htmanga;
 
   @override
   final List<ComicTileMenuOption>? addonMenuOptions;

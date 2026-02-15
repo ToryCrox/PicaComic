@@ -340,7 +340,7 @@ class _Settings {
 
   /// build-in comic sources
   bool isComicSourceEnabled(String key) {
-    var index = builtInSources.indexOf(key);
+    var index = builtInSources.indexWhere((e) => e.name == key);
     if (index == -1) {
       throw "Not Found";
     }
@@ -352,7 +352,7 @@ class _Settings {
   }
 
   void setComicSourceEnabled(String key, bool enabled) {
-    var index = builtInSources.indexOf(key);
+    var index = builtInSources.indexWhere((e) => e.name == key);
     if (index == -1) {
       throw "Not Found";
     }

@@ -5,6 +5,7 @@ import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/def.dart';
 
 class NetworkFavoritePage extends StatelessWidget {
   const NetworkFavoritePage(this.data, {super.key});
@@ -36,7 +37,7 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   String? get title => null;
 
   @override
-  String get sourceKey => data.key;
+  ComicType get comicType => ComicType.fromString(data.key);
 
   @override
   List<ComicTileMenuOption>? get addonMenuOptions {
@@ -375,5 +376,5 @@ class _FavoriteFolder extends ComicsPage<BaseComic> {
   String? get tag => "Favorites Folder $folderID";
 
   @override
-  String get sourceKey => data.key;
+  ComicType get comicType => ComicType.fromString(data.key);
 }

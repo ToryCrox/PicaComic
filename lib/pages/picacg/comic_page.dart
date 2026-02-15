@@ -150,7 +150,7 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
 
   @override
   Widget recommendationBuilder(data) =>
-      SliverGridComics(comics: data.recommendation, sourceKey: sourceKey);
+      SliverGridComics(comics: data.recommendation, comicType: comicType);
 
   @override
   String get tag => "Picacg Comic Page $id";
@@ -169,7 +169,7 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
       context.to(
         () => CategoryComicsPage(
           category: tag,
-          categoryKey: "picacg",
+          comicType: ComicType.picacg,
         ),
       );
     } else if (data!.author == tag) {
@@ -177,14 +177,14 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
         () => CategoryComicsPage(
           category: tag,
           param: "a",
-          categoryKey: "picacg",
+          comicType: ComicType.picacg,
         ),
       );
     } else {
       context.to(
         () => SearchResultPage(
           keyword: tag,
-          sourceKey: sourceKey,
+          comicType: comicType,
         ),
       );
     }
@@ -265,7 +265,7 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   String get downloadedId => id;
 
   @override
-  String get sourceKey => "picacg";
+  ComicType get comicType => ComicType.picacg;
 }
 
 void _downloadComic(

@@ -116,8 +116,6 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
         gridDelegate: SliverGridDelegateWithComics(),
       );
 
-  @override
-  String get tag => "Hitomi ComicPage $link";
 
   @override
   Map<String, List<String>>? get tags => {
@@ -137,7 +135,7 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   void tapOnTag(String tag, String key) {
     context.to(() => SearchResultPage(
           keyword: tag,
-          sourceKey: 'hitomi',
+          comicType: comicType,
         ));
   }
 
@@ -197,7 +195,10 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   String get downloadedId => "hitomi${data!.id}";
 
   @override
-  String get sourceKey => "hitomi";
+  ComicType get comicType => ComicType.hitomi;
+
+  @override
+  String get tag => "Hitomi $id";
 }
 
 Future<void> _downloadComic(

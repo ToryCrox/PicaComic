@@ -60,7 +60,7 @@ final class FavoriteType {
 
   static FavoriteType get hitomi => const FavoriteType(3);
 
-  static FavoriteType get htManga => const FavoriteType(4);
+  static FavoriteType get htmanga => const FavoriteType(4);
 
   static FavoriteType get nhentai => const FavoriteType(6);
 
@@ -128,9 +128,9 @@ class FavoriteItem {
         ComicType.hitomi => RegExp(r"\d+(?=\.html)").hasMatch(target)
             ? "hitomi${RegExp(r"\d+(?=\.html)").firstMatch(target)?[0]}"
             : target,
-        ComicType.htManga => "ht$target",
+        ComicType.htmanga => "ht$target",
         ComicType.nhentai => "nhentai$target",
-        _ => type.comicSource == null ? target : downloadManager.generateId(type.comicSource!.key, target)
+        _ => type.comicSource == null ? target : downloadManager.generateId(type.comicSource!.key.name, target)
       };
     } catch (e) {
       return "**Invalid ID**";
@@ -182,7 +182,7 @@ class FavoriteItem {
   FavoriteItem.fromHtcomic(HtComicBrief comic)
       : name = comic.name,
         author = "${comic.pages}Pages",
-        type = FavoriteType.htManga,
+        type = FavoriteType.htmanga,
         tags = [],
         target = comic.id,
         coverPath = comic.image;

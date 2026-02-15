@@ -25,7 +25,7 @@ import '../comic_source.dart';
 
 final ehentai = ComicSource.named(
   name: 'ehentai',
-  key: 'ehentai',
+  key: ComicType.ehentai,
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "ehentai",
@@ -150,14 +150,14 @@ final ehentai = ComicSource.named(
       if(!cookies.any((e) => e.name == 'ipb_member_id')) {
         return;
       }
-      var ehentai = ComicSource.find('ehentai')!;
+      var ehentai = ComicSource.find(ComicType.ehentai)!;
       if (ehentai.data['name'] != null) {
         ehentai.data['account'] = 'ok';
       }
       ehentai.saveData();
     },
     logout: () async {
-      var ehentai = ComicSource.find('ehentai')!;
+      var ehentai = ComicSource.find(ComicType.ehentai)!;
       await EhNetwork().cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
       await EhNetwork().cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
       ehentai.data['name'] = '';
@@ -165,7 +165,7 @@ final ehentai = ComicSource.named(
     infoItems: [
       AccountInfoItem(
         title: "用户名",
-        data: () => ComicSource.find('ehentai')!.data['name'] ?? '',
+        data: () => ComicSource.find(ComicType.ehentai)!.data['name'] ?? '',
       ),
       AccountInfoItem(
         title: "",
@@ -354,7 +354,7 @@ class _EhGalleryTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: 'ehentai',
+        comicType: ComicType.ehentai,
         id: gallery.link,
         cover: gallery.cover,
       ),
@@ -409,7 +409,7 @@ class _EhGalleryTile extends ComicTile {
   String get comicID => gallery.link;
 
   @override
-  String? get sourceKey => 'ehentai';
+  ComicType? get comicType => ComicType.ehentai;
 
   @override
   Future<void> Function()? get onDownloadTap => () async {

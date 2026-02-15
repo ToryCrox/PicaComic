@@ -5,6 +5,7 @@ import 'package:pica_comic/tools/translations.dart';
 import '../../foundation/app.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/def.dart';
 
 class HitomiHomePageLogic extends StateController {
   bool loading = true;
@@ -106,7 +107,7 @@ class HitomiHomePageComics extends StatelessWidget {
               slivers: [
                 SliverGridComics(
                   comics: logic.hitomiComics,
-                  sourceKey: "hitomi",
+                  comicType: ComicType.hitomi,
                   onLastItemBuild: () {
                     logic.loadNextPage(url);
                   },

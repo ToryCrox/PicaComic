@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:pica_comic/comic_source/comic_source.dart";
 import 'package:pica_comic/components/components.dart';
 import "package:pica_comic/foundation/app.dart";
+import "package:pica_comic/foundation/def.dart";
 import 'package:pica_comic/network/base_comic.dart';
 import "package:pica_comic/network/res.dart";
 import "package:pica_comic/tools/translations.dart";
@@ -10,7 +11,7 @@ class CategoryComicsPage extends StatefulWidget {
   const CategoryComicsPage({
     required this.category,
     this.param,
-    required this.categoryKey,
+    required this.comicType,
     super.key,
   });
 
@@ -18,7 +19,9 @@ class CategoryComicsPage extends StatefulWidget {
 
   final String? param;
 
-  final String categoryKey;
+  final ComicType comicType;
+
+  String get categoryKey => comicType.name;
 
   @override
   State<CategoryComicsPage> createState() => _CategoryComicsPageState();
@@ -30,22 +33,21 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   late List<String> optionsValue;
 
   void findData() {
-    for (final source in ComicSource.sources) {
-      if (source.categoryData?.key == widget.categoryKey) {
-        data = source.categoryComicsData!;
-        options = data.options.where((element) {
-          if (element.notShowWhen.contains(widget.category)) {
-            return false;
-          } else if (element.showWhen != null) {
-            return element.showWhen!.contains(widget.category);
-          }
-          return true;
-        }).toList();
-        optionsValue = options.map((e) => e.options.keys.first).toList();
-        return;
-      }
+    final source = ComicSource.find(widget.comicType);
+    if (source != null && source.categoryData != null) {
+      data = source.categoryComicsData!;
+      options = data.options.where((element) {
+        if (element.notShowWhen.contains(widget.category)) {
+          return false;
+        } else if (element.showWhen != null) {
+          return element.showWhen!.contains(widget.category);
+        }
+        return true;
+      }).toList();
+      optionsValue = options.map((e) => e.options.keys.first).toList();
+      return;
     }
-    throw "${widget.categoryKey} Not found";
+    throw "${widget.comicType} Not found";
   }
 
   @override
@@ -71,9 +73,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
               options: optionsValue,
               param: widget.param,
               header: buildOptions(),
-              sourceKey: ComicSource.sources
-                  .firstWhere((e) => e.categoryData?.key == widget.categoryKey)
-                  .key,
+              comicType: widget.comicType,
             ),
           ),
         ],
@@ -133,7 +133,7 @@ class _CategoryComicsList extends ComicsPage<BaseComic> {
     required this.options,
     this.param,
     required this.header,
-    required this.sourceKey,
+    required this.comicType,
   });
 
   final CategoryComicsLoader loader;
@@ -145,7 +145,7 @@ class _CategoryComicsList extends ComicsPage<BaseComic> {
   final String? param;
 
   @override
-  final String sourceKey;
+  final ComicType comicType;
 
   @override
   final Widget header;

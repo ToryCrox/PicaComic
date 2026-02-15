@@ -177,10 +177,8 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
 
   @override
   Widget recommendationBuilder(JmComicInfo data) =>
-      SliverGridComics(comics: data.relatedComics, sourceKey: 'jm');
+      SliverGridComics(comics: data.relatedComics, comicType: comicType);
 
-  @override
-  String get tag => "Jm ComicPage $id";
 
   @override
   Map<String, List<String>>? get tags => {
@@ -194,7 +192,7 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   @override
   void tapOnTag(String tag, String key) => context.to(() => SearchResultPage(
         keyword: tag,
-        sourceKey: "jm",
+        comicType: comicType,
       ));
 
   @override
@@ -224,7 +222,10 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   String get downloadedId => "jm$id";
 
   @override
-  String get sourceKey => "jm";
+  ComicType get comicType => ComicType.jm;
+
+  @override
+  String get tag => "${comicType.name} comic page $id";
 }
 
 void downloadComic(JmComicInfo comic, BuildContext context) async {

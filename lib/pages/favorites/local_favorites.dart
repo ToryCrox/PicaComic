@@ -60,7 +60,7 @@ extension LocalFavoritesExt on FavoriteItem {
       if (res.error) return false;
       name = res.data.title;
       coverPath = res.data.cover;
-    } else if (type == FavoriteType.htManga) {
+    } else if (type == FavoriteType.htmanga) {
       var res = await HtmangaNetwork().getComicInfo(target);
       if (res.error) return false;
       name = res.data.title;
@@ -441,7 +441,7 @@ class LocalFavoriteTile extends ComicTile {
     }
     context.to(
       () => ComicPage(
-          sourceKey: comic.type.comicSource!.key,
+          comicType: comic.type.comicSource!.key,
           id: comic.target,
           cover: comic.coverPath),
     );
@@ -745,7 +745,7 @@ class LocalFavoriteTile extends ComicTile {
             );
           }
         }
-      case ComicType.htManga:
+      case ComicType.htmanga:
         {
           var res = await HtmangaNetwork().getComicInfo(comic.target);
           if (cancel) return;
@@ -1191,7 +1191,7 @@ Future<void> checkFolder(String name) async {
           } else if (res.error) {
             available = false;
           }
-        case ComicType.htManga:
+        case ComicType.htmanga:
           var res = await HtmangaNetwork().getComicInfo(comic.target);
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;

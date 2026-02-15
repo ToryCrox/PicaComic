@@ -112,7 +112,7 @@ class JsEngine with _JSEngineApi {
               String key = message["key"];
               String dataKey = message["data_key"];
               return ComicSource.sources
-                  .firstWhereOrNull((element) => element.key == key)
+                  .firstWhereOrNull((element) => element.key.name == key)
                   ?.data[dataKey];
             }
           case 'save_data':
@@ -121,7 +121,7 @@ class JsEngine with _JSEngineApi {
               String dataKey = message["data_key"];
               var data = message["data"];
               var source = ComicSource.sources
-                  .firstWhere((element) => element.key == key);
+                  .firstWhere((element) => element.key.name == key);
               source.data[dataKey] = data;
               source.saveData();
             }
@@ -130,7 +130,7 @@ class JsEngine with _JSEngineApi {
               String key = message["key"];
               String dataKey = message["data_key"];
               var source = ComicSource.sources
-                  .firstWhereOrNull((element) => element.key == key);
+                  .firstWhereOrNull((element) => element.key.name == key);
               source?.data.remove(dataKey);
               source?.saveData();
             }

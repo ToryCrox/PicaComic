@@ -389,9 +389,9 @@ class _ComicSourceState extends State<_ComicSource>
                 title: Text(
                     ComicSource.builtIn.firstWhere((e) => e.key == key).name),
                 trailing: Switch(
-                  value: appdata.appSettings.isComicSourceEnabled(key),
+                  value: appdata.appSettings.isComicSourceEnabled(key.name),
                   onChanged: (v) {
-                    appdata.appSettings.setComicSourceEnabled(key, v);
+                    appdata.appSettings.setComicSourceEnabled(key.name, v);
                     appdata.updateSettings();
                     setState(() {});
                   },

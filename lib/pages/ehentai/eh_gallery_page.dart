@@ -50,7 +50,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
         context.to(
           () => SearchResultPage(
             keyword: "\"$title\"".trim(),
-            sourceKey: "ehentai",
+            comicType: comicType,
           ),
         );
       };
@@ -172,7 +172,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
     }
     context.to(() => SearchResultPage(
           keyword: tag,
-          sourceKey: "ehentai",
+          comicType: comicType,
         ));
   }
 
@@ -543,7 +543,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   String get downloadedId => getGalleryId(link);
 
   @override
-  String get sourceKey => "ehentai";
+  ComicType get comicType => ComicType.ehentai;
 }
 
 class RatingLogic extends StateController {

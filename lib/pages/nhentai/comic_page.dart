@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/res.dart';
@@ -41,7 +40,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
         context.to(
           () => SearchResultPage(
             keyword: "\"$title\"".trim(),
-            sourceKey: sourceKey,
+            comicType: comicType,
           ),
         );
       };
@@ -168,7 +167,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
 
   @override
   Widget? recommendationBuilder(NhentaiComic data) =>
-      SliverGridComics(comics: data.recommendations, sourceKey: sourceKey);
+      SliverGridComics(comics: data.recommendations, comicType: comicType);
 
   @override
   String get tag => "Nhentai $_id";
@@ -206,14 +205,14 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
       context.to(
         () => SearchResultPage(
           keyword: tag,
-          sourceKey: sourceKey,
+          comicType: comicType,
         ),
       );
     } else {
       context.to(
         () => CategoryComicsPage(
           category: tag,
-          categoryKey: ComicSource.find(sourceKey)!.categoryData!.key,
+          comicType: comicType,
           param: categoryParam,
         ),
       );
@@ -244,5 +243,5 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String get downloadedId => "nhentai$id";
 
   @override
-  String get sourceKey => 'nhentai';
+  ComicType get comicType => ComicType.nhentai;
 }

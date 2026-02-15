@@ -55,15 +55,19 @@ class ComicSource {
 
   static List<ComicSource> sources = [];
 
-  static ComicSource? find(String key) =>
-      sources.firstWhereOrNull((element) => element.key == key);
+  static ComicSource? find(dynamic key) {
+    if (key is ComicType) {
+      return sources.firstWhereOrNull((element) => element.key == key);
+    }
+    return sources.firstWhereOrNull((element) => element.key.name == key.toString());
+  }
 
   static ComicSource? fromIntKey(int key) =>
-      sources.firstWhereOrNull((element) => element.key.hashCode == key);
+      sources.firstWhereOrNull((element) => element.key.index == key || element.key.name.hashCode == key);
 
   static Future<void> init() async {
     for (var source in builtInSources) {
-      if (appdata.appSettings.isComicSourceEnabled(source)) {
+      if (appdata.appSettings.isComicSourceEnabled(source.name)) {
         var s = builtIn.firstWhere((e) => e.key == source);
         sources.add(s);
         await s.loadData();
@@ -81,10 +85,10 @@ class ComicSource {
   final String name;
 
   /// Identifier of this source.
-  final String key;
+  final ComicType key;
 
   int get intKey {
-    return key.hashCode;
+    return key.index;
   }
 
   /// Account config.
@@ -237,8 +241,9 @@ class ComicSource {
     this.comicPageBuilder,
   });
 
-  ComicSource.unknown(this.key)
-      : name = "Unknown",
+  ComicSource.unknown(String key)
+      : key = ComicType.fromString(key),
+        name = "Unknown",
         account = null,
         categoryData = null,
         categoryComicsData = null,

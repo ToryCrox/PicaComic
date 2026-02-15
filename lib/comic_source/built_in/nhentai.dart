@@ -20,7 +20,7 @@ import '../../pages/reader/comic_reading_page.dart';
 
 final nhentai = ComicSource.named(
   name: 'nhentai',
-  key: 'nhentai',
+  key: ComicType.nhentai,
   filePath: 'built-in',
   favoriteData: FavoriteData(
     key: "nhentai",
@@ -43,7 +43,7 @@ final nhentai = ComicSource.named(
       CategoryButtonData(
         label: "推荐",
         onTap: () => App.mainNavigatorKey?.currentContext?.to(
-          () => const ComicPage(sourceKey: "nhentai", id: ""),
+          () => const ComicPage(comicType: ComicType.nhentai, id: ""),
         ),
       ),
     ],
@@ -83,7 +83,7 @@ final nhentai = ComicSource.named(
       });
       await future.future;
       if (NhentaiNetwork().logged) {
-        var source = ComicSource.find('nhentai')!;
+        var source = ComicSource.find(ComicType.nhentai)!;
         source.data["account"] = 'ok';
         source.saveData();
       }
@@ -182,7 +182,7 @@ class _NhentaiComicTile extends ComicTile {
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
-        sourceKey: 'nhentai',
+        comicType: ComicType.nhentai,
         id: comic.id,
         cover: comic.cover,
       ),
@@ -242,7 +242,7 @@ class _NhentaiComicTile extends ComicTile {
   String get comicID => comic.id;
 
   @override
-  String? get sourceKey => 'nhentai';
+  ComicType? get comicType => ComicType.nhentai;
 
   @override
   final List<ComicTileMenuOption>? addonMenuOptions;

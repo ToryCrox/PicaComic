@@ -13,7 +13,7 @@ abstract class ReadingData {
 
   ComicType get type;
 
-  String get sourceKey;
+  String get sourceKey => type.name;
 
   bool get hasEp;
 
@@ -137,9 +137,6 @@ class PicacgReadingData extends ReadingData {
   bool get hasEp => true;
 
   @override
-  String get sourceKey => "picacg";
-
-  @override
   ComicType get type => ComicType.picacg;
 
   @override
@@ -166,9 +163,6 @@ class EhReadingData extends ReadingData {
 
   @override
   bool get hasEp => eps != null;
-
-  @override
-  String get sourceKey => "ehentai";
 
   @override
   ComicType get type => ComicType.ehentai;
@@ -224,9 +218,6 @@ class JmReadingData extends ReadingData {
 
   @override
   bool get hasEp => true;
-
-  @override
-  String get sourceKey => "jm";
 
   @override
   ComicType get type => ComicType.jm;
@@ -286,9 +277,6 @@ class HitomiReadingData extends ReadingData {
   bool get hasEp => false;
 
   @override
-  String get sourceKey => "hitomi";
-
-  @override
   ComicType get type => ComicType.hitomi;
 
   @override
@@ -333,7 +321,7 @@ class HtReadingData extends ReadingData {
   String get sourceKey => "htManga";
 
   @override
-  ComicType get type => ComicType.htManga;
+  ComicType get type => ComicType.htmanga;
 
   @override
   String get downloadId => "Ht$id";
@@ -349,7 +337,7 @@ class HtReadingData extends ReadingData {
   }
 
   @override
-  FavoriteType get favoriteType => FavoriteType.htManga;
+  FavoriteType get favoriteType => FavoriteType.htmanga;
 }
 
 class NhentaiReadingData extends ReadingData {
@@ -366,9 +354,6 @@ class NhentaiReadingData extends ReadingData {
 
   @override
   bool get hasEp => false;
-
-  @override
-  String get sourceKey => "nhentai";
 
   @override
   ComicType get type => ComicType.nhentai;
@@ -433,7 +418,7 @@ class CustomReadingData extends ReadingData{
   }
 
   @override
-  String get sourceKey => source?.key ?? "";
+  String get sourceKey => source?.key.name ?? "";
 
   @override
   ComicType get type => ComicType.other;

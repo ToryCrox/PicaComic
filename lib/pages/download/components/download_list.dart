@@ -345,7 +345,7 @@ class DownloadList extends ConsumerWidget {
             }
             context.to(() => SearchResultPage(
                   keyword: searchTag,
-                  sourceKey: sourceKey,
+                  comicType: ComicType.fromString(sourceKey),
                 ));
           },
         ),

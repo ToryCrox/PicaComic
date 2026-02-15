@@ -95,7 +95,7 @@ class AccountsPage extends StatelessWidget {
           }
         }
         if (element.account!.allowReLogin) {
-          bool loading = logic._reLogin[element.key] == true;
+          bool loading = logic._reLogin[element.key.name] == true;
           yield ListTile(
             title: Text("重新登录".tl),
             subtitle: Text("如果登录失效点击此处".tl),
@@ -104,7 +104,7 @@ class AccountsPage extends StatelessWidget {
                 showToast(message: "无数据".tl);
                 return;
               }
-              logic._reLogin[element.key] = true;
+              logic._reLogin[element.key.name] = true;
               logic.update();
               final List account = element.data["account"];
               var res = await element.account!.login!(account[0], account[1]);
@@ -113,7 +113,7 @@ class AccountsPage extends StatelessWidget {
               } else {
                 showToast(message: "重新登录成功".tl);
               }
-              logic._reLogin[element.key] = false;
+              logic._reLogin[element.key.name] = false;
               logic.update();
             },
             trailing: loading

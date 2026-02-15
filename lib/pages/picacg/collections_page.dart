@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/app.dart';
 
 class CollectionPageLogic extends StateController {
@@ -61,7 +62,7 @@ class CollectionsPage extends StatelessWidget {
               slivers: [
                 SliverGridComics(
                   comics: logic.c1 + logic.c2,
-                  sourceKey: 'picacg',
+                  comicType: ComicType.picacg,
                 ),
                 SliverPadding(
                   padding: EdgeInsets.only(

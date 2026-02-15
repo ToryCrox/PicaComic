@@ -69,13 +69,13 @@ class CategoryPage extends StatelessWidget {
 
   CategoryData get data => getCategoryDataWithKey(category);
 
-  String findComicSourceKey() {
+  ComicType findComicType() {
     for (var source in ComicSource.sources) {
       if (source.categoryData?.key == category) {
         return source.key;
       }
     }
-    return "";
+    return ComicType.picacg;
   }
 
   void handleClick(
@@ -90,7 +90,7 @@ class CategoryPage extends StatelessWidget {
         () => SearchResultPage(
           keyword: tag,
           options: const [],
-          sourceKey: findComicSourceKey(),
+          comicType: findComicType(),
         ),
       );
     } else if (type == "search_with_namespace") {
@@ -101,14 +101,14 @@ class CategoryPage extends StatelessWidget {
         () => SearchResultPage(
           keyword: "$namespace:$tag",
           options: const [],
-          sourceKey: findComicSourceKey(),
+          comicType: findComicType(),
         ),
       );
     } else if (type == "category") {
       App.mainNavigatorKey!.currentContext!.to(
         () => CategoryComicsPage(
           category: tag,
-          categoryKey: categoryKey,
+          comicType: findComicType(),
           param: param,
         ),
       );
@@ -126,7 +126,7 @@ class CategoryPage extends StatelessWidget {
           children: [
             if (data.enableRankingPage)
               buildTag("排行榜".tl, (p0, p1) {
-                context.to(() => RankingPage(sourceKey: findComicSourceKey()));
+                context.to(() => RankingPage(comicType: findComicType()));
               }),
             for (var buttonData in data.buttons)
               buildTag(buttonData.label.tl, (p0, p1) => buttonData.onTap())

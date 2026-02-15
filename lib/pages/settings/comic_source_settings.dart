@@ -67,17 +67,17 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
     return Column(
       children: [
         const _BuiltInSources(),
-        if(appdata.appSettings.isComicSourceEnabled("picacg"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.picacg.name))
           const PicacgSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled("ehentai"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.ehentai.name))
           const EhSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled("nhentai"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.nhentai.name))
           const NhSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled("jm"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.jm.name))
           const JmSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled("hitomi"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.hitomi.name))
           const HitomiSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled("htmanga"))
+        if(appdata.appSettings.isComicSourceEnabled(ComicType.htmanga.name))
           const HtSettings(false),
         Padding(
             padding:
@@ -132,7 +132,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
       load();
       return const Center(child: CircularProgressIndicator());
     } else {
-      var currentKey = ComicSource.sources.map((e) => e.key).toList();
+      var currentKey = ComicSource.sources.map((e) => e.key.name).toList();
       return ListView.builder(
         itemCount: json!.length,
         itemBuilder: (context, index) {
@@ -193,11 +193,11 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
       title: Text(
           ComicSource.builtIn.firstWhere((e) => e.key == key).name.tl),
       trailing: Switch(
-        value: appdata.appSettings.isComicSourceEnabled(key),
+        value: appdata.appSettings.isComicSourceEnabled(key.name),
         onChanged: (v) async {
           if (isLoading) return;
           isLoading = true;
-          appdata.appSettings.setComicSourceEnabled(key, v);
+          appdata.appSettings.setComicSourceEnabled(key.name, v);
           await appdata.updateSettings();
           if(!v) {
             ComicSource.sources.removeWhere((e) => e.key == key);

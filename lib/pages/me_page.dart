@@ -161,7 +161,7 @@ class _MePageState extends State<MePage> {
                         child: AnimatedImage(
                           image: CachedImageProvider(
                             history[index].cover,
-                            sourceKey: history[index].type.comicSource?.key,
+                            sourceKey: history[index].type.comicSource?.key.name,
                           ),
                           width: 96,
                           height: 128,

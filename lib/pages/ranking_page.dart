@@ -5,11 +5,12 @@ import "package:pica_comic/foundation/app.dart";
 import "package:pica_comic/network/res.dart";
 import "package:pica_comic/tools/translations.dart";
 import 'package:pica_comic/network/base_comic.dart';
+import 'package:pica_comic/foundation/def.dart';
 
 class RankingPage extends StatefulWidget {
-  const RankingPage({required this.sourceKey, super.key});
+  const RankingPage({required this.comicType, super.key});
 
-  final String sourceKey;
+  final ComicType comicType;
 
   @override
   State<RankingPage> createState() => _RankingPageState();
@@ -21,15 +22,14 @@ class _RankingPageState extends State<RankingPage> {
   late String optionValue;
 
   void findData() {
-    for (final source in ComicSource.sources) {
-      if (source.categoryData?.key == widget.sourceKey) {
-        data = source.categoryComicsData!;
-        options = data.rankingData!.options;
-        optionValue = options.keys.first;
-        return;
-      }
+    final source = ComicSource.find(widget.comicType);
+    if (source != null) {
+      data = source.categoryComicsData!;
+      options = data.rankingData!.options;
+      optionValue = options.keys.first;
+      return;
     }
-    throw "${widget.sourceKey} Not found";
+    throw "${widget.comicType} Not found";
   }
 
   @override
@@ -52,7 +52,7 @@ class _RankingPageState extends State<RankingPage> {
             loader: data.rankingData!.load,
             optionValue: optionValue,
             header: buildOptions(),
-            sourceKey: widget.sourceKey,
+            fieldComicType: widget.comicType,
           ))
         ],
       ),
@@ -98,15 +98,17 @@ class _CustomCategoryComicsList extends ComicsPage<BaseComic> {
     required this.loader,
     required this.optionValue,
     required this.header,
-    required this.sourceKey,
+    required this.fieldComicType,
   });
 
   final Future<Res<List<BaseComic>>> Function(String option, int page) loader;
 
   final String optionValue;
 
+  final ComicType fieldComicType;
+
   @override
-  final String sourceKey;
+  ComicType get comicType => fieldComicType;
 
   @override
   final Widget header;
@@ -117,7 +119,7 @@ class _CustomCategoryComicsList extends ComicsPage<BaseComic> {
   }
 
   @override
-  String? get tag => "$sourceKey RankingPage with $optionValue";
+  String? get tag => "${fieldComicType.name} RankingPage with $optionValue";
 
   @override
   String? get title => null;

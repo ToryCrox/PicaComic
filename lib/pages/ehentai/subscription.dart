@@ -1,4 +1,5 @@
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -89,5 +90,5 @@ class EhSubscriptionComics extends ComicsPage<EhGalleryBrief>{
   String? get title => null;
 
   @override
-  String get sourceKey => 'ehentai';
+  ComicType get comicType => ComicType.ehentai;
 }
