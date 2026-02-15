@@ -125,7 +125,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   Future<String?> _getLocalCoverPath() async {
     try {
-      final downloadId = downloadManager.generateId(comicType.name, id);
+      final downloadId = downloadManager.getDownloadIdFromComicId(comicType, id);
       if (await downloadManager.isExists(downloadId)) {
         final comic = await downloadManager.getComicOrNull(downloadId);
         if (comic != null) {
@@ -165,7 +165,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   @override
   void download() async {
-    final downloadId = downloadManager.generateId(comicType.name, id);
+    final downloadId = downloadManager.getDownloadIdFromComicId(comicType, id);
     if (downloadManager.downloading.any((e) => e.id == downloadId)) {
       showToast(message: "下载中".tl);
       return;
@@ -245,7 +245,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   Card? get uploaderInfo => null;
 
   @override
-  String get downloadedId => downloadManager.generateId(comicType.name, id);
+  String get downloadedId => downloadManager.getDownloadIdFromComicId(comicType, id);
 
   @override
   List<Widget>? get extraActionButtons {

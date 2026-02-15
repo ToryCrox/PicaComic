@@ -11,7 +11,6 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
-import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
@@ -121,17 +120,7 @@ class FavoriteItem {
 
   String toDownloadId() {
     try {
-      return switch (type.comicType) {
-        ComicType.picacg => target,
-        ComicType.ehentai => getGalleryId(target),
-        ComicType.jm => "jm$target",
-        ComicType.hitomi => RegExp(r"\d+(?=\.html)").hasMatch(target)
-            ? "hitomi${RegExp(r"\d+(?=\.html)").firstMatch(target)?[0]}"
-            : target,
-        ComicType.htmanga => "ht$target",
-        ComicType.nhentai => "nhentai$target",
-        _ => type.comicSource == null ? target : downloadManager.generateId(type.comicSource!.key.name, target)
-      };
+      return downloadManager.getDownloadIdFromComicId(type.comicType, target);
     } catch (e) {
       return "**Invalid ID**";
     }

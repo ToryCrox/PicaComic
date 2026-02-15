@@ -15,7 +15,6 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/pages/ehentai/eh_comments_page.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
 
@@ -108,7 +107,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   Future<Gallery?> loadCachedData() async {
     var data = await DiskCache.readModel(cacheKey, (map) => Gallery.fromJson(map));
     if (data != null) return data;
-    final downloadedId = getGalleryId(data?.link ?? "");
+    final downloadedId = downloadManager.getDownloadIdFromComicId(comicType, data?.link ?? "");
     if (downloadedId.isNotEmpty && await downloadManager.isExists(downloadedId)) {
       var downloaded = await downloadManager.getComicOrNull(downloadedId);
       if (downloaded is DownloadedGallery) {
@@ -463,7 +462,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   }
 
   void startDownload(int type) async {
-    final id = getGalleryId(data!.link);
+    final id = downloadManager.getDownloadIdFromComicId(comicType, data!.link);
     if (await downloadManager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
@@ -540,7 +539,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
       showComments(App.globalContext!, link, data!.uploader, data!.auth ?? {});
 
   @override
-  String get downloadedId => getGalleryId(link);
+  String get downloadedId => downloadManager.getDownloadIdFromComicId(comicType, link);
 
   @override
   ComicType get comicType => ComicType.ehentai;

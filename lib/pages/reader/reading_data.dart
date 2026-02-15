@@ -168,7 +168,7 @@ class EhReadingData extends ReadingData {
   ComicType get type => ComicType.ehentai;
 
   @override
-  String get downloadId => getGalleryId(id);
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
@@ -223,7 +223,7 @@ class JmReadingData extends ReadingData {
   ComicType get type => ComicType.jm;
 
   @override
-  String get downloadId => "jm$id";
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) async{
@@ -280,7 +280,7 @@ class HitomiReadingData extends ReadingData {
   ComicType get type => ComicType.hitomi;
 
   @override
-  String get downloadId => "hitomi$id";
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   String get favoriteId => link;
@@ -324,7 +324,7 @@ class HtReadingData extends ReadingData {
   ComicType get type => ComicType.htmanga;
 
   @override
-  String get downloadId => "Ht$id";
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
@@ -359,7 +359,7 @@ class NhentaiReadingData extends ReadingData {
   ComicType get type => ComicType.nhentai;
 
   @override
-  String get downloadId => "nhentai$id";
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
@@ -381,7 +381,7 @@ class CustomReadingData extends ReadingData{
   final ComicSource? source;
 
   @override
-  String get downloadId => downloadManager.generateId(sourceKey, id);
+  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   final Map<String, String>? eps;

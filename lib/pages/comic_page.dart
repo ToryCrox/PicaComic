@@ -82,7 +82,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   void download() async {
-    final downloadId = downloadManager.generateId(comicType.name, id);
+    final downloadId = downloadManager.getDownloadIdFromComicId(comicType, id);
     final eps = data!.chapters?.values.toList();
     for (var i in downloadManager.downloading) {
       if (i.id == downloadId) {
@@ -340,7 +340,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
       : null;
 
   @override
-  String get downloadedId => downloadManager.generateId(comicType.name, id);
+  String get downloadedId => downloadManager.getDownloadIdFromComicId(comicType, id);
 }
 
 class _CommentsPage extends StatefulWidget {
