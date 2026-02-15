@@ -32,7 +32,7 @@ class _IsolatePool {
 
   final Map<String, _Worker> _workers = {};
   final Duration _timeout = const Duration(seconds: 30);
-  final int _maxWorkers = math.max(1, Platform.numberOfProcessors - 1); // 按 CPU 核数优化
+  final int _maxWorkers = 3; // 按 CPU 核数优化
 
   /// 核心执行方法
   Future<R> execute<Q, R>(Function function, Q parameter, String functionSignature) async {
