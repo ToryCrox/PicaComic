@@ -98,8 +98,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   @override
   EpsData? get eps => null; 
 
-  @override
-  Map<String, String> get headers => Map.from(KemonoNetwork.getImageHeaders());
+
 
   @override
   Widget buildCover(BuildContext context, ComicPageLogic logic, double height, double width) {

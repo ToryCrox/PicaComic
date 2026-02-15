@@ -176,7 +176,6 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
         ));
   }
 
-  @override
   Map<String, String> get headers => {
         "Cookie": EhNetwork().cookiesStr,
         "User-Agent": webUA,

@@ -139,9 +139,7 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
         ));
   }
 
-  @override
-  Map<String, String> get headers =>
-      {"User-Agent": webUA, "Referer": "https://hitomi.la/"};
+
 
   @override
   ThumbnailsData? get thumbnailsCreator => ThumbnailsData([], (page) async {

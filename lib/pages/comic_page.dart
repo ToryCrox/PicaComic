@@ -10,7 +10,7 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/components/select_download_eps.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/pica_image_manager.dart';
+
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/stack.dart' as stack;
@@ -24,7 +24,7 @@ import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 
 import 'image_favorites.dart';
 import 'show_image_page.dart';
@@ -793,7 +793,6 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   String? get subTitle => null;
 
-  Map<String, String> get headers => {};
 
   @nonVirtual
   bool get favorite => _logicOrNull?.favorite ?? false;
@@ -1103,13 +1102,6 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       );
     }
 
-    if (headers["host"] == null && headers["Host"] == null) {
-      headers["host"] = Uri.parse(cover!).host;
-    }
-    ImageProvider image = CachedNetworkImageProvider(cover!, cacheManager: picaImageManager, headers: {
-      "sourceKey": comicType.name,
-      "isThumbnail": "true",
-    });
     return GestureDetector(
       child: Container(
         width: width,
@@ -1121,12 +1113,17 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Hero(
           tag: "image$tag",
-          child: Image(
-            image: image,
+          child: PicaImage(
+            url: cover!,
             fit: BoxFit.cover,
+            headers: {
+              "sourceKey": comicType.name,
+              "isThumbnail": "true",
+            },
           ),
         ),
       ),
+
       onTap: () =>
           App.globalTo(() => ShowImagePageWithHero(cover!, "image$tag")),
     );
@@ -1861,10 +1858,14 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   }
 
   Widget _thumbnailImageBuilder(int index) {
-    return Image(
-      image: CachedNetworkImageProvider(thumbnails!.thumbnails[index], cacheManager: picaImageManager, headers: headers),
+    return PicaImage(
+      url: thumbnails!.thumbnails[index],
       fit: BoxFit.contain,
-      errorBuilder: (context, s, d) => const Icon(Icons.error),
+      headers: {
+        "sourceKey": comicType.name,
+        "isThumbnail": "true",
+      },
+      errorWidget: (context, s, d) => const Icon(Icons.error),
     );
   }
 

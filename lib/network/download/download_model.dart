@@ -2,22 +2,21 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart' show FileInfo;
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/tools/image_utils.dart';
 import 'models/download_color_tag.dart';
 
 import '../../base.dart';
-import '../app_dio.dart';
 import 'image_download_queue.dart';
 import 'download_error_handler.dart';
 import '../../foundation/local_repository_manager.dart';
@@ -182,20 +181,28 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       {required this.type});
 
   Future<void> downloadCover() async {
-    var file = File(Path.join(path, 'cover.webp'));
+    final file = File(Path.join(path, 'cover.webp'));
     if (file.existsSync()) {
       return;
     }
-    var dio = logDio();
-    var res = await dio.get<Uint8List>(cover,
-        options: Options(responseType: ResponseType.bytes, headers: headers));
-    if (file.existsSync()) {
-      file.deleteSync();
+    try {
+      final headers = Map<String, String>.from(this.headers);
+      headers['sourceKey'] = type.toComicType().name;
+      final stream = picaImageManager.getImageFile(cover, headers: headers);
+      await for (var fileResponse in stream) {
+        if (fileResponse is FileInfo) {
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
+          await file.create(recursive: true);
+          await fileResponse.file.copy(file.path);
+          return;
+        }
+      }
+    } catch (e) {
+      Log.e("Download Cover Failed: $e");
+      rethrow;
     }
-    await file.create(recursive: true);
-    // 将图片数据转换为webp格式
-    final webpData = await convertImageToWebp(res.data!);
-    await file.writeAsBytes(webpData);
   }
 
   /// retry when error
