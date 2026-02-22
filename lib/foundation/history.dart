@@ -10,6 +10,7 @@ import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
+import 'package:signals/signals.dart';
 
 part "image_favorites.dart";
 
@@ -229,9 +230,14 @@ class HistoryManager {
   // 数据库版本号
   static const int _databaseVersion = 1;
 
-  final Map<String, bool> _cachedHistory_ = {};
+  /// 缓存已查明进度的历史详情
+  /// Key: target, Value: 单个被 Signal 包裹的历史信息
+  /// 这样可以确保当一个漫画的历史更新时，只有监听这个特定 target 的组件才会重建
+  final Map<String, Signal<History?>> historyCache = {};
 
-  final Map<String, History> _memoryCache = {};
+  /// 待查询的 target 队列
+  final Set<String> _pendingTargets = {};
+  bool _isBatchQueryPending = false;
 
   Future<void> tryUpdateDb() async {
     var file = File("${App.dataPath}/history_temp.db");
@@ -315,12 +321,7 @@ class HistoryManager {
     _initialized = true;
     _initCompleter.complete(_db);
     
-    // 加载所有历史记录到内存
-    var res = await _db!.query(kTableHistory);
-    for (var element in res) {
-      var history = History.fromRow(element);
-      _memoryCache[history.target] = history;
-    }
+    // 不再启动时全量加载历史记录到内存，实现按需加载
     
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
@@ -421,8 +422,8 @@ class HistoryManager {
     }
     saveData();
     saveData();
-    _cachedHistory_[newItem.target] = true;
-    _memoryCache[newItem.target] = newItem;
+    
+    _updateHistoryCache(newItem.target, newItem);
   }
 
   ///退出阅读器时调用此函数, 修改阅读位置
@@ -445,21 +446,15 @@ class HistoryManager {
     );
 
     // 更新内存缓存
-    _memoryCache[history.target] = history;
-    
-    if (updateMePage) {
-      scheduleMicrotask(() {
-        StateController.findOrNull(tag: "me_page")?.update();
-      });
-    }
+    _updateHistoryCache(history.target, history);
   }
 
   void clearHistory() async {
     await _ensureInitialized();
     final db = _db!;
     await db.delete(kTableHistory);
-    _cachedHistory_.clear();
-    _memoryCache.clear();
+    historyCache.clear();
+    _pendingTargets.clear();
   }
 
   void remove(String id) async {
@@ -470,53 +465,102 @@ class HistoryManager {
       where: '$kHistoryTarget = ?',
       whereArgs: [id],
     );
-    _cachedHistory_[id] = false;
-    _memoryCache.remove(id);
+    _updateHistoryCache(id, null);
   }
 
+  /// 同步查找历史缓存。如果缓存没有，则抛入待查队列（微任务合并批量查找）
+  History? findInCache(String target) {
+    if (historyCache.containsKey(target)) {
+      return historyCache[target]!.value;
+    }
+    // 先塞一个空的壳子，避免重复进入队列
+    historyCache[target] = signal(null);
+    _enqueueQuery(target);
+    return null;
+  }
+
+  /// 异步查找历史，支持立刻返回（因为要保证旧API的兼容性）。
+  /// 在使用信号系统的上层应用优先考虑直接读取 `historyCache[target]?.value` 或者 [findInCache]。
   Future<History?> find(String target) async {
-    if(_memoryCache.containsKey(target)) {
-      return _memoryCache[target];
+    if(historyCache.containsKey(target) && historyCache[target]!.value != null) {
+      return historyCache[target]!.value;
     }
     await _ensureInitialized();
     return findSync(target);
   }
 
-  History? findInCache(String target) {
-    return _memoryCache[target];
-  }
-
   Future<void> updateCache() async {
-    await _ensureInitialized();
-    final db = _db!;
-    final res = await db.query(kTableHistory);
-    for (var element in res) {
-      _cachedHistory_[element[kHistoryTarget] as String] = true;
-      var history = History.fromRow(element);
-      _memoryCache[history.target] = history;
+    // 按需加载不再需要主动拉取全量Cache。提供一个空实现或抛弃掉。
+  }
+
+  Future<History?> findSync(String target) async {
+    if (historyCache.containsKey(target) && historyCache[target]!.value != null){
+      return SynchronousFuture(historyCache[target]!.value);
+    }
+
+    final e = await _findDirect(target);
+    _updateHistoryCache(target, e);
+    return e;
+  }
+
+  void _updateHistoryCache(String target, History? history) {
+    if (historyCache.containsKey(target)) {
+      historyCache[target]!.value = history;
+    } else {
+      historyCache[target] = signal(history);
     }
   }
 
-  Future<History?> findSync(String target) {
-    // if (_cachedHistory == null) {
-    //   // 不等待updateCache完成，而是直接查询数据库
-    //   return _findDirect(target);
-    // }
-    if (_cachedHistory_[target] == false) {
-      return SynchronousFuture(null);
-    }
+  void _enqueueQuery(String target) {
+    if (_pendingTargets.contains(target)) return;
     
-    if (_memoryCache.containsKey(target)){
-      return SynchronousFuture(_memoryCache[target]);
+    _pendingTargets.add(target);
+    
+    if (!_isBatchQueryPending) {
+      _isBatchQueryPending = true;
+      Future.microtask(_processBatchQuery);
+    }
+  }
+
+  Future<void> _processBatchQuery() async {
+    if (_pendingTargets.isEmpty) {
+      _isBatchQueryPending = false;
+      return;
     }
 
-    return _findDirect(target).then((e) {
-      _cachedHistory_[target] = e != null;
-      if(e != null){
-        _memoryCache[target] = e;
+    final queryTargets = _pendingTargets.toList();
+    _pendingTargets.clear();
+    _isBatchQueryPending = false;
+
+    try {
+      await _ensureInitialized();
+      final db = _db!;
+      
+      // sqlite 的 IN 查询构造
+      final placeholders = List.filled(queryTargets.length, '?').join(', ');
+      final res = await db.query(
+        kTableHistory,
+        where: '$kHistoryTarget IN ($placeholders)',
+        whereArgs: queryTargets,
+      );
+
+      // 先确保都有空的 Signal，防止有目标没有被查询到导致的错乱
+      for (var target in queryTargets) {
+        if (!historyCache.containsKey(target)) {
+           historyCache[target] = signal(null);
+        } else {
+           historyCache[target]!.value = null; // 默认置空
+        }
       }
-      return e;
-    });
+      
+      // 根据查询真实情况填充
+      for (var element in res) {
+        final target = element[kHistoryTarget] as String;
+        historyCache[target]!.value = History.fromRow(element);
+      }
+    } catch (e) {
+      Log.e('Failed to process batch query: $e');
+    }
   }
   
   Future<History?> _findDirect(String target) async {
