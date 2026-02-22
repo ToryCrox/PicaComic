@@ -57,7 +57,21 @@
    - 使用可选参数和默认值提高灵活性
 
 2. **状态管理**:
-   - 使用 `StateController` 进行状态管理
+   - 建议使用 `signals`包（`package:signals/signals_flutter.dart`）进行状态管理。**注：不再推荐使用 `StateController`**。
+   - **细粒度控制**: 使用 `Watch.builder` 代替标准的 `Builder` 组件以实现局部状态刷新机制。只有被依赖的 `signal` 更新时，才会触发对应 Widget 的重建操作，避免造成外围 Widget 的不必要重绘，达到最精细的控制效果。
+     ```dart
+     import 'package:flutter/material.dart';
+     import 'package:signals/signals_flutter.dart';
+
+     final counter = signal(0);
+     
+     // 推荐方式：局部细粒度更新
+     Widget buildCounter() {
+       return Watch.builder(
+         builder: (context) => Text('Counter: ${counter.value}'),
+       );
+     }
+     ```
    - 避免不必要的 `setState` 调用
    - 使用 `const` 构造函数减少重建
 

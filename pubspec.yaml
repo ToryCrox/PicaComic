@@ -117,6 +117,7 @@ dependencies:
   log_viewer_shared:
     path: packages/log_viewer_shared
   worker_manager: ^7.2.7
+  signals: 6.3.0
 
 dev_dependencies:
   flutter_test:
