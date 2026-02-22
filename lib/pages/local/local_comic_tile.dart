@@ -71,6 +71,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 加载显示所需数据
   Future<void> _loadData() async {
+    _coverPath = widget.model.cover;
     final history = widget.initialHistory ?? await downloadManager.getLocalHistory(widget.model.path);
     final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
@@ -170,8 +171,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
                   ],
                 ),
               ),
-              _buildProgressBar(colorScheme), // Move to here
               _buildTitle(),
+              _buildProgressBar(colorScheme), // Move to here
             ],
           ),
         ),
