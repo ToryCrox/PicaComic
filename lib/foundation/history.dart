@@ -411,16 +411,16 @@ class HistoryManager {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } else {
+      newItem.time = DateTime.now();
       await db.update(
         kTableHistory,
         {
-          kHistoryTime: DateTime.now().millisecondsSinceEpoch,
+          kHistoryTime: newItem.time.millisecondsSinceEpoch,
         },
         where: '$kHistoryTarget = ?',
         whereArgs: [newItem.target],
       );
     }
-    saveData();
     saveData();
     
     _updateHistoryCache(newItem.target, newItem);
@@ -432,10 +432,11 @@ class HistoryManager {
     await _ensureInitialized();
     final db = _db!;
     
+    history.time = DateTime.now();
     await db.update(
       kTableHistory,
       {
-        kHistoryTime: DateTime.now().millisecondsSinceEpoch,
+        kHistoryTime: history.time.millisecondsSinceEpoch,
         kHistoryEp: history.ep,
         kHistoryPage: history.page,
         kHistoryReadEpisode: history.readEpisode.join(','),
@@ -470,13 +471,12 @@ class HistoryManager {
 
   /// 同步查找历史缓存。如果缓存没有，则抛入待查队列（微任务合并批量查找）
   History? findInCache(String target) {
-    if (historyCache.containsKey(target)) {
-      return historyCache[target]!.value;
+    if (!historyCache.containsKey(target)) {
+      // 先塞一个空的壳子，避免重复进入队列
+      historyCache[target] = signal(null);
+      _enqueueQuery(target);
     }
-    // 先塞一个空的壳子，避免重复进入队列
-    historyCache[target] = signal(null);
-    _enqueueQuery(target);
-    return null;
+    return historyCache[target]!.value;
   }
 
   /// 异步查找历史，支持立刻返回（因为要保证旧API的兼容性）。
@@ -505,7 +505,7 @@ class HistoryManager {
 
   void _updateHistoryCache(String target, History? history) {
     if (historyCache.containsKey(target)) {
-      historyCache[target]!.value = history;
+      historyCache[target]!.set(history, force: true);
     } else {
       historyCache[target] = signal(history);
     }

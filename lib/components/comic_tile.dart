@@ -470,16 +470,7 @@ abstract class ComicTile extends StatelessWidget {
         ? LocalFavoritesManager().isExist(comicID!)
         : false;
 
-    if (!isFavorite && appdata.settings[73] != '1') {
-      return _buildWithDownloadIcon(child, detailedMode);
-    }
-
-    var history = HistoryManager().findInCache(comicID!);
-    if (history?.page == 0) {
-      history!.page = 1;
-    }
-
-    if (!isFavorite && history == null) {
+    if (!isFavorite) {
       return _buildWithDownloadIcon(child, detailedMode);
     }
 
@@ -510,17 +501,6 @@ abstract class ComicTile extends StatelessWidget {
                       color: Colors.white,
                     ),
                   ),
-                if (history != null)
-                  Container(
-                    height: 24,
-                    color: Colors.blue.withOpacity(0.9),
-                    constraints: const BoxConstraints(minWidth: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: CustomPaint(
-                      painter:
-                          _ReadingHistoryPainter(history.page, history.maxPage),
-                    ),
-                  )
               ],
             ),
           ),
@@ -531,50 +511,142 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
+  Widget _buildHistoryTime(BuildContext context) {
+    if (comicID == null || appdata.settings[73] != '1') return const SizedBox.shrink();
+
+    return Watch.builder(builder: (context) {
+      final history = HistoryManager().findInCache(comicID!);
+      if (history == null) return const SizedBox.shrink();
+
+      if (history.ep == 0 && history.page == 0) return const SizedBox.shrink();
+
+      final now = DateTime.now();
+      final diff = now.difference(history.time);
+      String timeStr;
+      if (diff.inMinutes < 1) {
+        timeStr = "刚刚".tl;
+      } else if (diff.inHours < 1) {
+        timeStr = "${diff.inMinutes}分钟以前".tl;
+      } else if (diff.inDays < 1) {
+        timeStr = "${diff.inHours}小时以前".tl;
+      } else if (diff.inDays < 30) {
+        timeStr = "${diff.inDays}天以前".tl;
+      } else {
+        timeStr = "${history.time.year}-${history.time.month.toString().padLeft(2, '0')}-${history.time.day.toString().padLeft(2, '0')}";
+      }
+
+      return Positioned(
+        left: 0,
+        bottom: 0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          margin: const EdgeInsets.only(left: 4, bottom: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            timeStr,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildHistoryProgressBar(BuildContext context) {
+    if (comicID == null || appdata.settings[73] != '1') return const SizedBox.shrink();
+
+    return Watch.builder(builder: (context) {
+      final history = HistoryManager().findInCache(comicID!);
+      if (history == null) return const SizedBox.shrink();
+
+      if (history.ep == 0 && history.page == 0) return const SizedBox.shrink();
+
+      if (history.page == 0) {
+        history.page = 1;
+      }
+
+      final maxPage = history.maxPage ?? history.page;
+      if (maxPage == 0) return const SizedBox.shrink();
+      
+      final progress = (history.page / maxPage).clamp(0.0, 1.0);
+
+      return Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: SizedBox(
+          height: 3,
+          child: LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.transparent,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      );
+    });
+  }
+
   Widget _buildDetailedMode(BuildContext context) {
     return _ComicTileInkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap_,
       onLongPress: enableLongPressed ? onLongTap_ : null,
       onSecondaryTap: onSecondaryTap_,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-        child: Row(
-          children: [
-            AspectRatio(
-              aspectRatio: 0.68,
-              child: Container(
-                decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8)),
-                clipBehavior: Clip.antiAlias,
-                child: image,
-              ),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+            child: Row(
+              children: [
+                AspectRatio(
+                  aspectRatio: 0.68,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(8)),
+                        clipBehavior: Clip.antiAlias,
+                        child: image,
+                      ),
+                      _buildHistoryTime(context),
+                    ],
+                  ),
+                ),
+                const SizedBox(
+                  width: 16,
+                ),
+                Expanded(
+                  child: _ComicDescription(
+                    //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
+                    title: pages == null
+                        ? title.replaceAll("\n", "")
+                        : "[${pages}P]${title.replaceAll("\n", "")}",
+                    user: subTitle,
+                    description: description,
+                    subDescription: buildSubDescription(context),
+                    badge: badge,
+                    primaryTags: primaryTags,
+                    tags: tags,
+                    maxLines: maxLines,
+                    onTagTap: onTagTap,
+                    onPrimaryTagTap: onPrimaryTagTap,
+                    onTagSecondaryTap: onTagSecondaryTap,
+                    onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(
-              width: 16,
-            ),
-            Expanded(
-              child: _ComicDescription(
-                //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
-                title: pages == null
-                    ? title.replaceAll("\n", "")
-                    : "[${pages}P]${title.replaceAll("\n", "")}",
-                user: subTitle,
-                description: description,
-                subDescription: buildSubDescription(context),
-                badge: badge,
-                primaryTags: primaryTags,
-                tags: tags,
-                maxLines: maxLines,
-                onTagTap: onTagTap,
-                onPrimaryTagTap: onPrimaryTagTap,
-                onTagSecondaryTap: onTagSecondaryTap,
-                onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
-              ),
-            ),
-          ],
-        ),
+          ),
+          _buildHistoryProgressBar(context),
+        ],
       ),
     );
   }
@@ -589,12 +661,18 @@ abstract class ComicTile extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8)),
-                clipBehavior: Clip.antiAlias,
-                child: image,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(8)),
+                    clipBehavior: Clip.antiAlias,
+                    child: image,
+                  ),
+                  _buildHistoryTime(context),
+                ],
               ),
             ),
             Positioned(
@@ -642,6 +720,7 @@ abstract class ComicTile extends StatelessWidget {
                 ),
               ),
             ),
+            _buildHistoryProgressBar(context),
           ],
         ),
       ),
@@ -831,83 +910,7 @@ class _ComicDescriptionState extends State<_ComicDescription> {
   }
 }
 
-class _ReadingHistoryPainter extends CustomPainter {
-  final int page;
-  final int? maxPage;
 
-  const _ReadingHistoryPainter(this.page, this.maxPage);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (maxPage == null) {
-      // 在中央绘制page
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: "$page",
-          style: TextStyle(
-            fontSize: size.width * 0.8,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(
-          canvas,
-          Offset((size.width - textPainter.width) / 2,
-              (size.height - textPainter.height) / 2));
-    } else if (page == maxPage) {
-      // 在中央绘制勾
-      final paint = Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(Offset(size.width * 0.2, size.height * 0.5),
-          Offset(size.width * 0.45, size.height * 0.75), paint);
-      canvas.drawLine(Offset(size.width * 0.45, size.height * 0.75),
-          Offset(size.width * 0.85, size.height * 0.3), paint);
-    } else {
-      // 在左上角绘制page, 在右下角绘制maxPage
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: "$page",
-          style: TextStyle(
-            fontSize: size.width * 0.8,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, const Offset(0, 0));
-      final textPainter2 = TextPainter(
-        text: TextSpan(
-          text: "/$maxPage",
-          style: TextStyle(
-            fontSize: size.width * 0.5,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter2.layout();
-      textPainter2.paint(
-        canvas,
-        Offset(
-          size.width - textPainter2.width,
-          size.height - textPainter2.height,
-        ),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is! _ReadingHistoryPainter ||
-        oldDelegate.page != page ||
-        oldDelegate.maxPage != maxPage;
-  }
-}
 
 class NormalComicTile extends ComicTile {
   const NormalComicTile(
