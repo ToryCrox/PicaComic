@@ -23,7 +23,9 @@ import 'local_favorites_page.dart';
 import 'local_comic_tile.dart';
 
 class LocalComicPage extends StatefulWidget {
-  const LocalComicPage({Key? key}) : super(key: key);
+  final String? parentPath;
+
+  const LocalComicPage({Key? key, this.parentPath}) : super(key: key);
 
   @override
   State<LocalComicPage> createState() => _LocalComicPageState();
@@ -32,10 +34,6 @@ class LocalComicPage extends StatefulWidget {
 class _LocalComicPageState extends State<LocalComicPage> {
   // 本地漫画列表
   final List<LocalComicModel> _localComics = [];
-  // 历史路径栈，用于导航返回
-  final List<String> _historyPaths = [];
-  // 当前父级路径，如果为null则表示在根目录
-  String? _parentPath;
   // 当前目录文件总大小
   String _fileSize = '';
 
@@ -55,7 +53,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 加载本地漫画列表
   Future<void> _loadLocalComics() async {
-    final parentPath = _parentPath;
+    final parentPath = widget.parentPath;
     if (parentPath == null) {
       // 加载根目录（已添加的本地漫画）
       final localComics = await downloadManager.getAllLocal();
@@ -101,7 +99,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
   // 计算并显示当前目录所有文件大小
   Future<void> _loadAllFileSize(final String dir) async {
     int totalFileSize = await workerManager.execute<int>(() => _computeAllFileSize(dir));
-    if (_parentPath == dir) {
+    if (widget.parentPath == dir) {
       setState(() {
         _fileSize = bytesLengthToReadableSize(totalFileSize);
       });
@@ -133,20 +131,12 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   @override
   Widget build(BuildContext context) {
-    final parentPath = _parentPath;
+    final parentPath = widget.parentPath;
     String titleText = '本地漫画${parentPath != null ? '(${Path.basename(parentPath)})' : ''}';
     if (_fileSize.isNotEmpty) {
       titleText += ' | $_fileSize';
     }
-    return PopScope(
-      canPop: parentPath == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (_parentPath != null) {
-          _parentPath = _historyPaths.isNotEmpty ? _historyPaths.removeLast() : null;
-          _loadLocalComics();
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: Text(titleText),
           actions: [
@@ -195,8 +185,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
           },
           child: _buildBody(),
         ),
-      ),
-    );
+      );
   }
 
   // 处理拖拽文件/文件夹
@@ -254,11 +243,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 final subDirs = (await dir.list().toList()).whereType<Directory>();
                 if (subDirs.isNotEmpty) {
                   // 如果含有子目录，进入下一级
-                  if (_parentPath != null) {
-                    _historyPaths.add(_parentPath!);
-                  }
-                  _parentPath = model.path;
-                  _loadLocalComics();
+                  App.to(context, () => LocalComicPage(parentPath: model.path));
                 } else {
                   // 读取漫画
                   final initIndex = history?.optInt('pageIndex', 1) ?? 1;
@@ -283,7 +268,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   void _showComicMenu(BuildContext context, LocalComicModel model, TapDownDetails? details) {
     if (details == null) return;
-    final parentPath = _parentPath;
+    final parentPath = widget.parentPath;
     showDesktopMenu(
       App.globalContext!,
       details.globalPosition,
