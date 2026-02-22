@@ -249,16 +249,32 @@ abstract class ComicTile extends StatelessWidget {
 
   void onTap_();
 
-  /// 构建带下载图标的 widget
-  Widget _buildWithDownloadIcon(Widget child, bool detailedMode) {
-    if (comicID == null || comicType == null) {
-      return child;
-    }
-    return Stack(
-      children: [
-        Positioned.fill(child: child),
-        _buildDownloadIcon(detailedMode),
-      ],
+  /// 构建收藏图标 Widget
+  Widget _buildFavoriteIcon(bool detailedMode) {
+    return Positioned(
+      left: detailedMode ? 16 : 6,
+      top: 8,
+      child: Container(
+        height: 24,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              height: 24,
+              width: 24,
+              color: Colors.green,
+              child: const Icon(
+                Icons.bookmark_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -470,42 +486,14 @@ abstract class ComicTile extends StatelessWidget {
         ? LocalFavoritesManager().isExist(comicID!)
         : false;
 
-    if (!isFavorite) {
-      return _buildWithDownloadIcon(child, detailedMode);
-    }
-
     return Stack(
       children: [
         Positioned.fill(
           child: child,
         ),
-        Positioned(
-          left: detailedMode ? 16 : 6,
-          top: 8,
-          child: Container(
-            height: 24,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                if (isFavorite)
-                  Container(
-                    height: 24,
-                    width: 24,
-                    color: Colors.green,
-                    child: const Icon(
-                      Icons.bookmark_rounded,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        // 打开下载目录图标
+        if (isFavorite)
+          _buildFavoriteIcon(detailedMode),
+        // 打开下载说明图标或者下载状态图标
         _buildDownloadIcon(detailedMode),
       ],
     );
