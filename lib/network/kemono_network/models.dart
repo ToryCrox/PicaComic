@@ -335,7 +335,7 @@ class KemonoPost with HistoryMixin {
   String get subTitle => userName;
 
   @override
-  HistoryType get historyType => HistoryType('kemono'.hashCode);
+  HistoryType get historyType => HistoryType.kemono;
 
   @override
   String get target => '$service/$userId/$id';

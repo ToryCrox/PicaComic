@@ -56,11 +56,13 @@ final class HistoryType {
 
   static HistoryType get nhentai => const HistoryType(5);
 
+  static HistoryType get kemono => const HistoryType(6);
+
   final int value;
 
   String get name {
-    if (value >= 0 && value <= 5) {
-      return ["picacg", "ehentai", "jm", "hitomi", "htmanga", "nhentai"][value];
+    if (value >= 0 && value <= 6) {
+      return ["picacg", "ehentai", "jm", "hitomi", "htmanga", "nhentai", "kemono"][value];
     } else {
       return ComicSource.fromIntKey(value)?.name ?? "Unknown";
     }
@@ -76,7 +78,7 @@ final class HistoryType {
   int get hashCode => value.hashCode;
 
   ComicSource? get comicSource {
-    if (value >= 0 && value <= 5) {
+    if (value >= 0 && value <= 6) {
       return ComicSource.find(name);
     } else {
       return ComicSource.fromIntKey(value);
