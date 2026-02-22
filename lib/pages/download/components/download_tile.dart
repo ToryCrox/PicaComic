@@ -104,6 +104,13 @@ class DownloadedComicTile extends ComicTile {
   String get description => "${size}MB";
 
   @override
+  String? get comicID => downloadManager.getComicIdFromDownloadId(
+      downloadedItem.type.toComicType(), downloadedItem.id);
+
+  @override
+  ComicType? get comicType => downloadedItem.type.toComicType();
+
+  @override
   Widget? buildSubDescription(BuildContext context) {
     if (onManageTags == null && onOpenFolder == null) return null;
     return Padding(

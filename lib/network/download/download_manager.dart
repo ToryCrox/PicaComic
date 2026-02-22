@@ -376,6 +376,30 @@ class DownloadManager implements Listenable {
     }
   }
 
+  /// 根据漫画源和下载ID还原原始漫画ID
+  String getComicIdFromDownloadId(ComicType? comicType, String? downloadId) {
+    if (comicType == null || downloadId == null || downloadId.isEmpty) return '';
+
+    switch (comicType) {
+      case ComicType.picacg:
+      case ComicType.ehentai:
+      case ComicType.nhentai:
+        return downloadId;
+      case ComicType.jm:
+        return downloadId.replaceFirst(RegExp(r'^jm'), '');
+      case ComicType.hitomi:
+        return downloadId.replaceFirst(RegExp(r'^hitomi'), '');
+      case ComicType.htmanga:
+        return downloadId.replaceFirst(RegExp(r'^Ht'), '');
+      default:
+        var prefix = "${comicType.name}-";
+        if (downloadId.startsWith(prefix)) {
+          return downloadId.substring(prefix.length);
+        }
+        return downloadId;
+    }
+  }
+
   ///当一个下载任务完成时, 调用此函数
   void _onFinish() async {
     // 通知队列管理器任务完成
