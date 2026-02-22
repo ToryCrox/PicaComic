@@ -384,6 +384,8 @@ class HistoryManager {
   ///
   /// This function would be called when user start reading.
   Future<void> addHistory(History newItem) async {
+    _updateHistoryCache(newItem.target, newItem);
+
     await _ensureInitialized();
     final db = _db!;
     
@@ -422,8 +424,6 @@ class HistoryManager {
       );
     }
     saveData();
-    
-    _updateHistoryCache(newItem.target, newItem);
   }
 
   ///退出阅读器时调用此函数, 修改阅读位置
@@ -548,15 +548,15 @@ class HistoryManager {
       for (var target in queryTargets) {
         if (!historyCache.containsKey(target)) {
            historyCache[target] = signal(null);
-        } else {
-           historyCache[target]!.value = null; // 默认置空
         }
       }
       
       // 根据查询真实情况填充
       for (var element in res) {
         final target = element[kHistoryTarget] as String;
-        historyCache[target]!.value = History.fromRow(element);
+        if (historyCache[target]!.value == null) {
+           historyCache[target]!.value = History.fromRow(element);
+        }
       }
     } catch (e) {
       Log.e('Failed to process batch query: $e');
