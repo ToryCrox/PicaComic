@@ -487,6 +487,20 @@ class DownloadDatabase {
     return result.isEmpty ? null : result.first;
   }
 
+  /// 批量获取本地阅读历史
+  Future<List<Map<String, Object?>>> getLocalHistoryByPaths(List<String> paths) async {
+    if (paths.isEmpty) return [];
+    
+    final db = await _getDatabase();
+    final placeholders = paths.map((e) => '?').join(',');
+    final result = await db.query(
+      kTableLocalHistory,
+      where: '$kLocalHistoryPath IN ($placeholders)',
+      whereArgs: paths,
+    );
+    return result;
+  }
+
   /// 获取所有本地阅读历史
   Future<List<Map<String, Object?>>> getAllLocalHistory() async {
     final db = await _getDatabase();

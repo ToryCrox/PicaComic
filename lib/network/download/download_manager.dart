@@ -493,21 +493,7 @@ class DownloadManager implements Listenable {
     notifyListeners();
   }
 
-  Future<Map<String, Object?>?> getLocalHistory(String path) async {
-    return _db.getLocalHistory(path);
-  }
 
-  Future<void> deleteLocalHistory(String path) async {
-    await _db.deleteLocalHistory(path);
-  }
-
-  Future<void> updateLocalHistoryPageCount(String path, int count) async {
-    await _db.updateLocalHistoryPageCount(path, count);
-  }
-
-  Future<List<Map<String, Object?>>> getAllLocalHistory() async {
-    return _db.getAllLocalHistory();
-  }
 
   Future<void> addLocalFavorite(String path, {int sortOrder = 0}) async {
     await _db.addOrUpdateLocalFavorite(path, sortOrder: sortOrder);

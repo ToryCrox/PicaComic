@@ -15,6 +15,7 @@ import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
+import '../../foundation/local_history.dart';
 import '../../network/download/download_manager.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
@@ -360,9 +361,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
           if (widget.onItemTap != null) {
             widget.onItemTap?.call(-1, '');
           } else {
-            final history = await downloadManager.getLocalHistory(widget.dirPath);
-            final initIndex = history?.optInt('pageIndex', 1) ?? 1;
-            final isReversed = history?.optInt('isReversed') == 1;
+            final history = await LocalHistoryManager().find(widget.dirPath);
+            final initIndex = history?.pageIndex ?? 1;
+            final isReversed = history?.isReversed == 1;
             App.globalTo(
               () => ComicReadingPage.localComic(
                 widget.dirPath,

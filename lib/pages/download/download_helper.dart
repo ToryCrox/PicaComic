@@ -1,6 +1,7 @@
 
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/foundation/local_history.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
@@ -119,8 +120,8 @@ extension ReadComic on DownloadedItem {
       );
     } else if (comic.type == DownloadType.local) {
       final history =
-          await downloadManager.getLocalHistory(comic.directoryPath);
-      final initIndex = history?.optInt('pageIndex', 1) ?? 1;
+          await LocalHistoryManager().find(comic.directoryPath);
+      final initIndex = history?.pageIndex ?? 1;
       App.globalTo(
         () => ComicReadingPage.localComic(
           comic.directoryPath,

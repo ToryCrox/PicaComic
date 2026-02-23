@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/foundation/local_history.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:path/path.dart' as Path;
 import '../reader/comic_reading_page.dart';
@@ -9,7 +9,6 @@ import 'local_comic_tile.dart';
 import 'local_comic_page.dart';
 import 'dart:io';
 import '../../foundation/file_utils.dart';
-import '../../tools/map_extension.dart';
 import '../../components/components.dart';
 
 class LocalHistoryPage extends StatefulWidget {
@@ -34,9 +33,9 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
       setState(() => _loading = true);
     }
     
-    final history = await downloadManager.getAllLocalHistory();
+    final history = await LocalHistoryManager().getAll();
     // 转换为 Map 以便修改
-    final items = history.map((e) => Map<String, dynamic>.from(e)).toList();
+    final items = history.map((e) => e.toMap()).toList();
 
     if (mounted) {
       setState(() {
@@ -54,7 +53,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
     for (var item in history) {
       final path = item['path'] as String;
       if (!Directory(path).existsSync()) {
-        await downloadManager.deleteLocalHistory(path);
+        await LocalHistoryManager().remove(path);
         clearedCount++;
       }
     }
@@ -85,7 +84,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
             onPressed: () {
               showConfirmDialog(context, "清除历史记录".tl, "确认清除所有历史记录?".tl, () async {
                 for (var item in _history) {
-                  await downloadManager.deleteLocalHistory(item['path'] as String);
+                  await LocalHistoryManager().remove(item['path'] as String);
                 }
                 _loadHistory();
               });
@@ -126,12 +125,12 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
 
                       return LocalComicTile(
                         model: model,
-                        initialHistory: item,
                         onReload: _loadHistory,
                         allDirPaths: _history.map((e) => e['path'] as String).toList(),
-                        onTap: (history) async {
-                           final initIndex = history?.optInt('pageIndex', 1) ?? 1;
-                           final isReversed = history?.optInt('isReversed') == 1;
+                        onTap: (historyMap) async {
+                           final history = await LocalHistoryManager().find(path);
+                           final initIndex = history?.pageIndex ?? 1;
+                           final isReversed = history?.isReversed == 1;
                            await App.globalTo(() => ComicReadingPage.localComic(
                                 path,
                                 title,
@@ -166,7 +165,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
         DesktopMenuEntry(
           text: "清除此条历史记录".tl,
           onClick: () async {
-            await downloadManager.deleteLocalHistory(model.path);
+            await LocalHistoryManager().remove(model.path);
             _loadHistory();
           },
         ),

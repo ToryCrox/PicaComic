@@ -12,6 +12,7 @@ import 'package:pica_comic/components/components.dart';
 import 'dart:io';
 
 import '../../foundation/app.dart';
+import '../../foundation/local_history.dart';
 
 import '../../tools/image_utils.dart';
 import '../../tools/type_util.dart';
@@ -285,7 +286,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
         DesktopMenuEntry(
           text: "清除历史记录".tl,
           onClick: () async {
-            await downloadManager.deleteLocalHistory(model.path);
+            await LocalHistoryManager().remove(model.path);
             _loadLocalComics();
           },
         ),

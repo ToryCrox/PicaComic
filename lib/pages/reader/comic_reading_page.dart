@@ -24,6 +24,7 @@ import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
 import 'package:pica_comic/foundation/image_loader/file_image_loader.dart';
 import 'package:pica_comic/foundation/image_loader/stream_image_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
+import 'package:pica_comic/foundation/local_history.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/base.dart';
@@ -187,12 +188,12 @@ class ComicReadingPage extends StatelessWidget {
     final order = allDirPaths.indexOf(dirPath);
     StateController.put(ComicReadingPageLogic(
         order > 0 ? order + 1 : 1, readingData, initialPage, () {
-      downloadManager.addOrUpdateLocalHistory(
+      LocalHistoryManager().saveReadHistory(LocalHistory(
           path: dirPath,
           isReversed: isReversed ? 1 : 0,
           pageIndex: StateController.find<ComicReadingPageLogic>().index,
           time: DateTime.now().millisecondsSinceEpoch,
-          totalPages: StateController.find<ComicReadingPageLogic>().length);
+          totalPages: StateController.find<ComicReadingPageLogic>().length));
     }, isAutoFullscreenAndScroll: isAutoFullscreenAndScroll));
   }
 

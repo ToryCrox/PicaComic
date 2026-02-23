@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/foundation/local_history.dart';
+import 'package:signals/signals_flutter.dart';
 import 'dart:io';
 import 'local_comic_page.dart';
 import '../reader/comic_reading_page.dart';
@@ -35,15 +37,10 @@ class LocalComicTile extends StatefulWidget {
 }
 
 class _LocalComicTileState extends State<LocalComicTile> {
-  // ...
-  // 阅读历史
-  Map<String, dynamic>? _history;
   // 收藏状态
   Map<String, dynamic>? _favorite;
   // 是否正在加载
   bool _loading = true;
-  // 总页数
-  int _totalPages = 0;
   // 封面路径
   String? _coverPath;
   
@@ -60,9 +57,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model != widget.model) {
       setState(() {
-        _history = null;
         _favorite = null;
-        _totalPages = 0;
         _loading = true;
       });
       _loadData();
@@ -72,7 +67,6 @@ class _LocalComicTileState extends State<LocalComicTile> {
   // 加载显示所需数据
   Future<void> _loadData() async {
     _coverPath = widget.model.cover;
-    final history = widget.initialHistory ?? await downloadManager.getLocalHistory(widget.model.path);
     final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
     // 如果没有预设封面，则尝试异步加载
@@ -80,33 +74,10 @@ class _LocalComicTileState extends State<LocalComicTile> {
     if (coverPath.isEmpty) {
       coverPath = await _getCoverImage(widget.model.path);
     }
-    
-    int total = history?.optInt('total_pages', 0) ?? 0;
-    if (total == 0 || (history == null && widget.initialHistory == null)) {
-      try {
-        final dir = Directory(widget.model.path);
-        
-        int calculatedTotal = 0;
-        await for (var entity in dir.list(recursive: true)) {
-          if (entity is File && predictImageFile(entity)) {
-            calculatedTotal++;
-          }
-        }
-        total = calculatedTotal;
-        
-        if (history != null && total > 0) {
-          downloadManager.updateLocalHistoryPageCount(widget.model.path, total);
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
 
     if (mounted) {
       setState(() {
-        _history = history;
         _favorite = favorite;
-        _totalPages = total;
         _coverPath = coverPath;
         _loading = false;
       });
@@ -135,7 +106,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () async {
-          await widget.onTap(_history);
+          final historyMap = LocalHistoryManager().findInCache(widget.model.path)?.toMap();
+          await widget.onTap(historyMap);
           _loadData();
         },
         onSecondaryTapDown: (details) => _tapDownDetails = details,
@@ -284,20 +256,24 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 构建进度条
   Widget _buildProgressBar(ColorScheme colorScheme) {
-    if (_history == null) return const SizedBox(height: 3);
-    
-    final pageIndex = _history?.optInt('pageIndex', 1) ?? 1;
-    double value = 0.0;
-    if (_totalPages > 0) {
-      value = (pageIndex / _totalPages).clamp(0.0, 1.0);
-    }
-    
-    return LinearProgressIndicator(
-      value: value,
-      backgroundColor: colorScheme.surfaceContainerHighest,
-      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-      minHeight: 3,
-    );
+    return Watch.builder(builder: (context) {
+      final history = LocalHistoryManager().findInCache(widget.model.path);
+      if (history == null) return const SizedBox(height: 3);
+
+      final pageIndex = history.pageIndex;
+      final totalPages = history.totalPages;
+      double value = 0.0;
+      if (totalPages > 0) {
+        value = (pageIndex / totalPages).clamp(0.0, 1.0);
+      }
+
+      return LinearProgressIndicator(
+        value: value,
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+        minHeight: 3,
+      );
+    });
   }
 
   // 构建标题
@@ -315,8 +291,9 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 开始阅读
   void _read() {
-     final initIndex = _history?.optInt('pageIndex', 1) ?? 1;
-     final isReversed = _history?.optInt('isReversed') == 1;
+     final history = LocalHistoryManager().findInCache(widget.model.path);
+     final initIndex = history?.pageIndex ?? 1;
+     final isReversed = history?.isReversed == 1;
      App.globalTo(() => ComicReadingPage.localComic(
           widget.model.path,
           widget.model.title,
