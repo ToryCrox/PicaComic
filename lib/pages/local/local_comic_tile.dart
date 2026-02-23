@@ -7,7 +7,6 @@ import 'package:signals/signals_flutter.dart';
 import 'dart:io';
 import 'local_comic_page.dart';
 import '../reader/comic_reading_page.dart';
-import 'package:pica_comic/tools/map_extension.dart';
 
 import 'package:pica_comic/foundation/file_utils.dart';
 import '../../tools/image_utils.dart';
@@ -37,8 +36,6 @@ class LocalComicTile extends StatefulWidget {
 }
 
 class _LocalComicTileState extends State<LocalComicTile> {
-  // 收藏状态
-  Map<String, dynamic>? _favorite;
   // 是否正在加载
   bool _loading = true;
   // 封面路径
@@ -56,10 +53,11 @@ class _LocalComicTileState extends State<LocalComicTile> {
   void didUpdateWidget(covariant LocalComicTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model != widget.model) {
-      setState(() {
-        _favorite = null;
-        _loading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = true;
+        });
+      }
       _loadData();
     }
   }
@@ -67,7 +65,6 @@ class _LocalComicTileState extends State<LocalComicTile> {
   // 加载显示所需数据
   Future<void> _loadData() async {
     _coverPath = widget.model.cover;
-    final favorite = await downloadManager.getLocalFavorite(widget.model.path);
     
     // 如果没有预设封面，则尝试异步加载
     String? coverPath = widget.model.cover;
@@ -77,7 +74,6 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
     if (mounted) {
       setState(() {
-        _favorite = favorite;
         _coverPath = coverPath;
         _loading = false;
       });
@@ -179,23 +175,37 @@ class _LocalComicTileState extends State<LocalComicTile> {
       right: 4,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: _toggleFavorite,
-          onLongPress: _showWeightDialog,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
-              shape: BoxShape.circle,
+        child: Watch.builder(builder: (context) {
+          final favorite = downloadManager.findLocalFavoriteInCache(widget.model.path);
+          return InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () async {
+              if (favorite != null) {
+                await downloadManager.deleteLocalFavorite(widget.model.path);
+              } else {
+                await downloadManager.addLocalFavorite(widget.model.path);
+              }
+              widget.onReload();
+            },
+            onLongPress: () {
+              if (favorite != null) {
+                _showWeightDialog(favorite.sortOrder.toDouble());
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                favorite != null ? Icons.bookmark : Icons.bookmark_border,
+                color: favorite != null ? Colors.orange : Colors.white,
+                size: 20,
+              ),
             ),
-            child: Icon(
-              _favorite != null ? Icons.bookmark : Icons.bookmark_border,
-              color: _favorite != null ? Colors.orange : Colors.white,
-              size: 20,
-            ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
@@ -303,24 +313,13 @@ class _LocalComicTileState extends State<LocalComicTile> {
         )).then((v) => _loadData());
   }
 
-  Future<void> _toggleFavorite() async {
-    if (_favorite != null) {
-      await downloadManager.deleteLocalFavorite(widget.model.path);
-    } else {
-      await downloadManager.addLocalFavorite(widget.model.path);
-    }
-    _loadData();
-    widget.onReload();
-  }
-
-  void _showWeightDialog() {
+  void _showWeightDialog(double currentWeight) {
     showDialog(
       context: context,
       builder: (context) => _WeightDialog(
-        initialValue: (_favorite?['sort_order'] as int?)?.toDouble() ?? 0,
+        initialValue: currentWeight,
         onChanged: (val) async {
           await downloadManager.updateLocalFavoriteSortOrder(widget.model.path, val.toInt());
-          _loadData();
           widget.onReload();
         },
       ),

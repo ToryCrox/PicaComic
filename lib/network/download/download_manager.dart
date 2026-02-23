@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
@@ -10,6 +12,7 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -38,7 +41,6 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:worker_manager/worker_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/tools/type_util.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/tools/image_utils.dart';
@@ -49,8 +51,11 @@ typedef DownloadingCallback = void Function();
 
 final downloadManager = DownloadManager._();
 
-class DownloadManager implements Listenable {
+class DownloadManager extends ChangeNotifier {
   DownloadManager._();
+
+  ///使用单例模式
+  static DownloadManager? cache;
 
   ///下载目录
   String? path;
@@ -277,9 +282,11 @@ class DownloadManager implements Listenable {
     }
   }
 
+  @override
   void dispose() {
     _runInit = false;
     _queueManager.stopAll();
+    super.dispose();
   }
 
   ///初始化下载管理器
@@ -303,7 +310,6 @@ class DownloadManager implements Listenable {
   Future<void> _saveInfo() async {
     _saveInfoThrottle.call(() async {
       notifyListeners();
-      final t1 = DateTime.now();
       var data = <String, dynamic>{};
       data["downloading"] = <Map<String, dynamic>>[];
       // 从队列管理器获取所有任务
@@ -495,16 +501,91 @@ class DownloadManager implements Listenable {
 
 
 
+  // ==================== Local Favorite Management ====================
+
+  /// 本地收藏状态的 Signal 缓存
+  final Map<String, Signal<LocalFavoriteItem?>> localFavoriteCache = {};
+  final Set<String> _pendingFavoriteTargets = {};
+  bool _isBatchFavoriteQueryPending = false;
+
+  void _enqueueFavoriteQuery(String path) {
+    _pendingFavoriteTargets.add(path);
+    if (!_isBatchFavoriteQueryPending) {
+      _isBatchFavoriteQueryPending = true;
+      Future.microtask(_processBatchFavoriteQuery);
+    }
+  }
+
+  Future<void> _processBatchFavoriteQuery() async {
+    await Future.delayed(const Duration(milliseconds: 10)); // 防止微任务合并过多
+    if (_pendingFavoriteTargets.isEmpty) {
+      _isBatchFavoriteQueryPending = false;
+      return;
+    }
+
+    final targetsToQuery = _pendingFavoriteTargets.toList();
+    _pendingFavoriteTargets.clear();
+    _isBatchFavoriteQueryPending = false;
+
+    try {
+      // 通过单一查询批量处理(由于无原生批量借口，或者可以多次查询，SQLite性能良好)
+      for (var path in targetsToQuery) {
+        final result = await _db.getLocalFavorite(path);
+        if (result != null) {
+          localFavoriteCache[path]?.value = LocalFavoriteItem.fromMap(result);
+        } else {
+          localFavoriteCache[path]?.value = null; // 查询为空时，确认为 null
+        }
+      }
+    } catch (e, s) {
+      Log.e("Batch favorite query failed", stackTrace: s);
+    }
+  }
+
+  /// 获取本地收藏状态的响应式 Signal。
+  /// 用于 UI，特别是 Watch.builder 中调用。
+  LocalFavoriteItem? findLocalFavoriteInCache(String path) {
+    if (!localFavoriteCache.containsKey(path)) {
+      // 占位并触发异步查询
+      localFavoriteCache[path] = signal(null);
+      _enqueueFavoriteQuery(path);
+    }
+    return localFavoriteCache[path]!.value;
+  }
+
   Future<void> addLocalFavorite(String path, {int sortOrder = 0}) async {
     await _db.addOrUpdateLocalFavorite(path, sortOrder: sortOrder);
+    
+    // 同步更新或新增 Signal
+    final newItem = LocalFavoriteItem(path, sortOrder, DateTime.now().millisecondsSinceEpoch);
+    if (localFavoriteCache.containsKey(path)) {
+      localFavoriteCache[path]!.value = newItem;
+    } else {
+      localFavoriteCache[path] = signal(newItem);
+    }
   }
 
   Future<void> updateLocalFavoriteSortOrder(String path, int sortOrder) async {
     await _db.updateLocalFavoriteSortOrder(path, sortOrder);
+    
+    // 同步更新 Signal
+    if (localFavoriteCache.containsKey(path)) {
+      final oldItem = localFavoriteCache[path]!.value;
+      if (oldItem != null) {
+        localFavoriteCache[path]!.value = LocalFavoriteItem(path, sortOrder, oldItem.time);
+      } else {
+        _enqueueFavoriteQuery(path);
+      }
+    }
   }
 
   Future<void> deleteLocalFavorite(String path) async {
     await _db.deleteLocalFavorite(path);
+    
+    // 同步清除 Signal
+    if (localFavoriteCache.containsKey(path)) {
+      localFavoriteCache[path]!.value = null;
+    }
   }
 
   Future<List<Map<String, Object?>>> getAllLocalFavorites() async {
@@ -514,6 +595,8 @@ class DownloadManager implements Listenable {
   Future<Map<String, Object?>?> getLocalFavorite(String path) async {
     return _db.getLocalFavorite(path);
   }
+
+  // ====================================================================
 
   Future<DownloadedItem?> getComicOrNull(String id) async {
     return _getComicWithDb(id);
@@ -1761,4 +1844,28 @@ class SaveInfoItem {
   final String path;
 
   SaveInfoItem(this.items, this.path);
+}
+
+class LocalFavoriteItem {
+  final String path;
+  final int sortOrder;
+  final int time;
+
+  LocalFavoriteItem(this.path, this.sortOrder, this.time);
+
+  factory LocalFavoriteItem.fromMap(Map<String, dynamic> map) {
+    return LocalFavoriteItem(
+      TypeUtil.parseString(map[kLocalFavoritePath]),
+      TypeUtil.parseInt(map[kLocalFavoriteSortOrder]),
+      TypeUtil.parseInt(map[kLocalFavoriteTime]),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      kLocalFavoritePath: path,
+      kLocalFavoriteSortOrder: sortOrder,
+      kLocalFavoriteTime: time,
+    };
+  }
 }
