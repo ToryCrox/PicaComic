@@ -10,6 +10,7 @@ import '../reader/comic_reading_page.dart';
 
 import 'package:pica_comic/foundation/file_utils.dart';
 import '../../tools/image_utils.dart';
+import 'package:pica_comic/tools/time.dart';
 
 class LocalComicTile extends StatefulWidget {
   final LocalComicModel model;
@@ -21,9 +22,9 @@ class LocalComicTile extends StatefulWidget {
   final Map<String, dynamic>? initialHistory;
 
   const LocalComicTile({
-    super.key, 
-    required this.model, 
-    required this.onReload, 
+    super.key,
+    required this.model,
+    required this.onReload,
     this.allDirPaths = const [],
     required this.onTap,
     this.onSecondaryTap,
@@ -36,11 +37,9 @@ class LocalComicTile extends StatefulWidget {
 }
 
 class _LocalComicTileState extends State<LocalComicTile> {
-  // 是否正在加载
-  bool _loading = true;
   // 封面路径
   String? _coverPath;
-  
+
   TapDownDetails? _tapDownDetails;
 
   @override
@@ -53,11 +52,6 @@ class _LocalComicTileState extends State<LocalComicTile> {
   void didUpdateWidget(covariant LocalComicTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model != widget.model) {
-      if (mounted) {
-        setState(() {
-          _loading = true;
-        });
-      }
       _loadData();
     }
   }
@@ -65,18 +59,16 @@ class _LocalComicTileState extends State<LocalComicTile> {
   // 加载显示所需数据
   Future<void> _loadData() async {
     _coverPath = widget.model.cover;
-    
+
     // 如果没有预设封面，则尝试异步加载
     String? coverPath = widget.model.cover;
     if (coverPath.isEmpty) {
       coverPath = await _getCoverImage(widget.model.path);
-    }
-
-    if (mounted) {
-      setState(() {
-        _coverPath = coverPath;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _coverPath = coverPath;
+        });
+      }
     }
   }
 
@@ -95,14 +87,15 @@ class _LocalComicTileState extends State<LocalComicTile> {
   @override
   Widget build(BuildContext context) {
     //if (_loading) return const SizedBox.shrink();
-    
+
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () async {
-          final historyMap = LocalHistoryManager().findInCache(widget.model.path)?.toMap();
+          final historyMap =
+              LocalHistoryManager().findInCache(widget.model.path)?.toMap();
           await widget.onTap(historyMap);
           _loadData();
         },
@@ -115,7 +108,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
         onLongPress: widget.onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-           decoration: BoxDecoration(
+          decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -155,7 +148,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
         File(_coverPath!),
         fit: BoxFit.cover,
         cacheWidth: 300,
-        errorBuilder: (context, error, stackTrace) => _buildFolderIcon(colorScheme),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildFolderIcon(colorScheme),
       );
     }
     return _buildFolderIcon(colorScheme);
@@ -176,7 +170,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
       child: Material(
         color: Colors.transparent,
         child: Watch.builder(builder: (context) {
-          final favorite = downloadManager.findLocalFavoriteInCache(widget.model.path);
+          final favorite =
+              downloadManager.findLocalFavoriteInCache(widget.model.path);
           return InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () async {
@@ -215,25 +210,44 @@ class _LocalComicTileState extends State<LocalComicTile> {
     return Positioned(
       right: 4,
       bottom: 4,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: _read,
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.menu_book,
-              size: 18,
+      child: Watch.builder(builder: (context) {
+        final history = LocalHistoryManager().findInCache(widget.model.path);
+
+        Widget child;
+        if (history != null && history.time > 0) {
+          final time = DateTime.fromMillisecondsSinceEpoch(history.time);
+          child = Text(
+            time.toCompareString,
+            style: TextStyle(
+              fontSize: 12,
               color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w500,
+            ),
+          );
+        } else {
+          child = Icon(
+            Icons.menu_book,
+            size: 18,
+            color: colorScheme.onPrimaryContainer,
+          );
+        }
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _read,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: child,
             ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
@@ -301,13 +315,15 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 开始阅读
   void _read() {
-     final history = LocalHistoryManager().findInCache(widget.model.path);
-     final initIndex = history?.pageIndex ?? 1;
-     final isReversed = history?.isReversed == 1;
-     App.globalTo(() => ComicReadingPage.localComic(
+    final history = LocalHistoryManager().findInCache(widget.model.path);
+    final initIndex = history?.pageIndex ?? 1;
+    final isReversed = history?.isReversed == 1;
+    App.globalTo(() => ComicReadingPage.localComic(
           widget.model.path,
           widget.model.title,
-          allDirPaths: widget.allDirPaths.isEmpty ? [widget.model.path] : widget.allDirPaths,
+          allDirPaths: widget.allDirPaths.isEmpty
+              ? [widget.model.path]
+              : widget.allDirPaths,
           initialPage: initIndex,
           isReversed: isReversed,
         )).then((v) => _loadData());
@@ -319,7 +335,8 @@ class _LocalComicTileState extends State<LocalComicTile> {
       builder: (context) => _WeightDialog(
         initialValue: currentWeight,
         onChanged: (val) async {
-          await downloadManager.updateLocalFavoriteSortOrder(widget.model.path, val.toInt());
+          await downloadManager.updateLocalFavoriteSortOrder(
+              widget.model.path, val.toInt());
           widget.onReload();
         },
       ),
@@ -367,7 +384,8 @@ class _WeightDialogState extends State<_WeightDialog> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("取消")),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text("取消")),
         TextButton(
           onPressed: () {
             widget.onChanged(_value);
