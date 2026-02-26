@@ -2,7 +2,8 @@
 # Usage: .\build_win.ps1
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Script started at $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')" -ForegroundColor Cyan
+$startTime = Get-Date
+Write-Host "Script started at $($startTime.ToString('yyyy/MM/dd HH:mm:ss'))" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -97,6 +98,9 @@ try {
 }
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Script completed at $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')" -ForegroundColor Cyan
+$endTime = Get-Date
+$elapsed = $endTime - $startTime
+Write-Host "Script completed at $($endTime.ToString('yyyy/MM/dd HH:mm:ss'))" -ForegroundColor Cyan
+Write-Host "Total time elapsed: $($elapsed.Minutes)m $($elapsed.Seconds)s" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 

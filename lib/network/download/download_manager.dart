@@ -61,7 +61,7 @@ class DownloadManager extends ChangeNotifier {
   String? path;
 
   /// 下载队列管理器（新的队列系统）
-  late final DownloadQueueManager _queueManager;
+  late final DownloadQueueManager _queueManager = DownloadQueueManager(maxConcurrentTasks: 1);
 
   ///下载队列（向后兼容，委托给 _queueManager）
   Queue<DownloadingTask> get downloading {
@@ -235,51 +235,8 @@ class DownloadManager extends ChangeNotifier {
 
   Future<void> _initDb() async {
     Log.d(() => 'DB DownloadManager: 初始化数据库');
-    var oldData = <String, DownloadedItem>{};
-    if (!File("$path/download.db").existsSync()) {
-      Log.d(() => 'DB DownloadManager: 数据库文件不存在，迁移旧数据');
-      for (var entry in await Directory(path!).list().toList()) {
-        if (entry is Directory) {
-          var infoFile = File("${entry.path}/info.json");
-          if (infoFile.existsSync()) {
-            var id = entry.name;
-            var json = await infoFile.readAsString();
-            var time = await infoFile.lastModified();
-            var comic = _getComicFromJson(id: id, json: json, time: time);
-            if (comic != null) {
-              infoFile.delete();
-              var directory = comic.name;
-              int i = -1;
-              while (entry is Directory) {
-                try {
-                  entry = entry.renameX(directory);
-                  break;
-                } catch (e) {
-                  i++;
-                  if (i > 20) {
-                    // it seems that the error is unrelated to the directory name
-                    Log.e(
-                        "IO Failed to rename directory: Trying rename ${entry.name} to ${comic.name}\n$e");
-                    break;
-                  }
-                  directory = comic.name + i.toString();
-                }
-              }
-              oldData[entry.name] = comic;
-            }
-          }
-        }
-      }
-      Log.d(() => 'DB DownloadManager: 找到 ${oldData.length} 个旧数据');
-    }
     await _db.init(dbPath: "$path/download.db");
     Log.d(() => 'DB DownloadManager: 数据库初始化完成');
-    for (var entry in oldData.entries) {
-      await addToDb(entry.value, entry.key);
-    }
-    if (oldData.isNotEmpty) {
-      Log.d(() => 'DB DownloadManager: 迁移了 ${oldData.length} 个旧数据到数据库');
-    }
   }
 
   @override
@@ -295,7 +252,7 @@ class DownloadManager extends ChangeNotifier {
     _runInit = true;
 
     // 初始化队列管理器
-    _queueManager = DownloadQueueManager(maxConcurrentTasks: 1);
+    _queueManager.removeListener(notifyListeners);
     _queueManager.addListener(notifyListeners);
 
     await _getPath();
