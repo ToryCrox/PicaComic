@@ -215,13 +215,26 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
     imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
     if (data?.auth?["thumbnailKey"] != null &&
         data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
-      return super.thumbnailImageBuilder(index, imageUrl);
+      return PicaImage(
+        url: imageUrl,
+        headers: {
+          "sourceKey": comicType.name,
+          "isThumbnail": "true",
+        },
+        fit: BoxFit.contain,
+        cacheKey: "eh_thumb_${data!.link}_$index",
+      );
     }
     return ColoredBox(
       color: context.colorScheme.surfaceContainerHighest,
-      key: ValueKey('$imageUrl#$index'),
+      key: ValueKey("eh_thumb_${data!.link}_$index"),
       child: EhThumbnailLoader(
-        image: CachedNetworkImageProvider(imageUrl, cacheManager: picaImageManager, headers: headers),
+        image: CachedNetworkImageProvider(
+          imageUrl, 
+          cacheManager: picaImageManager, 
+          headers: headers,
+          cacheKey: "eh_thumb_${data!.link}_${index ~/ data!.pageSize}"
+        ),
         pageSize: data!.pageSize,
         width: data!.width,
         index: index,

@@ -13,6 +13,7 @@ class PicaImage extends StatelessWidget {
   final PlaceholderWidgetBuilder? placeholder;
   final LoadingErrorWidgetBuilder? errorWidget;
   final bool fade;
+  final String? cacheKey;
 
   const PicaImage({
     required this.url,
@@ -28,6 +29,7 @@ class PicaImage extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.fade = true,
+    this.cacheKey,
   });
 
   @override
@@ -45,6 +47,7 @@ class PicaImage extends StatelessWidget {
 
     return CachedNetworkImage(
       imageUrl: url,
+      cacheKey: cacheKey,
       httpHeaders: finalHeaders,
       width: width,
       height: height,
