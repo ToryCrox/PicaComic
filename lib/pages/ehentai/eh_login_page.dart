@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../comic_source/built_in/ehentai.dart';
 import '../../foundation/app.dart';
+import '../../base.dart';
 import '../../network/eh_network/eh_main_network.dart';
 
 class EhLoginPage extends StatefulWidget {
@@ -230,6 +231,11 @@ class _EhLoginPageState extends State<EhLoginPage> {
                 "https://forums.e-hentai.org/index.php?act=Login&CODE=00",
             onTitleChange: (title, controller) async {
               if (title == "E-Hentai Forums") {
+                var ua = await controller.getUA();
+                if(ua != null){
+                  appdata.implicitData[3] = ua;
+                  appdata.writeImplicitData();
+                }
                 var cookies1 =
                     await controller.getCookies("https://e-hentai.org") ?? {};
                 var cookies2 =
@@ -252,6 +258,11 @@ class _EhLoginPageState extends State<EhLoginPage> {
           initialUrl: "https://forums.e-hentai.org/index.php?act=Login&CODE=00",
           onTitleChange: (url, webview) async {
             if (url == "E-Hentai Forums") {
+              var ua = webview.userAgent;
+              if(ua != null){
+                appdata.implicitData[3] = ua;
+                appdata.writeImplicitData();
+              }
               var cookies1 =
                   await webview.getCookies("https://e-hentai.org");
               var cookies2 =
@@ -307,7 +318,8 @@ class _EhLoginPageState extends State<EhLoginPage> {
         .cookieJar
         .saveFromResponse(Uri.parse("https://exhentai.org"), cookies);
 
-    EhNetwork().getUserName().then((b) async {
+    // EhNetwork().getUserName().then((b) async {
+    EhNetwork().validateCookies().then((b) async {
       if(!mounted)  return;
       if (b) {
         setState(() {

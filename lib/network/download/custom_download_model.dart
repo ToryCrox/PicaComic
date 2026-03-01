@@ -8,7 +8,6 @@ import 'package:pica_comic/network/download/download_model.dart';
 import '../../tools/io_tools.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
-import 'package:pica_comic/network/image_config.dart';
 
 class CustomDownloadedItem extends DownloadedItem {
   @override

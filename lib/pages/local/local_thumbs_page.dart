@@ -9,14 +9,12 @@ import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/image_utils.dart';
-import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
 import '../../foundation/local_history.dart';
-import '../../network/download/download_manager.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';

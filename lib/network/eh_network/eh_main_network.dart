@@ -251,7 +251,8 @@ class EhNetwork {
             "accept":
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "accept-encoding": "gzip, deflate, br",
-            "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+            "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "user-agent": appdata.implicitData[3],
           },
           expiredTime: CacheExpiredTime.no);
       if (res.error) {
@@ -263,6 +264,37 @@ class EhNetwork {
       Log.d("name: ${name?.text}");
       ehentai.data['name'] = name?.text ?? '';
       return name != null;
+    } catch (e, s) {
+      Log.e("Network $e\n$s");
+      return false;
+    }
+  }
+
+  Future<bool> validateCookies() async {
+    String url = "https://e-hentai.org/home.php";
+    await getCookies(false, url);
+    var options = BaseOptions(
+        connectTimeout: const Duration(seconds: 8),
+        sendTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+        followRedirects: false,
+        headers: {
+          "user-agent": webUA,
+        });
+    var dio = CachedNetwork();
+    try {
+      var res = await dio.get(
+          url,
+          options,
+          cookieJar: cookieJar,
+          expiredTime: CacheExpiredTime.no
+      );
+      if (res.statusCode == 200) {
+        ehentai.data['name'] = "PLACEHOLDER";
+        return true;
+      } else {
+        return false;
+      }
     } catch (e, s) {
       Log.e("Network $e\n$s");
       return false;
@@ -855,7 +887,7 @@ class EhNetwork {
 
   ///搜索e-hentai
   Future<Res<Galleries>> search(String keyword,
-      {int? fCats, int? startPages, int? endPages, int? minStars}) async {
+      {int? fCats, int? startPages, int? endPages, int? minStars, int? expunged}) async {
     if (keyword != "") {
       appdata.searchHistory.remove(keyword);
       appdata.searchHistory.add(keyword);
@@ -897,6 +929,9 @@ class EhNetwork {
     }
     if (minStars != null) {
       requestUrl += "&f_srdd=$minStars";
+    }
+    if (expunged != null && expunged == 1) {
+      requestUrl += "&f_sh=on";
     }
     var res = await getGalleries(requestUrl);
     Future.delayed(const Duration(microseconds: 500), () {

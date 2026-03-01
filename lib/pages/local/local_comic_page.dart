@@ -7,7 +7,6 @@ import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:worker_manager/worker_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/map_extension.dart';
-import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/components/components.dart';
 import 'dart:io';
 

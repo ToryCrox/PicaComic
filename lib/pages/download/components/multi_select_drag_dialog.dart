@@ -5,7 +5,6 @@ import 'package:path/path.dart' as Path;
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
-import 'package:super_native_extensions/widget_snapshot.dart';
 
 class MultiSelectDragDialog extends StatefulWidget {
   final List<DownloadedItem> selectedItems;

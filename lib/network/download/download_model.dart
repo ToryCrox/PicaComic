@@ -728,6 +728,10 @@ class _ImageDownloadWrapper {
           last = progress.currentBytes;
           if (progress.finished) {
             var data = progress.data ?? await progress.getFile().readAsBytes();
+            if (data.isEmpty) {
+              error = Exception("Download data is empty");
+              return;
+            }
             var type = detectFileType(data);
             var finalFile = File("$path/$fileBaseName${type.ext}");
             var tmpFile = File("${finalFile.path}.tmp");

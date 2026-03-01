@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/local/local_thumbs_page.dart';

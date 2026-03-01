@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:path/path.dart' as Path;
 import 'package:flutter/material.dart';

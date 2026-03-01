@@ -2,7 +2,6 @@
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_history.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
@@ -14,7 +13,6 @@ import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
-import 'package:pica_comic/tools/map_extension.dart';
 
 extension ReadComic on DownloadedItem {
   void read({int? ep, int? initialPage}) async {

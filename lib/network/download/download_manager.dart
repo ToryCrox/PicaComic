@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -134,6 +133,7 @@ class DownloadManager extends ChangeNotifier {
     _queueManager.removeListener(listener);
   }
 
+  @override
   void notifyListeners() {
     for (var listener in _listeners) {
       listener();

@@ -5,7 +5,6 @@ import 'package:path/path.dart' as Path;
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:pica_comic/tools/shared_compute.dart';
-import 'package:worker_manager/worker_manager.dart';
 
 // 图片尺寸缓存，用于存储已加载的图片尺寸信息
 Map<String, ImageSizeInfo> _imageSizeCache = {};

@@ -2,12 +2,11 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/material.dart'; // ignore: unused_import
-import 'package:flutter/rendering.dart'; // ignore: unused_import
+// ignore: unused_import
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:path/path.dart' as Path;
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
-import 'package:super_native_extensions/widget_snapshot.dart';
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';

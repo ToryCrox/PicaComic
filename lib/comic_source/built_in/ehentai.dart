@@ -226,6 +226,7 @@ final ehentai = ComicSource.named(
             startPages: int.tryParse(options.elementAtOrNull(1) ?? ''),
             endPages: int.tryParse(options.elementAtOrNull(2) ?? ''),
             minStars: int.tryParse(options.elementAtOrNull(3) ?? ''),
+            expunged: int.tryParse(options.elementAtOrNull(4) ?? ''),
           ),
         );
       }
@@ -452,6 +453,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
   int? ehStartPage;
   int? ehEndPage;
   int? ehMinStars;
+  int? ehExpunged;
 
   @override
   void initState() {
@@ -459,6 +461,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
     ehStartPage = int.tryParse(widget.initialValues.elementAtOrNull(1) ?? '');
     ehEndPage = int.tryParse(widget.initialValues.elementAtOrNull(2) ?? '');
     ehMinStars = int.tryParse(widget.initialValues.elementAtOrNull(3) ?? '');
+    ehExpunged = int.tryParse(widget.initialValues.elementAtOrNull(4) ?? '');
     super.initState();
   }
 
@@ -468,6 +471,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
       ehStartPage.toString(),
       ehEndPage.toString(),
       ehMinStars.toString(),
+      ehExpunged.toString(),
     ]);
   }
 
@@ -556,6 +560,26 @@ class _SearchOptionsState extends State<_SearchOptions> {
         const SizedBox(
           height: 12,
         ),
+        Row(
+          children: [
+            const SizedBox(
+              width: 8,
+            ),
+            Text("浏览已删除的画廊".tl),
+            const SizedBox(
+              width: 8,
+            ),
+            Checkbox(
+              value: ehExpunged == 1,
+              onChanged: (i) {
+                setState(() {
+                  ehExpunged = i! ? 1 : 0;
+                });
+                update();
+              },
+            ),
+          ],
+        ).paddingHorizontal(12),
         Row(
           children: [
             const SizedBox(
