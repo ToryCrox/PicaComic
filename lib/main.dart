@@ -37,7 +37,7 @@ void main(List<String> args) {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     await init();
-    await workerManager.init(isolatesCount: 3, dynamicSpawning: true);
+    await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
     FlutterError.onError = (details) {
       Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
     };

@@ -98,12 +98,16 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 计算并显示当前目录所有文件大小
   Future<void> _loadAllFileSize(final String dir) async {
-    int totalFileSize = await workerManager.execute<int>(() => _computeAllFileSize(dir));
+    int totalFileSize = await workerManager.execute<int>(_buildComputeTask(dir));
     if (widget.parentPath == dir) {
       setState(() {
         _fileSize = bytesLengthToReadableSize(totalFileSize);
       });
     }
+  }
+
+  static Future<int> Function() _buildComputeTask(String dir) {
+    return () => _computeAllFileSize(dir);
   }
 
   // 在后台isolate中计算文件大小
