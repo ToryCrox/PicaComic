@@ -757,7 +757,7 @@ class DownloadManager extends ChangeNotifier {
     final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = downloadPath;
     return files
-        .where(predictImageFile)
+        .where((e) => predictImageFile(e) && !Path.basename(e.path).startsWith("cover"))
         .sortedByName()
         .map((e) => e.absolute.path)
         .toList();

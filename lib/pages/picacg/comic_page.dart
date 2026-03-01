@@ -266,6 +266,9 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
 
   @override
   ComicType get comicType => ComicType.picacg;
+
+  @override
+  bool get supportThumbnails => false;
 }
 
 void _downloadComic(

@@ -220,8 +220,10 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   }
 
   @override
-  ThumbnailsData? get thumbnailsCreator =>
-      ThumbnailsData(data!.thumbnails, (page) async => const Res([]), 1);
+  ThumbnailsData? get thumbnailsCreator {
+    if (data == null) return null;
+    return ThumbnailsData(data!.thumbnails, (page) async => const Res([]), 1);
+  }
 
   @override
   String? get title => data?.title;

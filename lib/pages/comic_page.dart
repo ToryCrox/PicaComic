@@ -236,6 +236,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   ThumbnailsData? get thumbnailsCreator {
+    if (data == null) return null;
     if (data!.thumbnails == null && data!.thumbnailLoader == null) return null;
 
     return ThumbnailsData(
@@ -248,6 +249,9 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
 
   @override
   Widget thumbnailImageBuilder(int index, String imageUrl) {
+    if (logic.localImages != null && index < logic.localImages!.length) {
+      imageUrl = Uri.file(logic.localImages![index]).toString();
+    }
     return PicaImage(
       url: imageUrl,
       headers: {
@@ -255,6 +259,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
         "isThumbnail": "true",
       },
       fit: BoxFit.contain,
+      memCacheWidth: 200,
     );
   }
 
@@ -276,8 +281,6 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
   @override
   bool? get favoriteOnPlatformInitial => data?.isFavorite;
 
-  ComicPageLogic<ComicInfoData>? get logic =>
-      StateController.findOrNull<ComicPageLogic<ComicInfoData>>(tag: tag);
 
   @override
   void openFavoritePanel() {
@@ -301,7 +304,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           update();
         }
       },
-      favoriteOnPlatform: logic?.favoriteOnPlatform,
+      favoriteOnPlatform: logic.favoriteOnPlatform,
       selectFolderCallback: (folder, type) async {
         if (type == 1) {
           LocalFavoritesManager().addComic(folder, toLocalFavoriteItem());
@@ -310,7 +313,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
           var res = await comicSource!.favoriteData!.addOrDelFavorite!(
               id, folder, true);
           if (!comicSource!.favoriteData!.multiFolder && res.success) {
-            logic?.favoriteOnPlatform = true;
+            logic.favoriteOnPlatform = true;
             update();
           }
           return res;
@@ -320,7 +323,7 @@ class _ComicPageImpl extends BaseComicPage<ComicInfoData> {
         var res =
             await comicSource!.favoriteData!.addOrDelFavorite!(id, '0', false);
         if (res.success) {
-          logic?.favoriteOnPlatform = false;
+          logic.favoriteOnPlatform = false;
         }
         return res;
       },
@@ -624,13 +627,16 @@ class ComicPageLogic<T extends Object> extends StateController {
   bool? favoriteOnPlatform;
   bool isDownloaded = false;
   List<DownloadTag> localTags = [];
+  List<String>? localImages;
+  String? coverPath;
 
   Future<void> get(
       Future<Res<T>> Function() loadData,
       Future<T?> Function() loadCacheData,
       Future<bool> Function(T) loadFavorite,
       String Function() getId,
-      String Function() getDownloadedId) async {
+      String Function() getDownloadedId,
+      bool supportThumbnails) async {
     final cache = await loadCacheData();
     if (cache != null) {
       data = cache;
@@ -642,7 +648,7 @@ class ComicPageLogic<T extends Object> extends StateController {
         update();
       });
       // 加载本地标签（缓存数据已加载）
-      await loadLocalTags(getDownloadedId());
+      await loadLocalTags(getDownloadedId(), supportThumbnails);
       loading = false;
       update();
     }
@@ -657,25 +663,31 @@ class ComicPageLogic<T extends Object> extends StateController {
       }
     } else {
       data = res.data;
-      thumbnailsData = null;
       _loadHistory(getId);
       loadFavorite(res.data).then((b) {
         favorite = b;
         update();
       });
       // 加载本地标签（网络数据已加载）
-      await loadLocalTags(getDownloadedId());
+      await loadLocalTags(getDownloadedId(), supportThumbnails);
     }
     loading = false;
     update();
   }
 
-  Future<void> loadLocalTags(String downloadedId) async {
+  Future<void> loadLocalTags(String downloadedId, bool supportThumbnails) async {
     isDownloaded = await downloadManager.isExists(downloadedId);
     if (isDownloaded) {
       localTags = await downloadManager.getComicTags(downloadedId);
+      if (supportThumbnails) {
+        localImages = await downloadManager.getAllImageFileList(downloadedId, 0);
+      }
+      var downloaded = await downloadManager.getComicOrNull(downloadedId);
+      coverPath = downloaded?.coverPath;
     } else {
       localTags = [];
+      localImages = null;
+      coverPath = null;
     }
     update();
   }
@@ -705,10 +717,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   /// and allow user to download or read comic.
   const BaseComicPage({super.key});
 
-  ComicPageLogic<T> get _logic =>
+  ComicPageLogic<T> get logic =>
       StateController.find<ComicPageLogic<T>>(tag: tag);
 
-  ComicPageLogic<T>? get _logicOrNull =>
+  ComicPageLogic<T>? get logicOrNull =>
       StateController.findOrNull<ComicPageLogic<T>>(tag: tag);
 
   /// title
@@ -726,7 +738,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   /// get comic data
   @nonVirtual
-  T? get data => _logicOrNull?.data;
+  T? get data => logicOrNull?.data;
 
   /// Used by StateController.
   ///
@@ -773,14 +785,16 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   /// create thumbnails data
   ThumbnailsData? get thumbnailsCreator;
 
+  bool get supportThumbnails => true;
+
   @nonVirtual
-  ThumbnailsData? get thumbnails => _logicOrNull?.thumbnailsData;
+  ThumbnailsData? get thumbnails => logicOrNull?.thumbnailsData;
 
   Widget? recommendationBuilder(T data);
 
   /// update widget state
   @nonVirtual
-  void update() => _logicOrNull?.update();
+  void update() => logicOrNull?.update();
 
   /// get context
   BuildContext get context => App.mainNavigatorKey!.currentContext!;
@@ -795,10 +809,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
 
   @nonVirtual
-  bool get favorite => _logicOrNull?.favorite ?? false;
+  bool get favorite => logicOrNull?.favorite ?? false;
 
   @nonVirtual
-  set favorite(bool f) => _logicOrNull?.favorite = f;
+  set favorite(bool f) => logicOrNull?.favorite = f;
 
   Future<bool> loadFavorite(T data);
 
@@ -813,8 +827,12 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   ActionFunc? get searchSimilar => null;
 
-  Widget thumbnailImageBuilder(int index, String imageUrl) =>
-      _thumbnailImageBuilder(index);
+  Widget thumbnailImageBuilder(int index, String imageUrl) {
+    if (logic.localImages != null && index < logic.localImages!.length) {
+      imageUrl = Uri.file(logic.localImages![index]).toString();
+    }
+    return _thumbnailImageBuilder(index, imageUrl);
+  }
 
   /// The source of this comic, displayed at the beginning of the [title],
   /// can be translated into the user's language.
@@ -830,7 +848,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   void scrollListener() {
     try {
-      var logic = _logic;
+      var logic = this.logic;
       bool temp = logic.showAppbarTitle;
       if (!logic.controller.hasClients) {
         return;
@@ -854,17 +872,17 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           tag: tag,
           init: ComicPageLogic<T>(),
           initState: (logic) {
-            tagsStack.push(_logic);
-            _logic.favoriteOnPlatform = favoriteOnPlatformInitial;
+            tagsStack.push(logic);
+            logic.favoriteOnPlatform = favoriteOnPlatformInitial;
           },
           dispose: (logic) {
             tagsStack.pop();
           },
           builder: (logic) {
-            _logic.width = constraints.maxWidth;
-            _logic.height = constraints.maxHeight;
+            logic.width = constraints.maxWidth;
+            logic.height = constraints.maxHeight;
             if (logic.loading) {
-              logic.get(loadData, loadCachedData, loadFavorite, () => id, () => downloadedId);
+              logic.get(loadData, loadCachedData, loadFavorite, () => id, () => downloadedId, supportThumbnails);
               return buildLoading(context);
             } else if (logic.message != null && logic.data == null) {
               return NetworkError(
@@ -872,7 +890,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                 retry: logic.refresh_,
               );
             } else {
-              _logic.thumbnailsData ??= thumbnailsCreator;
+              logic.thumbnailsData ??= thumbnailsCreator;
               logic.controller.removeListener(scrollListener);
               logic.controller.addListener(scrollListener);
               return SmoothCustomScrollView(
@@ -912,7 +930,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
               ).paddingLeft(8),
               SizedBox(
                 width: double.infinity,
-                child: buildComicInfo(_logic, context, false),
+                child: buildComicInfo(logic, context, false),
               ),
               const Divider(),
               SizedBox(
@@ -1114,7 +1132,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         child: Hero(
           tag: "image$tag",
           child: PicaImage(
-            url: cover!,
+            url: logic.coverPath != null ? Uri.file(logic.coverPath!).toString() : cover!,
             fit: BoxFit.cover,
             sourceKey: comicType.name,
             isThumbnail: true,
@@ -1192,7 +1210,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         Text(text, style: const TextStyle(fontSize: 13));
 
     if (title) {
-      _logic.colorIndex++;
+      logic.colorIndex++;
     }
 
     return GestureDetector(
@@ -1224,7 +1242,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           child: Card(
             margin: EdgeInsets.zero,
             color: title
-                ? colors[_logic.colorIndex % colors.length]
+                ? colors[logic.colorIndex % colors.length]
                     .shade100
                     .withOpacity(0.6)
                 : ElevationOverlay.applySurfaceTint(
@@ -1401,7 +1419,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
     if (result == true) {
       // 刷新本地标签
-      await _logic.loadLocalTags(downloadedId);
+      await logic.loadLocalTags(downloadedId, supportThumbnails);
 
       // 刷新 DownloadPage 的标签数据
 
@@ -1602,7 +1620,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                   ),
                   Expanded(
                     child: FilledButton.tonal(
-                      onPressed: () => read(_logic.history),
+                      onPressed: () => read(logic.history),
                       child: Text("阅读".tl),
                     ),
                   ),
@@ -1688,7 +1706,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       );
     }
 
-    _logic.colorIndex = 0;
+    logic.colorIndex = 0;
 
     for (var key in tags!.keys) {
       yield Padding(
@@ -1740,8 +1758,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             child: IconButton(
               icon: const Icon(Icons.swap_vert),
               onPressed: () {
-                _logic.reverseEpsOrder = !_logic.reverseEpsOrder;
-                _logic.update();
+                logic.reverseEpsOrder = !logic.reverseEpsOrder;
+                logic.update();
               },
             ),
           )
@@ -1753,7 +1771,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
     int length = eps!.eps.length;
 
-    if (!_logic.showFullEps) {
+    if (!logic.showFullEps) {
       length = math.min(length, 20);
     }
 
@@ -1761,11 +1779,11 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       sliver: SliverGrid(
         delegate: SliverChildBuilderDelegate(childCount: length, (context, i) {
-          if (_logic.reverseEpsOrder) {
+          if (logic.reverseEpsOrder) {
             i = eps!.eps.length - i - 1;
           }
           bool visited =
-              (_logic.history?.readEpisode ?? const {}).contains(i + 1);
+              (logic.history?.readEpisode ?? const {}).contains(i + 1);
           return Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
             child: InkWell(
@@ -1800,7 +1818,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
       ),
     );
 
-    if (eps!.eps.length > 20 && !_logic.showFullEps) {
+    if (eps!.eps.length > 20 && !logic.showFullEps) {
       yield SliverToBoxAdapter(
         child: Align(
           alignment: Alignment.center,
@@ -1810,8 +1828,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                   borderRadius: BorderRadius.all(Radius.circular(8)))),
             ),
             onPressed: () {
-              _logic.showFullEps = true;
-              _logic.update();
+              logic.showFullEps = true;
+              logic.update();
             },
             child: Text("${"显示全部".tl} (${eps!.eps.length})"),
           ).paddingTop(12),
@@ -1855,28 +1873,35 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
     ];
   }
 
-  Widget _thumbnailImageBuilder(int index) {
+  Widget _thumbnailImageBuilder(int index, String imageUrl) {
     return PicaImage(
-      url: thumbnails!.thumbnails[index],
+      url: imageUrl,
       fit: BoxFit.contain,
       headers: {
         "sourceKey": comicType.name,
         "isThumbnail": "true",
       },
+      memCacheWidth: 200,
       errorWidget: (context, s, d) => const Icon(Icons.error),
     );
   }
 
   List<Widget> buildThumbnails(BuildContext context) {
-    if (thumbnails == null ||
-        (thumbnails!.thumbnails.isEmpty &&
-            !tag.contains("Hitomi") &&
-            !tag.contains("Eh"))) {
-      return [];
+    if (!supportThumbnails) return [];
+    if (logic.localImages == null) {
+      if (thumbnails == null) return [];
+      if (thumbnails!.thumbnails.isEmpty &&
+          !tag.contains("Hitomi") &&
+          !tag.contains("Eh")) {
+        return [];
+      }
+      if (thumbnails!.thumbnails.isEmpty) {
+        thumbnails!.get(update);
+      }
     }
-    if (thumbnails!.thumbnails.isEmpty) {
-      thumbnails!.get(update);
-    }
+
+    final int childCount = logic.localImages?.length ?? thumbnails!.thumbnails.length;
+
     return [
       const SliverPadding(padding: EdgeInsets.all(5)),
       const SliverToBoxAdapter(
@@ -1904,8 +1929,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         sliver: SliverGrid(
           delegate: SliverChildBuilderDelegate(
-              childCount: thumbnails!.thumbnails.length, (context, index) {
-            if (index == thumbnails!.thumbnails.length - 1) {
+              childCount: childCount, (context, index) {
+            if (logic.localImages == null && index == thumbnails!.thumbnails.length - 1) {
               thumbnails!.get(update);
             }
             return Padding(
@@ -1933,7 +1958,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                         borderRadius:
                             const BorderRadius.all(Radius.circular(16)),
                         child: thumbnailImageBuilder(
-                            index, thumbnails!.thumbnails[index]),
+                            index, logic.localImages != null ? "" : thumbnails!.thumbnails[index]),
                       ),
                     ),
                   )),
@@ -1951,7 +1976,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           ),
         ),
       ),
-      if (thumbnails!.current < thumbnails!.maxPage)
+      if (logic.localImages == null && thumbnails != null && thumbnails!.current < thumbnails!.maxPage)
         const SliverToBoxAdapter(
           child: ListLoadingIndicator(),
         ),
@@ -1959,7 +1984,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   }
 
   List<Widget> buildRecommendation(BuildContext context) {
-    var recommendation = recommendationBuilder(_logic.data!);
+    var recommendation = recommendationBuilder(logic.data!);
     if (recommendation == null) return [];
     return [
       const SliverToBoxAdapter(

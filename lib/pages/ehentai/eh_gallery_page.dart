@@ -212,6 +212,13 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
 
   @override
   Widget thumbnailImageBuilder(int index, String imageUrl) {
+    if (logic.localImages != null && index < logic.localImages!.length) {
+      return PicaImage(
+        url: Uri.file(logic.localImages![index]).toString(),
+        fit: BoxFit.contain,
+        memCacheWidth: 200,
+      );
+    }
     imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
     if (data?.auth?["thumbnailKey"] != null &&
         data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
@@ -223,18 +230,17 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
         },
         fit: BoxFit.contain,
         cacheKey: "eh_thumb_${data!.link}_$index",
+        memCacheWidth: 200,
       );
     }
     return ColoredBox(
       color: context.colorScheme.surfaceContainerHighest,
       key: ValueKey("eh_thumb_${data!.link}_$index"),
       child: EhThumbnailLoader(
-        image: CachedNetworkImageProvider(
-          imageUrl, 
-          cacheManager: picaImageManager, 
-          headers: headers,
-          cacheKey: "eh_thumb_${data!.link}_${index ~/ data!.pageSize}"
-        ),
+        image: CachedNetworkImageProvider(imageUrl,
+            cacheManager: picaImageManager,
+            headers: headers,
+            cacheKey: "eh_thumb_${data!.link}_${index ~/ data!.pageSize}"),
         pageSize: data!.pageSize,
         width: data!.width,
         index: index,

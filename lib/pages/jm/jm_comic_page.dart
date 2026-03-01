@@ -225,6 +225,9 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
 
   @override
   String get tag => "${comicType.name} comic page $id";
+
+  @override
+  bool get supportThumbnails => false;
 }
 
 void downloadComic(JmComicInfo comic, BuildContext context) async {

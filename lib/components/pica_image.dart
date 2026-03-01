@@ -14,6 +14,8 @@ class PicaImage extends StatelessWidget {
   final LoadingErrorWidgetBuilder? errorWidget;
   final bool fade;
   final String? cacheKey;
+  final int? memCacheWidth;
+  final int? memCacheHeight;
 
   const PicaImage({
     required this.url,
@@ -30,6 +32,8 @@ class PicaImage extends StatelessWidget {
     this.errorWidget,
     this.fade = true,
     this.cacheKey,
+    this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   @override
@@ -53,6 +57,8 @@ class PicaImage extends StatelessWidget {
       height: height,
       fit: imageFit,
       cacheManager: picaImageManager,
+      memCacheWidth: memCacheWidth,
+      memCacheHeight: memCacheHeight,
       fadeOutDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
       fadeInDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
       placeholder: placeholder ?? (context, url) => const Center(),
