@@ -1,0 +1,73 @@
+Analyzing 2 items...                                            
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\button.dart:242:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\button.dart:246:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\button.dart:252:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\button.dart:338:24 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:361:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:423:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:568:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:713:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:714:40 - deprecated_member_use
+   info - 'CustomComic' is deprecated and shouldn't be used. Custom comic source is no longer supported - lib\components\comic_tile.dart:1136:9 - deprecated_member_use_from_same_package
+   info - 'CustomComic' is deprecated and shouldn't be used. Custom comic source is no longer supported - lib\components\comic_tile.dart:1255:15 - deprecated_member_use_from_same_package
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:1376:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\comic_tile.dart:1506:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:18:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:21:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:24:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:27:69 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:30:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:33:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:36:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:39:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:45:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:50:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:53:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\custom_slider.dart:56:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\flyout.dart:135:45 - deprecated_member_use
+   info - Invalid use of a private type in a public API - lib\components\keep_alive_wrapper.dart:13:3 - library_private_types_in_public_api
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\menu.dart:51:41 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\components\navigation_bar.dart:650:5 - avoid_print
+   info - Invalid use of a private type in a public API - lib\components\scrollable_list\src\wrapping.dart:526:3 - library_private_types_in_public_api
+   info - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead - lib\components\scrollable_list\src\wrapping.dart:911:15 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\select.dart:121:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\select.dart:126:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\window_frame.dart:232:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\components\window_frame.dart:799:35 - deprecated_member_use
+   info - The imported package 'path' isn't a dependency of the importing package - lib\pages\download\components\download_list.dart:19:8 - depend_on_referenced_packages
+   info - The prefix 'Path' isn't a lower_case_with_underscores identifier - lib\pages\download\components\download_list.dart:19:36 - library_prefixes
+   info - Don't use 'BuildContext's across async gaps - lib\pages\download\components\download_list.dart:285:15 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\pages\download\components\download_menus.dart:414:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\pages\download\components\download_menus.dart:432:13 - use_build_context_synchronously
+   info - 'CustomComic' is deprecated and shouldn't be used. Custom comic source is no longer supported - lib\pages\download\components\download_menus.dart:530:58 - deprecated_member_use_from_same_package
+   info - The imported package 'path' isn't a dependency of the importing package - lib\pages\download\components\download_tile.dart:8:8 - depend_on_referenced_packages
+   info - The prefix 'Path' isn't a lower_case_with_underscores identifier - lib\pages\download\components\download_tile.dart:8:36 - library_prefixes
+   info - The imported package 'super_native_extensions' isn't a dependency of the importing package - lib\pages\download\components\download_tile.dart:9:8 - depend_on_referenced_packages
+   info - Don't invoke 'print' in production code - lib\pages\download\components\download_tile.dart:396:7 - avoid_print
+   info - The imported package 'path' isn't a dependency of the importing package - lib\pages\download\components\multi_select_drag_dialog.dart:4:8 - depend_on_referenced_packages
+   info - The prefix 'Path' isn't a lower_case_with_underscores identifier - lib\pages\download\components\multi_select_drag_dialog.dart:4:36 - library_prefixes
+   info - The imported package 'super_native_extensions' isn't a dependency of the importing package - lib\pages\download\components\multi_select_drag_dialog.dart:7:8 - depend_on_referenced_packages
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\components\multi_select_drag_dialog.dart:145:45 - deprecated_member_use
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:431:17 - unused_result
+   info - Don't use 'BuildContext's across async gaps - lib\pages\download\download_page.dart:569:19 - use_build_context_synchronously
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:618:21 - unused_result
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:619:21 - unused_result
+   info - Don't use 'BuildContext's across async gaps - lib\pages\download\download_page.dart:632:17 - use_build_context_synchronously
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:679:25 - unused_result
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:715:25 - unused_result
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\download_page.dart:769:44 - deprecated_member_use
+warning - The value of 'refresh' should be used - lib\pages\download\download_page.dart:828:31 - unused_result
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\downloading_page.dart:384:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\downloading_page.dart:402:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\downloading_page.dart:407:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\downloading_page.dart:408:51 - deprecated_member_use
+   info - The imported package 'path' isn't a dependency of the importing package - lib\pages\download\import_local_comic_dialog.dart:11:8 - depend_on_referenced_packages
+   info - The prefix 'Path' isn't a lower_case_with_underscores identifier - lib\pages\download\import_local_comic_dialog.dart:11:36 - library_prefixes
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\import_local_comic_dialog.dart:551:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\import_local_comic_dialog.dart:552:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\local_repository_management_page.dart:312:84 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\pages\download\tag_assignment_dialog.dart:299:35 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\pages\download\tag_management_page.dart:213:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\pages\download\tag_management_page.dart:214:17 - deprecated_member_use
+
