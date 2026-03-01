@@ -817,8 +817,11 @@ class _ComicDescriptionState extends State<_ComicDescription> {
         if (tags.isNotEmpty || primaryTags.isNotEmpty)
           Expanded(
             child: LayoutBuilder(
-              builder: (context, constraints) => Padding(
-                padding: EdgeInsets.only(bottom: constraints.maxHeight % 23),
+              builder: (context, constraints) {
+                double padding = constraints.maxHeight % 23;
+                if (constraints.maxHeight < 23) padding = 0;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: padding),
                 child: Wrap(
                   runAlignment: WrapAlignment.start,
                   clipBehavior: Clip.antiAlias,
@@ -891,7 +894,8 @@ class _ComicDescriptionState extends State<_ComicDescription> {
                       ),
                   ],
                 ),
-              ),
+              );
+              },
             ),
           ),
         const SizedBox(
