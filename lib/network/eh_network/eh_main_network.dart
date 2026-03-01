@@ -744,16 +744,19 @@ class EhNetwork {
 
   Future<Res<String>> getReaderLink(String gLink, int page) async {
     var res = await _getReaderLinks(gLink, 1);
+    if (res.error) {
+      return Res.fromErrorRes(res);
+    }
     if (page <= res.data.length) {
       return Res(res.data[page - 1]);
     }
     var urlsOnePage = res.data.length;
     if (urlsOnePage <= 0) {
-      return const Res.error('get  reader link failed');
+      return const Res.error('get reader link failed: empty page');
     }
 
     final shouldLoadPage = (page - 1) ~/ urlsOnePage + 1;
-    final urlsRes = (await _getReaderLinks(gLink, shouldLoadPage));
+    final urlsRes = await _getReaderLinks(gLink, shouldLoadPage);
     if (urlsRes.error) {
       return Res.fromErrorRes(urlsRes);
     }
@@ -766,6 +769,7 @@ class EhNetwork {
 
 
   final _readerLinkerLocks = <String, Lock>{};
+  final _readerLinksCache = <String, (List<String>, DateTime)>{};
 
   /// page starts from 1
   Future<Res<List<String>>> _getReaderLinks(String link, int page) async {
@@ -773,30 +777,36 @@ class EhNetwork {
     if (page != 1) {
       url = url.contains("?") ? "$url&p=${page - 1}" : "$url?p=${page - 1}";
     }
-    // while (loadingReaderLinks.contains(url)) {
-    //   await Future.delayed(const Duration(milliseconds: 200));
-    // }
-    // loadingReaderLinks.add(url);
+    
+    var cache = _readerLinksCache[url];
+    if (cache != null && DateTime.now().isBefore(cache.$2)) {
+      return Res(cache.$1);
+    }
+
     final lock = _readerLinkerLocks.putIfAbsent(url, () => Lock());
-    final res = await lock.synchronized(()  {
-      return request(url);
-    });
-    loadingReaderLinks.remove(url);
-    if (res.error) {
-      return Res(null, errorMessage: res.errorMessage);
-    }
-    try {
-      var urls_ = <String>[];
-      var temp = parse(res.data);
-      var links = temp.querySelectorAll("div#gdt > a");
-      for (var link in links) {
-        urls_.add(link.attributes["href"]!);
+    return await lock.synchronized(() async {
+      var cache = _readerLinksCache[url];
+      if (cache != null && DateTime.now().isBefore(cache.$2)) {
+        return Res(cache.$1);
       }
-      return Res(urls_);
-    } catch (e, s) {
-      Log.e("Data Analysis $e\n$s");
-      return Res(null, errorMessage: e.toString());
-    }
+      var res = await request(url);
+      if (res.error) {
+        return Res(null, errorMessage: res.errorMessage);
+      }
+      try {
+        var urls_ = <String>[];
+        var temp = parse(res.data);
+        var links = temp.querySelectorAll("div#gdt > a");
+        for (var link in links) {
+          urls_.add(link.attributes["href"]!);
+        }
+        _readerLinksCache[url] = (urls_, DateTime.now().add(const Duration(minutes: 10)));
+        return Res(urls_);
+      } catch (e, s) {
+        Log.e("Data Analysis $e\n$s");
+        return Res(null, errorMessage: e.toString());
+      }
+    });
   }
 
   Future<(String image, String? nl)> getImageLinkWithNL(

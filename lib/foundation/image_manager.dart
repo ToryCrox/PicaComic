@@ -280,8 +280,11 @@ class ImageManager {
       var dio = logDio(options);
 
       // Get imgKey
-      final readerLink =
-          (await EhNetwork().getReaderLink(galleryLink, page)).data;
+      final readerLinkRes = await EhNetwork().getReaderLink(galleryLink, page);
+      if (readerLinkRes.error) {
+        throw readerLinkRes.errorMessage ?? "Failed to get reader link";
+      }
+      final readerLink = readerLinkRes.data;
       Log.d("getEhImageNew $cacheKey, readerLink:'$readerLink'");
 
       Future<void> getShowKey() async {
@@ -364,11 +367,12 @@ class ImageManager {
       int totalBytes = 0;
       List<int> data = [];
 
-      if (gallery.auth?["mpvKey"] != null) {
+      var imgKeys = gallery.auth?["imgKey"]?.split(',');
+      if (gallery.auth?["mpvKey"] != null && imgKeys != null && page - 1 < imgKeys.length) {
         Future<(String image, String nl)> getImageFromApi([String? nl]) async {
           Res<String>? apiRes = await EhNetwork().apiRequest({
             "gid": int.parse(gid),
-            "imgkey": gallery.auth!["imgKey"]!.split(',')[page - 1],
+            "imgkey": imgKeys[page - 1],
             "method": "imagedispatch",
             "page": page,
             "mpvkey": gallery.auth!["mpvKey"],
