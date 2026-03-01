@@ -115,8 +115,14 @@ class DownloadedComicTile extends ComicTile {
   ComicType? get comicType => downloadedItem.type.toComicType();
 
   @override
+  bool get showDownload => false;
+  
+  @override
+  bool get showRead => false;
+
+  @override
   Widget? buildSubDescription(BuildContext context) {
-    if (onManageTags == null && onOpenFolder == null) return null;
+    if (onManageTags == null && onOpenFolder == null && onRead == null) return null;
     return Padding(
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
       child: Row(

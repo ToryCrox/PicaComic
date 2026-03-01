@@ -32,6 +32,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
+import 'package:pica_comic/pages/download/download_helper.dart';
 
 import '../base.dart';
 import '../foundation/ui_mode.dart';

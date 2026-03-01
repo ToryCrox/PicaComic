@@ -64,6 +64,8 @@ abstract class ComicTile extends StatelessWidget {
   ComicType? get comicType => null;
 
   bool get showFavorite => true;
+  bool get showDownload => true;
+  bool get showRead => true;
 
   void showBlockPane() {
     showDialog(
@@ -278,6 +280,37 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
+  /// 构建网络阅读图标 Widget
+  Widget _buildReadIcon(bool detailedMode) {
+    if (comicID == null || comicType == null) {
+      return const SizedBox.shrink();
+    }
+    return Consumer(builder: (context, ref, child) {
+      final downloadedIds = ref.watch(downloadedIdsProvider);
+      final downloadId =
+          downloadManager.getDownloadIdFromComicId(comicType, comicID);
+
+      if (downloadedIds.contains(downloadId)) {
+        return Positioned(
+          right: detailedMode ? 54 : 44, // 放置在下载按钮的左侧
+          bottom: 8,
+          child: _buildIcon(Icons.menu_book, () async {
+            if (downloadId.isEmpty) {
+              return;
+            }
+            final downloadedItem = await downloadManager.getComicOrNull(downloadId);
+            if (downloadedItem != null) {
+              downloadedItem.read();
+            } else {
+              showToast(message: "无法获取离线漫画".tl);
+            }
+          }, color: Theme.of(context).colorScheme.primary),
+        );
+      }
+      return const SizedBox.shrink();
+    });
+  }
+
   /// 构建下载图标按钮
   Widget _buildDownloadIcon(bool detailedMode) {
     if (comicID == null || comicType == null) {
@@ -292,7 +325,7 @@ abstract class ComicTile extends StatelessWidget {
       if (downloadedIds.contains(downloadId)) {
         return Positioned(
           right: detailedMode ? 16 : 6,
-          top: 8,
+          bottom: 8,
           child: _buildIcon(Icons.folder_open, () async {
             if (downloadId.isEmpty) {
               showToast(message: "无法生成下载ID".tl);
@@ -313,7 +346,7 @@ abstract class ComicTile extends StatelessWidget {
         if (status == DownloadStatus.downloading) {
           return Positioned(
             right: detailedMode ? 16 : 6,
-            top: 8,
+            bottom: 8,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -355,7 +388,7 @@ abstract class ComicTile extends StatelessWidget {
 
         return Positioned(
           right: detailedMode ? 16 : 6,
-          top: 8,
+          bottom: 8,
           child: _buildIcon(icon, () {
              // 点击跳转下载页面
              context.to(() => const DownloadPage());
@@ -491,10 +524,12 @@ abstract class ComicTile extends StatelessWidget {
         Positioned.fill(
           child: child,
         ),
-        if (isFavorite)
+        if (isFavorite && showFavorite)
           _buildFavoriteIcon(detailedMode),
+        // 下载完成后显示的阅读图标
+        if (showRead) _buildReadIcon(detailedMode),
         // 打开下载说明图标或者下载状态图标
-        _buildDownloadIcon(detailedMode),
+        if (showDownload) _buildDownloadIcon(detailedMode),
       ],
     );
   }
