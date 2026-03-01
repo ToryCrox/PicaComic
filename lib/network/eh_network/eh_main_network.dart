@@ -757,7 +757,11 @@ class EhNetwork {
     if (urlsRes.error) {
       return Res.fromErrorRes(urlsRes);
     }
-    return Res(urlsRes.data[(page - 1) % urlsOnePage]);
+    final index = (page - 1) % urlsOnePage;
+    if (index >= urlsRes.data.length) {
+      return const Res.error('get reader link failed: page out of bounds or empty data');
+    }
+    return Res(urlsRes.data[index]);
   }
 
 
