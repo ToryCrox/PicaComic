@@ -1471,7 +1471,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
   Widget build(BuildContext context) {
     return Positioned(
       right: widget.detailedMode ? 16 : 6,
-      top: 8,
+      bottom: 8,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
