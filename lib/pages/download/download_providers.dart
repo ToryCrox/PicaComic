@@ -303,7 +303,7 @@ class DownloadPageState {
     this.excludeLocal = false,
     this.sortVersion = 0,
     this.isSearching = false,
-    this.isDragDisabled = false,
+    this.isDragDisabled = true,
   });
 
   DownloadPageState copyWith({
