@@ -117,7 +117,13 @@ class DownloadList extends ConsumerWidget {
           color: isSelected
               ? Theme.of(context).colorScheme.surfaceContainerHighest
               : Colors.transparent,
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: isSelected
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                )
+              : Border.all(color: Colors.transparent, width: 2),
         ),
         child: DownloadedComicTile(
           id: item.id,

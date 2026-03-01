@@ -104,7 +104,7 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
     }
     return SliverGridRegularTileLayout(
         crossAxisCount: crossItems,
-        mainAxisStride: itemHeight,
+        mainAxisStride: itemHeight + 2, // add margin height
         crossAxisStride: width / crossItems,
         childMainAxisExtent: itemHeight,
         childCrossAxisExtent: width / crossItems,
@@ -115,7 +115,7 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
   SliverGridLayout getBriefModeLayout(SliverConstraints constraints, double scale){
     final maxCrossAxisExtent = 192.0 * scale;
     const childAspectRatio = 0.72;
-    const crossAxisSpacing = 0.0;
+    const crossAxisSpacing = 2.0; // adjust spacing
     int crossAxisCount = (constraints.crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing)).ceil();
     // Ensure a minimum count of 1, can be zero and result in an infinite extent
     // below when the window size is 0.
@@ -128,7 +128,7 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
     final double childMainAxisExtent = childCrossAxisExtent / childAspectRatio;
     return SliverGridRegularTileLayout(
       crossAxisCount: crossAxisCount,
-      mainAxisStride: childMainAxisExtent,
+      mainAxisStride: childMainAxisExtent + crossAxisSpacing, // adjust mainAxisStride
       crossAxisStride: childCrossAxisExtent + crossAxisSpacing,
       childMainAxisExtent: childMainAxisExtent,
       childCrossAxisExtent: childCrossAxisExtent,

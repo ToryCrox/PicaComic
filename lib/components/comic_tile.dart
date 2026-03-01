@@ -616,136 +616,136 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   Widget _buildDetailedMode(BuildContext context) {
-    return _ComicTileInkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap_,
-      onLongPress: enableLongPressed ? onLongTap_ : null,
-      onSecondaryTap: onSecondaryTap_,
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-            child: Row(
-              children: [
-                AspectRatio(
-                  aspectRatio: 0.68,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(8)),
-                        clipBehavior: Clip.antiAlias,
-                        child: image,
-                      ),
-                      _buildHistoryTime(context),
-                    ],
-                  ),
-                ),
-                const SizedBox(
-                  width: 16,
-                ),
-                Expanded(
-                  child: _ComicDescription(
-                    //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
-                    title: pages == null
-                        ? title.replaceAll("\n", "")
-                        : "[${pages}P]${title.replaceAll("\n", "")}",
-                    user: subTitle,
-                    description: description,
-                    subDescription: buildSubDescription(context),
-                    badge: badge,
-                    primaryTags: primaryTags,
-                    tags: tags,
-                    maxLines: maxLines,
-                    onTagTap: onTagTap,
-                    onPrimaryTagTap: onPrimaryTagTap,
-                    onTagSecondaryTap: onTagSecondaryTap,
-                    onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _buildHistoryProgressBar(context),
-        ],
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-
-  Widget _buildBriefMode(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        elevation: 1,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: _ComicTileInkWell(
+        onTap: onTap_,
+        onLongPress: enableLongPressed ? onLongTap_ : null,
+        onSecondaryTap: onSecondaryTap_,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: Stack(
-                fit: StackFit.expand,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 24, 8),
+              child: Row(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8)),
-                    clipBehavior: Clip.antiAlias,
-                    child: image,
-                  ),
-                  _buildHistoryTime(context),
-                ],
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.5),
-                        ]),
-                    borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(8),
-                        bottomRight: Radius.circular(8))),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                  child: Text(
-                    title.replaceAll("\n", ""),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14.0,
-                      color: Colors.white,
+                  AspectRatio(
+                    aspectRatio: 0.68,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(8)),
+                          clipBehavior: Clip.antiAlias,
+                          child: image,
+                        ),
+                        _buildHistoryTime(context),
+                      ],
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: _ComicTileInkWell(
-                  onTap: onTap_,
-                  onLongPress: enableLongPressed ? onLongTap_ : null,
-                  onSecondaryTap: onSecondaryTap_,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const SizedBox.expand(),
-                ),
+                  const SizedBox(
+                    width: 16,
+                  ),
+                  Expanded(
+                    child: _ComicDescription(
+                      //标题中不应出现换行符, 爬虫可能多爬取换行符, 为避免麻烦, 直接在此处删去
+                      title: pages == null
+                          ? title.replaceAll("\n", "")
+                          : "[${pages}P]${title.replaceAll("\n", "")}",
+                      user: subTitle,
+                      description: description,
+                      subDescription: buildSubDescription(context),
+                      badge: badge,
+                      primaryTags: primaryTags,
+                      tags: tags,
+                      maxLines: maxLines,
+                      onTagTap: onTagTap,
+                      onPrimaryTagTap: onPrimaryTagTap,
+                      onTagSecondaryTap: onTagSecondaryTap,
+                      onPrimaryTagSecondaryTap: onPrimaryTagSecondaryTap,
+                    ),
+                  ),
+                ],
               ),
             ),
             _buildHistoryProgressBar(context),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBriefMode(BuildContext context) {
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                image,
+                _buildHistoryTime(context),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.5),
+                      ])),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                child: Text(
+                  title.replaceAll("\n", ""),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14.0,
+                    color: Colors.white,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: _ComicTileInkWell(
+                onTap: onTap_,
+                onLongPress: enableLongPressed ? onLongTap_ : null,
+                onSecondaryTap: onSecondaryTap_,
+                borderRadius: BorderRadius.circular(8),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          _buildHistoryProgressBar(context),
+        ],
       ),
     );
   }
@@ -1014,79 +1014,88 @@ class ComicTilePlaceholder extends StatelessWidget {
   }
 
   Widget _buildDetailedMode(BuildContext context) {
-    return LayoutBuilder(builder: (context, constrains) {
-      final height = constrains.maxHeight - 16;
-      return Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-        child: Row(
-          children: [
-            Container(
-              width: height * 0.68,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: context.colorScheme.secondaryContainer.withAlpha(140),
-              ),
-            ),
-            SizedBox.fromSize(
-              size: const Size(16, 5),
-            ),
-            if (type != 'full')
-              const Spacer()
-            else
-              Expanded(
-                child: Column(
-                  children: [
-                    const SizedBox(
-                      height: 3,
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: context.colorScheme.tertiaryContainer
-                            .withAlpha(140),
-                      ),
-                      height: 26,
-                    ),
-                    const SizedBox(
-                      height: 4,
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: context.colorScheme.tertiaryContainer
-                            .withAlpha(140),
-                      ),
-                      height: 18,
-                    ),
-                    const Spacer(),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: context.colorScheme.tertiaryContainer
-                            .withAlpha(140),
-                      ),
-                      height: 18,
-                    ),
-                  ],
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: Colors.transparent,
+      child: LayoutBuilder(builder: (context, constrains) {
+        final height = constrains.maxHeight - 16;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 24, 8),
+          child: Row(
+            children: [
+              Container(
+                width: height * 0.68,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: context.colorScheme.secondaryContainer.withAlpha(140),
                 ),
               ),
-            const SizedBox(
-              width: 16,
-            ),
-          ],
-        ),
-      );
-    });
+              SizedBox.fromSize(
+                size: const Size(16, 5),
+              ),
+              if (type != 'full')
+                const Spacer()
+              else
+                Expanded(
+                  child: Column(
+                    children: [
+                      const SizedBox(
+                        height: 3,
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: context.colorScheme.tertiaryContainer
+                              .withAlpha(140),
+                        ),
+                        height: 26,
+                      ),
+                      const SizedBox(
+                        height: 4,
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: context.colorScheme.tertiaryContainer
+                              .withAlpha(140),
+                        ),
+                        height: 18,
+                      ),
+                      const Spacer(),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: context.colorScheme.tertiaryContainer
+                              .withAlpha(140),
+                        ),
+                        height: 18,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 
   Widget _buildBriefMode(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      decoration: BoxDecoration(
-        color: context.colorScheme.secondaryContainer.withAlpha(80),
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
+      color: context.colorScheme.secondaryContainer.withAlpha(80),
+      child: const SizedBox.expand(),
     );
   }
 }
