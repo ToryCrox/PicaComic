@@ -2,7 +2,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'dart:io';
+import 'dart:io' as io;
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/network/image_config.dart';
@@ -30,6 +30,22 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
           fileService: PicaHttpFileService(),
         ));
 
+    Future<FileInfo?> _fileInfoFromIoFile(String filePath, String url) async {
+    final ioFile = io.File(filePath);
+    // 转换为 file 包的 File 类型
+    const fs = LocalFileSystem();
+    if (await ioFile.exists()) {
+      // 返回 FileInfo，使用 FileSource.cache 表示本地缓存文件
+      return FileInfo(
+        fs.file(filePath),
+        FileSource.Cache,
+        DateTime.now().add(const Duration(days: 365)),
+        url,
+      );
+    }
+    return null;
+  }
+
   @override
   Stream<FileResponse> getImageFile(
     String url, {
@@ -40,17 +56,24 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
     int? maxWidth,
   }) async* {
     if (url.startsWith('file://')) {
-      final file = File(url.replaceFirst('file://', ''));
-      if (await file.exists()) {
-        const fs = LocalFileSystem();
-        yield FileInfo(
-          fs.file(file.path),
-          FileSource.Cache,
-          DateTime.now().add(const Duration(days: 365)),
-          url,
-        );
-        return;
+      try {
+        final uri = Uri.tryParse(url);
+        final filePath = uri?.toFilePath();
+        if (filePath == null) {
+          Log.e('filePath is null: $url');
+          throw Exception('filePath is null: $url');
+        }
+        final response = await _fileInfoFromIoFile(filePath, url);
+        Log.d(() => '加载本地文件成功: $url, ${response?.file.path}');
+        if (response != null) {
+          yield response;
+          return;
+        }
+      } catch (e) {
+        Log.e('读取本地文件失败: $url, $e');
       }
+      // 文件不存在，直接报错
+      throw Exception('getImageFile file not found: $url');
     }
     yield* super.getImageFile(url,
         key: key,
@@ -191,11 +214,11 @@ class PicaDioFileServiceResponse implements FileServiceResponse {
   }
 
   @override
-  String? get eTag => _response.headers.value(HttpHeaders.etagHeader);
+  String? get eTag => _response.headers.value(io.HttpHeaders.etagHeader);
 
   @override
   String get fileExtension {
-    final contentType = _response.headers.value(HttpHeaders.contentTypeHeader);
+    final contentType = _response.headers.value(io.HttpHeaders.contentTypeHeader);
     if (contentType != null) {
       if (contentType.contains('image/jpeg')) return '.jpg';
       if (contentType.contains('image/png')) return '.png';
@@ -212,7 +235,7 @@ class PicaDioFileServiceResponse implements FileServiceResponse {
     if (_onResponse != null) return -1;
     try {
       return int.parse(
-          _response.headers.value(HttpHeaders.contentLengthHeader) ?? "-1");
+          _response.headers.value(io.HttpHeaders.contentLengthHeader) ?? "-1");
     } catch (e) {
       return -1;
     }
