@@ -27,22 +27,30 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   final String? comicCover;
 
   @override
-  void openFavoritePanel() {
+  void openFavoritePanel(ComicPageLogic<HtComicInfo> logic) {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: htManga.isLogin,
       needLoadFolderData: true,
       foldersLoader: () => HtmangaNetwork().getFolders(),
       localFavoriteItem: toLocalFavoriteItem(),
-      setFavorite: (b) {},
+      setFavorite: (b) {
+        if (logic.favorite.value != b) {
+          logic.favorite.value = b;
+          logic.update();
+        }
+      },
       selectFolderCallback: (folder, page) async {
+        final comicData = data;
+        if (comicData == null) return Res.error("数据加载中".tl);
         if (page == 0) {
-          return HtmangaNetwork().addFavorite(data!.id, folder);
+          return HtmangaNetwork().addFavorite(comicData.id, folder);
         } else {
           LocalFavoritesManager()
-              .addComic(folder, FavoriteItem.fromHtcomic(data!.toBrief()));
+              .addComic(folder, FavoriteItem.fromHtcomic(comicData.toBrief()));
           return const Res(true);
         }
       },
+      favoriteOnPlatformValue: false,
     ));
   }
 
@@ -50,8 +58,10 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String? get cover => data?.cover ?? comicCover;
 
   @override
-  void download() async {
-    final id = "Ht${data!.id}";
+  void download(ComicPageLogic<HtComicInfo> logic) async {
+    final comicData = data;
+    if (comicData == null) return;
+    final id = "Ht${comicData.id}";
     if (await downloadManager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
@@ -62,17 +72,18 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
         return;
       }
     }
-    downloadManager.addHtDownload(data!);
+    downloadManager.addHtDownload(comicData);
     showToast(message: "已加入下载队列".tl);
   }
 
   @override
-  void onThumbnailTapped(int index) async {
-    await History.findOrCreate(data!);
+  void onThumbnailTapped(int index, ComicPageLogic<HtComicInfo> logic) {
+    final comicData = data;
+    if (comicData == null) return;
     App.globalTo(
-      () => ComicReadingPage.htmanga(
-        data!.target,
-        data!.title,
+      () => ComicReadingPage(
+        ReadingData.fromHt(comicData),
+        history: logic.history.value,
         initialPage: index + 1,
       ),
     );
@@ -82,7 +93,7 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   EpsData? get eps => null;
 
   @override
-  String? get introduction => data!.description;
+  String? get introduction => data?.description;
 
   @override
   Future<Res<HtComicInfo>> loadData() => HtmangaNetwork().getComicInfo(id).then((res) {
@@ -110,13 +121,13 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   int? get pages => null;
 
   @override
-  void read(History? history) async {
-    history = await History.createIfNull(history, data!);
+  void read(History? history, ComicPageLogic<HtComicInfo> logic) {
+    final comicData = data;
+    if (comicData == null) return;
     App.globalTo(
-      () => ComicReadingPage.htmanga(
-        data!.target,
-        data!.title,
-        initialPage: history!.page,
+      () => ComicReadingPage(
+        ReadingData.fromHt(comicData),
+        history: history,
       ),
     );
   }
@@ -126,8 +137,11 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
 
 
   @override
-  Map<String, List<String>>? get tags =>
-      {"分类".tl: data!.category.toList(), "标签".tl: data!.tags.keys.toList()};
+  Map<String, List<String>>? get tags {
+    final comicData = data;
+    if (comicData == null) return null;
+    return {"分类".tl: comicData.category.toList(), "标签".tl: comicData.tags.keys.toList()};
+  }
 
   @override
   void tapOnTag(String tag, String key) => context.to(() => SearchResultPage(
@@ -137,11 +151,12 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
 
   @override
   ThumbnailsData? get thumbnailsCreator {
-    if (data == null) return null;
+    final comicData = data;
+    if (comicData == null) return null;
     return ThumbnailsData(
-        data!.thumbnails,
-        (page) => HtmangaNetwork().getThumbnails(data!.id, page),
-        (data!.pages / 12).ceil());
+        comicData.thumbnails,
+        (page) => HtmangaNetwork().getThumbnails(comicData.id, page),
+        (comicData.pages / 12).ceil());
   }
 
   @override
@@ -159,9 +174,9 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
                 flex: 0,
                 child: Avatar(
                   size: 50,
-                  avatarUrl: data!.avatar,
+                  avatarUrl: data?.avatar,
                   couldBeShown: false,
-                  name: data!.uploader,
+                  name: data?.uploader ?? "Unknown",
                 ),
               ),
               Expanded(
@@ -172,11 +187,11 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        data!.uploader,
+                        data?.uploader ?? "Unknown",
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
-                      Text("投稿作品${data!.uploadNum}部")
+                      Text("投稿作品${data?.uploadNum ?? 0}部")
                     ],
                   ),
                 ),
@@ -193,8 +208,13 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String get source => "绅士漫画".tl;
 
   @override
-  FavoriteItem toLocalFavoriteItem([HtComicInfo? comicData]) =>
-      FavoriteItem.fromHtcomic((comicData ?? data!).toBrief());
+  FavoriteItem toLocalFavoriteItem([HtComicInfo? comicData]) {
+    final comic = comicData ?? data;
+    if (comic == null) {
+      return FavoriteItem.fromHtcomic(HtComicBrief("", "", "", "", 0));
+    }
+    return FavoriteItem.fromHtcomic(comic.toBrief());
+  }
 
   @override
   String get downloadedId => "Ht$id";
@@ -206,38 +226,4 @@ class HtComicPage extends BaseComicPage<HtComicInfo> {
   String get tag => "HtManga $id";
 }
 
-class HtComicPageLogic extends StateController {
-  bool loading = true;
-  HtComicInfo? comic;
-  String? message;
-  ScrollController controller = ScrollController();
-  bool showAppbarTitle = false;
-  List<String> images = [];
 
-  void get(String id) async {
-    var res = await HtmangaNetwork().getComicInfo(id);
-    message = res.errorMessage;
-    comic = res.dataOrNull;
-    if (res.subData != null) {
-      images.addAll(res.subData);
-    }
-    loading = false;
-    update();
-  }
-
-  void refresh_() {
-    comic = null;
-    message = null;
-    loading = true;
-    update();
-  }
-
-  void getImages() async {
-    var nextPage = images.length ~/ 12 + 1;
-    var res = await HtmangaNetwork().getThumbnails(comic!.id, nextPage);
-    if (!res.error) {
-      images.addAll(res.data);
-      update();
-    }
-  }
-}

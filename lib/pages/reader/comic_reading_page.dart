@@ -78,7 +78,7 @@ class ComicReadingPage extends StatelessWidget {
 
   final ReadingData readingData;
 
-  //late final History? history = HistoryManager().findSync(readingData.id);
+  final History? history;
 
   final int initialPage;
 
@@ -86,8 +86,13 @@ class ComicReadingPage extends StatelessWidget {
 
   ReadingType get type => readingData.type;
 
-  ComicReadingPage(this.readingData, this.initialPage, this.initialEp,
-      {super.key}) {
+  ComicReadingPage(
+    this.readingData, {
+    this.initialPage = 1,
+    this.initialEp = 1,
+    this.history,
+    super.key,
+  }) {
     StateController.put(ComicReadingPageLogic(
         initialEp,
         readingData,
@@ -97,14 +102,6 @@ class ComicReadingPage extends StatelessWidget {
   }
 
   ComicReadingPage.picacg(
-      String target, this.initialEp, List<String> eps, String title,
-      {super.key, this.initialPage = 1})
-      : readingData = PicacgReadingData(title, target, eps) {
-    StateController.put(ComicReadingPageLogic(
-        initialEp,
-        readingData,
-        initialPage,
-        () => _updateHistory(
             StateController.find<ComicReadingPageLogic>(), false)));
   }
 
@@ -293,7 +290,7 @@ class ComicReadingPage extends StatelessWidget {
       // 更新漫画详情页面
       Future.microtask(() {
         if (BaseComicPage.tagsStack.isNotEmpty) {
-          BaseComicPage.tagsStack.last.updateHistory(readingData.history);
+          BaseComicPage.findLogic(BaseComicPage.tagsStack.last)?.updateHistory(readingData.history);
         }
       });
       if (appdata.settings[76] != "0") {

@@ -147,9 +147,12 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   bool get enableTranslationToCN => App.locale.languageCode == "zh";
 
   @override
-  void onThumbnailTapped(int index) async {
-    await History.findOrCreate(data!);
-    App.globalTo(() => ComicReadingPage.ehentai(data!, initialPage: index + 1));
+  void onThumbnailTapped(int index, ComicPageLogic<Gallery> logic) {
+    App.globalTo(() => ComicReadingPage(
+          ReadingData.fromEhentai(data!),
+          initialPage: index + 1,
+          history: HistoryManager().findInCache(id),
+        ));
   }
 
   @override
@@ -212,9 +215,9 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
 
   @override
   Widget thumbnailImageBuilder(int index, String imageUrl) {
-    if (logic.localImages != null && index < logic.localImages!.length) {
+    if (logic.localImages.value != null && index < logic.localImages.value!.length) {
       return PicaImage(
-        url: Uri.file(logic.localImages![index]).toString(),
+        url: Uri.file(logic.localImages.value![index]).toString(),
         fit: BoxFit.contain,
         memCacheWidth: 200,
       );
@@ -363,7 +366,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
       FavoriteItem.fromEhentai((comicData ?? data!).toBrief());
 
   @override
-  void download() {
+  void download(ComicPageLogic<Gallery> logic) {
     int current = 0;
     bool loading = true;
     ArchiveDownloadInfo? info;
@@ -497,7 +500,7 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
   }
 
   @override
-  void openFavoritePanel() {
+  void openFavoritePanel(ComicPageLogic<Gallery> logic) {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: ehentai.isLogin,
       needLoadFolderData: false,
@@ -507,9 +510,9 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
       favoriteOnPlatform: data!.favorite,
       localFavoriteItem: toLocalFavoriteItem(),
       setFavorite: (b) {
-        if (favorite != b) {
-          favorite = b;
-          update();
+        if (logic.favorite.value != b) {
+          logic.favorite.value = b;
+          logic.update();
         }
       },
       selectFolderCallback: (folder, page) async {
@@ -539,16 +542,16 @@ class EhGalleryPage extends BaseComicPage<Gallery> {
           return Res.error("网络错误".tl);
         }
       },
+      favoriteOnPlatformValue: data!.favorite,
     ));
   }
 
   @override
-  void read(History? history) async {
-    history = await History.createIfNull(history, data!);
+  void read(History? history, ComicPageLogic<Gallery> logic) {
     App.globalTo(
-      () => ComicReadingPage.ehentai(
-        data!,
-        initialPage: history!.page,
+      () => ComicReadingPage(
+        ReadingData.fromEhentai(data!),
+        history: history ?? HistoryManager().findInCache(id),
       ),
     );
   }

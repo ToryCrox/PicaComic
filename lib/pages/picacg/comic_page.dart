@@ -31,37 +31,41 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   const PicacgComicPage(this.id, this.cover, {super.key});
 
   @override
-  ActionFunc? get onLike => () {
-        network.likeOrUnlikeComic(id);
-        data!.isLiked = !data!.isLiked;
-        update();
-      };
+  ActionFunc? get onLike {
+    final comicData = data;
+    if (comicData == null) return null;
+    return () {
+      network.likeOrUnlikeComic(id);
+      comicData.isLiked = !comicData.isLiked;
+      update();
+    };
+  }
 
   @override
   String? get likeCount => data?.likes.toString();
 
   @override
-  bool get isLiked => data!.isLiked;
+  bool get isLiked => data?.isLiked ?? false;
 
   @override
-  void openFavoritePanel() {
+  void openFavoritePanel(ComicPageLogic<ComicItem> logic) {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: picacg.isLogin,
       needLoadFolderData: false,
       folders: const {"Picacg": "Picacg"},
-      initialFolder: data!.isFavourite ? null : "Picacg",
-      favoriteOnPlatform: data!.isFavourite,
+      initialFolder: data?.isFavourite ?? false ? null : "Picacg",
+      favoriteOnPlatform: data?.isFavourite ?? false,
       localFavoriteItem: toLocalFavoriteItem(),
       setFavorite: (b) {
-        if (favorite != b) {
-          favorite = b;
-          update();
+        if (logic.favorite.value != b) {
+          logic.favorite.value = b;
+          logic.update();
         }
       },
       cancelPlatformFavorite: () async {
         var res = await network.favouriteOrUnfavouriteComic(id);
-        if(res) {
-          data!.isFavourite = false;
+        if (res) {
+          data?.isFavourite = false;
           return const Res(true);
         }
         return Res.error("网络错误".tl);
@@ -69,9 +73,9 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
       selectFolderCallback: (name, p) async {
         if (p == 0) {
           var res = await network.favouriteOrUnfavouriteComic(id);
-          if(res) {
-            data!.isFavourite = true;
-            update();
+          if (res) {
+            data?.isFavourite = true;
+            logic.update();
             return const Res(true);
           } else {
             return Res.error("网络错误".tl);
@@ -81,6 +85,7 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
           return const Res(true);
         }
       },
+      favoriteOnPlatformValue: data?.isFavourite ?? false,
     ));
   }
 
@@ -91,18 +96,23 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   String? get commentsCount => data!.comments.toString();
 
   @override
-  void download() {
-    _downloadComic(data!, App.globalContext!, data!.eps);
+  void download(ComicPageLogic<ComicItem> logic) {
+    final comicData = data;
+    if (comicData != null) {
+      _downloadComic(comicData, App.globalContext!, comicData.eps);
+    }
   }
 
   @override
   EpsData? get eps {
+    final comicData = data;
+    if (comicData == null) return null;
     return EpsData(
-      data!.eps,
+      comicData.eps,
       (i) async {
-        await History.findOrCreate(data!);
+        await History.findOrCreate(comicData);
         App.globalTo(
-            () => ComicReadingPage.picacg(id, i + 1, data!.eps, data!.title));
+            () => ComicReadingPage.picacg(id, i + 1, comicData.eps, comicData.title));
       },
     );
   }
@@ -135,15 +145,13 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   int? get pages => data?.pagesCount;
 
   @override
-  void read(History? history) async {
-    history = await History.createIfNull(history, data!);
+  void read(History? history, ComicPageLogic<ComicItem> logic) {
+    final comicData = data;
+    if (comicData == null) return;
     App.globalTo(
-      () => ComicReadingPage.picacg(
-        id,
-        history!.ep,
-        data!.eps,
-        data!.title,
-        initialPage: history.page,
+      () => ComicReadingPage(
+        ReadingData.fromPicacg(comicData, comicData.eps),
+        history: history,
       ),
     );
   }
@@ -156,23 +164,29 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
   String get tag => "Picacg Comic Page $id";
 
   @override
-  Map<String, List<String>>? get tags => {
-        "作者".tl: data!.author.toList(),
-        "汉化".tl: data!.chineseTeam.toList(),
-        "分类".tl: data!.categories,
-        "标签".tl: data!.tags
-      };
+  Map<String, List<String>>? get tags {
+    final comicData = data;
+    if (comicData == null) return null;
+    return {
+      "作者".tl: comicData.author.toList(),
+      "汉化".tl: comicData.chineseTeam.toList(),
+      "分类".tl: comicData.categories,
+      "标签".tl: comicData.tags
+    };
+  }
 
   @override
   void tapOnTag(String tag, String key) {
-    if (data!.categories.contains(tag)) {
+    final comicData = data;
+    if (comicData == null) return;
+    if (comicData.categories.contains(tag)) {
       context.to(
         () => CategoryComicsPage(
           category: tag,
           comicType: ComicType.picacg,
         ),
       );
-    } else if (data!.author == tag) {
+    } else if (comicData.author == tag) {
       context.to(
         () => CategoryComicsPage(
           category: tag,
@@ -250,7 +264,17 @@ class PicacgComicPage extends BaseComicPage<ComicItem> {
 
   @override
   FavoriteItem toLocalFavoriteItem([ComicItem? comicData]) {
-    final comic = comicData ?? data!;
+    final comic = comicData ?? data;
+    if (comic == null) {
+      return FavoriteItem(
+        target: id,
+        name: "",
+        coverPath: "",
+        author: "",
+        type: FavoriteType.picacg,
+        tags: [],
+      );
+    }
     return FavoriteItem(
       target: id,
       name: comic.title,

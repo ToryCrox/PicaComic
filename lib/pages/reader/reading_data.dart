@@ -15,9 +15,49 @@ abstract class ReadingData {
 
   String get sourceKey => type.name;
 
-  bool get hasEp;
-
   Map<String, String>? get eps;
+
+  static ReadingData fromComic(ComicInfoData data) {
+    return CustomReadingData(
+      data.target,
+      data.title,
+      ComicSource.find(data.comicType)!,
+      data.chapters,
+    );
+  }
+
+  static ReadingData fromEhentai(Gallery gallery) {
+    return EhReadingData(gallery);
+  }
+
+  static ReadingData fromJm(JmComicInfo data) {
+    return JmReadingData(
+      data.name,
+      data.id,
+      data.series.keys.toList(),
+      data.series.values.toList(),
+    );
+  }
+
+  static ReadingData fromPicacg(ComicItem data, List<String> eps) {
+    return PicacgReadingData(data.title, data.id, eps);
+  }
+
+  static ReadingData fromHitomi(HitomiComic data) {
+    return HitomiReadingData(data.name, data.id, data.files, data.link);
+  }
+
+  static ReadingData fromNhentai(NhentaiComic data) {
+    return NhentaiReadingData(data.title, data.id);
+  }
+
+  static ReadingData fromHt(HtComicInfo data) {
+    return HtReadingData(data.name, data.id);
+  }
+
+  static ReadingData fromKemono(KemonoPost data) {
+    return KemonoReadingData(data.title, data.id, data.postUrl);
+  }
 
   //Future<bool> get downloaded => downloadManager.isExists(downloadId);
   bool _isDownloaded = false;
