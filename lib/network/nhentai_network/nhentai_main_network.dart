@@ -91,8 +91,7 @@ class NhentaiNetwork {
   }
 
   NhentaiComicBrief parseComic(Element comicDom) {
-    var img = comicDom.querySelector("a > img")!.attributes["data-src"]!;
-    img = "https:$img";
+    var img = comicDom.querySelector("a > img")!.attributes["src"]!;
     var name = comicDom.querySelector("div.caption")!.text;
     var id = comicDom.querySelector("a")!.attributes["href"]!.nums;
     var lang = "Unknown";
@@ -181,7 +180,7 @@ class NhentaiNetwork {
     appdata.searchHistory.add(keyword);
     appdata.writeHistory();
     var res = await get(
-        "$baseUrl/search/?q=${Uri.encodeComponent(keyword)}&page=$page${sort.value}");
+        "$baseUrl/search?q=${Uri.encodeComponent(keyword)}&page=$page${sort.value}");
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -220,7 +219,7 @@ class NhentaiNetwork {
   Future<Res<NhentaiComic>> getComicInfo(String id) async {
     Res<String> res;
     if (id == "") {
-      res = await get("$baseUrl/random/");
+      res = await get("$baseUrl/random");
       if (res.error) {
         return Res.fromErrorRes(res);
       }
@@ -245,8 +244,7 @@ class NhentaiNetwork {
 
       var cover = document
           .querySelector("div#cover > a > img")!
-          .attributes["data-src"]!;
-      cover = "https:$cover";
+          .attributes["src"]!;
 
       var title = combineSpans(document.querySelector("h1.title")!);
 
@@ -276,7 +274,7 @@ class NhentaiNetwork {
 
       var thumbnails = <String>[];
       for (var t in document.querySelectorAll("a.gallerythumb > img")) {
-        thumbnails.add("https:${t.attributes["data-src"]!}");
+        thumbnails.add(t.attributes["src"]!);
       }
 
       var recommendations = <NhentaiComicBrief>[];
@@ -334,40 +332,23 @@ class NhentaiNetwork {
       var document = parse(res.data);
       var scripts = document
           .querySelectorAll("script");
-      var script0 = scripts
-          .firstWhere((element) => element.text.contains("window._n_app"))
-          .text;
-      var script1 = scripts
-          .firstWhere((element) => element.text.contains("window._gallery"))
+
+      var script = scripts
+          .firstWhere((element) => element.text.contains("media_id"))
           .text;
 
-      Map<String, dynamic> parseJavaScriptJson(String jsCode) {
-        String jsonText = jsCode.split('JSON.parse("')[1].split('");')[0];
-        String decodedJsonText =
-            jsonText.replaceAll("\\u0022", "\"").replaceAll("\\u005C", "\\");
+      var galleryData = json.decode(json.decode(script)["body"]);
 
-        return json.decode(decodedJsonText);
-      }
+      var url = document
+          .querySelector("#image-container > a > img")!.attributes["src"]!;
 
-      var galleryData = parseJavaScriptJson(script1);
-
-      String mediaServer = script0.split("image_cdn_urls: [\"")[1].split('"')[0];
-      String mediaId = galleryData["media_id"];
+      String baseUrl = url.split('/galleries')[0];
 
       var images = <String>[];
-
-      for (var image in galleryData["images"]["pages"]) {
-        var extension = switch (image["t"]) {
-          "j" => "jpg",
-          "p" => "png",
-          "g" => "gif",
-          "w" => "webp",
-          _ => "jpg"
-        };
-        images.add(
-            "https://$mediaServer/galleries/$mediaId/${images.length + 1}"
-            ".$extension");
+      for (var image in galleryData["pages"]) {
+        images.add("$baseUrl/${image["path"]}");
       }
+
       return Res(images);
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
