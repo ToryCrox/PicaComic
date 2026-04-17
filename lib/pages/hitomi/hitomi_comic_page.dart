@@ -35,28 +35,24 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   String? get url => link;
 
   @override
-  void openFavoritePanel(ComicPageLogic<HitomiComic> logic) {
+  void openFavoritePanel() {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: false,
       needLoadFolderData: false,
       localFavoriteItem: toLocalFavoriteItem(),
       setFavorite: (b) {
-        if (logic.favorite.value != b) {
-          logic.favorite.value = b;
-          logic.update();
+        if (favorite != b) {
+          favorite = b;
+          update();
         }
       },
       selectFolderCallback: (folder, page) {
-        final comicData = data;
-        if (comicData != null) {
-          LocalFavoritesManager().addComic(
-            folder,
-            FavoriteItem.fromHitomi(comicData.toBrief(link, cover ?? "")),
-          );
-        }
+        LocalFavoritesManager().addComic(
+          folder,
+          FavoriteItem.fromHitomi(data!.toBrief(link, cover!)),
+        );
         return Future.value(const Res(true));
       },
-      favoriteOnPlatformValue: false,
     ));
   }
 
@@ -64,12 +60,7 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   String? get cover => data?.cover ?? comicCover;
 
   @override
-  void download(ComicPageLogic<HitomiComic> logic) {
-    final comicData = data;
-    if (comicData != null) {
-      _downloadComic(comicData, context, cover ?? "", link);
-    }
-  }
+  void download() => _downloadComic(data!, context, cover!, link);
 
   @override
   EpsData? get eps => null;
@@ -104,13 +95,13 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   int? get pages => null;
 
   @override
-  void read(History? history, ComicPageLogic<HitomiComic> logic) {
-    final comicData = data;
-    if (comicData == null) return;
+  void read(History? history) async {
+    history = await History.createIfNull(history, data!);
     App.globalTo(
-      () => ComicReadingPage(
-        ReadingData.fromHitomi(comicData),
-        history: history,
+      () => ComicReadingPage.hitomi(
+        data!,
+        link,
+        initialPage: history!.page,
       ),
     );
   }
@@ -126,25 +117,21 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
 
 
   @override
-  Map<String, List<String>>? get tags {
-    final comicData = data;
-    if (comicData == null) return null;
-    return {
-      "Artists": comicData.artists ?? ["N/A"],
-      "Groups": comicData.group,
-      "Categories": comicData.type.toList(),
-      "Time": comicData.time.toList(),
-      "Languages": comicData.lang.toList(),
-      "Tags":
-          List.generate(comicData.tags.length, (index) => comicData.tags[index].name),
-      "Series": comicData.parodys != null
-          ? List.generate(comicData.parodys!.length, (index) => comicData.parodys![index].name)
-          : [],
-      "Characters": comicData.characters != null
-          ? List.generate(comicData.characters!.length, (index) => comicData.characters![index].name)
-          : [],
-    };
-  }
+  Map<String, List<String>>? get tags => {
+        "Artists": data!.artists ?? ["N/A"],
+        "Groups": data!.group,
+        "Categories": data!.type.toList(),
+        "Time": data!.time.toList(),
+        "Languages": data!.lang.toList(),
+        "Tags":
+            List.generate(data!.tags.length, (index) => data!.tags[index].name),
+        "Series": data!.parodys != null
+            ? List.generate(data!.parodys!.length, (index) => data!.parodys![index].name)
+            : [],
+        "Characters": data!.characters != null
+            ? List.generate(data!.characters!.length, (index) => data!.characters![index].name)
+            : [],
+      };
 
   @override
   bool get enableTranslationToCN => App.locale.languageCode == "zh";
@@ -187,32 +174,27 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
 
 
   @override
-  ThumbnailsData? get thumbnailsCreator {
-    final comicData = data;
-    if (comicData == null) return null;
-    return ThumbnailsData([], (page) async {
-      try {
-        var gg = GG();
-        var images = <String>[];
-        for (var file in comicData.files) {
-          images.add(await gg.urlFromUrlFromHash(
-              comicData.id, file, "webpsmallsmalltn", "webp"));
+  ThumbnailsData? get thumbnailsCreator => ThumbnailsData([], (page) async {
+        try {
+          var gg = GG();
+          var images = <String>[];
+          for (var file in data!.files) {
+            images.add(await gg.urlFromUrlFromHash(
+                data!.id, file, "webpsmallsmalltn", "webp"));
+          }
+          return Res(images);
+        } catch (e, s) {
+          Log.e("Network $e\n$s");
+          return Res(null, errorMessage: e.toString());
         }
-        return Res(images);
-      } catch (e, s) {
-        Log.e("Network $e\n$s");
-        return Res(null, errorMessage: e.toString());
-      }
-    }, 2);
-  }
+      }, 2);
 
   @override
-  void onThumbnailTapped(int index, ComicPageLogic<HitomiComic> logic) {
-    final comicData = data;
-    if (comicData == null) return;
-    App.globalTo(() => ComicReadingPage(
-          ReadingData.fromHitomi(comicData),
-          history: logic.history.value,
+  void onThumbnailTapped(int index) async {
+    await History.findOrCreate(data!, page: index + 1);
+    App.globalTo(() => ComicReadingPage.hitomi(
+          data!,
+          link,
           initialPage: index + 1,
         ));
   }
@@ -230,23 +212,17 @@ class HitomiComicPage extends BaseComicPage<HitomiComic> {
   }
 
   @override
-  String get id => data?.id ?? link;
+  String get id => data!.id;
 
   @override
   String get source => "hitomi";
 
   @override
-  FavoriteItem toLocalFavoriteItem([HitomiComic? comicData]) {
-    final comic = comicData ?? data;
-    if (comic == null) {
-      return FavoriteItem.fromHitomi(
-          HitomiComicBrief("", "", "", [], "", "", link, ""));
-    }
-    return FavoriteItem.fromHitomi(comic.toBrief(link, cover ?? ""));
-  }
+  FavoriteItem toLocalFavoriteItem([HitomiComic? comicData]) =>
+      FavoriteItem.fromHitomi((comicData ?? data!).toBrief(link, cover!));
 
   @override
-  String get downloadedId => "hitomi${data?.id ?? link}";
+  String get downloadedId => "hitomi${data!.id}";
 
   @override
   ComicType get comicType => ComicType.hitomi;

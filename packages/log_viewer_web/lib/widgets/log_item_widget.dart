@@ -167,4 +167,3 @@ class LogItemWidget extends StatelessWidget {
 }
 
 
-

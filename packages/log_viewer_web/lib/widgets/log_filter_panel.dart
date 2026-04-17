@@ -68,4 +68,3 @@ class LogFilterPanel extends StatelessWidget {
 }
 
 
-

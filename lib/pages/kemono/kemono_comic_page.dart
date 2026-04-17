@@ -100,7 +100,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
 
   @override
-  Widget buildCover(BuildContext context, ComicPageLogic<KemonoPost> logic, double height, double width) {
+  Widget buildCover(BuildContext context, ComicPageLogic logic, double height, double width) {
     return FutureBuilder<String?>(
       future: _getLocalCoverPath(),
       builder: (context, snapshot) {
@@ -142,14 +142,20 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   }
 
   @override
-  void read(History? history, ComicPageLogic<KemonoPost> logic) {
-    final comicData = data;
-    if (comicData == null) return;
-    if (comicData.imageUrls.isNotEmpty) {
+  void read(History? history) async {
+    if (data == null) return;
+    history = await History.createIfNull(history, data!);
+    if (data!.imageUrls.isNotEmpty) {
       App.globalTo(
             () => ComicReadingPage(
-          ReadingData.fromKemono(comicData),
-          history: history,
+          CustomReadingData(
+            data!.target,
+            data!.title,
+            ComicSource.find(comicType)!,
+            null,
+          ),
+          history!.page,
+          history.ep,
         ),
       );
     } else {
@@ -158,7 +164,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   }
 
   @override
-  void download(ComicPageLogic<KemonoPost> logic) async {
+  void download() async {
     final downloadId = downloadManager.getDownloadIdFromComicId(comicType, id);
     if (downloadManager.downloading.any((e) => e.id == downloadId)) {
       showToast(message: "下载中".tl);
@@ -191,17 +197,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   @override
   FavoriteItem toLocalFavoriteItem([KemonoPost? comicData]) {
-    final post = comicData ?? data;
-    if (post == null) {
-      return FavoriteItem(
-        target: id,
-        name: "",
-        coverPath: "",
-        author: "",
-        type: FavoriteType('kemono'.hashCode),
-        tags: [],
-      );
-    }
+    final post = comicData ?? data!;
     return FavoriteItem(
       target: id,
       name: post.title,
@@ -218,7 +214,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
   }
   
   @override
-  void openFavoritePanel(ComicPageLogic<KemonoPost> logic) {
+  void openFavoritePanel() {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: false, 
       needLoadFolderData: false,
@@ -227,17 +223,16 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
       favoriteOnPlatform: false, 
       localFavoriteItem: toLocalFavoriteItem(), 
       setFavorite: (b) {
-         if (logic.favorite.value != b) {
-           logic.favorite.value = b;
-           logic.update();
+         if (favorite != b) {
+           favorite = b;
+           update();
          }
       }, 
       selectFolderCallback: (folder, type) async {
         LocalFavoritesManager().addComic(folder, toLocalFavoriteItem());
         return const Res(true);
-      },
-      favoriteOnPlatformValue: false,
-    ));
+      })
+    );
   }
   
   @override
@@ -254,9 +249,8 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
 
   @override
   List<Widget>? get extraActionButtons {
-    final comicData = data;
-    if (comicData == null) return null;
-    final nonImageAttachments = comicData.attachments.where((element) => !element.isImage).toList();
+    if (data == null) return null;
+    final nonImageAttachments = data!.attachments.where((element) => !element.isImage).toList();
     if (nonImageAttachments.isEmpty) return null;
 
     return [
@@ -270,7 +264,7 @@ class KemonoComicPage extends BaseComicPage<KemonoPost> {
         context, 
         "原网页".tl, 
         Icons.open_in_browser, 
-        () => launchUrlString("https://kemono.cr/${comicData.service}/user/${comicData.userId}/post/${comicData.id}", mode: LaunchMode.externalApplication)
+        () => launchUrlString("https://kemono.cr/${data!.service}/user/${data!.userId}/post/${data!.id}", mode: LaunchMode.externalApplication)
       ),
     ];
   }

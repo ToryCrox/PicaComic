@@ -232,13 +232,13 @@ extension ImageExt on ComicReadingPage {
         ),
         onPageChanged: (i) {
           if (i == 0) {
-            if (logic.data.eps == null) {
+            if (!logic.data.hasEp) {
               logic.jumpByDeviceType(1);
               return;
             }
             logic.jumpToLastChapter();
           } else if (i == logic.urls.length + 1) {
-            if (logic.data.eps == null) {
+            if (!logic.data.hasEp) {
               logic.jumpByDeviceType(i - 1);
               return;
             }
@@ -328,13 +328,13 @@ extension ImageExt on ComicReadingPage {
         pageController: logic.pageController,
         onPageChanged: (i) {
           if (i == 0) {
-            if (logic.data.eps == null || logic.order == 1) {
+            if (!logic.data.hasEp || logic.order == 1) {
               logic.pageController.jumpByDeviceType(1);
               return;
             }
             logic.jumpToLastChapter();
           } else if (i == calcItemCount() - 1) {
-            if (logic.data.eps == null || logic.order == logic.data.eps?.length) {
+            if (!logic.data.hasEp || logic.order == logic.data.eps?.length) {
               logic.pageController
                   .jumpByDeviceType(logic.pageController.page!.round() - 1);
               return;

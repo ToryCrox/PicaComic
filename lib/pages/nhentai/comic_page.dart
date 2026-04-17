@@ -28,60 +28,55 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String get id => (data?.id) ?? _id;
 
   @override
-  ActionFunc? get searchSimilar {
-    final comicData = data;
-    if (comicData == null) return null;
-    return () {
-      String? subTitle = comicData.subTitle;
-      if (subTitle == "") {
-        subTitle = null;
-      }
-      var title = subTitle ?? comicData.title;
-      title = title
-          .replaceAll(RegExp(r"\[.*?\]"), "")
-          .replaceAll(RegExp(r"\(.*?\)"), "");
-      context.to(
-        () => SearchResultPage(
-          keyword: "\"$title\"".trim(),
-          comicType: comicType,
-        ),
-      );
-    };
-  }
+  ActionFunc? get searchSimilar => () {
+        String? subTitle = data!.subTitle;
+        if (subTitle == "") {
+          subTitle = null;
+        }
+        var title = subTitle ?? data!.title;
+        title = title
+            .replaceAll(RegExp(r"\[.*?\]"), "")
+            .replaceAll(RegExp(r"\(.*?\)"), "");
+        context.to(
+          () => SearchResultPage(
+            keyword: "\"$title\"".trim(),
+            comicType: comicType,
+          ),
+        );
+      };
 
   @override
-  void openFavoritePanel(ComicPageLogic<NhentaiComic> logic) {
+  void openFavoritePanel() {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: NhentaiNetwork().logged,
       needLoadFolderData: false,
-      favoriteOnPlatform: data?.favorite ?? false,
+      favoriteOnPlatform: data!.favorite,
       initialFolder: NhentaiNetwork().logged ? "0" : null,
       localFavoriteItem: toLocalFavoriteItem(),
       setFavorite: (b) {
-        if (logic.favorite.value != b) {
-          logic.favorite.value = b;
-          logic.update();
+        if (favorite != b) {
+          favorite = b;
+          update();
         }
       },
       folders: const {"0": "Nhentai"},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await NhentaiNetwork().favoriteComic(id, data?.token ?? "");
+          var res = await NhentaiNetwork().favoriteComic(id, data!.token);
           if (res.success) {
-            data?.favorite = true;
+            data!.favorite = true;
           }
           return res;
         } else {
-          final comicData = data;
           LocalFavoritesManager().addComic(
             folder,
             FavoriteItem.fromNhentai(
               NhentaiComicBrief(
-                comicData?.title ?? "",
-                comicData?.cover ?? "",
+                data!.title,
+                data!.cover,
                 id,
                 "Unknown",
-                comicData?.tags["Tags"] ?? const <String>[],
+                data!.tags["Tags"] ?? const <String>[],
               ),
             ),
           );
@@ -89,13 +84,12 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
         }
       },
       cancelPlatformFavorite: () async {
-        var res = await NhentaiNetwork().unfavoriteComic(id, data?.token ?? "");
-        if (res.success) {
-          data?.favorite = false;
+        var res = await NhentaiNetwork().unfavoriteComic(id, data!.token);
+        if(res.success) {
+          data!.favorite = false;
         }
         return res;
       },
-      favoriteOnPlatformValue: data?.favorite,
     ));
   }
 
@@ -108,10 +102,8 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String? get cover => comicCover ?? data?.cover;
 
   @override
-  void download(ComicPageLogic<NhentaiComic> logic) async {
-    final comicData = data;
-    if (comicData == null) return;
-    final id = "nhentai${comicData.id}";
+  void download() async {
+    final id = "nhentai${data!.id}";
     if (await downloadManager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
@@ -122,7 +114,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
         return;
       }
     }
-    downloadManager.addNhentaiDownload(comicData);
+    downloadManager.addNhentaiDownload(data!);
     showToast(message: "已加入下载队列".tl);
   }
 
@@ -145,24 +137,23 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String? get subTitle => data?.subTitle;
 
   @override
-  void read(History? history, ComicPageLogic<NhentaiComic> logic) {
-    final comicData = data;
-    if (comicData == null) return;
-    App.globalTo(() => ComicReadingPage(
-        ReadingData.fromNhentai(comicData.id, comicData.title),
-        history: history,
+  void read(History? history) async {
+    history = await History.createIfNull(history, data!);
+    App.globalTo(() => ComicReadingPage.nhentai(
+        data!.id,
+        data!.title,
+        initialPage: history!.page,
       )
     );
   }
 
   @override
-  void onThumbnailTapped(int index, ComicPageLogic<NhentaiComic> logic) {
-    final comicData = data;
-    if (comicData == null) return;
+  void onThumbnailTapped(int index) async {
+    await History.findOrCreate(data!);
     App.globalTo(
-      () => ComicReadingPage(
-        ReadingData.fromNhentai(comicData.id, comicData.title),
-        history: logic.history.value,
+      () => ComicReadingPage.nhentai(
+        data!.id,
+        data!.title,
         initialPage: index + 1,
       ),
     );
@@ -182,9 +173,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
   String get tag => "Nhentai $_id";
 
   Map<String, List<String>> generateTags() {
-    final comicData = data;
-    if (comicData == null) return {};
-    var tags = Map<String, List<String>>.from(comicData.tags);
+    var tags = Map<String, List<String>>.from(data!.tags);
     tags.remove("Pages");
     tags.removeWhere((key, value) => value.isEmpty);
     return tags;
@@ -247,11 +236,7 @@ class NhentaiComicPage extends BaseComicPage<NhentaiComic> {
 
   @override
   FavoriteItem toLocalFavoriteItem([NhentaiComic? comicData]) {
-    final comic = comicData ?? data;
-    if (comic == null) {
-      return FavoriteItem.fromNhentai(NhentaiComicBrief(
-          "", "", id, "Unknown", const <String>[]));
-    }
+    final comic = comicData ?? data!;
     return FavoriteItem.fromNhentai(NhentaiComicBrief(comic.title, comic.cover,
         id, "Unknown", comic.tags["Tags"] ?? const <String>[]));
   }

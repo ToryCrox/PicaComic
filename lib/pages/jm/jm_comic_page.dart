@@ -30,43 +30,29 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   final String id;
 
   @override
-  ActionFunc? get searchSimilar => () {
-        context.to(
-          () => SearchResultPage(
-            keyword: data!.name,
-            comicType: comicType,
-          ),
-        );
+  ActionFunc? get onLike => () {
+        if (!data!.liked) {
+          jmNetwork.likeComic(data!.id);
+        }
+        data!.liked = true;
+        update();
       };
 
   @override
-  ActionFunc? get onLike {
-    final comicData = data;
-    if (comicData == null) return null;
-    return () {
-      if (!comicData.liked) {
-        jmNetwork.likeComic(comicData.id);
-      }
-      comicData.liked = true;
-      update();
-    };
-  }
+  bool get isLiked => data!.liked;
 
   @override
-  bool get isLiked => data?.liked ?? false;
+  String? get likeCount => data!.likes.toString().replaceLast("000", "K");
 
   @override
-  String? get likeCount => data?.likes.toString().replaceLast("000", "K");
-
-  @override
-  void openFavoritePanel(ComicPageLogic<JmComicInfo> logic) {
+  void openFavoritePanel() {
     favoriteComic(FavoriteComicWidget(
       havePlatformFavorite: jm.isLogin,
       needLoadFolderData: true,
       setFavorite: (b) {
-        if (logic.favorite.value != b) {
-          logic.favorite.value = b;
-          logic.update();
+        if (favorite != b) {
+          favorite = b;
+          update();
         }
       },
       foldersLoader: () async {
@@ -80,12 +66,12 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
         }
       },
       localFavoriteItem: toLocalFavoriteItem(),
-      favoriteOnPlatform: data?.favorite ?? false,
+      favoriteOnPlatform: data!.favorite,
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await jmNetwork.favorite(id, folder);
           if (res.success) {
-            data?.favorite = true;
+            data!.favorite = true;
           }
           return res;
         } else {
@@ -99,31 +85,23 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
       cancelPlatformFavorite: () async {
         var res = await jmNetwork.favorite(id, null);
         if (res.success) {
-          data?.favorite = false;
+          data!.favorite = false;
         }
         return res;
       },
-      favoriteOnPlatformValue: data?.favorite ?? false,
     ));
   }
 
   @override
-  ActionFunc? get openComments {
-    if (data == null) return null;
-    return () {
-      showComments(App.globalContext!, id, data!.comments);
-    };
-  }
+  ActionFunc? get openComments => () {
+        showComments(App.globalContext!, id, data!.comments);
+      };
 
   @override
   String get cover => getJmCoverUrl(id);
 
   @override
-  void download(ComicPageLogic<JmComicInfo> logic) {
-    if (data != null) {
-      downloadComic(data!, App.globalContext!);
-    }
-  }
+  void download() => downloadComic(data!, App.globalContext!);
 
   String _getEpName(int index) {
     final epName = data!.epNames.elementAtOrNull(index);
@@ -136,20 +114,18 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
 
   @override
   EpsData? get eps {
-    final comicData = data;
-    if (comicData == null) return null;
     return EpsData(
       List<String>.generate(
-          comicData.series.values.length, (index) => _getEpName(index)),
+          data!.series.values.length, (index) => _getEpName(index)),
       (i) async {
-        await History.findOrCreate(comicData);
-        App.globalTo(() => ComicReadingPage.jmComic(comicData, i + 1));
+        await History.findOrCreate(data!);
+        App.globalTo(() => ComicReadingPage.jmComic(data!, i + 1));
       },
     );
   }
 
   @override
-  String? get introduction => data?.description;
+  String? get introduction => data!.description;
 
   @override
   Future<Res<JmComicInfo>> loadData() =>
@@ -187,24 +163,15 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
   }
 
   @override
-  void read(History? history, ComicPageLogic<JmComicInfo> logic) {
-    final comicData = data;
-    if (comicData == null) return;
+  void read(History? history) async {
+    history = await History.createIfNull(history, data!);
     App.globalTo(
-      () => ComicReadingPage(
-        ReadingData.fromJm(comicData),
-        history: history,
+      () => ComicReadingPage.jmComic(
+        data!,
+        history!.ep,
+        initialPage: history.page,
       ),
     );
-  }
-
-  @override
-  void onThumbnailTapped(int index, ComicPageLogic<JmComicInfo> logic) {
-    App.globalTo(() => ComicReadingPage(
-          ReadingData.fromJm(data!),
-          initialPage: index + 1,
-          history: HistoryManager().findInCache(id),
-        ));
   }
 
   @override
@@ -213,17 +180,13 @@ class JmComicPage extends BaseComicPage<JmComicInfo> {
 
 
   @override
-  Map<String, List<String>>? get tags {
-    final comicData = data;
-    if (comicData == null) return null;
-    return {
-      "ID": "JM${comicData.id}".toList(),
-      "作者".tl: (comicData.author.isEmpty) ? "未知".tl.toList() : comicData.author,
-      if (comicData.works.isNotEmpty) "作品".tl: comicData.works,
-      if (comicData.actors.isNotEmpty) "登场人物".tl: comicData.actors,
-      if (comicData.tags.isNotEmpty) "标签".tl: comicData.tags
-    };
-  }
+  Map<String, List<String>>? get tags => {
+        "ID": "JM${data!.id}".toList(),
+        "作者".tl: (data!.author.isEmpty) ? "未知".tl.toList() : data!.author,
+        if (data!.works.isNotEmpty) "作品".tl: data!.works,
+        if (data!.actors.isNotEmpty) "登场人物".tl: data!.actors,
+        if (data!.tags.isNotEmpty) "标签".tl: data!.tags
+      };
 
   @override
   void tapOnTag(String tag, String key) => context.to(() => SearchResultPage(
