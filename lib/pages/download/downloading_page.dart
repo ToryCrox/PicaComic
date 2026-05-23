@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+
+// ignore_for_file: implementation_imports
+
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/components/components.dart';
-import 'package:pica_comic/pages/download/components/download_tile.dart' show toDownloadingComicInfoPage;
+import 'package:pica_comic/pages/download/components/download_tile.dart'
+    show toDownloadingComicInfoPage;
+import 'package:silky_scroll/src/silky_scroll_widget.dart';
 
 class DownloadingPage extends StatefulWidget {
   const DownloadingPage({Key? key}) : super(key: key);
@@ -49,7 +54,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
     var widgets = <Widget>[];
     for (var i in comics) {
       var key = Key(i.id);
-      if(i == comics.first) {
+      if (i == comics.first) {
         key = this.key;
       }
 
@@ -67,77 +72,92 @@ class _DownloadingPageState extends State<DownloadingPage> {
       ));
     }
 
-    final body = ListView.builder(
-        itemCount: downloadManager.downloading.length + 1,
-        padding: EdgeInsets.zero,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            String downloadStatus;
-            if (downloadManager.isDownloading) {
-              downloadStatus = " 下载中".tl;
-            } else if (downloadManager.downloading.isNotEmpty) {
-              downloadStatus = " 已暂停".tl;
-            } else {
-              downloadStatus = "";
-            }
+    Widget itemBuilder(BuildContext context, int index) {
+      if (index != 0) {
+        return widgets[index - 1];
+      }
 
-            String downloadTaskText = "@length 项下载任务".tlParams(
-                {"length": downloadManager.downloading.length.toString()});
+      String downloadStatus;
+      if (downloadManager.isDownloading) {
+        downloadStatus = " 下载中".tl;
+      } else if (downloadManager.downloading.isNotEmpty) {
+        downloadStatus = " 已暂停".tl;
+      } else {
+        downloadStatus = "";
+      }
 
-            String displayText = downloadManager.error
-                ? "下载出错".tl
-                : downloadTaskText + downloadStatus;
-            return Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+      String downloadTaskText = "@length 项下载任务"
+          .tlParams({"length": downloadManager.downloading.length.toString()});
+
+      String displayText =
+          downloadManager.error ? "下载出错".tl : downloadTaskText + downloadStatus;
+      return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
+          ),
+          height: 48,
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+              ),
+              downloadManager.isDownloading
+                  ? const Icon(
+                      Icons.downloading,
+                      color: Colors.blue,
+                    )
+                  : const Icon(
+                      Icons.pause_circle_outline_outlined,
+                      color: Colors.red,
                     ),
-                  ),
-                ),
-                height: 48,
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                    ),
+              const SizedBox(
+                width: 12,
+              ),
+              Text(displayText),
+              const Spacer(),
+              if (downloadManager.downloading.isNotEmpty)
+                TextButton(
+                  onPressed: () {
                     downloadManager.isDownloading
-                        ? const Icon(
-                            Icons.downloading,
-                            color: Colors.blue,
-                          )
-                        : const Icon(
-                            Icons.pause_circle_outline_outlined,
-                            color: Colors.red,
-                          ),
-                    const SizedBox(
-                      width: 12,
-                    ),
-                    Text(displayText),
-                    const Spacer(),
-                    if (downloadManager.downloading.isNotEmpty)
-                      TextButton(
-                        onPressed: () {
-                          downloadManager.isDownloading
-                              ? downloadManager.pause()
-                              : downloadManager.start();
-                          setState(() {});
-                        },
-                        child: downloadManager.isDownloading
-                            ? Text("暂停".tl)
-                            : (downloadManager.error
-                                ? Text("重试".tl)
-                                : Text("继续".tl)),
-                      ),
-                    const SizedBox(
-                      width: 16,
-                    ),
-                  ],
-                ));
-          } else {
-            return widgets[index - 1];
-          }
-        });
+                        ? downloadManager.pause()
+                        : downloadManager.start();
+                    setState(() {});
+                  },
+                  child: downloadManager.isDownloading
+                      ? Text("暂停".tl)
+                      : (downloadManager.error ? Text("重试".tl) : Text("继续".tl)),
+                ),
+              const SizedBox(
+                width: 16,
+              ),
+            ],
+          ));
+    }
+
+    final itemCount = downloadManager.downloading.length + 1;
+    final body = App.isDesktop
+        ? SilkyScroll(
+            silkyScrollDuration: const Duration(milliseconds: 900),
+            animationCurve: Curves.easeOutCubic,
+            builder: (context, controller, physics, pointerDeviceKind) {
+              return ListView.builder(
+                controller: controller,
+                physics: physics,
+                itemCount: itemCount,
+                padding: EdgeInsets.zero,
+                itemBuilder: itemBuilder,
+              );
+            },
+          )
+        : ListView.builder(
+            itemCount: itemCount,
+            padding: EdgeInsets.zero,
+            itemBuilder: itemBuilder,
+          );
 
     return PopUpWidgetScaffold(
       title: "下载管理器".tl,
@@ -191,7 +211,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   }
 
   void updateStatistic() {
-    if(comic != downloadManager.downloading.first) {
+    if (comic != downloadManager.downloading.first) {
       return;
     }
     comic = downloadManager.downloading.first;

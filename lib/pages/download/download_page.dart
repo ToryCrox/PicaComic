@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'dart:ui';
 
+// ignore_for_file: implementation_imports
+
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/pages/components/download_tag_filter_panel.dart';
@@ -18,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:silky_scroll/src/silky_scroll_widget.dart';
 
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
@@ -128,6 +131,57 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final pageState = ref.watch(downloadPageStateProvider(_pageId));
     final isSelecting = pageState.isSelecting;
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
+    final slivers = [
+      // AppBar
+      if (!isSelecting)
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _SliverAppBarDelegate(
+            minHeight: 56,
+            maxHeight: 56,
+            child: _buildAppBarContent(context),
+          ),
+        ),
+      // Selection AppBar
+      if (isSelecting)
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          leading: IconButton(
+            onPressed: () {
+              exitSelecting(ref, _pageId);
+            },
+            icon: const Icon(Icons.close),
+          ),
+          title: Text("已选择 $selectedCount 项"),
+          actions: _buildSelectionActions(context, selectedCount),
+        ),
+      // Tag Filter
+      if (!isSelecting)
+        SliverPersistentHeader(
+          pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
+          floating: !SmoothScrollProvider.isMouseScroll,
+          delegate: _SliverAppBarDelegate(
+            minHeight: 48,
+            maxHeight: 48,
+            child: _buildTagFilter(context),
+          ),
+        ),
+      // List
+      DownloadList(
+        pageId: _pageId,
+        onRefresh: () {
+          ref.invalidate(allDownloadedComicsProvider);
+        },
+        onRefreshTags: () {
+          ref.invalidate(downloadTagsProvider);
+          ref.invalidate(allDownloadedComicsProvider);
+        },
+      ),
+      SliverPadding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+      ),
+    ];
 
     return Scaffold(
       floatingActionButton: isSelecting
@@ -163,63 +217,32 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               if (pageState.isDragDisabled) PointerDeviceKind.mouse,
             },
           ),
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-            // AppBar
-            if (!isSelecting)
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverAppBarDelegate(
-                  minHeight: 56,
-                  maxHeight: 56,
-                  child: _buildAppBarContent(context),
-                ),
-              ),
-            // Selection AppBar
-            if (isSelecting)
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                leading: IconButton(
-                  onPressed: () {
-                    exitSelecting(ref, _pageId);
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-                title: Text("已选择 $selectedCount 项"),
-                actions: _buildSelectionActions(context, selectedCount),
-              ),
-            // Tag Filter
-            if (!isSelecting)
-              SliverPersistentHeader(
-                pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
-                floating: !SmoothScrollProvider.isMouseScroll,
-                delegate: _SliverAppBarDelegate(
-                  minHeight: 48,
-                  maxHeight: 48,
-                  child: _buildTagFilter(context),
-                ),
-              ),
-            // List
-            DownloadList(
-              pageId: _pageId,
-              onRefresh: () {
-                ref.invalidate(allDownloadedComicsProvider);
-              },
-              onRefreshTags: () {
-                ref.invalidate(downloadTagsProvider);
-                ref.invalidate(allDownloadedComicsProvider);
-              },
-            ),
-            SliverPadding(
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom)),
-          ],
+          child: _buildDownloadScrollView(slivers),
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _buildDownloadScrollView(List<Widget> slivers) {
+    if (!App.isDesktop) {
+      return CustomScrollView(
+        controller: _scrollController,
+        slivers: slivers,
+      );
+    }
+
+    return SilkyScroll(
+      controller: _scrollController,
+      silkyScrollDuration: const Duration(milliseconds: 900),
+      animationCurve: Curves.easeOutCubic,
+      builder: (context, controller, physics, pointerDeviceKind) {
+        return CustomScrollView(
+          controller: controller,
+          physics: physics,
+          slivers: slivers,
+        );
+      },
+    );
   }
 
   Widget _buildSelectionFAB(BuildContext context, String pageId) {
@@ -488,9 +511,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           icon: const Icon(Icons.more_vert),
           onPressed: () {
             final RenderBox button = context.findRenderObject() as RenderBox;
-            final RenderBox overlay =
-                Navigator.of(context).overlay!.context.findRenderObject()
-                    as RenderBox;
+            final RenderBox overlay = Navigator.of(context)
+                .overlay!
+                .context
+                .findRenderObject() as RenderBox;
             final RelativeRect position = RelativeRect.fromRect(
               Rect.fromPoints(
                 button.localToGlobal(Offset.zero, ancestor: overlay),
@@ -515,9 +539,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                           ? Icons.mouse_outlined
                           : Icons.mouse),
                       const SizedBox(width: 8),
-                      Text(pageState.isDragDisabled
-                          ? "开启拖拽模式".tl
-                          : "关闭拖拽模式".tl),
+                      Text(
+                          pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl),
                     ],
                   ),
                   onTap: () => toggleDragDisabled(ref, _pageId),
@@ -569,7 +592,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   context: context,
                   builder: (context) => AlertDialog(
                         title: Text("确认删除".tl),
-                        content: Text("${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?"),
+                        content: Text(
+                            "${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?"),
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(context),
@@ -652,7 +676,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               );
 
               if (color != null) {
-                await downloadManager.batchUpdateColor(state.selectedIds.toList(), color);
+                await downloadManager.batchUpdateColor(
+                    state.selectedIds.toList(), color);
                 exitSelecting(ref, _pageId);
               }
             });

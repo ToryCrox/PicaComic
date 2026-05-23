@@ -51,7 +51,7 @@ dependencies:
   image_gallery_saver:
     git:
       url: https://github.com/mahdiramezanii/image_gallery_saver
-      ref: 9a51daf
+      ref: d1489c24
   flutter_file_dialog: 3.0.1
   flutter_local_notifications: ^17.2.2
   share_plus: ^7.0.0
@@ -118,6 +118,7 @@ dependencies:
     path: packages/log_viewer_shared
   worker_manager: ^7.2.7
   signals: 6.3.0
+  silky_scroll: ^2.6.2
 
 dev_dependencies:
   flutter_test:
