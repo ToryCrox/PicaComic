@@ -609,6 +609,56 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           },
         ),
         PopupMenuItem(
+          child: Text("重新下载".tl),
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () async {
+              final state = ref.read(downloadPageStateProvider(_pageId));
+              final comics =
+                  await ref.read(filteredComicsProvider(_pageId).future);
+              final selectedComics = comics
+                  .where((e) => state.selectedIds.contains(e.id))
+                  .toList();
+
+              final result =
+                  await downloadManager.redownloadComics(selectedComics);
+              showDownloadBatchResultToast(
+                result,
+                actionName: "已加入重新下载队列".tl,
+              );
+              if (result.successCount > 0) {
+                exitSelecting(ref, _pageId);
+                ref.invalidate(allDownloadedComicsProvider);
+              }
+            },
+          ),
+        ),
+        PopupMenuItem(
+          child: Text("更新封面".tl),
+          onTap: () => Future.delayed(
+            const Duration(milliseconds: 200),
+            () async {
+              final state = ref.read(downloadPageStateProvider(_pageId));
+              final comics =
+                  await ref.read(filteredComicsProvider(_pageId).future);
+              final selectedComics = comics
+                  .where((e) => state.selectedIds.contains(e.id))
+                  .toList();
+
+              final result =
+                  await downloadManager.refreshComicCovers(selectedComics);
+              showDownloadBatchResultToast(
+                result,
+                actionName: "已更新封面".tl,
+              );
+              if (result.successCount > 0) {
+                exitSelecting(ref, _pageId);
+                ref.invalidate(allDownloadedComicsProvider);
+              }
+            },
+          ),
+        ),
+        PopupMenuItem(
           child: Text("管理标签".tl),
           onTap: () => Future.delayed(
             const Duration(milliseconds: 200),
