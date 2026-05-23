@@ -12,7 +12,7 @@ Write-Host "Building Windows application..." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Yellow
 
 # Build the application
-$buildResult = & flutter build windows
+$buildResult = & fvm flutter build windows
 $buildExitCode = $LASTEXITCODE
 
 Write-Host ""

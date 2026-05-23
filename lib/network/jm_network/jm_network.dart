@@ -13,6 +13,7 @@ import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes.dart';
 import 'package:pointycastle/block/modes/ecb.dart';
@@ -580,7 +581,7 @@ class JmNetwork {
       return Res(comics,
           subData: comics.isEmpty
               ? 0
-              : (int.parse(res.data["total"]) / res.data["content"].length)
+              : (TypeUtil.parseInt(res.data["total"]) / res.data["content"].length)
                   .ceil());
     } catch (e, s) {
       Log.e("Data Analysis $e\n$s");
