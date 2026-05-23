@@ -133,40 +133,24 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
     final slivers = [
       // AppBar
-      if (!isSelecting)
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _SliverAppBarDelegate(
-            minHeight: 56,
-            maxHeight: 56,
-            child: _buildAppBarContent(context),
-          ),
+      SliverPersistentHeader(
+        pinned: true,
+        delegate: _SliverAppBarDelegate(
+          minHeight: 56,
+          maxHeight: 56,
+          child: _buildAppBarContent(context),
         ),
-      // Selection AppBar
-      if (isSelecting)
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          leading: IconButton(
-            onPressed: () {
-              exitSelecting(ref, _pageId);
-            },
-            icon: const Icon(Icons.close),
-          ),
-          title: Text("已选择 $selectedCount 项"),
-          actions: _buildSelectionActions(context, selectedCount),
-        ),
+      ),
       // Tag Filter
-      if (!isSelecting)
-        SliverPersistentHeader(
-          pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
-          floating: !SmoothScrollProvider.isMouseScroll,
-          delegate: _SliverAppBarDelegate(
-            minHeight: 48,
-            maxHeight: 48,
-            child: _buildTagFilter(context),
-          ),
+      SliverPersistentHeader(
+        pinned: _showTagFilter && SmoothScrollProvider.isMouseScroll,
+        floating: !SmoothScrollProvider.isMouseScroll,
+        delegate: _SliverAppBarDelegate(
+          minHeight: 48,
+          maxHeight: 48,
+          child: _buildTagFilter(context),
         ),
+      ),
       // List
       DownloadList(
         pageId: _pageId,
@@ -303,7 +287,14 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         pageState.selectedTagIds.isNotEmpty;
 
     Widget? leading;
-    if (isFiltering) {
+    if (pageState.isSelecting) {
+      leading = IconButton(
+        onPressed: () {
+          exitSelecting(ref, _pageId);
+        },
+        icon: const Icon(Icons.close),
+      );
+    } else if (isFiltering) {
       leading = IconButton(
         onPressed: () {
           // clear filters
@@ -338,7 +329,13 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             Expanded(
               child: _buildTitle(context, pageState),
             ),
-            ..._buildActions(context, pageState),
+            if (pageState.isSelecting)
+              ..._buildSelectionActions(
+                context,
+                ref.watch(selectedCountProvider(_pageId)),
+              )
+            else
+              ..._buildActions(context, pageState),
           ],
         ),
       ),
