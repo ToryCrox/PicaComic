@@ -68,22 +68,20 @@ enum DownloadStatus {
 class DownloadingItems extends _$DownloadingItems {
   @override
   Map<String, DownloadStatus> build() {
-    _update();
     downloadManager.addListener(_update);
     ref.onDispose(() {
       downloadManager.removeListener(_update);
     });
-    return {};
+    return _computeStatus();
   }
 
-  void _update() {
+  Map<String, DownloadStatus> _computeStatus() {
     final Map<String, DownloadStatus> statusMap = {};
 
     final runningIds = downloadManager.runningTaskIds;
     final waitingIds = downloadManager.waitingTaskIds;
     final isManagerDownloading = downloadManager.isDownloading;
 
-    // 如果管理器暂停了，所有任务都视为暂停
     if (!isManagerDownloading) {
       for (var id in runningIds) {
         statusMap[id] = DownloadStatus.paused;
@@ -92,17 +90,20 @@ class DownloadingItems extends _$DownloadingItems {
         statusMap[id] = DownloadStatus.paused;
       }
     } else {
-      // 管理器运行中
       for (var id in runningIds) {
         statusMap[id] = DownloadStatus.downloading;
       }
       for (var id in waitingIds) {
-        // 在等待队列中，视为等待
         statusMap[id] = DownloadStatus.waiting;
       }
     }
 
-    // 只有当 Map 内容发生变化时才更新 state
+    return statusMap;
+  }
+
+  void _update() {
+    final statusMap = _computeStatus();
+
     if (!mapEquals(state, statusMap)) {
       state = statusMap;
     }
