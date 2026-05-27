@@ -157,9 +157,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         onRefresh: () {
           ref.invalidate(allDownloadedComicsProvider);
         },
+        // 标签变更后只需惰性失效 downloadTagsProvider，无需刷新 allDownloadedComicsProvider
+        // 因为 batchUpdateTags 内部已通过 _notifyTagsChanged() 流通知了 allTagsProvider
+        // 和 comicUserTagsProvider，下游 Provider 会沿依赖链自动更新
         onRefreshTags: () {
           ref.invalidate(downloadTagsProvider);
-          ref.invalidate(allDownloadedComicsProvider);
         },
       ),
       SliverPadding(
@@ -685,9 +687,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                 ),
               );
               if (result == true) {
+                // 标签更新后 exitSelecting 即可，无需手动刷新 Provider。
+                // batchUpdateTags -> _notifyTagsChanged() 流已触发 allTagsProvider
+                // 和 comicUserTagsProvider 自动刷新，依赖链会逐层更新下游。
                 exitSelecting(ref, _pageId);
-                ref.refresh(downloadTagsProvider);
-                ref.refresh(allDownloadedComicsProvider);
               }
             },
           ),
@@ -896,8 +899,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                           Navigator.pop(context);
                           App.globalTo(() => const TagManagementPage());
                         },
+                        // 惰性失效即可，排序变更不涉及漫画数据重载
                         onTagsReordered: () {
-                          ref.refresh(downloadTagsProvider);
+                          ref.invalidate(downloadTagsProvider);
                         },
                       ),
                     );

@@ -8,6 +8,104 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:worker_manager/worker_manager.dart';
+
+/// 在 isolate 中计算所有标签与建议标签的相似度
+///
+/// 原本在 UI 线程执行，选中多部漫画时 suggestedTags 数量很大，
+/// 每个标签都要和所有 suggestedTags 做编辑距离计算，
+/// O(标签数 × 建议数 × 字符串长度²) 的计算量会严重阻塞 UI。
+/// 移到 isolate 后主线程不再卡顿。
+///
+/// 必须是顶层函数，否则无法通过 @pragma('vm:entry-point') 注入 isolate。
+@pragma('vm:entry-point')
+Map<int, int> computeSimilaritiesInIsolate(
+    List<TagSimilarityInput> inputs) {
+  final result = <int, int>{};
+  for (final input in inputs) {
+    result[input.tagId] =
+        _levenshteinSimilarity(input.tagName, input.suggestedTags);
+  }
+  return result;
+}
+
+/// 计算单个标签名称与建议列表的编辑距离相似度
+///
+/// 完全匹配=100，包含关系=50，其余按编辑距离归一化到 0~30。
+/// 返回最高分（取与所有 suggestedTags 匹配的最大值）。
+int _levenshteinSimilarity(String tagName, List<String> suggestedTags) {
+  final lowerTagName = tagName.toLowerCase();
+  int maxSimilarity = 0;
+
+  for (var suggested in suggestedTags) {
+    final lowerSuggested = suggested.toLowerCase();
+
+    if (lowerTagName == lowerSuggested) {
+      return 100;
+    }
+
+    if (lowerTagName.contains(lowerSuggested) ||
+        lowerSuggested.contains(lowerTagName)) {
+      maxSimilarity = math.max(maxSimilarity, 50);
+      continue;
+    }
+
+    final distance = _levenshteinDistance(lowerTagName, lowerSuggested);
+    final maxLen = math.max(lowerTagName.length, lowerSuggested.length);
+    final similarity = ((maxLen - distance) * 30 / maxLen).round();
+    maxSimilarity = math.max(maxSimilarity, similarity);
+  }
+
+  return maxSimilarity;
+}
+
+int _levenshteinDistance(String s1, String s2) {
+  if (s1 == s2) return 0;
+  if (s1.isEmpty) return s2.length;
+  if (s2.isEmpty) return s1.length;
+
+  List<int> v0 = List<int>.generate(s2.length + 1, (i) => i);
+  List<int> v1 = List<int>.filled(s2.length + 1, 0);
+
+  for (int i = 0; i < s1.length; i++) {
+    v1[0] = i + 1;
+    for (int j = 0; j < s2.length; j++) {
+      int cost = (s1[i] == s2[j]) ? 0 : 1;
+      v1[j + 1] = math.min(math.min(v1[j] + 1, v0[j + 1] + 1), v0[j] + cost);
+    }
+    List<int> temp = v0;
+    v0 = v1;
+    v1 = temp;
+  }
+
+  return v0[s2.length];
+}
+
+/// isolate 相似度计算任务的输入参数
+///
+/// 必须是顶层 class（不能在 _TagAssignmentDialogState 内部），
+/// 否则无法跨 isolate 传递。
+class TagSimilarityInput {
+  final int tagId;
+  final String tagName;
+  final List<String> suggestedTags;
+
+  TagSimilarityInput({
+    required this.tagId,
+    required this.tagName,
+    required this.suggestedTags,
+  });
+}
+
+/// 构建 isolate 相似度计算任务
+///
+/// 必须是顶层函数，不能放在 State 类中。
+/// 闭包在 State 实例方法内创建时会捕获 this，导致整个 Widget 对象图
+/// 被尝试发送到 isolate，从而报 "object is unsendable" 错误。
+Future<Map<int, int>> Function() _buildSimilarityTask(
+    List<TagSimilarityInput> inputs) {
+  return () async => computeSimilaritiesInIsolate(inputs);
+}
 
 
 /// 标签分配对话框
@@ -64,28 +162,41 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   Future<void> _loadTags() async {
     setState(() => loading = true);
 
-    // 获取所有有漫画的共同标签(用于显示初始状态)
-    if (widget.comicIds.isNotEmpty) {
-      final comicTags =
-          await downloadManager.getCommonComicTags(widget.comicIds);
-      final ids = comicTags.map((e) => e.id).toSet();
+    // 并行查询：共同标签 + 全部标签，减少 I/O 串行等待时间
+    final tagsFuture = downloadManager.getAllTags();
+    final commonFuture = widget.comicIds.isNotEmpty
+        ? downloadManager.getCommonComicTags(widget.comicIds)
+        : null;
+
+    List<DownloadTag> tags;
+    if (commonFuture != null) {
+      final results = await Future.wait([commonFuture, tagsFuture]);
+      final commonTags = results[0];
+      final ids = commonTags.map((e) => e.id).toSet();
       selectedTagIds.clear();
       selectedTagIds.addAll(ids);
-      selectedTagIds.addAll(comicTags.map((e) => e.id));
       _originalTagIds.clear();
       _originalTagIds.addAll(ids);
+      tags = results[1];
+    } else {
+      tags = await tagsFuture;
     }
 
-    // 获取所有标签
-    final tags = await downloadManager.getAllTags();
-
-    // 预计算相似度(避免在排序中重复计算)
+    // 在 isolate 中预计算相似度，避免 O(tags × suggestions × L²) 的主线程阻塞
     final similarityMap = <int, int>{};
     if (widget.suggestedTags != null && widget.suggestedTags!.isNotEmpty) {
-      for (var tag in tags) {
-        similarityMap[tag.id] =
-            _calculateSimilarity(tag.name, widget.suggestedTags!);
-      }
+      final inputs = tags
+          .map((tag) => TagSimilarityInput(
+                tagId: tag.id,
+                tagName: tag.name,
+                suggestedTags: widget.suggestedTags!,
+              ))
+          .toList();
+      similarityMap.addAll(
+        await workerManager.execute<Map<int, int>>(
+          _buildSimilarityTask(inputs),
+        ),
+      );
     }
 
     // 排序:已选中 > 相似度高 > 最近更新
@@ -93,7 +204,6 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       final hasA = selectedTagIds.contains(a.id);
       final hasB = selectedTagIds.contains(b.id);
 
-      // 已选中的标签优先
       if (hasA && hasB) {
         return b.updatedTime.compareTo(a.updatedTime);
       } else if (hasA) {
@@ -102,13 +212,12 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
         return 1;
       }
 
-      // 如果提供了建议标签,按相似度排序
       if (similarityMap.isNotEmpty) {
         final similarityA = similarityMap[a.id] ?? 0;
         final similarityB = similarityMap[b.id] ?? 0;
 
         if (similarityA != similarityB) {
-          return similarityB.compareTo(similarityA); // 相似度高的在前
+          return similarityB.compareTo(similarityA);
         }
       }
 
@@ -191,11 +300,13 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
           'selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
       Log.d("添加标签: $addTags, 删除标签: $removeTags");
 
-      // 批量更新标签
+      // 批量更新标签（内部会调用 _notifyTagsChanged() 通过流通知所有监听者刷新）
       await downloadManager.batchUpdateTags(widget.comicIds, addTags, removeTags);
 
       if (mounted) {
         showToast(message: "标签更新成功".tl);
+        // 返回 true 通知调用方，但无需调用方手动 refresh/invalidate。
+        // downloadManager.onTagsChanged 流已触发 Provider 链自动更新。
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -301,60 +412,6 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       ),
       child: const Icon(Icons.label_outline, size: 20),
     );
-  }
-
-  /// 计算标签与建议标签列表的相似度
-  /// 返回值越大表示越相似
-  int _calculateSimilarity(String tagName, List<String> suggestedTags) {
-    final lowerTagName = tagName.toLowerCase();
-    int maxSimilarity = 0;
-
-    for (var suggested in suggestedTags) {
-      final lowerSuggested = suggested.toLowerCase();
-
-      // 完全匹配
-      if (lowerTagName == lowerSuggested) {
-        return 100;
-      }
-
-      // 包含关系
-      if (lowerTagName.contains(lowerSuggested) ||
-          lowerSuggested.contains(lowerTagName)) {
-        maxSimilarity = math.max(maxSimilarity, 50);
-        continue;
-      }
-
-      // 计算编辑距离相似度
-      final distance = _levenshteinDistance(lowerTagName, lowerSuggested);
-      final maxLen = math.max(lowerTagName.length, lowerSuggested.length);
-      final similarity = ((maxLen - distance) * 30 / maxLen).round();
-      maxSimilarity = math.max(maxSimilarity, similarity);
-    }
-
-    return maxSimilarity;
-  }
-
-  /// 计算两个字符串的编辑距离
-  int _levenshteinDistance(String s1, String s2) {
-    if (s1 == s2) return 0;
-    if (s1.isEmpty) return s2.length;
-    if (s2.isEmpty) return s1.length;
-
-    List<int> v0 = List<int>.generate(s2.length + 1, (i) => i);
-    List<int> v1 = List<int>.filled(s2.length + 1, 0);
-
-    for (int i = 0; i < s1.length; i++) {
-      v1[0] = i + 1;
-      for (int j = 0; j < s2.length; j++) {
-        int cost = (s1[i] == s2[j]) ? 0 : 1;
-        v1[j + 1] = math.min(math.min(v1[j] + 1, v0[j + 1] + 1), v0[j] + cost);
-      }
-      List<int> temp = v0;
-      v0 = v1;
-      v1 = temp;
-    }
-
-    return v0[s2.length];
   }
 
   @override
