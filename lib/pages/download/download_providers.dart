@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -9,6 +10,8 @@ import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'components/download_tile.dart';
+
+part 'download_providers.g.dart';
 
 // ============================================================================
 // 全局数据层 (Global Persistent State)
@@ -18,33 +21,25 @@ import 'components/download_tile.dart';
 ///
 /// 直接对接 DownloadManager，无论打开多少个下载页面，都共享这一份数据。
 /// 通过监听 DownloadManager.onComicsChanged 流来自动刷新。
-final allDownloadedComicsProvider =
-    AsyncNotifierProvider<AllDownloadedComicsNotifier, List<DownloadedItem>>(
-  AllDownloadedComicsNotifier.new,
-);
-
-class AllDownloadedComicsNotifier extends AsyncNotifier<List<DownloadedItem>> {
+@Riverpod(keepAlive: true)
+class AllDownloadedComics extends _$AllDownloadedComics {
   StreamSubscription<void>? _subscription;
 
   @override
   Future<List<DownloadedItem>> build() async {
-    // 监听 DownloadManager 的变更通知
     _subscription?.cancel();
     _subscription = downloadManager.onComicsChanged.listen((_) {
       _refresh();
     });
 
-    // 当 Provider 被销毁时取消订阅
     ref.onDispose(() {
       _subscription?.cancel();
     });
 
-    // 初始加载数据
     return _loadComics();
   }
 
   Future<List<DownloadedItem>> _loadComics() async {
-    // 使用固定排序加载漫画，实际排序在 filteredComicsProvider 中进行（内存排序）
     return await downloadManager.getAll('time', 'desc');
   }
 
@@ -69,28 +64,21 @@ enum DownloadStatus {
 /// 正在下载/等待/暂停的漫画状态 Provider (Map<String, DownloadStatus>)
 ///
 /// 监听 DownloadManager 的状态变化，提供当前任务的状态映射。
-final downloadingItemsProvider = StateNotifierProvider<DownloadingItemsNotifier, Map<String, DownloadStatus>>((ref) {
-  return DownloadingItemsNotifier();
-});
-
-class DownloadingItemsNotifier extends StateNotifier<Map<String, DownloadStatus>> {
-  DownloadingItemsNotifier() : super({}) {
-    // 初始状态
-    _update();
-    // 监听 DownloadManager
-    downloadManager.addListener(_update);
-  }
-
+@Riverpod(keepAlive: true)
+class DownloadingItems extends _$DownloadingItems {
   @override
-  void dispose() {
-    downloadManager.removeListener(_update);
-    super.dispose();
+  Map<String, DownloadStatus> build() {
+    _update();
+    downloadManager.addListener(_update);
+    ref.onDispose(() {
+      downloadManager.removeListener(_update);
+    });
+    return {};
   }
 
   void _update() {
     final Map<String, DownloadStatus> statusMap = {};
-    
-    // 获取当前任务ID
+
     final runningIds = downloadManager.runningTaskIds;
     final waitingIds = downloadManager.waitingTaskIds;
     final isManagerDownloading = downloadManager.isDownloading;
@@ -124,54 +112,42 @@ class DownloadingItemsNotifier extends StateNotifier<Map<String, DownloadStatus>
 /// 已下载漫画ID集合 Provider (Set<String>)
 ///
 /// 用于 O(1) 快速查找漫画是否已下载。
-/// 集合中的 ID 格式为:
-/// 1. 仅 ComicId (兼容旧逻辑)
-/// 2. SourceKey@ComicId (推荐，避免跨源 ID 冲突)
-final downloadedIdsProvider = Provider<Set<String>>((ref) {
+@Riverpod(keepAlive: true)
+Set<String> downloadedIds(Ref ref) {
   final comicsAsync = ref.watch(allDownloadedComicsProvider);
-  
+
   return comicsAsync.when(
     data: (comics) {
       final ids = <String>{};
       for (var comic in comics) {
         ids.add(comic.id);
-        // 如果需要区分源，建议使用 sourceKey@id，但目前 downloadManager 主要依赖 id 唯一性
-        // downloadManager.getDownloadIdFromComicId(sourceKey, comicId) 返回的就是 id (通常是 hash 或直接是 id)
-        // 这里我们假设 comic.id 就是用来判断是否存在的关键 key
       }
       return ids;
     },
     error: (_, __) => const {},
     loading: () => const {},
   );
-});
+}
 
 /// 所有标签的唯一真相源 (Single Source of Truth)
 ///
 /// 直接对接 DownloadManager，通过监听 onTagsChanged 流来自动刷新。
 /// 避免每次漫画列表变化时重复调用数据库加载标签。
-final allTagsProvider =
-    AsyncNotifierProvider<AllTagsNotifier, List<DownloadTag>>(
-  AllTagsNotifier.new,
-);
-
-class AllTagsNotifier extends AsyncNotifier<List<DownloadTag>> {
+@Riverpod(keepAlive: true)
+class AllTags extends _$AllTags {
   StreamSubscription<void>? _subscription;
 
   @override
   Future<List<DownloadTag>> build() async {
-    // 监听 DownloadManager 的标签变更通知
     _subscription?.cancel();
     _subscription = downloadManager.onTagsChanged.listen((_) {
       _refresh();
     });
 
-    // 当 Provider 被销毁时取消订阅
     ref.onDispose(() {
       _subscription?.cancel();
     });
 
-    // 初始加载数据
     return await downloadManager.getAllTags();
   }
 
@@ -187,12 +163,10 @@ class AllTagsNotifier extends AsyncNotifier<List<DownloadTag>> {
 }
 
 /// 标签数据 Provider（包含封面路径等计算后的信息）
-final downloadTagsProvider =
-    FutureProvider.autoDispose<List<TagInfo>>((ref) async {
-  // 监听已下载漫画的变化，重新计算标签信息（如封面）
+@Riverpod(keepAlive: false)
+Future<List<TagInfo>> downloadTags(Ref ref) async {
   final allComics = await ref.watch(allDownloadedComicsProvider.future);
 
-  // 监听标签数据变化（从缓存的 Provider 获取，避免重复数据库调用）
   final allTags = await ref.watch(allTagsProvider.future);
 
   final List<TagInfo> tagInfos = [];
@@ -201,13 +175,12 @@ final downloadTagsProvider =
     String? coverPath;
     if (tag.coverComicId != null) {
       coverPath = allComics.firstWhereOrNull((c) => c.id == tag.coverComicId)?.coverPath;
-
     }
 
     tagInfos.add(TagInfo(
       id: tag.id,
       name: tag.name,
-      comicCount: 0, // 初始为0，具体数量通常在过滤时计算或不显示
+      comicCount: 0,
       category: tag.category.value,
       sortOrder: tag.sortOrder,
       categorySortOrder: tag.categorySortOrder,
@@ -218,42 +191,33 @@ final downloadTagsProvider =
   tagInfos.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
   return tagInfos;
-});
+}
 
 /// 漫画用户标签映射 Provider
 ///
 /// Map<ComicId, List<TagName>>
 /// 监听 onTagsChanged 流来精确刷新，不会触发漫画列表重新加载
-final comicUserTagsProvider = AsyncNotifierProvider.autoDispose<
-    ComicUserTagsNotifier, Map<String, List<String>>>(
-  ComicUserTagsNotifier.new,
-);
-
-class ComicUserTagsNotifier
-    extends AutoDisposeAsyncNotifier<Map<String, List<String>>> {
+@Riverpod(keepAlive: false)
+class ComicUserTags extends _$ComicUserTags {
   StreamSubscription<void>? _tagsSubscription;
 
   @override
   Future<Map<String, List<String>>> build() async {
-    // 监听 DownloadManager 的标签变更通知
     _tagsSubscription?.cancel();
     _tagsSubscription = downloadManager.onTagsChanged.listen((_) {
       _refresh();
     });
 
-    // 当 Provider 被销毁时取消订阅
     ref.onDispose(() {
       _tagsSubscription?.cancel();
     });
 
-    // 初始加载数据
     return await downloadManager.getAllComicTagsMap();
   }
 
   Future<void> _refresh() async {
     state = const AsyncValue.loading();
-    state =
-        await AsyncValue.guard(() => downloadManager.getAllComicTagsMap());
+    state = await AsyncValue.guard(() => downloadManager.getAllComicTagsMap());
   }
 
   /// 手动刷新，供外部调用
@@ -336,12 +300,25 @@ class DownloadPageState {
 
 /// 下载页面实例状态 Provider
 ///
-/// 使用 StateProvider.family 实现每个页面独立的状态。
+/// 使用 family 实现每个页面独立的状态。
 /// 使用 autoDispose 在页面关闭时自动释放。
+/// 注意：此 provider 使用手动 NotifierProvider API，因为 riverpod_generator 3.0.x 不支持 class 的构造函数带 family 参数。
 final downloadPageStateProvider =
-    StateProvider.autoDispose.family<DownloadPageState, String>((ref, pageId) {
-  return const DownloadPageState();
-});
+    NotifierProvider.family<DownloadPageStateNotifier, DownloadPageState, String>(
+  DownloadPageStateNotifier.new,
+);
+
+class DownloadPageStateNotifier extends Notifier<DownloadPageState> {
+  DownloadPageStateNotifier(this.pageId);
+  final String pageId;
+
+  @override
+  DownloadPageState build() => const DownloadPageState();
+
+  void update(DownloadPageState Function(DownloadPageState) updater) {
+    state = updater(state);
+  }
+}
 
 // ============================================================================
 // 实例状态操作辅助函数 (Adapters)
@@ -406,27 +383,27 @@ void clearSelection(WidgetRef ref, String pageId) {
 }
 
 /// 更新标签筛选
-/// 
+///
 /// 同类别只能选一个标签，不同类别可以多选
 void updateTagFilter(WidgetRef ref, String pageId, int? tagId) {
   // 获取所有标签信息以便判断类别
   final tagsAsync = ref.read(downloadTagsProvider);
-  final allTags = tagsAsync.valueOrNull ?? [];
-  
+  final allTags = tagsAsync.value ?? [];
+
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
     if (tagId == null) {
       return state.copyWith(selectedTagIds: {});
     }
-    
+
     // 获取要选择的标签的类别
     final tagInfo = allTags.firstWhere(
       (t) => t.id == tagId,
       orElse: () => TagInfo(id: tagId, name: '', comicCount: 0),
     );
     final tagCategory = tagInfo.category;
-    
+
     final newIds = Set<int>.from(state.selectedTagIds);
-    
+
     // 如果已选中该标签，则取消选择
     if (newIds.contains(tagId)) {
       newIds.remove(tagId);
@@ -442,13 +419,13 @@ void updateTagFilter(WidgetRef ref, String pageId, int? tagId) {
       // 添加新标签
       newIds.add(tagId);
     }
-    
+
     return state.copyWith(selectedTagIds: newIds);
   });
 }
 
 /// 更新下载类型筛选
-/// 
+///
 /// 选择特定类型时会自动取消"排除本地"选项
 void updateDownloadTypeFilter(
     WidgetRef ref, String pageId, DownloadType? type) {
@@ -487,7 +464,7 @@ void toggleDragDisabled(WidgetRef ref, String pageId) {
 // ============================================================================
 
 /// 触发排序更新
-/// 
+///
 /// 通过增加 sortVersion 来触发 filteredComicsProvider 重新计算
 void triggerSortUpdate(WidgetRef ref, String pageId) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
@@ -497,7 +474,7 @@ void triggerSortUpdate(WidgetRef ref, String pageId) {
 }
 
 /// 在内存中对漫画列表进行排序
-/// 
+///
 /// 根据 appdata.settings[26] 的设置进行排序，避免每次排序变化都从数据库重新读取
 List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
   if (comics.isEmpty) return comics;
@@ -539,8 +516,8 @@ List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
 /// 过滤后的漫画列表 Provider
 ///
 /// 同时监听全局数据层和实例状态层，精确计算当前页面应显示的漫画列表。
-final filteredComicsProvider = FutureProvider.autoDispose
-    .family<List<DownloadedItem>, String>((ref, pageId) async {
+@Riverpod(keepAlive: false)
+Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
   final comics = await ref.watch(allDownloadedComicsProvider.future);
   final userTagsMap = await ref.watch(comicUserTagsProvider.future);
   final allTags = await ref.watch(downloadTagsProvider.future);
@@ -592,7 +569,6 @@ final filteredComicsProvider = FutureProvider.autoDispose
   if (pageState.selectedTagIds.isNotEmpty) {
     final selectedTagNames = pageState.selectedTagIds.map((id) {
       return allTags.firstWhereOrNull((element) => element.id == id)?.name;
-
     }).whereType<String>().toSet();
 
     if (selectedTagNames.isNotEmpty) {
@@ -609,26 +585,24 @@ final filteredComicsProvider = FutureProvider.autoDispose
   final sortResult = _sortComics(filtered);
 
   return sortResult;
-});
+}
 
 /// 选中数量 Provider (用于精确刷新标题栏)
-final selectedCountProvider =
-    Provider.autoDispose.family<int, String>((ref, pageId) {
+@Riverpod(keepAlive: false)
+int selectedCount(Ref ref, String pageId) {
   return ref.watch(
     downloadPageStateProvider(pageId)
         .select((state) => state.selectedIds.length),
   );
-});
+}
 
 /// 已下载漫画摘要 Provider (Count, TotalSize)
-final downloadedComicsSummaryProvider =
-    FutureProvider.autoDispose.family<String, String>((ref, pageId) async {
+@Riverpod(keepAlive: false)
+Future<String> downloadedComicsSummary(Ref ref, String pageId) async {
   final comics = await ref.watch(filteredComicsProvider(pageId).future);
 
   double totalSizeMB = 0;
   for (var comic in comics) {
-    // comic.comicSize within DB is usually in MB, or null.
-    // If implementation varies, we assume standard double MB here.
     totalSizeMB += comic.comicSize ?? 0;
   }
 
@@ -640,13 +614,13 @@ final downloadedComicsSummaryProvider =
   }
 
   return "(${comics.length}, $sizeStr)";
-});
+}
 
 /// 过滤后的标签列表 Provider (用于标签筛选面板)
 ///
 /// 根据当前过滤后的漫画列表，统计标签出现次数并排序
-final filteredTagsProvider = FutureProvider.autoDispose
-    .family<List<TagInfo>, String>((ref, pageId) async {
+@Riverpod(keepAlive: false)
+Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
   final filteredComics = await ref.watch(filteredComicsProvider(pageId).future);
   final allTags = await ref.watch(downloadTagsProvider.future);
   final comicUserTags = await ref.watch(comicUserTagsProvider.future);
@@ -689,7 +663,6 @@ final filteredTagsProvider = FutureProvider.autoDispose
         .map((e) {
           final tagInfo = allTags.firstWhereOrNull((t) => t.id == e.key);
           return tagInfo?.copyWith(comicCount: e.value);
-
         })
         .whereType<TagInfo>()
         .toList();
@@ -720,7 +693,7 @@ final filteredTagsProvider = FutureProvider.autoDispose
     }
   }
   return tags;
-});
+}
 
 // ============================================================================
 // 标签处理辅助函数

@@ -2,7 +2,7 @@ library components;
 
 import 'dart:async';
 import 'dart:collection';
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide StateController;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/pages/download/download_providers.dart';
 import 'dart:math' as math;
 import 'dart:ui';

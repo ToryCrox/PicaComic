@@ -7,7 +7,7 @@
 - **框架**: Flutter (通过 FVM 管理，当前 SDK 版本 3.38.10)
 - **语言**: Dart (SDK constraint >=3.10.0 <4.0.0)
 - **代码分析**: flutter_lints (>=2.0.0)
-- **状态管理**: `signals` (6.3.0) + `flutter_riverpod` (>=2.6.1)
+- **状态管理**: `signals` (6.3.0) + `flutter_riverpod` (>=3.0.3) + `riverpod_annotation` (代码生成)
 - **主要依赖**: dio, shared_preferences, dynamic_color, photo_view, sqlite3, worker_manager, cached_network_image, window_manager 等
 
 ## 代码风格规范
@@ -76,12 +76,12 @@
    使用场景：`lib/foundation/history.dart`、`lib/foundation/local_history.dart`、`lib/network/download/download_manager.dart`
 
 2. **flutter_riverpod** — 复杂状态管理，适用于下载页面等数据密集型场景
-   - `AsyncNotifier` / `StateNotifier` 管理异步或可变状态
-   - `FutureProvider.autoDispose.family` 实现每实例独立数据
-   - `StateProvider.autoDispose.family` 管理页面实例状态
+   - 使用 @riverpod 注解 + 代码生成（riverpod_generator + build_runner）
+   - Notifier 管理可变状态，函数式注解处理简单计算/异步场景
+   - `@Riverpod(keepAlive: false)` 实现 autoDispose 行为（3.x 默认 autoDispose）
    - 数据分层：全局持久层（Global Persistent State）→ 实例状态层（Instance State）→ 衍生计算层（Computed State）
    
-   使用场景：`lib/pages/download/download_providers.dart`、`lib/pages/download/**`（ConsumerStatefulWidget、ConsumerWidget）
+   使用场景：`lib/pages/download/download_providers.dart`（注解式定义）、`lib/pages/download/**`（ConsumerStatefulWidget、ConsumerWidget）
 
 3. **ChangeNotifier** — 用于需要通知 UI 变化的 Manager 类
    - `DownloadManager`、`DownloadStateManager` 使用 ChangeNotifier 模式
@@ -269,6 +269,15 @@ fvm use 3.38.10              # 切换到指定版本
 ```bash
 dart run flutter_to_arch     # 生成 Arch Linux PKGBUILD（参阅 pubspec.yaml 的 flutter_to_arch 配置）
 ```
+
+### 代码生成
+```bash
+fvm dart run build_runner build --delete-conflicting-outputs  # 完整重新生成（首次运行或依赖变更后使用）
+fvm dart run build_runner watch --delete-conflicting-outputs  # 开发模式（监听文件变化自动重新生成）
+```
+
+修改 `download_providers.dart` 中的 @riverpod 注解后，必须运行 build_runner 重新生成 `.g.dart` 文件。
+生成的 `*.g.dart` 文件不纳入版本控制（已在 .gitignore 中排除）。
 
 ## 注意事项
 - 保持代码简洁和可读性

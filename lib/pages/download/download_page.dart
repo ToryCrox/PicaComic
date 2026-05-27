@@ -363,7 +363,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
       String suffix = '';
       if (pageState.selectedTagIds.isNotEmpty) {
-        final tags = ref.watch(downloadTagsProvider).valueOrNull ?? [];
+        final tags = ref.watch(downloadTagsProvider).value ?? [];
         final tagNames = pageState.selectedTagIds
             .map((id) => tags
                 .firstWhere((t) => t.id == id,
