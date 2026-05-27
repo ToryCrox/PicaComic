@@ -302,18 +302,11 @@ class DownloadPageState {
 ///
 /// 使用 family 实现每个页面独立的状态。
 /// 使用 autoDispose 在页面关闭时自动释放。
-/// 注意：此 provider 使用手动 NotifierProvider API，因为 riverpod_generator 3.0.x 不支持 class 的构造函数带 family 参数。
-final downloadPageStateProvider =
-    NotifierProvider.family<DownloadPageStateNotifier, DownloadPageState, String>(
-  DownloadPageStateNotifier.new,
-);
-
-class DownloadPageStateNotifier extends Notifier<DownloadPageState> {
-  DownloadPageStateNotifier(this.pageId);
-  final String pageId;
-
+/// 通过 build 方法的 pageId 参数生成 family provider。
+@Riverpod(keepAlive: false, name: 'downloadPageStateProvider')
+class DownloadPageStateNotifier extends _$DownloadPageStateNotifier {
   @override
-  DownloadPageState build() => const DownloadPageState();
+  DownloadPageState build(String pageId) => const DownloadPageState();
 
   void update(DownloadPageState Function(DownloadPageState) updater) {
     state = updater(state);
