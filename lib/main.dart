@@ -16,6 +16,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/init.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/pages/auth_page.dart';
+import 'package:pica_comic/pages/comic_page/adapters_register.dart';
 import 'package:pica_comic/pages/main_page.dart';
 import 'package:pica_comic/pages/welcome_page.dart';
 import 'package:pica_comic/tools/block_screenshot.dart';
@@ -37,6 +38,7 @@ void main(List<String> args) {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     await init();
+    registerAllComicPageAdapters();
     await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
     FlutterError.onError = (details) {
       Log.e("Unhandled Exception ${details.exception}\n${details.stack}");

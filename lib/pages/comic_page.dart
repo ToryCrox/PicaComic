@@ -31,6 +31,7 @@ import 'show_image_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
+import 'comic_page/comic_page_widget.dart';
 import 'dart:math' as math;
 
 class ComicPage extends StatelessWidget {
@@ -49,14 +50,10 @@ class ComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var comicSource = ComicSource.find(comicType);
-    if (comicSource?.comicPageBuilder != null) {
-      return comicSource!.comicPageBuilder!(context, id, cover);
-    }
-    return _ComicPageImpl(
+    return ComicPageWidget(
       comicType: comicType,
       id: id,
-      comicCover: cover,
+      cover: cover,
     );
   }
 }
