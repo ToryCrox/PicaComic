@@ -87,7 +87,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required KemonoPost data, List<String>? localImages}) {
     // Kemono 使用 CachedNetworkImage 而非 PicaImage
     return Image(
       image: CachedNetworkImageProvider(imageUrl,

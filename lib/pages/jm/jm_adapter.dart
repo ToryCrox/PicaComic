@@ -113,7 +113,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required JmComicInfo data, List<String>? localImages}) {
     return const SizedBox.shrink();
   }
 

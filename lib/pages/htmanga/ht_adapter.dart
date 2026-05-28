@@ -81,7 +81,7 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required HtComicInfo data, List<String>? localImages}) {
     var url = imageUrl;
     if (localImages != null && index < localImages.length) {
       url = Uri.file(localImages[index]).toString();

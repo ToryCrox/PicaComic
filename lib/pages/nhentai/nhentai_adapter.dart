@@ -79,7 +79,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required NhentaiComic data, List<String>? localImages}) {
     var url = imageUrl;
     if (localImages != null && index < localImages.length) {
       url = Uri.file(localImages[index]).toString();

@@ -142,7 +142,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required Gallery data, List<String>? localImages}) {
     if (localImages != null && index < localImages.length) {
       return PicaImage(
         url: Uri.file(localImages[index]).toString(),
@@ -151,28 +151,24 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       );
     }
     imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
-    if (data != null &&
-        data!.auth?["thumbnailKey"] != null &&
-        data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
+    if (data.auth?["thumbnailKey"] != null &&
+        data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
       return PicaImage(url: imageUrl,
           headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
-          fit: BoxFit.contain, cacheKey: "eh_thumb_${data!.link}_$index",
+          fit: BoxFit.contain, cacheKey: "eh_thumb_${data.link}_$index",
           memCacheWidth: 200);
     }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      key: ValueKey("eh_thumb_${data!.link}_$index"),
+      key: ValueKey("eh_thumb_${data.link}_$index"),
       child: EhThumbnailLoader(
         image: CachedNetworkImageProvider(imageUrl,
             cacheManager: picaImageManager,
             headers: _headers,
-            cacheKey: "eh_thumb_${data!.link}_${index ~/ data!.pageSize}"),
-        pageSize: data!.pageSize, width: data!.width, index: index),
+            cacheKey: "eh_thumb_${data.link}_${index ~/ data.pageSize}"),
+        pageSize: data.pageSize, width: data.width, index: index),
     );
   }
-
-  // Internal state for the thumbnail builder (needs access to current data)
-  Gallery? data;
 
   Map<String, String> get _headers => {
     "Cookie": EhNetwork().cookiesStr,
@@ -190,7 +186,6 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   void download(Gallery data, BuildContext context) {
-    this.data = data; // Store for thumbnail builder
     _showDownloadDialog(data, context);
   }
 

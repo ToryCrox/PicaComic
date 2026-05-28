@@ -110,7 +110,7 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required HitomiComic data, List<String>? localImages}) {
     if (localImages != null && index < localImages.length) {
       return PicaImage(
         url: Uri.file(localImages[index]).toString(),

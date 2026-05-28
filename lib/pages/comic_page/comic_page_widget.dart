@@ -69,20 +69,20 @@ class ComicPageWidget extends ConsumerStatefulWidget {
 
 class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   static final List<ComicPageLogic> _activePages = [];
+  ComicPageLogic? _notifier;
 
   @override
   void initState() {
     super.initState();
-    _activePages.add(ref.read(
+    _notifier = ref.read(
       comicPageLogicProvider((widget.comicType, widget.id)).notifier,
-    ));
+    );
+    _activePages.add(_notifier!);
   }
 
   @override
   void dispose() {
-    _activePages.remove(ref.read(
-      comicPageLogicProvider((widget.comicType, widget.id)).notifier,
-    ));
+    _activePages.remove(_notifier);
     super.dispose();
   }
 
@@ -1322,6 +1322,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                             index,
                             localImages != null ? "" : thumbnailsData!.thumbnails[index],
                             context,
+                            data: data,
                             localImages: localImages,
                           ),
                         ),

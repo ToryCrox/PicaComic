@@ -99,7 +99,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) =>
+      {required ComicItem data, List<String>? localImages}) =>
       const SizedBox.shrink();
 
   // -------- D. 操作 --------

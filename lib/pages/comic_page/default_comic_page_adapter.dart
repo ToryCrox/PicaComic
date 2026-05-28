@@ -140,7 +140,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {List<String>? localImages}) {
+      {required ComicInfoData data, List<String>? localImages}) {
     var url = imageUrl;
     if (localImages != null && index < localImages.length) {
       url = Uri.file(localImages[index]).toString();

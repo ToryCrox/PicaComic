@@ -78,6 +78,7 @@ abstract class ComicPageAdapter<T extends Object> {
     int index,
     String imageUrl,
     BuildContext context, {
+    required T data,
     List<String>? localImages,
   });
 
