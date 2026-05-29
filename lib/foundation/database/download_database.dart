@@ -264,10 +264,15 @@ class DownloadDatabase {
     String? color,
   }) async {
     final db = await _getDatabase();
-    await db.insert(
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) FROM $kTableDownload WHERE $kDownloadId = ?',
+      [id],
+    );
+    final count = result.first.values.first as int;
+    if (count > 0) {
+      await db.update(
         kTableDownload,
         {
-          kDownloadId: id,
           kDownloadTitle: title,
           kDownloadSubtitle: subtitle,
           kDownloadTime: time,
@@ -276,7 +281,21 @@ class DownloadDatabase {
           kDownloadJson: json,
           kDownloadColor: color,
         },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+        where: '$kDownloadId = ?',
+        whereArgs: [id],
+      );
+    } else {
+      await db.insert(kTableDownload, {
+        kDownloadId: id,
+        kDownloadTitle: title,
+        kDownloadSubtitle: subtitle,
+        kDownloadTime: time,
+        kDownloadDirectory: directory,
+        kDownloadSize: size,
+        kDownloadJson: json,
+        kDownloadColor: color,
+      });
+    }
   }
 
   /// 更新下载项颜色
