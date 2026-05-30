@@ -261,10 +261,10 @@ packages:
     dependency: transitive
     description:
       name: coverage
-      sha256: "4b8701e48a58f7712492c9b1f7ba0bb9d525644dd66d023b62e1fc8cdb560c8a"
+      sha256: "5da775aa218eaf2151c721b16c01c7676fbfdd99cebba2bf64e8b807a28ff94d"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "1.14.0"
+    version: "1.15.0"
   cross_file:
     dependency: transitive
     description:
@@ -2041,10 +2041,10 @@ packages:
     dependency: transitive
     description:
       name: yaml
-      sha256: "75769501ea3489fca56601ff33454fe45507ea3bfb014161abc3b43ae25989d5"
+      sha256: b9da305ac7c39faa3f030eccd175340f968459dae4af175130b3fc47e40d76ce
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "3.1.2"
+    version: "3.1.3"
   zip_flutter:
     dependency: "direct main"
     description:
