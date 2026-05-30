@@ -1,4 +1,11 @@
-part of pica_reader;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/semantics.dart';
+import 'package:pica_comic/base.dart';
+
+import '../../foundation/image_loader/base_image_provider.dart';
+import 'touch_control.dart';
 
 class ComicImage extends StatefulWidget {
   /// Modified from flutter Image

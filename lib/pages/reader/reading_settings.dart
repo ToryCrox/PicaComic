@@ -1,18 +1,30 @@
-part of pica_reader;
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:pica_comic/base.dart';
 
-void showSettings(BuildContext context) {
+import '../../components/components.dart';
+import '../../foundation/app.dart';
+import '../../foundation/log.dart';
+import '../../foundation/ui_mode.dart';
+import '../../tools/translations.dart';
+import 'reader_logic.dart';
+import 'reading_data.dart';
+import 'reading_type.dart';
+
+void showSettings(BuildContext context, ComicReaderLogic logic) {
   if (UiMode.m1(context)) {
     showModalBottomSheet(
         context: context,
         builder: (context) => AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              child: const ReadingSettings(),
+              child: ReadingSettings(logic: logic),
             ));
   } else {
     showSideBar(
         context,
-        const SingleChildScrollView(
-          child: ReadingSettings(),
+        SingleChildScrollView(
+          child: ReadingSettings(logic: logic),
         ),
         useSurfaceTintColor: true,
         width: 450);
@@ -20,7 +32,8 @@ void showSettings(BuildContext context) {
 }
 
 class ReadingSettings extends StatefulWidget {
-  const ReadingSettings({Key? key}) : super(key: key);
+  const ReadingSettings({required this.logic, Key? key}) : super(key: key);
+  final ComicReaderLogic logic;
 
   @override
   State<ReadingSettings> createState() => _ReadingSettingsState();
@@ -35,9 +48,10 @@ class _ReadingSettingsState extends State<ReadingSettings> {
   int i = 0;
   double opacityLevel = 1.0;
 
+  ComicReaderLogic get logic => widget.logic;
+
   @override
   Widget build(BuildContext context) {
-    var logic = StateController.find<ComicReadingPageLogic>();
     var pages = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,8 +79,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               i = 1;
             }),
           ),
-          if (appdata.settings[9] == "5" ||
-              appdata.settings[9] == "6")
+          if (appdata.settings[9] == "5" || appdata.settings[9] == "6")
             ListTile(
               leading: const Icon(Icons.auto_awesome_motion),
               title: Text("首页显示单张图片".tl),
@@ -76,7 +89,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   appdata.implicitData[1] = b ? '1' : '0';
                   appdata.writeData();
                   setState(() {});
-                  logic.update();
+                  logic.state = logic.state.copyWith();
                 },
               ),
               onTap: () {},
@@ -157,7 +170,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   useVolumeKeyChangePage = b;
                 });
                 appdata.writeData();
-                logic.update();
+                logic.state = logic.state.copyWith();
               },
             ),
             onTap: () {},
@@ -180,7 +193,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                         divisions: 20,
                         value: int.parse(appdata.settings[33]).toDouble(),
                         overlayColor: WidgetStateColor.resolveWith(
-                                (states) => Colors.transparent),
+                            (states) => Colors.transparent),
                         onChanged: (v) {
                           if (v == 0) return;
                           appdata.settings[33] = v.toInt().toString();
@@ -200,23 +213,6 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             ),
             title: Text("自动翻页时间间隔".tl),
           ),
-          // if (App.isAndroid)
-          //   ListTile(
-          //     leading: const Icon(Icons.screenshot_outlined),
-          //     title: Text("保持屏幕常亮".tl),
-          //     onTap: () {},
-          //     trailing: Switch(
-          //       value: keepScreenOn,
-          //       onChanged: (b) {
-          //         b ? setKeepScreenOn() : cancelKeepScreenOn();
-          //         b ? appdata.settings[14] = "1" : appdata.settings[14] = "0";
-          //         setState(() {
-          //           keepScreenOn = b;
-          //         });
-          //         appdata.writeData();
-          //       },
-          //     ),
-          //   ),
           ListTile(
             leading: const Icon(Icons.brightness_4),
             title: Text("深色模式下降低图片亮度".tl),
@@ -229,11 +225,11 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   lowBrightness = b;
                 });
                 appdata.writeData();
-                logic.update();
+                logic.state = logic.state.copyWith();
               },
             ),
           ),
-          if(App.isAndroid)
+          if (App.isAndroid)
             ListTile(
               leading: const Icon(Icons.screen_lock_rotation),
               title: Text("固定屏幕方向".tl),
@@ -247,7 +243,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 ],
                 onChange: (int i) {
                   appdata.settings[76] = i.toString();
-                  logic.update();
+                  logic.state = logic.state.copyWith();
                   appdata.updateSettings();
                   if (i == 1) {
                     SystemChrome.setPreferredOrientations([
@@ -264,7 +260,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 },
               ),
             ),
-          if (logic.readingMethod != ReadingMethod.topToBottomContinuously)
+          if (logic.state.readingMethod != ReadingMethod.topToBottomContinuously)
             ListTile(
               leading: const Icon(Icons.fit_screen_outlined),
               title: Text("图片缩放".tl),
@@ -275,7 +271,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 onChange: (int i) {
                   appdata.settings[41] = i.toString();
                   appdata.updateSettings();
-                  logic.photoViewController.resetWithNewBoxFit(switch(i){
+                  logic.photoViewController.resetWithNewBoxFit(switch (i) {
                     0 => BoxFit.contain,
                     1 => BoxFit.fitWidth,
                     2 => BoxFit.fitHeight,
@@ -292,13 +288,13 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               value: appdata.settings[49] == "1",
               onChanged: (value) {
                 appdata.settings[49] = value ? "1" : "0";
-                logic.update();
+                logic.state = logic.state.copyWith();
                 appdata.updateSettings();
                 setState(() {});
               },
             ),
           ),
-          if (logic.readingMethod == ReadingMethod.topToBottomContinuously)
+          if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously)
             ListTile(
               leading: const Icon(Icons.width_normal_sharp),
               title: Text("限制图片最大显示宽度".tl),
@@ -307,7 +303,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 onChanged: (b) => setState(() {
                   appdata.settings[43] = b ? "1" : "0";
                   appdata.updateSettings();
-                  Future.microtask(() => logic.update());
+                  Future.microtask(() => logic.state = logic.state.copyWith());
                 }),
               ),
             ),
@@ -319,7 +315,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               onChanged: (b) => setState(() {
                 appdata.settings[55] = b ? "1" : "0";
                 appdata.updateSettings();
-                Future.microtask(() => logic.update());
+                Future.microtask(() => logic.state = logic.state.copyWith());
               }),
             ),
           ),
@@ -331,13 +327,13 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               onChanged: (b) => setState(() {
                 appdata.settings[57] = b ? "1" : "0";
                 appdata.updateSettings();
-                Future.microtask(() => logic.update());
+                Future.microtask(() => logic.state = logic.state.copyWith());
               }),
             ),
           ),
-          if (!logic.data._isDownloaded &&
-              (logic.data.type == ReadingType.picacg ||
-                  logic.data.type == ReadingType.jm))
+          if (!logic.readingData.isDownloaded &&
+              (logic.readingData.type == ReadingType.picacg ||
+                  logic.readingData.type == ReadingType.jm))
             ListTile(
               leading: const Icon(Icons.account_tree_sharp),
               title: Text("设置分流".tl),
@@ -429,19 +425,17 @@ class _ReadingSettingsState extends State<ReadingSettings> {
     value = i;
     appdata.settings[9] = value.toString();
     appdata.writeData();
-    var logic = StateController.find<ComicReadingPageLogic>();
-    logic.tools = false;
-    logic.showSettings = false;
-    //logic.index = 1;
-    final index = logic.index;
-    final page = ComicReadingPageLogic.getPage(logic.index);
+    logic.state = logic.state.copyWith(toolsVisible: false, showSettings: false);
+    final index = logic.state.currentPage;
+    final page = ComicReaderLogic.getPage(logic.state.currentPage);
     Log.d("setReadingMethod: $value, index: $index, page: $page");
     logic.pageController = PageController(initialPage: page);
     logic.restoreTopToBottomContinuouslyPage = true;
     logic.clearPhotoViewControllers();
-    logic.update();
-    if (logic.readingMethod ==
-        ReadingMethod.topToBottomContinuously) {
+    logic.state = logic.state.copyWith(
+      readingMethod: ReadingMethod.values[value - 1],
+    );
+    if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         logic.jumpToPage(index);
       });

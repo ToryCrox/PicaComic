@@ -1,4 +1,30 @@
-part of pica_reader;
+import 'dart:io';
+
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
+import 'package:path/path.dart' as path;
+
+import '../../comic_source/comic_source.dart';
+import '../../foundation/def.dart';
+import '../../foundation/disk_cache.dart';
+import '../../foundation/history.dart';
+import '../../foundation/image_loader/file_image_loader.dart';
+import '../../foundation/image_loader/stream_image_provider.dart';
+import '../../foundation/image_manager.dart';
+import '../../foundation/local_favorites.dart';
+import '../../foundation/local_history.dart';
+import '../../network/eh_network/eh_models.dart';
+import '../../network/hitomi_network/hitomi_models.dart';
+import '../../network/htmanga_network/htmanga_main_network.dart';
+import '../../network/jm_network/jm_image.dart';
+import '../../network/jm_network/jm_models.dart';
+import '../../network/jm_network/jm_network.dart';
+import '../../network/nhentai_network/nhentai_main_network.dart';
+import '../../network/picacg_network/methods.dart';
+import '../../network/res.dart';
+import '../../tools/type_util.dart';
+import '../../base.dart';
 
 abstract class ReadingData {
   ReadingData();
@@ -19,8 +45,10 @@ abstract class ReadingData {
 
   Map<String, String>? get eps;
 
-  //Future<bool> get downloaded => downloadManager.isExists(downloadId);
   bool _isDownloaded = false;
+
+  /// Whether the comic is downloaded locally.
+  bool get isDownloaded => _isDownloaded;
 
   List<int> downloadedEps = [];
 

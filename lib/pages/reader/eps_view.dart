@@ -1,8 +1,19 @@
-part of pica_reader;
+import 'package:flutter/material.dart';
+
+import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
+import '../../foundation/app.dart';
+import '../../foundation/state_controller.dart';
+import '../../foundation/def.dart';
+import '../../tools/translations.dart';
+import '../jm/jm_comments_page.dart';
+import 'reader_logic.dart';
+import 'reading_data.dart';
+import 'reading_type.dart';
 
 class EpsView extends StatefulWidget {
-  const EpsView(this.data, {Key? key}) : super(key: key);
+  const EpsView(this.data, this.logic, {Key? key}) : super(key: key);
   final ReadingData data;
+  final ComicReaderLogic logic;
 
   @override
   State<EpsView> createState() => _EpsViewState();
@@ -10,24 +21,17 @@ class EpsView extends StatefulWidget {
 
 class _EpsViewState extends State<EpsView> {
   var controller = ItemScrollController();
-  var logic = StateController.find<ComicReadingPageLogic>();
   var value = false;
+
+  ComicReaderLogic get logic => widget.logic;
 
   @override
   Widget build(BuildContext context) {
     var type = widget.data.type;
     var data = widget.data;
     var epsWidgets = <Widget>[];
-    // for(int index = 0; index<data.eps!.length; index++){
-    //
-    //   epsWidgets.add(
-    //
-    //   );
-    // }
 
     return Container(
-      // height: 500,
-      // width: double.infinity,
       constraints: const BoxConstraints(
         maxHeight: 500,
         minHeight: 200,
@@ -63,8 +67,8 @@ class _EpsViewState extends State<EpsView> {
                     onPressed: () {
                       showComments(
                           context,
-                          data.eps!.keys.elementAt(logic.order - 1),
-                          (logic.data as JmReadingData).commentsLength ?? 9999);
+                          data.eps!.keys.elementAt(logic.state.currentEpisode - 1),
+                          (logic.readingData as JmReadingData).commentsLength ?? 9999);
                     },
                   ),
                 IconButton(
@@ -76,9 +80,9 @@ class _EpsViewState extends State<EpsView> {
                   onPressed: () {
                     var length = data.eps!.length;
                     if (!value) {
-                      controller.jumpTo(index: logic.order - 1);
+                      controller.jumpTo(index: logic.state.currentEpisode - 1);
                     } else {
-                      controller.jumpTo(index: length - logic.order);
+                      controller.jumpTo(index: length - logic.state.currentEpisode);
                     }
                   },
                 ),
@@ -97,12 +101,11 @@ class _EpsViewState extends State<EpsView> {
           ),
           Expanded(
               child: ScrollablePositionedList.builder(
-            initialScrollIndex: logic.order - 1,
+            initialScrollIndex: logic.state.currentEpisode - 1,
             itemCount: data.eps!.length,
             itemBuilder: (context, index) {
               if (value) {
                 index = data.eps!.length - index - 1;
-                //return epsWidgets[epsWidgets.length - index -1];
               }
               String title = data.eps!.values.elementAt(index);
 
@@ -141,7 +144,7 @@ class _EpsViewState extends State<EpsView> {
                             style: const TextStyle(fontSize: 14),
                           ),
                         ),
-                      if (logic.order == index + 1)
+                      if (logic.state.currentEpisode == index + 1)
                         Container(
                           decoration: BoxDecoration(
                             color: Theme.of(context)

@@ -1,11 +1,23 @@
-part of pica_reader;
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:pica_comic/base.dart';
+
+import '../../components/window_frame.dart';
+import '../../foundation/app.dart';
+import '../../foundation/state_controller.dart';
+import '../../tools/translations.dart';
+import 'reader_logic.dart';
+import 'reading_settings.dart';
+import 'reading_type.dart';
 
 const _kMaxTapOffset = 4.0;
 
 /// Control scroll when readingMethod is [ReadingMethod.topToBottomContinuously]
 /// and the image has been enlarge
 class ScrollManager {
-  ComicReadingPageLogic logic;
+  ComicReaderLogic logic;
 
   ScrollManager(this.logic);
 
@@ -20,21 +32,12 @@ class ScrollManager {
   void tapDown(PointerDownEvent details) {
     moveOffset = Offset.zero;
     startTime = DateTime.now().millisecondsSinceEpoch;
-    var logic = StateController.find<ComicReadingPageLogic>();
-    var temp = logic.noScroll;
-    logic.noScroll = fingers >= 2;
-    if (temp != logic.noScroll) {
-      logic.update();
-    }
+    var temp = logic.state.noScroll;
+    logic.state = logic.state.copyWith(noScroll: TapController.fingers >= 2);
   }
 
   void tapUp(PointerUpEvent details) {
-    var logic = StateController.find<ComicReadingPageLogic>();
-    var temp = logic.noScroll;
-    logic.noScroll = fingers >= 2;
-    if (temp != logic.noScroll) {
-      logic.update();
-    }
+    logic.state = logic.state.copyWith(noScroll: TapController.fingers >= 2);
     tapLocation = null;
 
     if (moveOffset != null && moveOffset != Offset.zero) {
@@ -50,11 +53,10 @@ class ScrollManager {
     }
     moveOffset = null;
     startTime = null;
-    if (logic.fABValue < 58) {
-      logic.fABValue = 0;
-      logic.update(["FAB"]);
-    } else if (logic.fABValue >= 58) {
-      logic.fABValue = 0;
+    if (logic.state.fabValue < 58) {
+      logic.state = logic.state.copyWith(fabValue: 0);
+    } else if (logic.state.fabValue >= 58) {
+      logic.state = logic.state.copyWith(fabValue: 0);
       logic.jumpToNextChapter();
     }
   }
@@ -64,9 +66,8 @@ class ScrollManager {
     if (logic.scrollController.offset ==
             logic.scrollController.position.maxScrollExtent &&
         logic.photoViewController.scale == 1 &&
-        logic.showFloatingButtonValue == 1) {
-      logic.fABValue -= value.dy / 3;
-      logic.update(["FAB"]);
+        logic.state.showFloatingButtonValue == 1) {
+      logic.state = logic.state.copyWith(fabValue: logic.state.fabValue - value.dy / 3);
       return;
     }
     if (logic.photoViewController.scale == 1) {
@@ -87,18 +88,23 @@ class ScrollManager {
   }
 }
 
-class _TapDownPointer{
+class _TapDownPointer {
   int id;
   Offset offset;
 
-  double getDistance(){
+  double getDistance() {
     return offset.dx * offset.dx + offset.dy * offset.dy;
   }
 
-  _TapDownPointer(this.id): offset = const Offset(0, 0);
+  _TapDownPointer(this.id) : offset = const Offset(0, 0);
 }
 
 class TapController {
+  static ComicReaderLogic? _currentLogic;
+
+  static void attach(ComicReaderLogic logic) => _currentLogic = logic;
+  static void detach() => _currentLogic = null;
+
   static Offset? _tapOffset;
 
   static DateTime lastScrollTime = DateTime(2023);
@@ -113,23 +119,23 @@ class TapController {
 
   static int fingers = 0;
 
-  static void onTapCancel(PointerCancelEvent event){
+  static void onTapCancel(PointerCancelEvent event) {
     fingers--;
   }
 
   static void onTapDown(PointerDownEvent event) {
-    if(event.buttons == kSecondaryMouseButton){
+    if (event.buttons == kSecondaryMouseButton) {
       handleSecondaryTapUp(event);
       return;
     }
     fingers++;
-    if(ignoreNextTap){
+    if (ignoreNextTap) {
       ignoreNextTap = false;
       return;
     }
-    var logic = StateController.find<ComicReadingPageLogic>();
+    var logic = _currentLogic!;
 
-    if(appdata.settings[55] == "1") {
+    if (appdata.settings[55] == "1") {
       _tapDownPointer = _TapDownPointer(event.pointer);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (event.pointer == _tapDownPointer?.id) {
@@ -143,7 +149,7 @@ class TapController {
       logic.scrollManager!.tapDown(event);
     }
 
-    if (logic.tools &&
+    if (logic.state.toolsVisible &&
         (event.position.dy <
                 MediaQuery.of(App.globalContext!).padding.top + 50 ||
             MediaQuery.of(App.globalContext!).size.height - event.position.dy <
@@ -152,14 +158,13 @@ class TapController {
     }
 
     if (event.buttons == kSecondaryMouseButton) {
-      if (logic.showSettings) {
-        logic.showSettings = false;
-        logic.update();
+      if (logic.state.showSettings) {
+        logic.state = logic.state.copyWith(showSettings: false);
         return;
       }
-      logic.tools = !logic.tools;
-      logic.update();
-      if (logic.tools) {
+      logic.state = logic.state.copyWith(
+          toolsVisible: !logic.state.toolsVisible);
+      if (logic.state.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
@@ -170,25 +175,25 @@ class TapController {
     if (!logic.scrollController.hasClients) {
       _tapOffset = event.position;
     } else if (logic.scrollController.hasClients &&
-        (DateTime.now() - lastScrollTime).inMilliseconds > 50) {
+        DateTime.now().difference(lastScrollTime).inMilliseconds > 50) {
       _tapOffset = event.position;
     }
   }
 
   static void Function(PointerUpEvent detail)? _doubleClickRecognizer;
 
-  static void handleSecondaryTapUp(PointerDownEvent detail){
-    var logic = StateController.find<ComicReadingPageLogic>();
+  static void handleSecondaryTapUp(PointerDownEvent detail) {
+    var logic = _currentLogic!;
     showMenu(
       context: App.globalContext!,
-      position: RelativeRect.fromLTRB(
-        detail.position.dx, detail.position.dy, detail.position.dx, detail.position.dy),
+      position: RelativeRect.fromLTRB(detail.position.dx, detail.position.dy,
+          detail.position.dx, detail.position.dy),
       items: [
         PopupMenuItem(
           child: Text("设置".tl),
-          onTap: () => showSettings(App.globalContext!),
+          onTap: () => showSettings(App.globalContext!, logic),
         ),
-        if(App.isDesktop)
+        if (App.isDesktop)
           PopupMenuItem(
             onTap: logic.fullscreen,
             child: Text("全屏".tl),
@@ -196,32 +201,35 @@ class TapController {
         PopupMenuItem(
           child: Text("自动翻页".tl),
           onTap: () {
-            if (!logic.isFullScreen && App.isDesktop) {
+            if (!logic.state.isFullScreen && App.isDesktop) {
               logic.fullscreen();
             }
-            logic.runningAutoPageTurning =
-            !logic.runningAutoPageTurning;
-            logic.tools = false;
-            logic.update();
+            final newVal = !logic.state.runningAutoPageTurning;
+            logic.state = logic.state.copyWith(
+              runningAutoPageTurning: newVal,
+              toolsVisible: false,
+            );
             logic.autoPageTurning();
           },
         ),
-        if(App.isDesktop)
+        if (App.isDesktop)
           PopupMenuItem(
             onTap: () {
-              appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
+              appdata.settings[43] =
+                  appdata.settings[43] == '0' ? "1" : "0";
               appdata.updateSettings();
-              Future.microtask(() => logic.update());
+              Future.microtask(() => logic.state = logic.state.copyWith());
             },
             child: Text("限制最大宽度".tl),
           ),
-        if(App.isDesktop)
+        if (App.isDesktop)
           PopupMenuItem(
             onTap: () {
-              logic.isShowOriginSize = !logic.isShowOriginSize;
-              Future.microtask(() => logic.update());
+              logic.state = logic.state.copyWith(
+                  isShowOriginSize: !logic.state.isShowOriginSize);
             },
-            child: Text(logic.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
+            child: Text(
+                logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
           ),
         PopupMenuItem(
           onTap: () => logic.favoriteCurrentImage(position: detail.position),
@@ -231,24 +239,24 @@ class TapController {
           child: Text("退出".tl),
           onTap: () => App.globalBack(),
         ),
-        if(logic.data.hasEp)
+        if (logic.readingData.hasEp)
           PopupMenuItem(
             onTap: logic.openEpsView,
             child: Text("章节".tl),
           ),
-      ]
+      ],
     );
   }
 
   static void onTapUp(PointerUpEvent detail) async {
     fingers--;
-    if(onTapUpReplacement != null){
+    if (onTapUpReplacement != null) {
       onTapUpReplacement!(detail);
       onTapUpReplacement = null;
       return;
     }
 
-    var logic = StateController.find<ComicReadingPageLogic>();
+    var logic = _currentLogic!;
 
     _tapDownPointer = null;
 
@@ -290,32 +298,32 @@ class TapController {
     _handleClick(detail, logic, App.globalContext!);
   }
 
-  static void onPointerMove(PointerMoveEvent event){
-    final logic = StateController.find<ComicReadingPageLogic>();
-    if(event.pointer == _tapDownPointer?.id){
+  static void onPointerMove(PointerMoveEvent event) {
+    final logic = _currentLogic!;
+    if (event.pointer == _tapDownPointer?.id) {
       _tapDownPointer!.offset += event.delta;
-      if(_tapDownPointer!.getDistance() > 1){
+      if (_tapDownPointer!.getDistance() > 1) {
         _tapDownPointer = null;
       }
     }
-    if (appdata.settings[9] == "4" &&
-        logic.scrollManager!.fingers != 2) {
+    if (appdata.settings[9] == "4" && logic.scrollManager!.fingers != 2) {
       logic.scrollManager!.addOffset(event.delta);
     }
   }
 
-  static void _handleClick(PointerUpEvent detail, ComicReadingPageLogic logic,
+  static void _handleClick(PointerUpEvent detail, ComicReaderLogic logic,
       BuildContext context) {
     bool flag = false;
     bool flag2 = false;
     final range = int.parse(appdata.settings[40]) / 100;
-    if (appdata.settings[0] == "1" && !logic.tools) {
-      void updatePageWithSetting(bool next){
-        if(appdata.settings[70] == "1"){
+    if (appdata.settings[0] == "1" && !logic.state.toolsVisible) {
+      void updatePageWithSetting(bool next) {
+        if (appdata.settings[70] == "1") {
           next = !next;
         }
         next ? logic.jumpToNextPage() : logic.jumpToLastPage();
       }
+
       switch (appdata.settings[9]) {
         case "1":
         case "5":
@@ -356,14 +364,14 @@ class TapController {
       flag = flag2 = true;
     }
     if (flag && flag2) {
-      logic.tools = !logic.tools;
-      logic.update(["ToolBar"]);
-      if (logic.tools) {
+      logic.state = logic.state.copyWith(
+          toolsVisible: !logic.state.toolsVisible);
+      if (logic.state.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         StateController.findOrNull<WindowFrameController>()?.resetTheme();
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-        if(appdata.settings[81] == "1") {
+        if (appdata.settings[81] == "1") {
           StateController.findOrNull<WindowFrameController>()?.setDarkTheme();
         }
       }
@@ -371,42 +379,46 @@ class TapController {
   }
 
   static void _handleDoubleClick(Offset position) async {
-    var logic = StateController.find<ComicReadingPageLogic>();
+    var logic = _currentLogic!;
     var controller = logic.photoViewController;
     double target;
     if (controller.scale == null || controller.getInitialScale?.call() == null) {
       return;
     }
-    if(!logic.readingMethod.useComicImage){
+    if (!logic.state.readingMethod.useComicImage) {
       controller.onDoubleClick?.call();
       return;
     }
-    if(controller.scale != controller.getInitialScale?.call()){
+    if (controller.scale != controller.getInitialScale?.call()) {
       target = controller.getInitialScale!.call()!;
     } else {
       target = controller.getInitialScale!.call()! * 1.75;
     }
     var size = MediaQuery.of(App.globalContext!).size;
-    controller.animateScale?.call(target, Offset(size.width/2 - position.dx, size.height/2 - position.dy));
+    controller.animateScale?.call(target,
+        Offset(size.width / 2 - position.dx, size.height / 2 - position.dy));
   }
 
-  static void _handleLongPressStart(Offset position){
-    var logic = StateController.find<ComicReadingPageLogic>();
+  static void _handleLongPressStart(Offset position) {
+    var logic = _currentLogic!;
     var controller = logic.photoViewController;
-    if(controller.scale != controller.getInitialScale?.call() || controller.scale == null
-        || controller.getInitialScale?.call() == null){
+    if (controller.scale != controller.getInitialScale?.call() ||
+        controller.scale == null ||
+        controller.getInitialScale?.call() == null) {
       return;
     }
     final target = controller.getInitialScale!.call()! * 1.75;
     var size = MediaQuery.of(App.globalContext!).size;
-    controller.animateScale?.call(target, Offset(size.width/2 - position.dx, size.height/2 - position.dy));
+    controller.animateScale?.call(target,
+        Offset(size.width / 2 - position.dx, size.height / 2 - position.dy));
     controller.updateState?.call(null);
   }
 
-  static void _handleLongPressEnd(PointerUpEvent event){
-    var logic = StateController.find<ComicReadingPageLogic>();
+  static void _handleLongPressEnd(PointerUpEvent event) {
+    var logic = _currentLogic!;
     var controller = logic.photoViewController;
-    if(controller.scale == controller.getInitialScale?.call() || controller.scale == null){
+    if (controller.scale == controller.getInitialScale?.call() ||
+        controller.scale == null) {
       return;
     }
     final target = controller.getInitialScale?.call();
