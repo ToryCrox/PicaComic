@@ -67,6 +67,7 @@ class ReaderPageState {
   final bool isShowOriginSize;
   final bool? rotation; // null=跟随系统, false=竖向, true=横向
   final bool isShowSelectImage;
+  final int rebuildCount;
 
   const ReaderPageState({
     this.isLoading = true,
@@ -87,6 +88,7 @@ class ReaderPageState {
     this.isShowOriginSize = false,
     this.rotation,
     this.isShowSelectImage = false,
+    this.rebuildCount = 0,
   });
 
   ReaderPageState copyWith({
@@ -108,6 +110,7 @@ class ReaderPageState {
     bool? isShowOriginSize,
     bool? rotation,
     bool? isShowSelectImage,
+    int? rebuildCount,
     bool clearError = false,
   }) {
     return ReaderPageState(
@@ -131,8 +134,57 @@ class ReaderPageState {
       isShowOriginSize: isShowOriginSize ?? this.isShowOriginSize,
       rotation: rotation is bool? ? rotation : this.rotation,
       isShowSelectImage: isShowSelectImage ?? this.isShowSelectImage,
+      rebuildCount: rebuildCount ?? this.rebuildCount,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ReaderPageState) return false;
+    return isLoading == other.isLoading &&
+        errorMessage == other.errorMessage &&
+        listEquals(urls, other.urls) &&
+        currentPage == other.currentPage &&
+        currentEpisode == other.currentEpisode &&
+        toolsVisible == other.toolsVisible &&
+        showSettings == other.showSettings &&
+        readingMethod == other.readingMethod &&
+        showFloatingButtonValue == other.showFloatingButtonValue &&
+        fabValue == other.fabValue &&
+        currentScale == other.currentScale &&
+        noScroll == other.noScroll &&
+        mouseScroll == other.mouseScroll &&
+        runningAutoPageTurning == other.runningAutoPageTurning &&
+        isFullScreen == other.isFullScreen &&
+        isShowOriginSize == other.isShowOriginSize &&
+        rotation == other.rotation &&
+        isShowSelectImage == other.isShowSelectImage &&
+        rebuildCount == other.rebuildCount;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+        isLoading,
+        errorMessage,
+        Object.hashAll(urls),
+        currentPage,
+        currentEpisode,
+        toolsVisible,
+        showSettings,
+        readingMethod,
+        showFloatingButtonValue,
+        fabValue,
+        currentScale,
+        noScroll,
+        mouseScroll,
+        runningAutoPageTurning,
+        isFullScreen,
+        isShowOriginSize,
+        rotation,
+        isShowSelectImage,
+        rebuildCount,
+      ]);
 }
 
 // ============================================================================
@@ -360,7 +412,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   }
 
   /// Force a rebuild when external settings change (e.g. appdata).
-  void notifySettingsChanged() => state = state.copyWith();
+  void notifySettingsChanged() =>
+      state = state.copyWith(rebuildCount: state.rebuildCount + 1);
 
   void notifyIndexChange(int value) {
     for (var element in _indexChangeCallbacks) {
