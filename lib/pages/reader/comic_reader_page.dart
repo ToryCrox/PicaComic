@@ -153,6 +153,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     // Exit fullscreen if active — only touch the window manager, not state.
     if (logic.state.isFullScreen) {
       WindowManager.instance.setFullScreen(false);
+      StateController.findOrNull<WindowFrameController>()?.showWindowFrame();
     }
     if (!downloadManager.isDownloading) {
       ImageManager.clearTasks();
