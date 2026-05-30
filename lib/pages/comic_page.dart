@@ -1749,6 +1749,23 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             "章节".tl,
             style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
           ),
+          if (logic.history != null &&
+              logic.history!.ep > 0 &&
+              logic.history!.ep <= eps!.eps.length &&
+              eps!.eps.length > 1) ...[
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                "· ${eps!.eps[logic.history!.ep - 1]}",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           Tooltip(
             message: "排序".tl,
@@ -1779,15 +1796,19 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
           if (logic.reverseEpsOrder) {
             i = eps!.eps.length - i - 1;
           }
+          bool isLastRead = logic.history?.ep == i + 1;
           bool visited =
-              (logic.history?.readEpisode ?? const {}).contains(i + 1);
+              (logic.history?.readEpisode ?? const {}).contains(i + 1) || isLastRead;
+          final hasMultipleEps = eps!.eps.length > 1;
           return Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
             child: InkWell(
               borderRadius: const BorderRadius.all(Radius.circular(16)),
               child: Material(
                 elevation: 5,
-                color: colorScheme.surface,
+                color: isLastRead && hasMultipleEps
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surface,
                 surfaceTintColor: colorScheme.surfaceTint,
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
                 shadowColor: Colors.transparent,
@@ -1801,7 +1822,12 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: visited ? colorScheme.outline : null),
+                        color: isLastRead && hasMultipleEps
+                            ? colorScheme.onPrimaryContainer
+                            : visited
+                                ? colorScheme.outline
+                                : null,
+                      ),
                     ),
                   ),
                 ),

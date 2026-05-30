@@ -114,9 +114,7 @@ extension ToolBar on ComicReadingPage {
                       message: "收藏图片".tl,
                       child: IconButton(
                         icon: const Icon(Icons.favorite_outline),
-                        onPressed: () async {
-                          _onTapFavoritePic(logic);
-                        },
+                        onPressed: () => logic.favoriteCurrentImage(),
                       ),
                     ),
                     Tooltip(

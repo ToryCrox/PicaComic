@@ -224,6 +224,10 @@ class TapController {
             child: Text(logic.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
           ),
         PopupMenuItem(
+          onTap: () => logic.favoriteCurrentImage(position: detail.position),
+          child: Text("收藏图片".tl),
+        ),
+        PopupMenuItem(
           child: Text("退出".tl),
           onTap: () => App.globalBack(),
         ),

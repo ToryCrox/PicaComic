@@ -1119,6 +1119,23 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             Text("章节".tl,
                 style: const TextStyle(
                     fontWeight: FontWeight.w500, fontSize: 18)),
+            if (state.history != null &&
+                state.history!.ep > 0 &&
+                state.history!.ep <= eps.eps.length &&
+                eps.eps.length > 1) ...[
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  "· ${eps.eps[state.history!.ep - 1]}",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
             const Spacer(),
             Tooltip(
               message: "排序".tl,
@@ -1156,8 +1173,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             if (state.reverseEpsOrder) {
               index = eps.eps.length - i - 1;
             }
+            final isLastRead = state.history?.ep == index + 1;
             final visited =
-                (state.history?.readEpisode ?? const {}).contains(index + 1);
+                (state.history?.readEpisode ?? const {}).contains(index + 1) || isLastRead;
+            final hasMultipleEps = eps.eps.length > 1;
             return Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
               child: InkWell(
@@ -1165,7 +1184,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 onTap: () => eps.onTap(index),
                 child: Material(
                   elevation: 5,
-                  color: Theme.of(context).colorScheme.surface,
+                  color: isLastRead && hasMultipleEps
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surface,
                   surfaceTintColor:
                       Theme.of(context).colorScheme.surfaceTint,
                   borderRadius:
@@ -1181,9 +1202,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: visited
-                              ? Theme.of(context).colorScheme.outline
-                              : null,
+                          color: isLastRead && hasMultipleEps
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : visited
+                                  ? Theme.of(context).colorScheme.outline
+                                  : null,
                         ),
                       ),
                     ),

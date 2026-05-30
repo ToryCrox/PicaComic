@@ -486,6 +486,174 @@ class ComicReadingPageLogic extends StateController {
     update();
   }
 
+  /// 收藏当前图片。
+  ///
+  /// [position] 为鼠标点击位置（右键菜单调用时传入），用于在连续滚动/双页模式下
+  /// 精确定位点击的图片。为null时使用当前阅读位置（工具栏/F6快捷键调用）。
+  Future<void> favoriteCurrentImage({Offset? position}) async {
+    try {
+      final id = "${data.sourceKey}-${data.id}";
+      // 确定当前页码
+      int? pageIndex = index - 1;
+      if (readingMethod == ReadingMethod.topToBottomContinuously) {
+        if (position != null) {
+          // 根据点击Y坐标确定对应图片
+          pageIndex = _getImageIndexAtPosition(position);
+        } else {
+          var items = itemScrollListener.itemPositions.value.toList();
+          if (items.length == 1) {
+            pageIndex = items[0].index;
+          } else {
+            isShowSelectImage = true;
+            int? res;
+            await showDialog(
+              context: App.globalContext!,
+              builder: (context) {
+                return SimpleDialog(
+                  title: Text("选择屏幕上的图片".tl),
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Column(
+                        children: [
+                          for (var item in items)
+                            ListTile(
+                              title: Text((item.index + 1).toString()),
+                              onTap: () {
+                                res = item.index;
+                                App.globalBack();
+                              },
+                              trailing: const Icon(Icons.arrow_right),
+                            )
+                        ],
+                      ),
+                    )
+                  ],
+                );
+              },
+            );
+            isShowSelectImage = false;
+            if (res == null) return;
+            pageIndex = res;
+          }
+        }
+      } else if (readingMethod.isTwoPage && position != null) {
+        // 双页模式下根据点击X坐标判断左右页
+        final screenWidth = MediaQuery.of(App.globalContext!).size.width;
+        final leftPageIndex = index - 1;
+        final rightPageIndex = leftPageIndex + 1;
+        if (position.dx < screenWidth / 2) {
+          pageIndex = leftPageIndex;
+        } else {
+          pageIndex = rightPageIndex < urls.length ? rightPageIndex : leftPageIndex;
+        }
+      }
+      if (pageIndex == null || pageIndex >= urls.length) return;
+
+      // 加载图片文件
+      File? file;
+      try {
+        final stream =
+            data.loadImage(order, pageIndex, urls[pageIndex]);
+        await for (var event in stream) {
+          if (event.finished) {
+            file = event.getFile();
+            break;
+          }
+        }
+      } catch (_) {
+        showToast(message: "加载图片失败".tl);
+        return;
+      }
+      if (file == null) {
+        showToast(message: "加载图片失败".tl);
+        return;
+      }
+
+      // 持久化图片
+      var image = await persistentCurrentImage(file);
+      image = image.split("/").last;
+
+      // 构建 otherInfo
+      var otherInfo = <String, dynamic>{};
+      if (data.type == ReadingType.ehentai) {
+        otherInfo["gallery"] = (data as EhReadingData).gallery.toJson();
+      } else if (data.type == ReadingType.hitomi) {
+        otherInfo["hitomi"] = (data as HitomiReadingData)
+            .images
+            .map((e) => e.toMap())
+            .toList();
+        otherInfo["galleryId"] = data.id;
+      } else if (data.type == ReadingType.jm) {
+        Log.d("TooBar ${data.eps}, $order");
+        otherInfo["jmEpNames"] = data.eps!.values.toList();
+        otherInfo["epsId"] = data.eps!.keys.getOrNull(order - 1);
+        otherInfo["bookId"] = data.id;
+      } else if (data.type != ComicType.other) {
+        otherInfo["eps"] = data.eps?.keys.toList() ?? [];
+      } else {
+        otherInfo["eps"] = data.eps;
+      }
+      otherInfo["url"] = urls[pageIndex];
+
+      var favorite = ImageFavorite(
+        id,
+        image,
+        data.title,
+        order,
+        pageIndex + 1,
+        otherInfo,
+      );
+      if (!(await ImageFavoriteManager.exist(id, order, pageIndex + 1))) {
+        ImageFavoriteManager.add(favorite);
+        showToast(message: "已添加至图片收藏".tl);
+      } else {
+        ImageFavoriteManager.delete(favorite);
+        showToast(message: "已取消图片收藏".tl);
+      }
+      showToast(message: "成功收藏图片".tl);
+    } catch (e, s) {
+      Log.e('TooBar $e', stackTrace: s);
+      showToast(message: e.toString());
+    }
+  }
+
+  /// 根据点击Y坐标确定连续滚动模式下被点击的图片索引。
+  ///
+  /// 使用 [itemScrollListener] 的可见项位置信息，将点击坐标映射到对应图片。
+  int? _getImageIndexAtPosition(Offset position) {
+    final items = itemScrollListener.itemPositions.value.toList();
+    if (items.isEmpty) return null;
+    if (items.length == 1) return items[0].index;
+
+    final size = MediaQuery.of(App.globalContext!).size;
+    final padding = MediaQuery.of(App.globalContext!).padding;
+    final availableHeight = size.height - padding.top - padding.bottom;
+    final topOffset = padding.top;
+    final fractionY = (position.dy - topOffset) / availableHeight;
+
+    // 查找点击位置对应的item
+    for (final item in items) {
+      if (fractionY >= item.itemLeadingEdge &&
+          fractionY <= item.itemTrailingEdge) {
+        return item.index;
+      }
+    }
+
+    // 无精确匹配时找最近的
+    double minDist = double.infinity;
+    int? closestIndex;
+    for (final item in items) {
+      final mid = (item.itemLeadingEdge + item.itemTrailingEdge) / 2;
+      final dist = (fractionY - mid).abs();
+      if (dist < minDist) {
+        minDist = dist;
+        closestIndex = item.index;
+      }
+    }
+    return closestIndex;
+  }
+
   ///当前章节的长度
   int get length => urls.length;
 

@@ -421,7 +421,7 @@ class ComicReadingPage extends StatelessWidget {
                   logic.handleKeyboard(event);
                   if (event is KeyUpEvent) {
                     if (event.logicalKey == LogicalKeyboardKey.f6) {
-                      _onTapFavoritePic(logic);
+                      logic.favoriteCurrentImage();
                     }
                   }
                 },
@@ -658,71 +658,6 @@ class ComicReadingPage extends StatelessWidget {
         readingData.loadImage(logic.order, index, logic.urls[index]));
 
     shareImage(file);
-  }
-
-  Future<void> _onTapFavoritePic(ComicReadingPageLogic logic) async {
-    try {
-      final id = "${logic.data.sourceKey}-${logic.data.id}";
-      var image = await _persistentCurrentImage();
-      if (image != null) {
-        image = image.split("/").last;
-        var otherInfo = <String, dynamic>{};
-        if (logic.data.type == ReadingType.ehentai) {
-          otherInfo["gallery"] = (logic.data as EhReadingData).gallery.toJson();
-        } else if (logic.data.type == ReadingType.hitomi) {
-          otherInfo["hitomi"] = (readingData as HitomiReadingData)
-              .images
-              .map((e) => e.toMap())
-              .toList();
-          otherInfo["galleryId"] = readingData.id;
-        } else if (logic.data.type == ReadingType.jm) {
-          Log.d("TooBar ${readingData.eps}, ${logic.order}");
-          otherInfo["jmEpNames"] = readingData.eps!.values.toList();
-          otherInfo["epsId"] = readingData.eps!.keys.getOrNull(logic.order - 1);
-          otherInfo["bookId"] = readingData.id;
-        } else if (logic.data.type != ComicType.other) {
-          otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];
-        } else {
-          otherInfo["eps"] = readingData.eps;
-        }
-        otherInfo["url"] = logic.urls[logic.index - 1];
-        var favorite = ImageFavorite(
-          id,
-          image,
-          readingData.title,
-          logic.order,
-          logic.index,
-          otherInfo,
-        );
-        if (!(await ImageFavoriteManager.exist(id, logic.order, logic.index))) {
-          ImageFavoriteManager.add(favorite);
-          showToast(message: "已添加至图片收藏".tl);
-        } else {
-          ImageFavoriteManager.delete(favorite);
-          showToast(message: "已取消图片收藏".tl);
-        }
-        showToast(message: "成功收藏图片".tl);
-      }
-    } catch (e, s) {
-      Log.e('TooBar $e', stackTrace: s);
-      showToast(message: e.toString());
-    }
-  }
-
-  Future<String?> _persistentCurrentImage() async {
-    var logic = StateController.find<ComicReadingPageLogic>();
-    int? index = logic.index - 1;
-    if (logic.readingMethod == ReadingMethod.topToBottomContinuously) {
-      index = await selectImage();
-    }
-    if (index == null) {
-      return null;
-    }
-
-    var file = await _getFileFromStream(
-        readingData.loadImage(logic.order, index, logic.urls[index]));
-
-    return persistentCurrentImage(file);
   }
 
   void saveCurrentImage() async {
