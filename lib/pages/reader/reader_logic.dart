@@ -364,7 +364,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
         var newIndex =
             itemScrollListener.itemPositions.value.first.index + 1;
         if (newIndex != state.currentPage) {
-          state = state.copyWith(currentPage: newIndex);
+          Future.microtask(
+              () => state = state.copyWith(currentPage: newIndex));
         }
       }
     });
@@ -756,12 +757,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   void stopAutoPageTurning() {
     state = state.copyWith(runningAutoPageTurning: false);
     _isAutoPageTurningPaused = false;
-    _autoPageTurningTimer?.cancel();
-    _autoPageTurningTimer = null;
-    _wheelDebounceTimer?.cancel();
-    _wheelDebounceTimer = null;
-    _keyboardPageTurnDebounceTimer?.cancel();
-    _keyboardPageTurnDebounceTimer = null;
+    cancelTimers();
     _isKeyboardPageTurning = false;
     if (state.readingMethod == ReadingMethod.topToBottomContinuously &&
         scrollController.hasClients) {
@@ -773,6 +769,19 @@ class ComicReaderLogic extends _$ComicReaderLogic {
         }
       });
     }
+  }
+
+  /// Cancel all auto-page-turning timers without modifying [state].
+  /// Safe to call during widget dispose.
+  void cancelTimers() {
+    _isAutoPageTurningPaused = true;
+    _isKeyboardPageTurning = true;
+    _autoPageTurningTimer?.cancel();
+    _autoPageTurningTimer = null;
+    _wheelDebounceTimer?.cancel();
+    _wheelDebounceTimer = null;
+    _keyboardPageTurnDebounceTimer?.cancel();
+    _keyboardPageTurnDebounceTimer = null;
   }
 
   void pauseAutoPageTurning() {
@@ -875,7 +884,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
           state = state.copyWith(errorMessage: res.errorMessage);
         }
       } else {
-        state = state.copyWith(urls: res.data);
+        state = state.copyWith(
+          urls: res.data,
+          isShowOriginSize: state.isShowOriginSize || readingData.isDownloaded,
+        );
       }
       state = state.copyWith(isLoading: false);
     }

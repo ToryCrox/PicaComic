@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:pica_comic/base.dart';
 
 import '../../components/components.dart';
@@ -77,13 +78,16 @@ class ComicReaderPage extends ConsumerStatefulWidget {
 class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final String _sessionId;
+  ComicReaderLogic? _logicCache;
 
   ReadingData get readingData => widget.readingData;
   ReadingType get type => readingData.type;
   bool get useDarkBackground => appdata.appSettings.useDarkBackground;
 
-  ComicReaderLogic _logic() =>
-      ref.read(comicReaderLogicProvider(_sessionId).notifier);
+  ComicReaderLogic _logic() {
+    _logicCache ??= ref.read(comicReaderLogicProvider(_sessionId).notifier);
+    return _logicCache!;
+  }
 
   @override
   void initState() {
@@ -126,8 +130,6 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
     BaseImageProvider.clearCache();
     BaseImageProvider.setCacheSizeLimit(50 * 1024 * 1024);
-    logic.clearPhotoViewControllers();
-    logic.disposeAll();
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -135,7 +137,11 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       logic.listenVolume!.stop();
     }
     WakelockPlus.disable();
-    logic.stopAutoPageTurning();
+
+    // Cleanup without modifying provider state.
+    logic.cancelTimers();
+    logic.clearPhotoViewControllers();
+    logic.disposeAll();
     ComicImage.clear();
     TapController.detach();
 
@@ -144,8 +150,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
     _updateHistory(logic, true);
 
+    // Exit fullscreen if active — only touch the window manager, not state.
     if (logic.state.isFullScreen) {
-      logic.fullscreen();
+      WindowManager.instance.setFullScreen(false);
     }
     if (!downloadManager.isDownloading) {
       ImageManager.clearTasks();

@@ -64,6 +64,9 @@ Widget buildComicView(
         double height = mediaQuery.size.height;
 
         double imageWidth = width;
+        double imageHeight = imageWidth * 1.2;
+        BoxFit imageFit = BoxFit.cover;
+        bool showOriginSize = false;
 
         bool hasOriginSize = false;
         if (state.isShowOriginSize) {
@@ -72,7 +75,6 @@ Widget buildComicView(
           if (size != null && size.height > 0 && size.width > 0) {
             final originWidth = size.width / mediaQuery.devicePixelRatio;
             final originHeight = size.height / mediaQuery.devicePixelRatio;
-            final sRatio = width / height;
             final oRadio = size.height / size.width;
             if (oRadio <= 1) {
               if (originWidth > width) {
@@ -94,6 +96,9 @@ Widget buildComicView(
               imageWidth = originWidth;
             }
             hasOriginSize = true;
+            imageHeight = imageWidth * (originHeight / originWidth);
+            imageFit = BoxFit.contain;
+            showOriginSize = true;
           } else {
             hasOriginSize = false;
           }
@@ -115,8 +120,9 @@ Widget buildComicView(
               filterQuality: FilterQuality.medium,
               image: image,
               width: imageWidth,
-              height: imageWidth * 1.2,
-              fit: BoxFit.cover,
+              height: imageHeight,
+              fit: imageFit,
+              isShowOriginSize: showOriginSize,
             ),
             if (isShowSelectImage)
               Positioned.fill(
@@ -527,11 +533,11 @@ Widget buildComicView(
 
                 if (velocity > velocityThreshold &&
                     !state.runningAutoPageTurning) {
-                  logic.startAutoPageTurning();
+                  Future.microtask(() => logic.startAutoPageTurning());
                   Log.d(() => "启动自动翻页 (velocity: $velocity)");
                 } else if (velocity < -velocityThreshold &&
                     state.runningAutoPageTurning) {
-                  logic.stopAutoPageTurning();
+                  Future.microtask(() => logic.stopAutoPageTurning());
                   Log.d(() => "关闭自动翻页 (velocity: $velocity)");
                 }
 
