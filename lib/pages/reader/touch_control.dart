@@ -33,11 +33,11 @@ class ScrollManager {
     moveOffset = Offset.zero;
     startTime = DateTime.now().millisecondsSinceEpoch;
     var temp = logic.state.noScroll;
-    logic.state = logic.state.copyWith(noScroll: TapController.fingers >= 2);
+    logic.setNoScroll(TapController.fingers >= 2);
   }
 
   void tapUp(PointerUpEvent details) {
-    logic.state = logic.state.copyWith(noScroll: TapController.fingers >= 2);
+    logic.setNoScroll(TapController.fingers >= 2);
     tapLocation = null;
 
     if (moveOffset != null && moveOffset != Offset.zero) {
@@ -54,9 +54,9 @@ class ScrollManager {
     moveOffset = null;
     startTime = null;
     if (logic.state.fabValue < 58) {
-      logic.state = logic.state.copyWith(fabValue: 0);
+      logic.setFabValue(0);
     } else if (logic.state.fabValue >= 58) {
-      logic.state = logic.state.copyWith(fabValue: 0);
+      logic.setFabValue(0);
       logic.jumpToNextChapter();
     }
   }
@@ -67,7 +67,7 @@ class ScrollManager {
             logic.scrollController.position.maxScrollExtent &&
         logic.photoViewController.scale == 1 &&
         logic.state.showFloatingButtonValue == 1) {
-      logic.state = logic.state.copyWith(fabValue: logic.state.fabValue - value.dy / 3);
+      logic.setFabValue(logic.state.fabValue - value.dy / 3);
       return;
     }
     if (logic.photoViewController.scale == 1) {
@@ -159,11 +159,10 @@ class TapController {
 
     if (event.buttons == kSecondaryMouseButton) {
       if (logic.state.showSettings) {
-        logic.state = logic.state.copyWith(showSettings: false);
+        logic.hideSettings();
         return;
       }
-      logic.state = logic.state.copyWith(
-          toolsVisible: !logic.state.toolsVisible);
+      logic.toggleTools();
       if (logic.state.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       } else {
@@ -205,11 +204,13 @@ class TapController {
               logic.fullscreen();
             }
             final newVal = !logic.state.runningAutoPageTurning;
-            logic.state = logic.state.copyWith(
-              runningAutoPageTurning: newVal,
-              toolsVisible: false,
-            );
-            logic.autoPageTurning();
+            if (newVal) {
+              logic.startAutoPageTurning();
+            } else {
+              logic.stopAutoPageTurning();
+              logic.setToolsVisible(false);
+              logic.autoPageTurning();
+            }
           },
         ),
         if (App.isDesktop)
@@ -218,15 +219,14 @@ class TapController {
               appdata.settings[43] =
                   appdata.settings[43] == '0' ? "1" : "0";
               appdata.updateSettings();
-              Future.microtask(() => logic.state = logic.state.copyWith());
+              Future.microtask(() => logic.notifySettingsChanged());
             },
             child: Text("限制最大宽度".tl),
           ),
         if (App.isDesktop)
           PopupMenuItem(
             onTap: () {
-              logic.state = logic.state.copyWith(
-                  isShowOriginSize: !logic.state.isShowOriginSize);
+              logic.toggleShowOriginSize();
             },
             child: Text(
                 logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
@@ -364,8 +364,7 @@ class TapController {
       flag = flag2 = true;
     }
     if (flag && flag2) {
-      logic.state = logic.state.copyWith(
-          toolsVisible: !logic.state.toolsVisible);
+      logic.toggleTools();
       if (logic.state.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         StateController.findOrNull<WindowFrameController>()?.resetTheme();

@@ -265,7 +265,7 @@ Widget buildComicView(
           }
           logic.jumpToNextChapter();
         } else {
-          logic.state = logic.state.copyWith(currentPage: i);
+          logic.setCurrentPage(i);
           logic.notifyIndexChange(i);
         }
       },
@@ -368,7 +368,7 @@ Widget buildComicView(
           final newPage = logic.singlePageForFirstScreen
               ? (i * 2 - 2).clamp(1, logic.state.urls.length)
               : i * 2 - 1;
-          logic.state = logic.state.copyWith(currentPage: newPage);
+          logic.setCurrentPage(newPage);
           logic.notifyIndexChange(newPage);
         }
       },
@@ -390,7 +390,7 @@ Widget buildComicView(
       controller: logic.photoViewControllers[0],
       onScaleEnd: (context, detail, value) {
         var prev = logic.state.currentScale;
-        logic.state = logic.state.copyWith(currentScale: value.scale ?? 1.0);
+        logic.setCurrentScale(value.scale ?? 1.0);
         if (appdata.settings[43] != "1") {
           return false;
         }
@@ -439,7 +439,7 @@ Widget buildComicView(
         logic.internalMouseScroll = false;
         logic.userInteracting = true;
         logic.pauseAutoPageTurning();
-        logic.state = logic.state.copyWith();
+        logic.notifySettingsChanged();
       },
       onPointerUp: (details) {
         logic.userInteracting = false;
@@ -522,8 +522,7 @@ Widget buildComicView(
 
                 if (velocity > velocityThreshold &&
                     !logic.state.runningAutoPageTurning) {
-                  logic.state = logic.state
-                      .copyWith(runningAutoPageTurning: true);
+                  logic.startAutoPageTurning();
                   logic.autoPageTurning();
                   Log.d(() => "启动自动翻页 (velocity: $velocity)");
                 } else if (velocity < -velocityThreshold &&

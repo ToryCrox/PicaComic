@@ -89,7 +89,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   appdata.implicitData[1] = b ? '1' : '0';
                   appdata.writeData();
                   setState(() {});
-                  logic.state = logic.state.copyWith();
+                  logic.notifySettingsChanged();
                 },
               ),
               onTap: () {},
@@ -170,7 +170,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   useVolumeKeyChangePage = b;
                 });
                 appdata.writeData();
-                logic.state = logic.state.copyWith();
+                logic.notifySettingsChanged();
               },
             ),
             onTap: () {},
@@ -225,7 +225,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                   lowBrightness = b;
                 });
                 appdata.writeData();
-                logic.state = logic.state.copyWith();
+                logic.notifySettingsChanged();
               },
             ),
           ),
@@ -243,7 +243,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 ],
                 onChange: (int i) {
                   appdata.settings[76] = i.toString();
-                  logic.state = logic.state.copyWith();
+                  logic.notifySettingsChanged();
                   appdata.updateSettings();
                   if (i == 1) {
                     SystemChrome.setPreferredOrientations([
@@ -288,7 +288,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               value: appdata.settings[49] == "1",
               onChanged: (value) {
                 appdata.settings[49] = value ? "1" : "0";
-                logic.state = logic.state.copyWith();
+                logic.notifySettingsChanged();
                 appdata.updateSettings();
                 setState(() {});
               },
@@ -303,7 +303,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 onChanged: (b) => setState(() {
                   appdata.settings[43] = b ? "1" : "0";
                   appdata.updateSettings();
-                  Future.microtask(() => logic.state = logic.state.copyWith());
+                  Future.microtask(() => logic.notifySettingsChanged());
                 }),
               ),
             ),
@@ -315,7 +315,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               onChanged: (b) => setState(() {
                 appdata.settings[55] = b ? "1" : "0";
                 appdata.updateSettings();
-                Future.microtask(() => logic.state = logic.state.copyWith());
+                Future.microtask(() => logic.notifySettingsChanged());
               }),
             ),
           ),
@@ -327,7 +327,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               onChanged: (b) => setState(() {
                 appdata.settings[57] = b ? "1" : "0";
                 appdata.updateSettings();
-                Future.microtask(() => logic.state = logic.state.copyWith());
+                Future.microtask(() => logic.notifySettingsChanged());
               }),
             ),
           ),
@@ -425,16 +425,14 @@ class _ReadingSettingsState extends State<ReadingSettings> {
     value = i;
     appdata.settings[9] = value.toString();
     appdata.writeData();
-    logic.state = logic.state.copyWith(toolsVisible: false, showSettings: false);
+    logic.hideToolsAndSettings();
     final index = logic.state.currentPage;
     final page = ComicReaderLogic.getPage(logic.state.currentPage);
     Log.d("setReadingMethod: $value, index: $index, page: $page");
     logic.pageController = PageController(initialPage: page);
     logic.restoreTopToBottomContinuouslyPage = true;
     logic.clearPhotoViewControllers();
-    logic.state = logic.state.copyWith(
-      readingMethod: ReadingMethod.values[value - 1],
-    );
+    logic.setReadingMethod(ReadingMethod.values[value - 1]);
     if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         logic.jumpToPage(index);

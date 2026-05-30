@@ -107,19 +107,19 @@ Widget buildBottomToolBar(
                         }.call(),
                         onPressed: () {
                           if (logic.state.rotation == null) {
-                            logic.state = logic.state.copyWith(rotation: false);
+                            logic.setRotation(false);
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.portraitUp,
                               DeviceOrientation.portraitDown,
                             ]);
                           } else if (logic.state.rotation == false) {
-                            logic.state = logic.state.copyWith(rotation: true);
+                            logic.setRotation(true);
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.landscapeLeft,
                               DeviceOrientation.landscapeRight
                             ]);
                           } else {
-                            logic.state = logic.state.copyWith(rotation: null);
+                            logic.setRotation(null);
                             SystemChrome.setPreferredOrientations(
                                 DeviceOrientation.values);
                           }
@@ -140,10 +140,11 @@ Widget buildBottomToolBar(
                           ? const Icon(Icons.timer)
                           : const Icon(Icons.timer_sharp),
                       onPressed: () {
-                        final newVal = !logic.state.runningAutoPageTurning;
-                        logic.state = logic.state.copyWith(
-                            runningAutoPageTurning: newVal);
-                        logic.autoPageTurning();
+                        if (!logic.state.runningAutoPageTurning) {
+                          logic.startAutoPageTurning();
+                        } else {
+                          logic.stopAutoPageTurning();
+                        }
                       },
                     ),
                   ),
@@ -223,9 +224,9 @@ Widget buildSlider(ComicReaderLogic logic) {
       onChanged: (i) {
         if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
           logic.jumpToPage(i.toInt());
-          logic.state = logic.state.copyWith(currentPage: i.toInt());
+          logic.setCurrentPage(i.toInt());
         } else {
-          logic.state = logic.state.copyWith(currentPage: i.toInt());
+          logic.setCurrentPage(i.toInt());
           logic.jumpToPage(i.toInt());
         }
       },

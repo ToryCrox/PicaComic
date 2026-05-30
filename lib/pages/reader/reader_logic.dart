@@ -337,6 +337,31 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     _indexChangeCallbacks.remove(callback);
   }
 
+  // ---- Public state mutation methods ----
+
+  void setCurrentPage(int page) => state = state.copyWith(currentPage: page);
+  void setCurrentScale(double scale) => state = state.copyWith(currentScale: scale);
+  void setNoScroll(bool value) => state = state.copyWith(noScroll: value);
+  void setFabValue(double value) => state = state.copyWith(fabValue: value);
+  void hideSettings() => state = state.copyWith(showSettings: false);
+  void setToolsVisible(bool value) => state = state.copyWith(toolsVisible: value);
+  void toggleTools() => state = state.copyWith(toolsVisible: !state.toolsVisible);
+  void setRotation(bool? value) => state = state.copyWith(rotation: value);
+  void toggleShowOriginSize() =>
+      state = state.copyWith(isShowOriginSize: !state.isShowOriginSize);
+  void setReadingMethod(ReadingMethod method) =>
+      state = state.copyWith(readingMethod: method);
+  void hideToolsAndSettings() =>
+      state = state.copyWith(toolsVisible: false, showSettings: false);
+
+  void startAutoPageTurning() {
+    state = state.copyWith(runningAutoPageTurning: true, toolsVisible: false);
+    autoPageTurning();
+  }
+
+  /// Force a rebuild when external settings change (e.g. appdata).
+  void notifySettingsChanged() => state = state.copyWith();
+
   void notifyIndexChange(int value) {
     for (var element in _indexChangeCallbacks) {
       element(value);
