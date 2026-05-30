@@ -460,7 +460,11 @@ Widget buildComicView(
           }
         }
 
-        if (!logic.scrollController.position.isScrollingNotifier.value) {
+        // Only resume immediately if there was no real drag (e.g. tap).
+        // If the user actually dragged, let ScrollEndNotification handle it
+        // to avoid conflicting with the upcoming ballistic scroll.
+        if (logic.releaseVelocity == null &&
+            !logic.scrollController.position.isScrollingNotifier.value) {
           logic.resumeAutoPageTurning();
         }
       },
@@ -524,7 +528,6 @@ Widget buildComicView(
                 if (velocity > velocityThreshold &&
                     !state.runningAutoPageTurning) {
                   logic.startAutoPageTurning();
-                  logic.autoPageTurning();
                   Log.d(() => "启动自动翻页 (velocity: $velocity)");
                 } else if (velocity < -velocityThreshold &&
                     state.runningAutoPageTurning) {

@@ -217,7 +217,6 @@ class TapController {
             } else {
               logic.stopAutoPageTurning();
               logic.setToolsVisible(false);
-              logic.autoPageTurning();
             }
           },
         ),

@@ -765,7 +765,13 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     _isKeyboardPageTurning = false;
     if (state.readingMethod == ReadingMethod.topToBottomContinuously &&
         scrollController.hasClients) {
-      scrollController.jumpTo(scrollController.position.pixels + 1);
+      // Defer to next frame to avoid triggering re-entrant
+      // ScrollEndNotification while the handler is still running.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (scrollController.hasClients) {
+          scrollController.jumpTo(scrollController.position.pixels + 1);
+        }
+      });
     }
   }
 
