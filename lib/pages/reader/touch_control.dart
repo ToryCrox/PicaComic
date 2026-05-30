@@ -101,9 +101,17 @@ class _TapDownPointer {
 
 class TapController {
   static ComicReaderLogic? _currentLogic;
+  static String? _sessionId;
 
-  static void attach(ComicReaderLogic logic) => _currentLogic = logic;
-  static void detach() => _currentLogic = null;
+  static void attach(ComicReaderLogic logic, String sessionId) {
+    _currentLogic = logic;
+    _sessionId = sessionId;
+  }
+
+  static void detach() {
+    _currentLogic = null;
+    _sessionId = null;
+  }
 
   static Offset? _tapOffset;
 
@@ -190,7 +198,7 @@ class TapController {
       items: [
         PopupMenuItem(
           child: Text("设置".tl),
-          onTap: () => showSettings(App.globalContext!, logic),
+          onTap: () => showSettings(App.globalContext!, _sessionId!),
         ),
         if (App.isDesktop)
           PopupMenuItem(

@@ -132,7 +132,7 @@ class ReaderPageState {
           runningAutoPageTurning ?? this.runningAutoPageTurning,
       isFullScreen: isFullScreen ?? this.isFullScreen,
       isShowOriginSize: isShowOriginSize ?? this.isShowOriginSize,
-      rotation: rotation is bool? ? rotation : this.rotation,
+      rotation: rotation ?? this.rotation,
       isShowSelectImage: isShowSelectImage ?? this.isShowSelectImage,
       rebuildCount: rebuildCount ?? this.rebuildCount,
     );

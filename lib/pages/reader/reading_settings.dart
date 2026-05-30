@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 
 import '../../components/components.dart';
@@ -12,34 +13,34 @@ import 'reader_logic.dart';
 import 'reading_data.dart';
 import 'reading_type.dart';
 
-void showSettings(BuildContext context, ComicReaderLogic logic) {
+void showSettings(BuildContext context, String sessionId) {
   if (UiMode.m1(context)) {
     showModalBottomSheet(
         context: context,
         builder: (context) => AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              child: ReadingSettings(logic: logic),
+              child: ReadingSettings(sessionId: sessionId),
             ));
   } else {
     showSideBar(
         context,
         SingleChildScrollView(
-          child: ReadingSettings(logic: logic),
+          child: ReadingSettings(sessionId: sessionId),
         ),
         useSurfaceTintColor: true,
         width: 450);
   }
 }
 
-class ReadingSettings extends StatefulWidget {
-  const ReadingSettings({required this.logic, Key? key}) : super(key: key);
-  final ComicReaderLogic logic;
+class ReadingSettings extends ConsumerStatefulWidget {
+  const ReadingSettings({required this.sessionId, Key? key}) : super(key: key);
+  final String sessionId;
 
   @override
-  State<ReadingSettings> createState() => _ReadingSettingsState();
+  ConsumerState<ReadingSettings> createState() => _ReadingSettingsState();
 }
 
-class _ReadingSettingsState extends State<ReadingSettings> {
+class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
   bool pageChangeValue = appdata.settings[0] == "1";
   bool useVolumeKeyChangePage = appdata.settings[7] == "1";
   bool keepScreenOn = appdata.settings[14] == "1";
@@ -48,10 +49,13 @@ class _ReadingSettingsState extends State<ReadingSettings> {
   int i = 0;
   double opacityLevel = 1.0;
 
-  ComicReaderLogic get logic => widget.logic;
+  ComicReaderLogic get _logic => ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
+  ReaderPageState get _state => ref.read(comicReaderLogicProvider(widget.sessionId));
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(comicReaderLogicProvider(widget.sessionId));
+    final logic = ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
     var pages = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +264,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                 },
               ),
             ),
-          if (logic.state.readingMethod != ReadingMethod.topToBottomContinuously)
+          if (state.readingMethod != ReadingMethod.topToBottomContinuously)
             ListTile(
               leading: const Icon(Icons.fit_screen_outlined),
               title: Text("图片缩放".tl),
@@ -294,7 +298,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
               },
             ),
           ),
-          if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously)
+          if (state.readingMethod == ReadingMethod.topToBottomContinuously)
             ListTile(
               leading: const Icon(Icons.width_normal_sharp),
               title: Text("限制图片最大显示宽度".tl),
@@ -425,17 +429,17 @@ class _ReadingSettingsState extends State<ReadingSettings> {
     value = i;
     appdata.settings[9] = value.toString();
     appdata.writeData();
-    logic.hideToolsAndSettings();
-    final index = logic.state.currentPage;
-    final page = ComicReaderLogic.getPage(logic.state.currentPage);
+    _logic.hideToolsAndSettings();
+    final index = _state.currentPage;
+    final page = ComicReaderLogic.getPage(_state.currentPage);
     Log.d("setReadingMethod: $value, index: $index, page: $page");
-    logic.pageController = PageController(initialPage: page);
-    logic.restoreTopToBottomContinuouslyPage = true;
-    logic.clearPhotoViewControllers();
-    logic.setReadingMethod(ReadingMethod.values[value - 1]);
-    if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
+    _logic.pageController = PageController(initialPage: page);
+    _logic.restoreTopToBottomContinuouslyPage = true;
+    _logic.clearPhotoViewControllers();
+    _logic.setReadingMethod(ReadingMethod.values[value - 1]);
+    if (_state.readingMethod == ReadingMethod.topToBottomContinuously) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        logic.jumpToPage(index);
+        _logic.jumpToPage(index);
       });
     }
   }

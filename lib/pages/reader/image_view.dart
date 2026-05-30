@@ -37,6 +37,7 @@ const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
 
 /// Build the main comic image view.
 Widget buildComicView(
+  ReaderPageState state,
   ComicReaderLogic logic,
   BuildContext context,
   String target,
@@ -48,13 +49,13 @@ Widget buildComicView(
     return ScrollablePositionedList.builder(
       itemScrollController: logic.itemScrollController,
       itemPositionsListener: logic.itemScrollListener,
-      itemCount: logic.state.urls.length,
+      itemCount: state.urls.length,
       addSemanticIndexes: false,
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
       scrollController: logic.scrollController,
       scrollBehavior: const MaterialScrollBehavior()
           .copyWith(scrollbars: false, dragDevices: _kTouchLikeDeviceTypes),
-      physics: (logic.state.noScroll || logic.isCtrlPressed || logic.mouseScroll)
+      physics: (state.noScroll || logic.isCtrlPressed || logic.mouseScroll)
           ? const NeverScrollableScrollPhysics()
           : const ClampingScrollPhysics(),
       itemBuilder: (context, index) {
@@ -65,8 +66,8 @@ Widget buildComicView(
         double imageWidth = width;
 
         bool hasOriginSize = false;
-        if (logic.state.isShowOriginSize) {
-          final url = logic.state.urls[index];
+        if (state.isShowOriginSize) {
+          final url = state.urls[index];
           final size = logic.imageSize[url];
           if (size != null && size.height > 0 && size.width > 0) {
             final originWidth = size.width / mediaQuery.devicePixelRatio;
@@ -103,10 +104,10 @@ Widget buildComicView(
           imageWidth = min(height / 0.8, 2160 / mediaQuery.devicePixelRatio);
         }
 
-        precacheComicImage(logic, context, index + 1, target, readingData);
+        precacheComicImage(state, logic, context, index + 1, target, readingData);
 
         ImageProvider image =
-            createImageProvider(logic, index, target, readingData);
+            createImageProvider(state, index, target, readingData);
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -148,16 +149,16 @@ Widget buildComicView(
   Widget buildType123() {
     return PhotoViewGallery.builder(
       backgroundDecoration: decoration,
-      key: Key(logic.state.readingMethod.index.toString()),
+      key: Key(state.readingMethod.index.toString()),
       reverse: appdata.settings[9] == "2",
       scrollDirection:
           appdata.settings[9] != "3" ? Axis.horizontal : Axis.vertical,
-      itemCount: logic.state.urls.length + 2,
+      itemCount: state.urls.length + 2,
       builder: (BuildContext context, int index) {
         ImageProvider? imageProvider;
-        if (index != 0 && index != logic.state.urls.length + 1) {
+        if (index != 0 && index != state.urls.length + 1) {
           imageProvider =
-              createImageProvider(logic, index - 1, target, readingData);
+              createImageProvider(state, index - 1, target, readingData);
         } else {
           return PhotoViewGalleryPageOptions.customChild(
             scaleStateController: PhotoViewScaleStateController(),
@@ -165,7 +166,7 @@ Widget buildComicView(
           );
         }
 
-        precacheComicImage(logic, context, index, target, readingData);
+        precacheComicImage(state, logic, context, index, target, readingData);
 
         BoxFit getFit() {
           switch (appdata.settings[41]) {
@@ -235,7 +236,7 @@ Widget buildComicView(
             );
           },
           heroAttributes:
-              PhotoViewHeroAttributes(tag: "$index/${logic.state.urls.length}"),
+              PhotoViewHeroAttributes(tag: "$index/${state.urls.length}"),
         );
       },
       pageController: logic.pageController,
@@ -258,7 +259,7 @@ Widget buildComicView(
             return;
           }
           logic.jumpToLastChapter();
-        } else if (i == logic.state.urls.length + 1) {
+        } else if (i == state.urls.length + 1) {
           if (!readingData.hasEp) {
             logic.jumpByDeviceType(i - 1);
             return;
@@ -276,13 +277,13 @@ Widget buildComicView(
       {required int imageIndex,
       required BoxFit fit,
       required Alignment alignment}) {
-    if (imageIndex < 0 || imageIndex >= logic.state.urls.length) {
+    if (imageIndex < 0 || imageIndex >= state.urls.length) {
       return const SizedBox();
     }
 
     return ComicImage(
       key: ValueKey(imageIndex),
-      image: createImageProvider(logic, imageIndex, target, readingData),
+      image: createImageProvider(state, imageIndex, target, readingData),
       fit: fit,
       alignment: alignment,
     );
@@ -290,8 +291,8 @@ Widget buildComicView(
 
   Widget buildType56() {
     int calcItemCount() {
-      int count = logic.state.urls.length ~/ 2;
-      if (logic.state.urls.length % 2 != 0) {
+      int count = state.urls.length ~/ 2;
+      if (state.urls.length % 2 != 0) {
         count++;
       } else if (logic.singlePageForFirstScreen) {
         count++;
@@ -300,17 +301,17 @@ Widget buildComicView(
     }
 
     return PhotoViewGallery.builder(
-      key: Key(logic.state.readingMethod.index.toString()),
+      key: Key(state.readingMethod.index.toString()),
       backgroundDecoration: decoration,
       itemCount: calcItemCount(),
-      reverse: logic.state.readingMethod == ReadingMethod.twoPageReversed,
+      reverse: state.readingMethod == ReadingMethod.twoPageReversed,
       builder: (BuildContext context, int index) {
         if (index == 0 || index == calcItemCount() - 1) {
           return PhotoViewGalleryPageOptions.customChild(
               child: const SizedBox());
         }
         precacheComicImage(
-            logic, context, index * 2 + 1, target, readingData);
+            state, logic, context, index * 2 + 1, target, readingData);
 
         logic.photoViewControllers[index] ??= PhotoViewController();
 
@@ -322,7 +323,7 @@ Widget buildComicView(
           firstImage--;
         }
         var images = <int>[firstImage, firstImage + 1];
-        if (logic.state.readingMethod == ReadingMethod.twoPageReversed) {
+        if (state.readingMethod == ReadingMethod.twoPageReversed) {
           images = images.reversed.toList();
         }
 
@@ -351,14 +352,14 @@ Widget buildComicView(
       onPageChanged: (i) {
         if (i == 0) {
           if (!readingData.hasEp ||
-              logic.state.currentEpisode == 1) {
+              state.currentEpisode == 1) {
             logic.pageController.jumpByDeviceType(1, logic);
             return;
           }
           logic.jumpToLastChapter();
         } else if (i == calcItemCount() - 1) {
           if (!readingData.hasEp ||
-              logic.state.currentEpisode == readingData.eps?.length) {
+              state.currentEpisode == readingData.eps?.length) {
             logic.pageController
                 .jumpByDeviceType(logic.pageController.page!.round() - 1, logic);
             return;
@@ -366,7 +367,7 @@ Widget buildComicView(
           logic.jumpToNextChapter();
         } else {
           final newPage = logic.singlePageForFirstScreen
-              ? (i * 2 - 2).clamp(1, logic.state.urls.length)
+              ? (i * 2 - 2).clamp(1, state.urls.length)
               : i * 2 - 1;
           logic.setCurrentPage(newPage);
           logic.notifyIndexChange(newPage);
@@ -383,13 +384,13 @@ Widget buildComicView(
     logic.photoViewControllers[0] ??= PhotoViewController();
     body = PhotoView.customChild(
       backgroundDecoration: decoration,
-      key: Key(logic.state.currentEpisode.toString()),
+      key: Key(state.currentEpisode.toString()),
       minScale: 1.0,
       maxScale: 2.5,
       strictScale: true,
       controller: logic.photoViewControllers[0],
       onScaleEnd: (context, detail, value) {
-        var prev = logic.state.currentScale;
+        var prev = state.currentScale;
         logic.setCurrentScale(value.scale ?? 1.0);
         if (appdata.settings[43] != "1") {
           return false;
@@ -410,7 +411,7 @@ Widget buildComicView(
     logic.internalMouseScroll = pointerSignal.kind == PointerDeviceKind.mouse;
     if (pointerSignal is PointerScrollEvent && !logic.isCtrlPressed) {
       logic.wheelScroll();
-      if (logic.state.readingMethod != ReadingMethod.topToBottomContinuously) {
+      if (state.readingMethod != ReadingMethod.topToBottomContinuously) {
         pointerSignal.scrollDelta.dy > 0
             ? logic.jumpToNextPage()
             : logic.jumpToLastPage();
@@ -444,7 +445,7 @@ Widget buildComicView(
       onPointerUp: (details) {
         logic.userInteracting = false;
 
-        if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously &&
+        if (state.readingMethod == ReadingMethod.topToBottomContinuously &&
             logic.scrollRecords.length >= 2) {
           final secondLast =
               logic.scrollRecords[logic.scrollRecords.length - 2];
@@ -479,7 +480,7 @@ Widget buildComicView(
           if (notification is ScrollUpdateNotification) {
             TapController.lastScrollTime = DateTime.now();
 
-            if (logic.state.readingMethod ==
+            if (state.readingMethod ==
                     ReadingMethod.topToBottomContinuously &&
                 logic.scrollController.hasClients) {
               final now = DateTime.now().millisecondsSinceEpoch;
@@ -497,12 +498,12 @@ Widget buildComicView(
             if (logic.scrollController.position.pixels -
                         logic.scrollController.position.minScrollExtent <=
                     0 &&
-                logic.state.currentEpisode != 0) {
+                state.currentEpisode != 0) {
               logic.showFloatingButton(-1);
             } else if (logic.scrollController.position.pixels -
                         logic.scrollController.position.maxScrollExtent >=
                     0 &&
-                logic.state.currentEpisode < length) {
+                state.currentEpisode < length) {
               logic.showFloatingButton(1);
             } else {
               logic.showFloatingButton(0);
@@ -511,7 +512,7 @@ Widget buildComicView(
             return true;
           }
           if (notification is ScrollEndNotification) {
-            if (logic.state.readingMethod ==
+            if (state.readingMethod ==
                 ReadingMethod.topToBottomContinuously) {
               Log.d(() =>
                   "ScrollEndNotification releaseVelocity: ${logic.releaseVelocity}");
@@ -521,12 +522,12 @@ Widget buildComicView(
                 const velocityThreshold = 500.0;
 
                 if (velocity > velocityThreshold &&
-                    !logic.state.runningAutoPageTurning) {
+                    !state.runningAutoPageTurning) {
                   logic.startAutoPageTurning();
                   logic.autoPageTurning();
                   Log.d(() => "启动自动翻页 (velocity: $velocity)");
                 } else if (velocity < -velocityThreshold &&
-                    logic.state.runningAutoPageTurning) {
+                    state.runningAutoPageTurning) {
                   logic.stopAutoPageTurning();
                   Log.d(() => "关闭自动翻页 (velocity: $velocity)");
                 }
@@ -547,9 +548,9 @@ Widget buildComicView(
 
 /// Create an image provider for the given page.
 ImageProvider createImageProvider(
-    ComicReaderLogic logic, int index, String target, ReadingData readingData) {
+    ReaderPageState state, int index, String target, ReadingData readingData) {
   return readingData.createImageProvider(
-      logic.state.currentEpisode, index, logic.state.urls[index]);
+      state.currentEpisode, index, state.urls[index]);
 }
 
 /// Check current location of [PageView], update location when it is out of range.
@@ -590,7 +591,7 @@ bool updateLocation(BuildContext context, PhotoViewController controller) {
 }
 
 /// Preload images.
-void precacheComicImage(ComicReaderLogic logic, BuildContext context,
+void precacheComicImage(ReaderPageState state, ComicReaderLogic logic, BuildContext context,
     int index, String target, ReadingData readingData) {
   logic.loadImageSizes(index);
   if (logic.requestedLoadingItems.length != logic.length) {
@@ -598,22 +599,22 @@ void precacheComicImage(ComicReaderLogic logic, BuildContext context,
   }
   int precacheNum = int.parse(appdata.settings[28]) + index;
   for (; index < precacheNum; index++) {
-    if (index >= logic.state.urls.length ||
+    if (index >= state.urls.length ||
         logic.requestedLoadingItems[index]) {
       return;
     }
     precacheImage(
-        createImageProvider(logic, index, target, readingData), context);
+        createImageProvider(state, index, target, readingData), context);
   }
   if (!ImageManager.haveTask) {
     precacheNum += 3;
     for (; index < precacheNum; index++) {
-      if (index >= logic.state.urls.length ||
+      if (index >= state.urls.length ||
           logic.requestedLoadingItems[index]) {
         return;
       }
       precacheImage(
-          createImageProvider(logic, index, target, readingData), context);
+          createImageProvider(state, index, target, readingData), context);
     }
   }
 }

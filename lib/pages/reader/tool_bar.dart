@@ -18,6 +18,7 @@ bool _isReversed() =>
 
 /// 构建底部工具栏
 Widget buildBottomToolBar(
+  ReaderPageState state,
   ComicReaderLogic logic,
   BuildContext context, {
   required bool showEps,
@@ -32,9 +33,9 @@ Widget buildBottomToolBar(
     right: 0,
     child: Builder(
       builder: (context) {
-        var text = "E${logic.state.currentEpisode} : P${logic.state.currentPage}";
-        if (logic.state.currentEpisode == 0) {
-          text = "P${logic.state.currentPage}";
+        var text = "E${state.currentEpisode} : P${state.currentPage}";
+        if (state.currentEpisode == 0) {
+          text = "P${state.currentPage}";
         }
 
         Widget child = SizedBox(
@@ -55,7 +56,7 @@ Widget buildBottomToolBar(
                           : logic.jumpToNextChapter(),
                       icon: const Icon(Icons.first_page)),
                   Expanded(
-                    child: buildSlider(logic),
+                    child: buildSlider(state, logic),
                   ),
                   IconButton.filledTonal(
                       onPressed: () => !_isReversed()
@@ -97,22 +98,22 @@ Widget buildBottomToolBar(
                       message: "屏幕方向".tl,
                       child: IconButton(
                         icon: () {
-                          if (logic.state.rotation == null) {
+                          if (state.rotation == null) {
                             return const Icon(Icons.screen_rotation_alt);
-                          } else if (logic.state.rotation == false) {
+                          } else if (state.rotation == false) {
                             return const Icon(Icons.screen_lock_portrait);
                           } else {
                             return const Icon(Icons.screen_lock_landscape);
                           }
                         }.call(),
                         onPressed: () {
-                          if (logic.state.rotation == null) {
+                          if (state.rotation == null) {
                             logic.setRotation(false);
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.portraitUp,
                               DeviceOrientation.portraitDown,
                             ]);
-                          } else if (logic.state.rotation == false) {
+                          } else if (state.rotation == false) {
                             logic.setRotation(true);
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.landscapeLeft,
@@ -136,11 +137,11 @@ Widget buildBottomToolBar(
                   Tooltip(
                     message: "自动翻页".tl,
                     child: IconButton(
-                      icon: logic.state.runningAutoPageTurning
+                      icon: state.runningAutoPageTurning
                           ? const Icon(Icons.timer)
                           : const Icon(Icons.timer_sharp),
                       onPressed: () {
-                        if (!logic.state.runningAutoPageTurning) {
+                        if (!state.runningAutoPageTurning) {
                           logic.startAutoPageTurning();
                         } else {
                           logic.stopAutoPageTurning();
@@ -199,7 +200,7 @@ Widget buildBottomToolBar(
               child: child,
             );
           },
-          child: logic.state.toolsVisible
+          child: state.toolsVisible
               ? child
               : const SizedBox(
                   width: 0,
@@ -211,18 +212,18 @@ Widget buildBottomToolBar(
   );
 }
 
-Widget buildSlider(ComicReaderLogic logic) {
-  if (logic.state.toolsVisible &&
-      logic.state.currentPage != 0 &&
-      logic.state.currentPage != logic.state.urls.length + 1) {
+Widget buildSlider(ReaderPageState state, ComicReaderLogic logic) {
+  if (state.toolsVisible &&
+      state.currentPage != 0 &&
+      state.currentPage != state.urls.length + 1) {
     return CustomSlider(
-      value: logic.state.currentPage.toDouble(),
+      value: state.currentPage.toDouble(),
       min: 1,
       reversed: _isReversed(),
-      max: logic.state.urls.length.toDouble(),
-      divisions: logic.state.urls.length - 1,
+      max: state.urls.length.toDouble(),
+      divisions: state.urls.length - 1,
       onChanged: (i) {
-        if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
+        if (state.readingMethod == ReadingMethod.topToBottomContinuously) {
           logic.jumpToPage(i.toInt());
           logic.setCurrentPage(i.toInt());
         } else {
@@ -239,11 +240,11 @@ Widget buildSlider(ComicReaderLogic logic) {
 }
 
 Iterable<Widget> buildButtons(
-    ComicReaderLogic logic, BuildContext context) sync* {
+    ReaderPageState state, ComicReaderLogic logic, BuildContext context) sync* {
   if (context.width > context.height &&
       appdata.appSettings.showButtonsInReader) {
     if (appdata.settings[9] != "4" &&
-        logic.state.readingMethod != ReadingMethod.topToBottom) {
+        state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         left: 12,
         top: MediaQuery.sizeOf(context).height / 2 - 25,
@@ -253,7 +254,7 @@ Iterable<Widget> buildButtons(
             if (appdata.appSettings.flipPageWithClick) {
               return;
             }
-            switch (logic.state.readingMethod) {
+            switch (state.readingMethod) {
               case ReadingMethod.rightToLeft:
               case ReadingMethod.twoPageReversed:
                 logic.jumpToNextPage();
@@ -266,7 +267,7 @@ Iterable<Widget> buildButtons(
       );
     }
     if (appdata.settings[9] != "4" &&
-        logic.state.readingMethod != ReadingMethod.topToBottom) {
+        state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         right: 12,
         top: MediaQuery.sizeOf(context).height / 2 - 25,
@@ -276,7 +277,7 @@ Iterable<Widget> buildButtons(
             if (appdata.settings[0] == "1") {
               return;
             }
-            switch (logic.state.readingMethod) {
+            switch (state.readingMethod) {
               case ReadingMethod.rightToLeft:
               case ReadingMethod.twoPageReversed:
                 logic.jumpToLastPage();
@@ -302,7 +303,7 @@ Iterable<Widget> buildButtons(
 
 /// 构建顶部工具栏
 Widget buildTopToolBar(
-    ComicReaderLogic logic, BuildContext context,
+    ReaderPageState state, String sessionId, BuildContext context,
     {required ReadingData readingData, required bool useDarkBackground}) {
   return Positioned(
     top: 0,
@@ -310,7 +311,7 @@ Widget buildTopToolBar(
       duration: const Duration(milliseconds: 150),
       reverseDuration: const Duration(milliseconds: 150),
       switchInCurve: Curves.fastOutSlowIn,
-      child: logic.state.toolsVisible
+      child: state.toolsVisible
           ? Material(
               surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
               elevation: 3,
@@ -354,7 +355,7 @@ Widget buildTopToolBar(
                         child: IconButton(
                           iconSize: 25,
                           icon: const Icon(Icons.settings),
-                          onPressed: () => showSettings(context, logic),
+                          onPressed: () => showSettings(context, sessionId),
                         ),
                       ),
                     ),
@@ -380,7 +381,7 @@ Widget buildTopToolBar(
 
 /// 显示当前的章节和页面位置
 Widget buildPageInfoText(
-    ComicReaderLogic logic, BuildContext context,
+    ReaderPageState state, BuildContext context,
     {required ReadingData readingData, required bool useDarkBackground}) {
   return Positioned(
     bottom: 13,
@@ -388,14 +389,14 @@ Widget buildPageInfoText(
     child: Builder(
       builder: (context) {
         var epName = readingData.eps?.values
-                .elementAtOrNull(logic.state.currentEpisode - 1) ??
+                .elementAtOrNull(state.currentEpisode - 1) ??
             "E1";
         if (epName.length > 18) {
           epName = "${epName.substring(0, 18)}...";
         }
         var text = readingData.hasEp
-            ? "$epName : ${logic.state.currentPage}/${logic.state.urls.length}"
-            : "${logic.state.currentPage}/${logic.state.urls.length}";
+            ? "$epName : ${state.currentPage}/${state.urls.length}"
+            : "${state.currentPage}/${state.urls.length}";
         return Stack(
           children: [
             Text(

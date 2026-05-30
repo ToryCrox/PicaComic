@@ -29,7 +29,6 @@ import 'image.dart';
 import 'image_view.dart';
 import 'reader_logic.dart';
 import 'reading_data.dart';
-import 'reading_settings.dart';
 import 'reading_type.dart';
 import 'tool_bar.dart';
 import 'touch_control.dart';
@@ -202,7 +201,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     final state = ref.watch(comicReaderLogicProvider(_sessionId));
     final logic = _logic();
 
-    TapController.attach(logic);
+    TapController.attach(logic, _sessionId);
     logic.openEpsView = openEpsDrawer;
     logic.updatePageSize(MediaQuery.of(context).size);
 
@@ -218,7 +217,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
         endDrawerEnableOpenDragGesture: false,
         key: _scaffoldKey,
         endDrawer: Drawer(
-          child: buildEpsView(logic),
+          child: EpsView(readingData, _sessionId),
         ),
         floatingActionButton: buildEpChangeButton(state, logic),
         body: Builder(
@@ -278,6 +277,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 child: Stack(
                   children: [
                     buildComicView(
+                      state,
                       logic,
                       context,
                       readingData.id,
@@ -301,20 +301,20 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                       ),
 
                     if (appdata.appSettings.showPageInfoInReader)
-                      buildPageInfoText(logic, context,
+                      buildPageInfoText(state, context,
                           readingData: readingData,
                           useDarkBackground: useDarkBackground),
 
-                    buildBottomToolBar(logic, context,
+                    buildBottomToolBar(state, logic, context,
                         showEps: readingData.hasEp,
                         useDarkBackground: useDarkBackground,
                         openEpsDrawer: openEpsDrawer,
                         onShare: () => _share(logic),
                         onSaveCurrentImage: () => _saveCurrentImage(logic)),
 
-                    ...buildButtons(logic, context),
+                    ...buildButtons(state, logic, context),
 
-                    buildTopToolBar(logic, context,
+                    buildTopToolBar(state, _sessionId, context,
                         readingData: readingData,
                         useDarkBackground: useDarkBackground),
                   ],
@@ -410,7 +410,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                       if (MediaQuery.of(context).size.width > 600) {
                         showSideBar(
                           context,
-                          buildEpsView(logic),
+                          EpsView(readingData, _sessionId),
                           title: null,
                           useSurfaceTintColor: true,
                           addTopPadding: true,
@@ -421,7 +421,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                           context: context,
                           useSafeArea: false,
                           builder: (context) {
-                            return buildEpsView(logic);
+                            return EpsView(readingData, _sessionId);
                           },
                         );
                       }
@@ -437,17 +437,12 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     ));
   }
 
-  Widget buildEpsView(ComicReaderLogic logic) {
-    return EpsView(readingData, logic);
-  }
-
   void openEpsDrawer() {
     var context = App.globalContext!;
-    final logic = _logic();
     if (MediaQuery.of(context).size.width > 600) {
       showSideBar(
         context,
-        buildEpsView(logic),
+        EpsView(readingData, _sessionId),
         title: null,
         useSurfaceTintColor: true,
         width: 400,
@@ -458,7 +453,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
         context: context,
         useSafeArea: false,
         builder: (context) {
-          return buildEpsView(logic);
+          return EpsView(readingData, _sessionId);
         },
       );
     }
