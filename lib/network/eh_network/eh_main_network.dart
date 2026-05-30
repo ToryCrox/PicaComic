@@ -575,11 +575,10 @@ class EhNetwork {
       for (var tr in tagLists) {
         var list = <String>[];
         for (var div in tr.children[1].children) {
-          list.add(div.children[0]
-                  .attributes["onclick"]!
-                  .split(":")[1]
-                  .split("'")[0]
-          );
+          var onclick = div.children.elementAtOrNull(0)?.attributes["onclick"];
+          if (onclick != null) {
+            list.add(onclick.split(":")[1].split("'")[0]);
+          }
         }
         tags[tr.children[0].text.substring(0, tr.children[0].text.length - 1)] =
             list;
@@ -597,12 +596,15 @@ class EhNetwork {
           " Add to Favorites") {
         favorite = false;
       }
-      var coverPath = document
-          .querySelector("div#gleft > div#gd1 > div")!
-          .attributes["style"]!;
-      coverPath =
-          RegExp(r"https?://([-a-zA-Z0-9.]+(/\S*)?\.(?:jpg|jpeg|gif|png|webp))")
-              .firstMatch(coverPath)![0]!;
+      var coverStyle = document
+          .querySelector("div#gleft > div#gd1 > div")
+          ?.attributes["style"];
+      var coverPath = coverStyle != null
+          ? (RegExp(
+                  r"https?://([-a-zA-Z0-9.]+(/\S*)?\.(?:jpg|jpeg|gif|png|webp))")
+              .firstMatch(coverStyle)
+              ?.group(0) ?? "")
+          : "";
       //评论
       var comments = <Comment>[];
       for (var c in document.getElementsByClassName("c1")) {
@@ -610,25 +612,25 @@ class EhNetwork {
       }
       //上传者
       var uploader =
-          document.getElementById("gdn")!.children.elementAtOrNull(0)?.text ??
+          document.getElementById("gdn")?.children.elementAtOrNull(0)?.text ??
               "未知";
 
       //星星
       var stars = getStarsFromPosition(
-          document.getElementById("rating_image")!.attributes["style"]!);
+          document.getElementById("rating_image")?.attributes["style"] ?? "");
 
       //平均分数
       var rating = document.getElementById("rating_label")?.text;
       //类型
-      var type = document.getElementsByClassName("cs")[0].text;
+      var type = document.getElementsByClassName("cs").elementAtOrNull(0)?.text ?? "";
       //时间
       var time = document
-          .querySelector("div#gdd > table > tbody > tr > td.gdt2")!
-          .text;
+          .querySelector("div#gdd > table > tbody > tr > td.gdt2")
+          ?.text ?? "";
       //身份认证数据
       var auth = getVariablesFromJsCode(res.data);
       var thumbnailUrls = <String>[];
-      var title = document.querySelector("h1#gn")!.text;
+      var title = document.querySelector("h1#gn")?.text ?? "";
       var subTitle = document.querySelector("h1#gj")?.text;
       if (subTitle != null && subTitle.removeAllBlank == "") {
         subTitle = null;
@@ -646,14 +648,16 @@ class EhNetwork {
             ? smallThumbnails[0]
             : smallThumbnails[0].children[0];
         var style = div.attributes["style"];
-        width = 100;
-        pageSize = ext == "webp" ? 40 : 20;
-        var r = style!.split("background:transparent url(")[1];
-        var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-            .where((element) => element.text.isNum).last.text;
-        var url = r.split(")")[0];
-        ext = url.substring(url.lastIndexOf('.') + 1);
-        auth["thumbnailKey"] = "$url $totalPages";
+        if (style != null) {
+          width = 100;
+          pageSize = ext == "webp" ? 40 : 20;
+          var r = style.split("background:transparent url(")[1];
+          var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
+              .where((element) => element.text.isNum).last.text;
+          var url = r.split(")")[0];
+          ext = url.substring(url.lastIndexOf('.') + 1);
+          auth["thumbnailKey"] = "$url $totalPages";
+        }
       }
 
       // Large Thumbnails on Page 0 (if exist)
@@ -665,25 +669,28 @@ class EhNetwork {
             : largeThumbnails[0].children[0];
         var style = div.attributes["style"];
         width = 200;
-        var r = style!.split("background:transparent url(")[1];
-        if (r.contains("px")) {
-          // Merged
-          var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-              .where((element) => element.text.isNum).last.text;
-          var url = r.split(")")[0];
-          ext = url.substring(url.lastIndexOf('.') + 1);
-          auth["thumbnailKey"] = "$url $totalPages";
-        } else {
-          // Stand-alone (legacy)
-          var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-              .where((element) => element.text.isNum).last.text;
-          auth["thumbnailKey"] = "large thumbnail: $totalPages";
-          thumbnailUrls.addAll(
-              largeThumbnails.map((div){
-                div = div.children.isEmpty ? div : div.children[0];
-                return div.attributes["style"]!.split("background:transparent url(")[1].split(")")[0];
-              })
-          );
+        if (style != null) {
+          var r = style.split("background:transparent url(")[1];
+          if (r.contains("px")) {
+            // Merged
+            var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
+                .where((element) => element.text.isNum).last.text;
+            var url = r.split(")")[0];
+            ext = url.substring(url.lastIndexOf('.') + 1);
+            auth["thumbnailKey"] = "$url $totalPages";
+          } else {
+            // Stand-alone (legacy)
+            var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
+                .where((element) => element.text.isNum).last.text;
+            auth["thumbnailKey"] = "large thumbnail: $totalPages";
+            thumbnailUrls.addAll(
+                largeThumbnails.map((div){
+                  div = div.children.isEmpty ? div : div.children[0];
+                  var s = div.attributes["style"];
+                  return s != null ? s.split("background:transparent url(")[1].split(")")[0] : "";
+                }).where((url) => url.isNotEmpty)
+            );
+          }
         }
       }
 
