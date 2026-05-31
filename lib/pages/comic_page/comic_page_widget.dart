@@ -46,6 +46,11 @@ class ComicPageWidget extends ConsumerStatefulWidget {
   final String id;
   final String? cover;
 
+  /// 阅读器页面关闭后，更新最后活跃详情页的历史记录。
+  static void updateActivePageHistory(History? history) {
+    _ComicPageWidgetState.updateActivePageHistory(history);
+  }
+
   /// 统一的页面入口 -- 替代所有直接子类构造
   static Future<T?> open<T extends Object?>(BuildContext context, {
     required ComicType comicType,

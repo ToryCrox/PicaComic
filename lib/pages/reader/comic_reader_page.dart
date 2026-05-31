@@ -24,7 +24,7 @@ import '../../tools/key_down_event.dart';
 import '../../tools/save_image.dart';
 import '../../tools/time.dart';
 import '../../tools/translations.dart';
-import '../comic_page.dart';
+import '../comic_page/comic_page_widget.dart';
 import 'eps_view.dart';
 import 'image.dart';
 import 'image_view.dart';
@@ -66,9 +66,7 @@ class ComicReaderPage extends ConsumerStatefulWidget {
 
   /// 通知当前激活的漫画详情页更新阅读历史。
   static void updateActiveComicPageHistory(History? history) {
-    if (BaseComicPage.tagsStack.isNotEmpty) {
-      BaseComicPage.tagsStack.last.updateHistory(history);
-    }
+    ComicPageWidget.updateActivePageHistory(history);
   }
 
   @override

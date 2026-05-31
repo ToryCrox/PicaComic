@@ -1,567 +1,34 @@
-import 'package:pica_comic/comic_source/built_in/ehentai.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'dart:ui' as ui;
-import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:pica_comic/base.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:pica_comic/foundation/pica_image_manager.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
-import 'package:pica_comic/network/eh_network/eh_models.dart';
-import 'package:pica_comic/network/res.dart';
-import 'package:pica_comic/pages/comic_page.dart';
-import 'package:pica_comic/pages/reader/comic_reading_page.dart';
-import 'package:pica_comic/pages/search_result_page.dart';
-import 'package:pica_comic/tools/extensions.dart';
-import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/pages/ehentai/eh_comments_page.dart';
-import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/components/components.dart';
 
-import '../../foundation/disk_cache.dart';
-import '../../tools/type_util.dart';
-import '../../network/eh_network/eh_download_model.dart';
+import '../../foundation/def.dart';
+import '../../foundation/state_controller.dart';
+import '../../network/eh_network/eh_models.dart';
+import '../comic_page.dart';
 
-class EhGalleryPage extends BaseComicPage<Gallery> {
+/// E-Hentai 画廊详情页兼容入口。
+class EhGalleryPage extends StatelessWidget {
   EhGalleryPage(EhGalleryBrief brief, {super.key})
-      : link = brief.link,
-        comicCover = brief.coverPath,
-        comicTitle = brief.title;
+    : link = brief.link,
+      comicCover = brief.coverPath,
+      comicTitle = brief.title;
 
-  const EhGalleryPage.fromLink(this.link,
-      {super.key, this.comicCover, this.comicTitle});
+  const EhGalleryPage.fromLink(
+    this.link, {
+    super.key,
+    this.comicCover,
+    this.comicTitle,
+  });
 
   final String link;
-
   final String? comicCover;
-
   final String? comicTitle;
 
   @override
-  String get url => link;
-
-  @override
-  ActionFunc? get searchSimilar => () {
-        var title = data!.subTitle ?? data!.title;
-        title = title
-            .replaceAll(RegExp(r"\[.*?\]"), "")
-            .replaceAll(RegExp(r"\(.*?\)"), "");
-        context.to(
-          () => SearchResultPage(
-            keyword: "\"$title\"".trim(),
-            comicType: comicType,
-          ),
-        );
-      };
-
-  @override
-  String? get cover => (comicCover ?? data?.coverPath)
-      ?.replaceFirst("s.exhentai.org", "ehgt.org");
-
-  @override
-  EpsData? get eps => null;
-
-  @override
-  String? get introduction => null;
-
-  @override
-  Future<Res<Gallery>> loadData() async {
-    var res =
-        await EhNetwork().getGalleryInfo(link, appdata.settings[47] == "1");
-    if (res.error && res.errorMessage == "Content Warning") {
-      bool shouldIgnore = false;
-      await showDialog(
-          context: App.globalContext!,
-          builder: (context) => AlertDialog(
-                title: Text("警告".tl),
-                content: Text("此画廊存在令人不适的内容\n在设置中可以禁用此警告".tl),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        App.globalBack();
-                      },
-                      child: Text("返回".tl)),
-                  TextButton(
-                      onPressed: () {
-                        shouldIgnore = true;
-                        App.globalBack();
-                      },
-                      child: Text("忽略".tl))
-                ],
-              ));
-      if (shouldIgnore) {
-        return await EhNetwork().getGalleryInfo(link, true);
-      } else if (context.mounted) {
-        context.pop();
-        return const Res(null, errorMessage: "Exit");
-      }
-    }
-    final data = res.dataOrNull;
-    if (data != null) {
-      DiskCache.writeString(cacheKey, TypeUtil.parseString(data.toJson()));
-    }
-    return res;
+  Widget build(BuildContext context) {
+    return ComicPage(comicType: ComicType.ehentai, id: link, cover: comicCover);
   }
-
-  @override
-  Future<Gallery?> loadCachedData() async {
-    var data = await DiskCache.readModel(cacheKey, (map) => Gallery.fromJson(map));
-    if (data != null) return data;
-    final downloadedId = downloadManager.getDownloadIdFromComicId(comicType, data?.link ?? "");
-    if (downloadedId.isNotEmpty && await downloadManager.isExists(downloadedId)) {
-      var downloaded = await downloadManager.getComicOrNull(downloadedId);
-      if (downloaded is DownloadedGallery) {
-        return downloaded.gallery;
-      }
-    }
-    return null;
-  }
-
-
-  @override
-  int? get pages => int.tryParse(data?.maxPage ?? "");
-
-  @override
-  Future<bool> loadFavorite(Gallery data) async {
-    return data.favorite ||
-        (await LocalFavoritesManager().findWithModel(toLocalFavoriteItem(data)))
-            .isNotEmpty;
-  }
-
-  @override
-  SliverGrid? recommendationBuilder(Gallery data) => null;
-
-  @override
-  String get tag => "Eh ComicPage $link";
-
-  @override
-  Map<String, List<String>>? get tags => {
-        "类型".tl: data!.type.toList(),
-        "时间".tl: data!.time.toList(),
-        "上传者".tl: data!.uploader.toList(),
-        ...data!.tags
-      };
-
-  @override
-  bool get enableTranslationToCN => App.locale.languageCode == "zh";
-
-  @override
-  void onThumbnailTapped(int index) async {
-    await History.findOrCreate(data!);
-    App.globalTo(() => ComicReadingPage.ehentai(data!, initialPage: index + 1));
-  }
-
-  @override
-  void tapOnTag(String tag, String key) {
-    var namespace = "";
-    for (var entry in data!.tags.entries) {
-      if (entry.value.contains(tag)) {
-        namespace = entry.key;
-        break;
-      }
-    }
-    if (tag == data!.uploader) {
-      namespace = "uploader";
-    }
-    if (tag.contains(" ")) {
-      tag = "\"$tag\"";
-    }
-    if (namespace != "") {
-      tag = "$namespace:$tag";
-    }
-    context.to(() => SearchResultPage(
-          keyword: tag,
-          comicType: comicType,
-        ));
-  }
-
-  Map<String, String> get headers => {
-        "Cookie": EhNetwork().cookiesStr,
-        "User-Agent": webUA,
-        "Referer": EhNetwork().ehBaseUrl,
-      };
-
-  @override
-  ThumbnailsData? get thumbnailsCreator {
-    final data = this.data;
-    if (data == null) return null;
-    if (data.auth?["thumbnailKey"] != null &&
-        data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
-      return ThumbnailsData(
-          data.thumbnails,
-          (page) => EhNetwork().getThumbnails(data, page),
-          int.tryParse(data.auth!["thumbnailKey"]!.nums) ?? 1);
-    } else {
-      return ThumbnailsData(
-          List.generate(min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
-              (_) => data.auth!["thumbnailKey"]!.split(" ")[0]),
-          (page) => EhNetwork().getThumbnails(data, page),
-          int.tryParse(data.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1);
-    }
-  }
-
-  @override
-  String? get title => comicTitle ?? data?.title;
-
-  @override
-  String? get subTitle => data?.subTitle;
-
-  @override
-  Card? get uploaderInfo => null;
-
-  @override
-  Widget thumbnailImageBuilder(int index, String imageUrl) {
-    if (logic.localImages != null && index < logic.localImages!.length) {
-      return PicaImage(
-        url: Uri.file(logic.localImages![index]).toString(),
-        fit: BoxFit.contain,
-        memCacheWidth: 200,
-      );
-    }
-    imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
-    if (data?.auth?["thumbnailKey"] != null &&
-        data!.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
-      return PicaImage(
-        url: imageUrl,
-        headers: {
-          "sourceKey": comicType.name,
-          "isThumbnail": "true",
-        },
-        fit: BoxFit.contain,
-        cacheKey: "eh_thumb_${data!.link}_$index",
-        memCacheWidth: 200,
-      );
-    }
-    return ColoredBox(
-      color: context.colorScheme.surfaceContainerHighest,
-      key: ValueKey("eh_thumb_${data!.link}_$index"),
-      child: EhThumbnailLoader(
-        image: CachedNetworkImageProvider(imageUrl,
-            cacheManager: picaImageManager,
-            headers: headers,
-            cacheKey: "eh_thumb_${data!.link}_${index ~/ data!.pageSize}"),
-        pageSize: data!.pageSize,
-        width: data!.width,
-        index: index,
-      ),
-    );
-  }
-
-  void starRating(BuildContext context, Map<String, String> auth) {
-    if (!ehentai.isLogin) {
-      showToast(message: "未登录".tl);
-      return;
-    }
-    showDialog(
-        context: context,
-        builder: (dialogContext) => StateBuilder<RatingLogic>(
-            init: RatingLogic(),
-            builder: (logic) => SimpleDialog(
-                  title: const Text("评分"),
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      height: 100,
-                      child: Center(
-                        child: SizedBox(
-                          width: 210,
-                          child: Column(
-                            children: [
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              RatingWidget(
-                                padding: 2,
-                                onRatingUpdate: (value) => logic.rating = value,
-                                value: 0,
-                                selectAble: true,
-                                size: 40,
-                              ),
-                              const Spacer(),
-                              Button.filled(
-                                isLoading: logic.running,
-                                onPressed: () {
-                                  logic.running = true;
-                                  logic.update();
-                                  EhNetwork()
-                                      .rateGallery(auth, logic.rating.toInt())
-                                      .then((b) {
-                                    if (!dialogContext.mounted) return;
-                                    if (b) {
-                                      dialogContext.pop();
-                                      showToast(message: "评分成功".tl);
-                                    } else {
-                                      logic.running = false;
-                                      logic.update();
-                                      showToast(message: "网络错误".tl);
-                                    }
-                                  });
-                                },
-                                child: Text("提交".tl),
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  ],
-                )));
-  }
-
-  @override
-  Widget get buildMoreInfo => MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => starRating(App.globalContext!, data!.auth!),
-          child: SizedBox(
-            height: 30,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (int i = 0; i < (data!.stars ~/ 0.5) ~/ 2; i++)
-                  const Icon(
-                    Icons.star,
-                    size: 30,
-                    color: Color(0xffffbf00),
-                  ),
-                if ((data!.stars ~/ 0.5) % 2 == 1)
-                  const Icon(
-                    Icons.star_half,
-                    size: 30,
-                    color: Color(0xffffbf00),
-                  ),
-                for (int i = 0;
-                    i <
-                        (5 -
-                            (data!.stars ~/ 0.5) ~/ 2 -
-                            (data!.stars ~/ 0.5) % 2);
-                    i++)
-                  const Icon(
-                    Icons.star_border,
-                    size: 30,
-                    color: Color(0xffffbf00),
-                  ),
-                const SizedBox(
-                  width: 5,
-                ),
-                if (data!.rating != null) Text(data!.rating!)
-              ],
-            ),
-          ),
-        ),
-      );
-
-  @override
-  String get id => link;
-
-  @override
-  String get source => "EHentai";
-
-  @override
-  FavoriteItem toLocalFavoriteItem([Gallery? comicData]) =>
-      FavoriteItem.fromEhentai((comicData ?? data!).toBrief());
-
-  @override
-  void download() {
-    int current = 0;
-    bool loading = true;
-    ArchiveDownloadInfo? info;
-    bool cancelUnlock = false;
-
-    showDialog(
-        context: App.globalContext!,
-        builder: (dialogContext) => Dialog(
-              child: StatefulBuilder(
-                builder: (context, setState) {
-                  void load() async {
-                    if (data?.auth?["archiveDownload"] == null) {
-                      return;
-                    }
-
-                    Res<ArchiveDownloadInfo> res;
-                    if (cancelUnlock) {
-                      cancelUnlock = false;
-                      res = await EhNetwork().cancelAndReloadArchiveInfo(info!);
-                    } else {
-                      res = await EhNetwork().getArchiveDownloadInfo(
-                          data!.auth!["archiveDownload"]!);
-                    }
-                    if (res.error) {
-                      showToast(message: "网络错误".tl);
-                    } else {
-                      info = res.data;
-                      loading = false;
-                      if (context.mounted) {
-                        setState(() {});
-                      }
-                    }
-                  }
-
-                  if (loading) {
-                    load();
-                  }
-
-                  return Container(
-                    width: 350,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("下载".tl, style: const TextStyle(fontSize: 20))
-                            .paddingLeft(16),
-                        const Divider(),
-                        RadioListTile(
-                          value: 0,
-                          groupValue: current,
-                          onChanged: (value) =>
-                              setState(() => current = value as int),
-                          title: Text("普通下载".tl),
-                        ),
-                        ExpansionTile(
-                          title: Text("归档下载".tl),
-                          shape: Border.all(color: Colors.transparent),
-                          children: [
-                            if (loading)
-                              const CircularProgressIndicator()
-                                  .paddingVertical(8)
-                                  .toCenter()
-                            else
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  RadioListTile(
-                                    value: 1,
-                                    groupValue: current,
-                                    onChanged: (value) =>
-                                        setState(() => current = value as int),
-                                    title: Text("Original".tl),
-                                    subtitle: Text(
-                                        "${info!.originCost} ${info!.originSize}"),
-                                  ),
-                                  RadioListTile(
-                                    value: 2,
-                                    groupValue: current,
-                                    onChanged: (value) =>
-                                        setState(() => current = value as int),
-                                    title: Text("Resample".tl),
-                                    subtitle: Text(
-                                        "${info!.resampleCost} ${info!.resampleSize}"),
-                                  ),
-                                  if (info!.cancelUnlockUrl != null)
-                                    ListTile(
-                                      leading: const Icon(Icons.lock_open),
-                                      title: Text("取消解锁".tl),
-                                      subtitle: Text("长按执行此操作".tl),
-                                      onLongPress: () {
-                                        setState(() {
-                                          cancelUnlock = true;
-                                          loading = true;
-                                        });
-                                      },
-                                    ).paddingLeft(6),
-                                ],
-                              )
-                          ],
-                        ),
-                        FilledButton(
-                          onPressed: () {
-                            context.pop();
-                            startDownload(current);
-                          },
-                          child: Text("确认".tl),
-                        ).toCenter()
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ));
-  }
-
-  void startDownload(int type) async {
-    final id = downloadManager.getDownloadIdFromComicId(comicType, data!.link);
-    if (await downloadManager.isExists(id)) {
-      showToast(message: "已下载".tl);
-      return;
-    }
-    for (var i in downloadManager.downloading) {
-      if (i.id == id) {
-        showToast(message: "下载中".tl);
-        return;
-      }
-    }
-    downloadManager.addEhDownload(data!, type);
-    showToast(message: "已加入下载队列".tl);
-  }
-
-  @override
-  void openFavoritePanel() {
-    favoriteComic(FavoriteComicWidget(
-      havePlatformFavorite: ehentai.isLogin,
-      needLoadFolderData: false,
-      folders: Map<String, String>.fromIterable(
-        EhNetwork().folderNames,
-      ),
-      favoriteOnPlatform: data!.favorite,
-      localFavoriteItem: toLocalFavoriteItem(),
-      setFavorite: (b) {
-        if (favorite != b) {
-          favorite = b;
-          update();
-        }
-      },
-      selectFolderCallback: (folder, page) async {
-        if (page == 0) {
-          var res = await EhNetwork().favorite(
-              data!.auth!["gid"]!, data!.auth!["token"]!,
-              id: EhNetwork().folderNames.indexOf(folder).toString());
-          if (res) {
-            data!.favorite = true;
-            return const Res(true);
-          } else {
-            return Res.error("网络错误".tl);
-          }
-        } else {
-          LocalFavoritesManager()
-              .addComic(folder, FavoriteItem.fromEhentai(data!.toBrief()));
-          return const Res(true);
-        }
-      },
-      cancelPlatformFavorite: () async {
-        var res = await EhNetwork()
-            .unfavorite(data!.auth!["gid"]!, data!.auth!["token"]!);
-        if (res) {
-          data!.favorite = false;
-          return const Res(true);
-        } else {
-          return Res.error("网络错误".tl);
-        }
-      },
-    ));
-  }
-
-  @override
-  void read(History? history) async {
-    history = await History.createIfNull(history, data!);
-    App.globalTo(
-      () => ComicReadingPage.ehentai(
-        data!,
-        initialPage: history!.page,
-      ),
-    );
-  }
-
-  @override
-  ActionFunc? get openComments => () =>
-      showComments(App.globalContext!, link, data!.uploader, data!.auth ?? {});
-
-  @override
-  String get downloadedId => downloadManager.getDownloadIdFromComicId(comicType, link);
-
-  @override
-  ComicType get comicType => ComicType.ehentai;
 }
 
 class RatingLogic extends StateController {
@@ -609,9 +76,7 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
   @override
   Widget build(BuildContext context) {
     if (failed) {
-      return const Center(
-        child: Icon(Icons.error),
-      );
+      return const Center(child: Icon(Icons.error));
     }
 
     if (image == null) {
@@ -620,11 +85,12 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
       return CustomPaint(
         key: ValueKey('${widget.index}'),
         painter: _EhThumbnailPainter(
-            widget.index, widget.pageSize, widget.width, image!),
-        child: const SizedBox(
-          width: double.infinity,
-          height: double.infinity,
+          widget.index,
+          widget.pageSize,
+          widget.width,
+          image!,
         ),
+        child: const SizedBox(width: double.infinity, height: double.infinity),
       );
     }
   }
@@ -632,19 +98,22 @@ class _EhThumbnailLoaderState extends State<EhThumbnailLoader> {
   Future<void> _loadImage() async {
     final imageStream = widget.image.resolve(ImageConfiguration.empty);
 
-    var listener = ImageStreamListener((imageInfo, _) {
-      if (mounted) {
-        setState(() {
-          image = imageInfo.image;
-        });
-      }
-    }, onError: (error, stack) {
-      if (mounted) {
-        setState(() {
-          failed = true;
-        });
-      }
-    });
+    var listener = ImageStreamListener(
+      (imageInfo, _) {
+        if (mounted) {
+          setState(() {
+            image = imageInfo.image;
+          });
+        }
+      },
+      onError: (error, stack) {
+        if (mounted) {
+          setState(() {
+            failed = true;
+          });
+        }
+      },
+    );
 
     imageStream.addListener(listener);
   }
@@ -664,14 +133,12 @@ class _EhThumbnailPainter extends CustomPainter {
     final end = start + width;
     final rect = Rect.fromLTRB(0, 0, size.width, size.height);
     final srcRect = Rect.fromLTRB(
-        start.toDouble(), 0, end.toDouble(), image.height.toDouble());
-    //logger.d("#${image.hashCode.toRadixString(16)} $index, start: $start, end: $end");
-    canvas.drawImageRect(
-      image,
-      srcRect,
-      rect,
-      Paint(),
+      start.toDouble(),
+      0,
+      end.toDouble(),
+      image.height.toDouble(),
     );
+    canvas.drawImageRect(image, srcRect, rect, Paint());
   }
 
   @override
@@ -705,15 +172,16 @@ class RatingWidget extends StatefulWidget {
   /// Callbacks when ratings change
   final ValueChanged<double> onRatingUpdate;
 
-  const RatingWidget(
-      {super.key,
-      this.maxRating = 10.0,
-      this.count = 5,
-      this.value = 10.0,
-      this.size = 20,
-      required this.padding,
-      this.selectAble = false,
-      required this.onRatingUpdate});
+  const RatingWidget({
+    super.key,
+    this.maxRating = 10.0,
+    this.count = 5,
+    this.value = 10.0,
+    this.size = 20,
+    required this.padding,
+    this.selectAble = false,
+    required this.onRatingUpdate,
+  });
 
   @override
   State<RatingWidget> createState() => _RatingWidgetState();
@@ -756,7 +224,8 @@ class _RatingWidgetState extends State<RatingWidget> {
           break;
         } else if (dx > widget.size * (i - 1) + widget.padding * (i - 1) &&
             dx < widget.size * i + widget.padding * i) {
-          value = (dx - widget.padding * (i - 1)) /
+          value =
+              (dx - widget.padding * (i - 1)) /
               (widget.size * widget.count) *
               widget.maxRating;
           break;
@@ -795,21 +264,23 @@ class _RatingWidgetState extends State<RatingWidget> {
     List<Widget> children = [];
     for (int i = 0; i < full; i++) {
       children.add(
-          Icon(Icons.star, size: widget.size, color: const Color(0xffffbf00)));
+        Icon(Icons.star, size: widget.size, color: const Color(0xffffbf00)),
+      );
       if (i < widget.count - 1) {
-        children.add(
-          SizedBox(
-            width: widget.padding,
-          ),
-        );
+        children.add(SizedBox(width: widget.padding));
       }
     }
     if (full < widget.count) {
-      children.add(ClipRect(
-        clipper: SMClipper(rating: star() * widget.size),
-        child:
-            Icon(Icons.star, size: widget.size, color: const Color(0xffffbf00)),
-      ));
+      children.add(
+        ClipRect(
+          clipper: SMClipper(rating: star() * widget.size),
+          child: Icon(
+            Icons.star,
+            size: widget.size,
+            color: const Color(0xffffbf00),
+          ),
+        ),
+      );
     }
 
     return children;
@@ -818,15 +289,15 @@ class _RatingWidgetState extends State<RatingWidget> {
   List<Widget> buildNormalRow() {
     List<Widget> children = [];
     for (int i = 0; i < widget.count; i++) {
-      children.add(Icon(
-        Icons.star_border,
-        size: widget.size,
-        color: const Color(0xffffbf00),
-      ));
+      children.add(
+        Icon(
+          Icons.star_border,
+          size: widget.size,
+          color: const Color(0xffffbf00),
+        ),
+      );
       if (i < widget.count - 1) {
-        children.add(SizedBox(
-          width: widget.padding,
-        ));
+        children.add(SizedBox(width: widget.padding));
       }
     }
     return children;
@@ -835,12 +306,8 @@ class _RatingWidgetState extends State<RatingWidget> {
   Widget buildRowRating() {
     return Stack(
       children: <Widget>[
-        Row(
-          children: buildNormalRow(),
-        ),
-        Row(
-          children: buildRow(),
-        )
+        Row(children: buildNormalRow()),
+        Row(children: buildRow()),
       ],
     );
   }
