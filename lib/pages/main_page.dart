@@ -69,6 +69,7 @@ class MainPageState extends State<MainPage> {
   GlobalKey<NavigatorState>? _navigatorKey;
 
   late final NaviObserver _observer;
+  late final HeroController _heroController;
 
   void to(Widget Function() widget, {bool preventDuplicate = false}) async {
     if (preventDuplicate) {
@@ -83,15 +84,13 @@ class MainPageState extends State<MainPage> {
   }
 
   List<Widget> get _pages => [
-        const MePage(),
-        FavoritesPage(),
-        ExplorePage(
-          key: Key(appdata.appSettings.explorePages.length.toString()),
-        ),
-        const AllCategoryPage(),
-        const DownloadPage(showBack: false),
-        const LocalComicPage(),
-      ];
+    const MePage(),
+    FavoritesPage(),
+    ExplorePage(key: Key(appdata.appSettings.explorePages.length.toString())),
+    const AllCategoryPage(),
+    const DownloadPage(showBack: false),
+    const LocalComicPage(),
+  ];
 
   void _login() {
     network.updateProfile().then((res) {
@@ -120,7 +119,10 @@ class MainPageState extends State<MainPage> {
     var s = await SharedPreferences.getInstance();
     var lastCheck = s.getInt("lastCheckUpdate");
     if (lastCheck != null) {
-      if (DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastCheck)).inDays < 1) {
+      if (DateTime.now()
+              .difference(DateTime.fromMillisecondsSinceEpoch(lastCheck))
+              .inDays <
+          1) {
         return;
       }
     }
@@ -133,30 +135,33 @@ class MainPageState extends State<MainPage> {
     var info = await getUpdatesInfo();
     if (info == null) return;
     showDialog(
-        context: App.globalContext!,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Text("有可用更新".tl),
-            content: Text(info),
-            actions: [
-              TextButton(
-                  onPressed: () {
-                    dialogContext.pop();
-                    appdata.settings[2] = "0";
-                    appdata.writeData();
-                  },
-                  child: const Text("关闭更新检查")),
-              TextButton(onPressed: dialogContext.pop, child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () {
-                    getDownloadUrl().then((s) {
-                      launchUrlString(s, mode: LaunchMode.externalApplication);
-                    });
-                  },
-                  child: Text("下载".tl))
-            ],
-          );
-        });
+      context: App.globalContext!,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text("有可用更新".tl),
+          content: Text(info),
+          actions: [
+            TextButton(
+              onPressed: () {
+                dialogContext.pop();
+                appdata.settings[2] = "0";
+                appdata.writeData();
+              },
+              child: const Text("关闭更新检查"),
+            ),
+            TextButton(onPressed: dialogContext.pop, child: Text("取消".tl)),
+            TextButton(
+              onPressed: () {
+                getDownloadUrl().then((s) {
+                  launchUrlString(s, mode: LaunchMode.externalApplication);
+                });
+              },
+              child: Text("下载".tl),
+            ),
+          ],
+        );
+      },
+    );
 
     // if (appdata.settings[80] == "1") {
     //   ComicSourceSettings.checkCustomComicSourceUpdate();
@@ -177,11 +182,12 @@ class MainPageState extends State<MainPage> {
                 actions: [
                   TextButton(onPressed: dialogContext.pop, child: Text("否".tl)),
                   TextButton(
-                      onPressed: () {
-                        downloadManager.start();
-                        dialogContext.pop();
-                      },
-                      child: Text("是".tl))
+                    onPressed: () {
+                      downloadManager.start();
+                      dialogContext.pop();
+                    },
+                    child: Text("是".tl),
+                  ),
                 ],
               );
             },
@@ -206,9 +212,12 @@ class MainPageState extends State<MainPage> {
       appdata.writeData();
     }
 
-    Future.delayed(const Duration(milliseconds: 300), () => Webdav.syncData())
-        .then((v) => checkClipboard());
+    Future.delayed(
+      const Duration(milliseconds: 300),
+      () => Webdav.syncData(),
+    ).then((v) => checkClipboard());
     _observer = NaviObserver();
+    _heroController = HeroController();
     super.initState();
   }
 
@@ -219,21 +228,24 @@ class MainPageState extends State<MainPage> {
       observer: _observer,
       paneItems: [
         PaneItemEntry(
-            label: '我'.tl,
-            icon: Icons.person_outline,
-            activeIcon: Icons.person),
+          label: '我'.tl,
+          icon: Icons.person_outline,
+          activeIcon: Icons.person,
+        ),
         PaneItemEntry(
-            label: '收藏'.tl,
-            icon: Icons.local_activity_outlined,
-            activeIcon: Icons.local_activity),
+          label: '收藏'.tl,
+          icon: Icons.local_activity_outlined,
+          activeIcon: Icons.local_activity,
+        ),
         PaneItemEntry(
-            label: '探索'.tl,
-            icon: Icons.explore_outlined,
-            activeIcon: Icons.explore),
+          label: '探索'.tl,
+          icon: Icons.explore_outlined,
+          activeIcon: Icons.explore,
+        ),
         PaneItemEntry(
-            label: '分类'.tl,
-            icon: Icons.account_tree_outlined,
-            activeIcon: Icons.account_tree,
+          label: '分类'.tl,
+          icon: Icons.account_tree_outlined,
+          activeIcon: Icons.account_tree,
         ),
         PaneItemEntry(
           label: '下载'.tl,
@@ -248,17 +260,21 @@ class MainPageState extends State<MainPage> {
       ],
       paneActions: [
         PaneActionEntry(
-            icon: Icons.search,
-            label: "搜索".tl,
-            onTap: () => to(() => PreSearchPage(), preventDuplicate: true)),
+          icon: Icons.search,
+          label: "搜索".tl,
+          onTap: () => to(() => PreSearchPage(), preventDuplicate: true),
+        ),
         PaneActionEntry(
-            icon: Icons.settings,
-            label: "设置".tl,
-            onTap: () => SettingsPage.open()),
+          icon: Icons.settings,
+          label: "设置".tl,
+          onTap: () => SettingsPage.open(
+            context: _navigatorKey?.currentContext ?? context,
+          ),
+        ),
       ],
       pageBuilder: (index) {
         return Navigator(
-          observers: [_observer],
+          observers: [_heroController, _observer],
           key: _navigatorKey,
           onGenerateRoute: (settings) => AppPageRoute(
             preventRebuild: false,
@@ -272,13 +288,15 @@ class MainPageState extends State<MainPage> {
       onPageChange: (index) {
         HapticFeedback.selectionClick();
         _navigatorKey!.currentState?.pushAndRemoveUntil(
-            AppPageRoute(
-                preventRebuild: false,
-                isRootRoute: true,
-                builder: (context) {
-                  return NaviPaddingWidget(child: _pages[index]);
-                }),
-            (route) => false);
+          AppPageRoute(
+            preventRebuild: false,
+            isRootRoute: true,
+            builder: (context) {
+              return NaviPaddingWidget(child: _pages[index]);
+            },
+          ),
+          (route) => false,
+        );
       },
     );
   }

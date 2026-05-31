@@ -44,7 +44,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   ComicType get comicType => _comicType;
 
   @override
-  String tag(String id) => "${comicType.name} comic page with id: $id";
+  String tag(String id) => comicPageTag(comicType, id);
 
   @override
   String downloadId(String id) =>
@@ -64,8 +64,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   }
 
   @override
-  Future<ComicInfoData?> loadCachedData(String id) =>
-      SynchronousFuture(null);
+  Future<ComicInfoData?> loadCachedData(String id) => SynchronousFuture(null);
 
   @override
   Future<bool> loadFavorite(ComicInfoData data) async =>
@@ -94,24 +93,16 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   @override
   EpsData? eps(ComicInfoData data, BuildContext context) {
     if (data.chapters == null || data.chapters!.isEmpty) return null;
-    return EpsData(
-      data.chapters!.values.toList(),
-      (ep) async {
-        await History.findOrCreate(data);
-        App.globalTo(
-          () => ComicReadingPage(
-            CustomReadingData(
-              data.target,
-              data.title,
-              _source!,
-              data.chapters,
-            ),
-            0,
-            ep + 1,
-          ),
-        );
-      },
-    );
+    return EpsData(data.chapters!.values.toList(), (ep) async {
+      await History.findOrCreate(data);
+      App.globalTo(
+        () => ComicReadingPage(
+          CustomReadingData(data.target, data.title, _source!, data.chapters),
+          0,
+          ep + 1,
+        ),
+      );
+    });
   }
 
   @override
@@ -139,18 +130,20 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   String? likeCount(ComicInfoData data) => null;
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required ComicInfoData data, List<String>? localImages}) {
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required ComicInfoData data,
+    List<String>? localImages,
+  }) {
     var url = imageUrl;
     if (localImages != null && index < localImages.length) {
       url = Uri.file(localImages[index]).toString();
     }
     return PicaImage(
       url: url,
-      headers: {
-        "sourceKey": comicType.name,
-        "isThumbnail": "true",
-      },
+      headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
       fit: BoxFit.contain,
       memCacheWidth: 200,
     );
@@ -163,12 +156,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     final h = await History.createIfNull(history, data);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(
-          data.target,
-          data.title,
-          _source!,
-          data.chapters,
-        ),
+        CustomReadingData(data.target, data.title, _source!, data.chapters),
         h!.page,
         h.ep,
       ),
@@ -177,8 +165,10 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   void download(ComicInfoData data, BuildContext context) {
-    final downloadId =
-        downloadManager.getDownloadIdFromComicId(comicType, data.comicId);
+    final downloadId = downloadManager.getDownloadIdFromComicId(
+      comicType,
+      data.comicId,
+    );
     final eps = data.chapters?.values.toList();
 
     for (var i in downloadManager.downloading) {
@@ -195,8 +185,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
           showToast(message: "已下载".tl);
           return;
         }
-        var downloadedComic =
-            await downloadManager.getComicOrNull(downloadId);
+        var downloadedComic = await downloadManager.getComicOrNull(downloadId);
         downloaded.addAll(downloadedComic!.downloadedEps);
       } else {
         if (eps == null) {
@@ -232,22 +221,20 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
           builder: (ctx) => child,
         );
       } else {
-        showSideBar(
-          App.globalContext!,
-          child,
-          useSurfaceTintColor: true,
-        );
+        showSideBar(App.globalContext!, child, useSurfaceTintColor: true);
       }
     });
   }
 
   @override
   void openFavoritePanel(
-      ComicInfoData data, ComicPageBridge bridge, BuildContext context) {
+    ComicInfoData data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final source = _source;
     final widget = FavoriteComicWidget(
-      havePlatformFavorite:
-          source?.favoriteData != null && source!.isLogin,
+      havePlatformFavorite: source?.favoriteData != null && source!.isLogin,
       needLoadFolderData: source?.favoriteData?.multiFolder ?? false,
       folders: {
         if (!(source?.favoriteData?.multiFolder ?? false))
@@ -256,8 +243,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       foldersLoader: source?.favoriteData?.loadFolders == null
           ? null
           : () => source!.favoriteData!.loadFolders!(data.comicId),
-      initialFolder:
-          (source?.favoriteData?.multiFolder ?? false) ? null : '0',
+      initialFolder: (source?.favoriteData?.multiFolder ?? false) ? null : '0',
       localFavoriteItem: toLocalFavoriteItem(data),
       setFavorite: (b) {
         if (bridge.favorite != b) {
@@ -268,30 +254,42 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       favoriteOnPlatform: data.isFavorite,
       selectFolderCallback: (folder, type) async {
         if (type == 1) {
-          LocalFavoritesManager()
-              .addComic(folder, toLocalFavoriteItem(data));
+          LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
           return const Res(true);
         }
         final res = await source?.favoriteData?.addOrDelFavorite?.call(
-            data.comicId, folder, true);
+          data.comicId,
+          folder,
+          true,
+        );
         return res ?? const Res.error("Not supported");
       },
       cancelPlatformFavorite: () async {
         final res = await source?.favoriteData?.addOrDelFavorite?.call(
-            data.comicId, '0', false);
+          data.comicId,
+          '0',
+          false,
+        );
         return res ?? const Res.error("");
       },
       cancelPlatformFavoriteWithFolder: (folder) {
         return source?.favoriteData?.addOrDelFavorite?.call(
-                data.comicId, folder, false) ??
+              data.comicId,
+              folder,
+              false,
+            ) ??
             Future.value(const Res.error(""));
       },
     );
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
@@ -313,8 +311,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   // 因此保留在 comic_page.dart 中，此处不做处理
   Widget _buildCommentsPage(ComicInfoData data, ComicSource source) {
     // 委托给 comic_page.dart 中的 _CommentsPage
-    throw UnimplementedError(
-        'Comments page is implemented in comic_page.dart');
+    throw UnimplementedError('Comments page is implemented in comic_page.dart');
   }
 
   @override
@@ -328,28 +325,32 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   void onTagTapped(
-      String tag, String key, ComicInfoData data, BuildContext context) {
-    Navigator.of(context).push(AppPageRoute(
-      builder: (context) => SearchResultPage(
-        keyword: tag,
-        options: const [],
-        comicType: comicType,
+    String tag,
+    String key,
+    ComicInfoData data,
+    BuildContext context,
+  ) {
+    Navigator.of(context).push(
+      AppPageRoute(
+        builder: (context) => SearchResultPage(
+          keyword: tag,
+          options: const [],
+          comicType: comicType,
+        ),
       ),
-    ));
+    );
   }
 
   @override
   void onThumbnailTapped(
-      int index, ComicInfoData data, BuildContext context) async {
+    int index,
+    ComicInfoData data,
+    BuildContext context,
+  ) async {
     await History.findOrCreate(data);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(
-          data.target,
-          data.title,
-          _source!,
-          data.chapters,
-        ),
+        CustomReadingData(data.target, data.title, _source!, data.chapters),
         index + 1,
         1,
       ),
@@ -371,19 +372,33 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   Widget? buildMoreInfo(ComicInfoData data, BuildContext context) => null;
 
   @override
-  List<Widget>? buildExtraActionButtons(ComicInfoData data,
-      BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback,
-              [VoidCallback?])
-          buildActionItem) =>
-      null;
+  List<Widget>? buildExtraActionButtons(
+    ComicInfoData data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) => null;
 
   @override
   FavoriteItem toLocalFavoriteItem(ComicInfoData data) {
     var tags = <String>[];
     data.tags.forEach((key, value) => tags.addAll(value));
-    return FavoriteItem.fromBaseComic(CustomComic(data.title,
-        data.subTitle ?? "", data.cover, data.comicId, tags, "", comicType.name));
+    return FavoriteItem.fromBaseComic(
+      CustomComic(
+        data.title,
+        data.subTitle ?? "",
+        data.cover,
+        data.comicId,
+        tags,
+        "",
+        comicType.name,
+      ),
+    );
   }
-
 }

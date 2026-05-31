@@ -25,13 +25,17 @@ import 'comments.dart';
 // ============================================================================
 
 class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
-  @override String get source => "Nhentai";
-  @override ComicType get comicType => ComicType.nhentai;
+  @override
+  String get source => "Nhentai";
+  @override
+  ComicType get comicType => ComicType.nhentai;
 
   String _resolveId(NhentaiComic data) => data.id;
 
-  @override String tag(String id) => "Nhentai $id";
-  @override String downloadId(String id) => "nhentai$id";
+  @override
+  String tag(String id) => comicPageTag(comicType, id);
+  @override
+  String downloadId(String id) => "nhentai$id";
 
   @override
   String url(NhentaiComic data) => "https://nhentai.net/g/${data.id}/";
@@ -41,27 +45,36 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   Future<Res<NhentaiComic>> loadData(String id) =>
       NhentaiNetwork().getComicInfo(id);
 
-  @override Future<NhentaiComic?> loadCachedData(String id) =>
-      SynchronousFuture(null);
+  @override
+  Future<NhentaiComic?> loadCachedData(String id) => SynchronousFuture(null);
 
   @override
   Future<bool> loadFavorite(NhentaiComic data) async =>
       data.favorite ||
-      (await LocalFavoritesManager()
-              .findWithModel(toLocalFavoriteItem(data)))
-          .isNotEmpty;
+      (await LocalFavoritesManager().findWithModel(
+        toLocalFavoriteItem(data),
+      )).isNotEmpty;
 
   // -------- C. 元数据提取 --------
-  @override String? title(NhentaiComic data) => data.title;
-  @override String? subTitle(NhentaiComic data) => data.subTitle;
-  @override String? cover(NhentaiComic data) => data.cover;
-  @override int? pages(NhentaiComic data) =>
+  @override
+  String? title(NhentaiComic data) => data.title;
+  @override
+  String? subTitle(NhentaiComic data) => data.subTitle;
+  @override
+  String? cover(NhentaiComic data) => data.cover;
+  @override
+  int? pages(NhentaiComic data) =>
       int.tryParse(data.tags["Pages"]?.elementAtOrNull(0) ?? "");
-  @override String? introduction(NhentaiComic data) => null;
-  @override bool? favoriteOnPlatformInitial(NhentaiComic data) => data.favorite;
-  @override String? commentsCount(NhentaiComic data) => null;
-  @override String? likeCount(NhentaiComic data) => null;
-  @override bool get enableTranslationToCN => App.locale.languageCode == "zh";
+  @override
+  String? introduction(NhentaiComic data) => null;
+  @override
+  bool? favoriteOnPlatformInitial(NhentaiComic data) => data.favorite;
+  @override
+  String? commentsCount(NhentaiComic data) => null;
+  @override
+  String? likeCount(NhentaiComic data) => null;
+  @override
+  bool get enableTranslationToCN => App.locale.languageCode == "zh";
 
   @override
   Map<String, List<String>>? tags(NhentaiComic data) {
@@ -71,32 +84,40 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     return tags;
   }
 
-  @override EpsData? eps(NhentaiComic data, BuildContext context) => null;
+  @override
+  EpsData? eps(NhentaiComic data, BuildContext context) => null;
 
   @override
   ThumbnailsData? createThumbnails(NhentaiComic data) =>
       ThumbnailsData(data.thumbnails, (page) async => const Res([]), 1);
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required NhentaiComic data, List<String>? localImages}) {
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required NhentaiComic data,
+    List<String>? localImages,
+  }) {
     var url = imageUrl;
     if (localImages != null && index < localImages.length) {
       url = Uri.file(localImages[index]).toString();
     }
     return PicaImage(
-        url: url,
-        fit: BoxFit.contain,
-        headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
-        memCacheWidth: 200);
+      url: url,
+      fit: BoxFit.contain,
+      headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
+      memCacheWidth: 200,
+    );
   }
 
   // -------- D. 操作 --------
   @override
   void read(NhentaiComic data, History? history, BuildContext context) async {
     final h = await History.createIfNull(history, data);
-    App.globalTo(() => ComicReadingPage.nhentai(data.id, data.title,
-        initialPage: h!.page));
+    App.globalTo(
+      () => ComicReadingPage.nhentai(data.id, data.title, initialPage: h!.page),
+    );
   }
 
   @override
@@ -118,7 +139,10 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
 
   @override
   void openFavoritePanel(
-      NhentaiComic data, ComicPageBridge bridge, BuildContext context) {
+    NhentaiComic data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: NhentaiNetwork().logged,
       needLoadFolderData: false,
@@ -134,8 +158,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       folders: const {"0": "Nhentai"},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await NhentaiNetwork()
-              .favoriteComic(data.id, data.token);
+          var res = await NhentaiNetwork().favoriteComic(data.id, data.token);
           if (res.success) data.favorite = true;
           return res;
         }
@@ -143,8 +166,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
-        var res = await NhentaiNetwork()
-            .unfavoriteComic(data.id, data.token);
+        var res = await NhentaiNetwork().unfavoriteComic(data.id, data.token);
         if (res.success) data.favorite = false;
         return res;
       },
@@ -152,8 +174,12 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
@@ -162,8 +188,10 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     showComments(App.globalContext!, data.id);
   };
 
-  @override ActionFunc? onLike(NhentaiComic data, BuildContext context) => null;
-  @override bool isLiked(NhentaiComic data) => false;
+  @override
+  ActionFunc? onLike(NhentaiComic data, BuildContext context) => null;
+  @override
+  bool isLiked(NhentaiComic data) => false;
 
   @override
   ActionFunc? searchSimilar(NhentaiComic data, BuildContext context) => () {
@@ -173,15 +201,23 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     title = title
         .replaceAll(RegExp(r"\[.*?\]"), "")
         .replaceAll(RegExp(r"\(.*?\)"), "");
-    Navigator.of(context).push(AppPageRoute(
-      builder: (_) => SearchResultPage(
-        keyword: "\"$title\"".trim(), comicType: comicType),
-    ));
+    Navigator.of(context).push(
+      AppPageRoute(
+        builder: (_) => SearchResultPage(
+          keyword: "\"$title\"".trim(),
+          comicType: comicType,
+        ),
+      ),
+    );
   };
 
   @override
-  void onTagTapped(String tag, String key, NhentaiComic data,
-      BuildContext context) {
+  void onTagTapped(
+    String tag,
+    String key,
+    NhentaiComic data,
+    BuildContext context,
+  ) {
     var t = tag;
     if (t.contains(" | ")) t = t.replaceAll(' | ', '-');
     if (t.contains(" ")) t = t.replaceAll(' ', '-');
@@ -196,22 +232,35 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       _ => null,
     };
     if (param == null) {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) =>
-            SearchResultPage(keyword: tag, comicType: comicType)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) => SearchResultPage(keyword: tag, comicType: comicType),
+        ),
+      );
     } else {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) => CategoryComicsPage(
-            category: tag, comicType: comicType, param: param)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) => CategoryComicsPage(
+            category: tag,
+            comicType: comicType,
+            param: param,
+          ),
+        ),
+      );
     }
   }
 
   @override
   void onThumbnailTapped(
-      int index, NhentaiComic data, BuildContext context) async {
+    int index,
+    NhentaiComic data,
+    BuildContext context,
+  ) async {
     await History.findOrCreate(data);
-    App.globalTo(() => ComicReadingPage.nhentai(data.id, data.title,
-        initialPage: index + 1));
+    App.globalTo(
+      () =>
+          ComicReadingPage.nhentai(data.id, data.title, initialPage: index + 1),
+    );
   }
 
   // -------- E. 自定义UI & 转换 --------
@@ -219,16 +268,34 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   Widget? buildRecommendation(NhentaiComic data, BuildContext context) =>
       SliverGridComics(comics: data.recommendations, comicType: comicType);
 
-  @override Card? buildUploaderInfo(NhentaiComic data, BuildContext context) => null;
-  @override Widget? buildMoreInfo(NhentaiComic data, BuildContext context) => null;
+  @override
+  Card? buildUploaderInfo(NhentaiComic data, BuildContext context) => null;
+  @override
+  Widget? buildMoreInfo(NhentaiComic data, BuildContext context) => null;
 
   @override
-  List<Widget>? buildExtraActionButtons(NhentaiComic data, BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-          buildActionItem) => null;
+  List<Widget>? buildExtraActionButtons(
+    NhentaiComic data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) => null;
 
   @override
   FavoriteItem toLocalFavoriteItem(NhentaiComic data) =>
-      FavoriteItem.fromNhentai(NhentaiComicBrief(data.title, data.cover,
-          data.id, "Unknown", data.tags["Tags"] ?? const <String>[]));
+      FavoriteItem.fromNhentai(
+        NhentaiComicBrief(
+          data.title,
+          data.cover,
+          data.id,
+          "Unknown",
+          data.tags["Tags"] ?? const <String>[],
+        ),
+      );
 }

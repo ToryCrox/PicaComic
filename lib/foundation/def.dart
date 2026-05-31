@@ -5,22 +5,31 @@ typedef ActionFunc = void Function();
 enum ComicType {
   /// 哔咔
   picacg,
+
   /// E-Hentai
   ehentai,
+
   /// 禁漫天堂
   jm,
+
   /// Hitomi
   hitomi,
+
   /// 绅士漫画
   htmanga,
+
   /// 绅士漫画收藏
   htFavorite,
+
   /// nhentai
   nhentai,
+
   /// Kemono
   kemono,
+
   /// 本地漫画
   local,
+
   /// 其他
   other;
 
@@ -35,6 +44,25 @@ enum ComicType {
     }
     return ComicType.other;
   }
+}
+
+/// 生成漫画详情页内部使用的稳定标签。
+String comicPageTag(ComicType comicType, String id) {
+  return switch (comicType) {
+    ComicType.picacg => "Picacg Comic Page $id",
+    ComicType.ehentai => "Eh ComicPage $id",
+    ComicType.jm => "${comicType.name} comic page $id",
+    ComicType.hitomi => "Hitomi $id",
+    ComicType.htmanga => "HtManga $id",
+    ComicType.nhentai => "Nhentai $id",
+    ComicType.kemono => "Kemono $id",
+    _ => "${comicType.name} comic page with id: $id",
+  };
+}
+
+/// 生成漫画封面在列表页和详情页之间共享的 Hero 标签。
+String comicCoverHeroTag(ComicType comicType, String id) {
+  return "image${comicPageTag(comicType, id)}";
 }
 
 const String webUA =
@@ -69,5 +97,5 @@ const builtInSources = [
   ComicType.hitomi,
   ComicType.htmanga,
   ComicType.nhentai,
-  ComicType.kemono
+  ComicType.kemono,
 ];

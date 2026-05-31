@@ -35,19 +35,24 @@ import 'eh_gallery_page.dart' show RatingLogic, RatingWidget, EhThumbnailLoader;
 // ============================================================================
 
 class EhAdapter extends ComicPageAdapter<Gallery> {
-  @override String get source => "EHentai";
-  @override ComicType get comicType => ComicType.ehentai;
-  @override String tag(String id) => "Eh ComicPage $id";
-  @override String downloadId(String id) =>
+  @override
+  String get source => "EHentai";
+  @override
+  ComicType get comicType => ComicType.ehentai;
+  @override
+  String tag(String id) => comicPageTag(comicType, id);
+  @override
+  String downloadId(String id) =>
       downloadManager.getDownloadIdFromComicId(comicType, id);
-  @override String url(Gallery data) => data.link ?? '';
-  @override bool get enableTranslationToCN => App.locale.languageCode == "zh";
+  @override
+  String url(Gallery data) => data.link ?? '';
+  @override
+  bool get enableTranslationToCN => App.locale.languageCode == "zh";
 
   // -------- B. 数据加载 --------
   @override
   Future<Res<Gallery>> loadData(String id) async {
-    var res = await EhNetwork()
-        .getGalleryInfo(id, appdata.settings[47] == "1");
+    var res = await EhNetwork().getGalleryInfo(id, appdata.settings[47] == "1");
     if (res.error && res.errorMessage == "Content Warning") {
       bool shouldIgnore = false;
       await showDialog(
@@ -56,15 +61,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
           title: Text("警告".tl),
           content: Text("此画廊存在令人不适的内容\n在设置中可以禁用此警告".tl),
           actions: [
+            TextButton(onPressed: () => App.globalBack(), child: Text("返回".tl)),
             TextButton(
-                onPressed: () => App.globalBack(),
-                child: Text("返回".tl)),
-            TextButton(
-                onPressed: () {
-                  shouldIgnore = true;
-                  App.globalBack();
-                },
-                child: Text("忽略".tl)),
+              onPressed: () {
+                shouldIgnore = true;
+                App.globalBack();
+              },
+              child: Text("忽略".tl),
+            ),
           ],
         ),
       );
@@ -83,9 +87,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   @override
   Future<Gallery?> loadCachedData(String id) async {
     var data = await DiskCache.readModel(
-        tag(id), (map) => Gallery.fromJson(map));
+      tag(id),
+      (map) => Gallery.fromJson(map),
+    );
     if (data != null) return data;
-    final dId = downloadManager.getDownloadIdFromComicId(comicType, data?.link ?? "");
+    final dId = downloadManager.getDownloadIdFromComicId(
+      comicType,
+      data?.link ?? "",
+    );
     if (dId.isNotEmpty && await downloadManager.isExists(dId)) {
       var downloaded = await downloadManager.getComicOrNull(dId);
       if (downloaded is DownloadedGallery) return downloaded.gallery;
@@ -96,21 +105,28 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   @override
   Future<bool> loadFavorite(Gallery data) async =>
       data.favorite ||
-      (await LocalFavoritesManager()
-              .findWithModel(toLocalFavoriteItem(data)))
-          .isNotEmpty;
+      (await LocalFavoritesManager().findWithModel(
+        toLocalFavoriteItem(data),
+      )).isNotEmpty;
 
   // -------- C. 元数据提取 --------
-  @override String? title(Gallery data) => data.title;
-  @override String? subTitle(Gallery data) => data.subTitle;
+  @override
+  String? title(Gallery data) => data.title;
+  @override
+  String? subTitle(Gallery data) => data.subTitle;
   @override
   String? cover(Gallery data) =>
       data.coverPath?.replaceFirst("s.exhentai.org", "ehgt.org");
-  @override int? pages(Gallery data) => int.tryParse(data.maxPage ?? "");
-  @override String? introduction(Gallery data) => null;
-  @override bool? favoriteOnPlatformInitial(Gallery data) => data.favorite;
-  @override String? commentsCount(Gallery data) => null;
-  @override String? likeCount(Gallery data) => null;
+  @override
+  int? pages(Gallery data) => int.tryParse(data.maxPage ?? "");
+  @override
+  String? introduction(Gallery data) => null;
+  @override
+  bool? favoriteOnPlatformInitial(Gallery data) => data.favorite;
+  @override
+  String? commentsCount(Gallery data) => null;
+  @override
+  String? likeCount(Gallery data) => null;
 
   @override
   Map<String, List<String>>? tags(Gallery data) => {
@@ -120,29 +136,37 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     ...data.tags,
   };
 
-  @override EpsData? eps(Gallery data, BuildContext context) => null;
+  @override
+  EpsData? eps(Gallery data, BuildContext context) => null;
 
   @override
   ThumbnailsData? createThumbnails(Gallery data) {
     if (data.auth?["thumbnailKey"] != null &&
         data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
       return ThumbnailsData(
-          data.thumbnails,
-          (page) => EhNetwork().getThumbnails(data, page),
-          int.tryParse(data.auth!["thumbnailKey"]!.nums) ?? 1);
+        data.thumbnails,
+        (page) => EhNetwork().getThumbnails(data, page),
+        int.tryParse(data.auth!["thumbnailKey"]!.nums) ?? 1,
+      );
     }
     return ThumbnailsData(
       List.generate(
-          min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
-          (_) => data.auth!["thumbnailKey"]!.split(" ")[0]),
+        min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
+        (_) => data.auth!["thumbnailKey"]!.split(" ")[0],
+      ),
       (page) => EhNetwork().getThumbnails(data, page),
       int.tryParse(data.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1,
     );
   }
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required Gallery data, List<String>? localImages}) {
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required Gallery data,
+    List<String>? localImages,
+  }) {
     if (localImages != null && index < localImages.length) {
       return PicaImage(
         url: Uri.file(localImages[index]).toString(),
@@ -153,20 +177,28 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
     if (data.auth?["thumbnailKey"] != null &&
         data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
-      return PicaImage(url: imageUrl,
-          headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
-          fit: BoxFit.contain, cacheKey: "eh_thumb_${data.link}_$index",
-          memCacheWidth: 200);
+      return PicaImage(
+        url: imageUrl,
+        headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
+        fit: BoxFit.contain,
+        cacheKey: "eh_thumb_${data.link}_$index",
+        memCacheWidth: 200,
+      );
     }
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       key: ValueKey("eh_thumb_${data.link}_$index"),
       child: EhThumbnailLoader(
-        image: CachedNetworkImageProvider(imageUrl,
-            cacheManager: picaImageManager,
-            headers: _headers,
-            cacheKey: "eh_thumb_${data.link}_${index ~/ data.pageSize}"),
-        pageSize: data.pageSize, width: data.width, index: index),
+        image: CachedNetworkImageProvider(
+          imageUrl,
+          cacheManager: picaImageManager,
+          headers: _headers,
+          cacheKey: "eh_thumb_${data.link}_${index ~/ data.pageSize}",
+        ),
+        pageSize: data.pageSize,
+        width: data.width,
+        index: index,
+      ),
     );
   }
 
@@ -180,8 +212,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   @override
   void read(Gallery data, History? history, BuildContext context) async {
     final h = await History.createIfNull(history, data);
-    App.globalTo(
-        () => ComicReadingPage.ehentai(data, initialPage: h!.page));
+    App.globalTo(() => ComicReadingPage.ehentai(data, initialPage: h!.page));
   }
 
   @override
@@ -191,7 +222,10 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   void openFavoritePanel(
-      Gallery data, ComicPageBridge bridge, BuildContext context) {
+    Gallery data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: ehentai.isLogin,
       needLoadFolderData: false,
@@ -206,22 +240,28 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       },
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await EhNetwork()
-              .favorite(data.auth!["gid"]!, data.auth!["token"]!,
-                  id: EhNetwork().folderNames.indexOf(folder).toString());
+          var res = await EhNetwork().favorite(
+            data.auth!["gid"]!,
+            data.auth!["token"]!,
+            id: EhNetwork().folderNames.indexOf(folder).toString(),
+          );
           if (res) {
             data.favorite = true;
             return const Res(true);
           }
           return Res.error("网络错误".tl);
         }
-        LocalFavoritesManager()
-            .addComic(folder, FavoriteItem.fromEhentai(data.toBrief()));
+        LocalFavoritesManager().addComic(
+          folder,
+          FavoriteItem.fromEhentai(data.toBrief()),
+        );
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
-        var res = await EhNetwork()
-            .unfavorite(data.auth!["gid"]!, data.auth!["token"]!);
+        var res = await EhNetwork().unfavorite(
+          data.auth!["gid"]!,
+          data.auth!["token"]!,
+        );
         if (res) {
           data.favorite = false;
           return const Res(true);
@@ -232,19 +272,29 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
   @override
   ActionFunc? openComments(Gallery data, BuildContext context) => () {
     showComments(
-        App.globalContext!, data.link ?? '', data.uploader, data.auth ?? {});
+      App.globalContext!,
+      data.link ?? '',
+      data.uploader,
+      data.auth ?? {},
+    );
   };
 
-  @override ActionFunc? onLike(Gallery data, BuildContext context) => null;
-  @override bool isLiked(Gallery data) => false;
+  @override
+  ActionFunc? onLike(Gallery data, BuildContext context) => null;
+  @override
+  bool isLiked(Gallery data) => false;
 
   @override
   ActionFunc? searchSimilar(Gallery data, BuildContext context) => () {
@@ -252,14 +302,18 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     title = title
         .replaceAll(RegExp(r"\[.*?\]"), "")
         .replaceAll(RegExp(r"\(.*?\)"), "");
-    Navigator.of(context).push(AppPageRoute(
-      builder: (_) => SearchResultPage(
-          keyword: "\"$title\"".trim(), comicType: comicType)));
+    Navigator.of(context).push(
+      AppPageRoute(
+        builder: (_) => SearchResultPage(
+          keyword: "\"$title\"".trim(),
+          comicType: comicType,
+        ),
+      ),
+    );
   };
 
   @override
-  void onTagTapped(
-      String tag, String key, Gallery data, BuildContext context) {
+  void onTagTapped(String tag, String key, Gallery data, BuildContext context) {
     var namespace = "";
     for (var entry in data.tags.entries) {
       if (entry.value.contains(tag)) {
@@ -271,23 +325,25 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     var t = tag;
     if (t.contains(" ")) t = "\"$t\"";
     if (namespace != "") t = "$namespace:$t";
-    Navigator.of(context).push(AppPageRoute(
-      builder: (_) =>
-          SearchResultPage(keyword: t, comicType: comicType)));
+    Navigator.of(context).push(
+      AppPageRoute(
+        builder: (_) => SearchResultPage(keyword: t, comicType: comicType),
+      ),
+    );
   }
 
   @override
-  void onThumbnailTapped(
-      int index, Gallery data, BuildContext context) async {
+  void onThumbnailTapped(int index, Gallery data, BuildContext context) async {
     await History.findOrCreate(data);
-    App.globalTo(
-        () => ComicReadingPage.ehentai(data, initialPage: index + 1));
+    App.globalTo(() => ComicReadingPage.ehentai(data, initialPage: index + 1));
   }
 
   // -------- E. 自定义UI & 转换 --------
-  @override Widget? buildRecommendation(Gallery data, BuildContext context) => null;
+  @override
+  Widget? buildRecommendation(Gallery data, BuildContext context) => null;
 
-  @override Card? buildUploaderInfo(Gallery data, BuildContext context) => null;
+  @override
+  Card? buildUploaderInfo(Gallery data, BuildContext context) => null;
 
   @override
   Widget? buildMoreInfo(Gallery data, BuildContext context) {
@@ -297,27 +353,45 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
         onTap: () => _showStarRating(context, data),
         child: SizedBox(
           height: 30,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            for (int i = 0; i < (data.stars ~/ 0.5) ~/ 2; i++)
-              const Icon(Icons.star, size: 30, color: Color(0xffffbf00)),
-            if ((data.stars ~/ 0.5) % 2 == 1)
-              const Icon(Icons.star_half, size: 30, color: Color(0xffffbf00)),
-            for (int i = 0;
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < (data.stars ~/ 0.5) ~/ 2; i++)
+                const Icon(Icons.star, size: 30, color: Color(0xffffbf00)),
+              if ((data.stars ~/ 0.5) % 2 == 1)
+                const Icon(Icons.star_half, size: 30, color: Color(0xffffbf00)),
+              for (
+                int i = 0;
                 i < 5 - (data.stars ~/ 0.5) ~/ 2 - (data.stars ~/ 0.5) % 2;
-                i++)
-              const Icon(Icons.star_border, size: 30, color: Color(0xffffbf00)),
-            const SizedBox(width: 5),
-            if (data.rating != null) Text(data.rating!),
-          ]),
+                i++
+              )
+                const Icon(
+                  Icons.star_border,
+                  size: 30,
+                  color: Color(0xffffbf00),
+                ),
+              const SizedBox(width: 5),
+              if (data.rating != null) Text(data.rating!),
+            ],
+          ),
         ),
       ),
     );
   }
 
   @override
-  List<Widget>? buildExtraActionButtons(Gallery data, BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-          buildActionItem) => null;
+  List<Widget>? buildExtraActionButtons(
+    Gallery data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) => null;
 
   @override
   FavoriteItem toLocalFavoriteItem(Gallery data) =>
@@ -342,38 +416,40 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
               child: Center(
                 child: SizedBox(
                   width: 210,
-                  child: Column(children: [
-                    const SizedBox(height: 10),
-                    RatingWidget(
-                      padding: 2,
-                      onRatingUpdate: (value) => logic.rating = value,
-                      value: 0,
-                      selectAble: true,
-                      size: 40,
-                    ),
-                    const Spacer(),
-                    Button.filled(
-                      isLoading: logic.running,
-                      onPressed: () {
-                        logic.running = true;
-                        logic.update();
-                        EhNetwork()
-                            .rateGallery(data.auth!, logic.rating.toInt())
-                            .then((b) {
-                          if (!dialogContext.mounted) return;
-                          if (b) {
-                            Navigator.of(dialogContext).pop();
-                            showToast(message: "评分成功".tl);
-                          } else {
-                            logic.running = false;
-                            logic.update();
-                            showToast(message: "网络错误".tl);
-                          }
-                        });
-                      },
-                      child: Text("提交".tl),
-                    ),
-                  ]),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      RatingWidget(
+                        padding: 2,
+                        onRatingUpdate: (value) => logic.rating = value,
+                        value: 0,
+                        selectAble: true,
+                        size: 40,
+                      ),
+                      const Spacer(),
+                      Button.filled(
+                        isLoading: logic.running,
+                        onPressed: () {
+                          logic.running = true;
+                          logic.update();
+                          EhNetwork()
+                              .rateGallery(data.auth!, logic.rating.toInt())
+                              .then((b) {
+                                if (!dialogContext.mounted) return;
+                                if (b) {
+                                  Navigator.of(dialogContext).pop();
+                                  showToast(message: "评分成功".tl);
+                                } else {
+                                  logic.running = false;
+                                  logic.update();
+                                  showToast(message: "网络错误".tl);
+                                }
+                              });
+                        },
+                        child: Text("提交".tl),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -402,8 +478,9 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
                 cancelUnlock = false;
                 res = await EhNetwork().cancelAndReloadArchiveInfo(info!);
               } else {
-                res = await EhNetwork()
-                    .getArchiveDownloadInfo(data.auth!["archiveDownload"]!);
+                res = await EhNetwork().getArchiveDownloadInfo(
+                  data.auth!["archiveDownload"]!,
+                );
               }
               if (res.error) {
                 showToast(message: "网络错误".tl);
@@ -413,6 +490,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
                 if (ctx.mounted) setState(() {});
               }
             }
+
             if (loading) load();
 
             return Container(
@@ -422,8 +500,10 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("下载".tl, style: const TextStyle(fontSize: 20))
-                      .paddingLeft(16),
+                  Text(
+                    "下载".tl,
+                    style: const TextStyle(fontSize: 20),
+                  ).paddingLeft(16),
                   const Divider(),
                   RadioListTile(
                     value: 0,
@@ -445,21 +525,25 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             RadioListTile(
-                                value: 1,
-                                groupValue: current,
-                                onChanged: (value) =>
-                                    setState(() => current = value as int),
-                                title: Text("Original".tl),
-                                subtitle: Text(
-                                    "${info!.originCost} ${info!.originSize}")),
+                              value: 1,
+                              groupValue: current,
+                              onChanged: (value) =>
+                                  setState(() => current = value as int),
+                              title: Text("Original".tl),
+                              subtitle: Text(
+                                "${info!.originCost} ${info!.originSize}",
+                              ),
+                            ),
                             RadioListTile(
-                                value: 2,
-                                groupValue: current,
-                                onChanged: (value) =>
-                                    setState(() => current = value as int),
-                                title: Text("Resample".tl),
-                                subtitle: Text(
-                                    "${info!.resampleCost} ${info!.resampleSize}")),
+                              value: 2,
+                              groupValue: current,
+                              onChanged: (value) =>
+                                  setState(() => current = value as int),
+                              title: Text("Resample".tl),
+                              subtitle: Text(
+                                "${info!.resampleCost} ${info!.resampleSize}",
+                              ),
+                            ),
                             if (info!.cancelUnlockUrl != null)
                               ListTile(
                                 leading: const Icon(Icons.lock_open),
@@ -493,7 +577,10 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   }
 
   void _startDownload(Gallery data, int type) async {
-    final id = downloadManager.getDownloadIdFromComicId(comicType, data.link ?? '');
+    final id = downloadManager.getDownloadIdFromComicId(
+      comicType,
+      data.link ?? '',
+    );
     if (await downloadManager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;

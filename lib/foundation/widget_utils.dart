@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/app_page_route.dart';
 
 extension WidgetExtension on Widget {
   Widget padding(EdgeInsetsGeometry padding) {
@@ -9,29 +8,45 @@ extension WidgetExtension on Widget {
   }
 
   Widget paddingLeft(double padding) {
-    return Padding(padding: EdgeInsets.only(left: padding), child: this);
+    return Padding(
+      padding: EdgeInsets.only(left: padding),
+      child: this,
+    );
   }
 
   Widget paddingRight(double padding) {
-    return Padding(padding: EdgeInsets.only(right: padding), child: this);
+    return Padding(
+      padding: EdgeInsets.only(right: padding),
+      child: this,
+    );
   }
 
   Widget paddingTop(double padding) {
-    return Padding(padding: EdgeInsets.only(top: padding), child: this);
+    return Padding(
+      padding: EdgeInsets.only(top: padding),
+      child: this,
+    );
   }
 
   Widget paddingBottom(double padding) {
-    return Padding(padding: EdgeInsets.only(bottom: padding), child: this);
+    return Padding(
+      padding: EdgeInsets.only(bottom: padding),
+      child: this,
+    );
   }
 
   Widget paddingVertical(double padding) {
     return Padding(
-        padding: EdgeInsets.symmetric(vertical: padding), child: this);
+      padding: EdgeInsets.symmetric(vertical: padding),
+      child: this,
+    );
   }
 
   Widget paddingHorizontal(double padding) {
     return Padding(
-        padding: EdgeInsets.symmetric(horizontal: padding), child: this);
+      padding: EdgeInsets.symmetric(horizontal: padding),
+      child: this,
+    );
   }
 
   Widget paddingAll(double padding) {
@@ -56,12 +71,16 @@ extension WidgetExtension on Widget {
 
   Widget sliverPaddingVertical(double padding) {
     return SliverPadding(
-        padding: EdgeInsets.symmetric(vertical: padding), sliver: this);
+      padding: EdgeInsets.symmetric(vertical: padding),
+      sliver: this,
+    );
   }
 
   Widget sliverPaddingHorizontal(double padding) {
     return SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: padding), sliver: this);
+      padding: EdgeInsets.symmetric(horizontal: padding),
+      sliver: this,
+    );
   }
 
   Widget toSliver() {
@@ -91,13 +110,11 @@ extension ContextExt on BuildContext {
   Brightness get brightness => Theme.of(this).brightness;
 
   Future<T?> to<T>(Widget Function() builder) {
-    return Navigator.of(this)
-        .push<T>(AppPageRoute<T>(builder: (context) => builder()));
+    return App.to<T>(this, builder);
   }
 
   void off(Widget Function() builder) {
-    Navigator.of(this)
-        .pushReplacement(AppPageRoute(builder: (context) => builder()));
+    App.off(this, builder);
   }
 
   void pop() {

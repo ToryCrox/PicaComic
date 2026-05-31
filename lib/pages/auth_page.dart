@@ -5,7 +5,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:pica_comic/pages/main_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 
-class AuthPage extends StatefulWidget {
+class AuthPage extends StatefulWidget implements RootNavigatorPage {
   const AuthPage({Key? key}) : super(key: key);
 
   static bool lock = false;
@@ -21,7 +21,7 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   void initState() {
     AuthPage.lock = true;
     WidgetsBinding.instance.addObserver(this);
-    if(SchedulerBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+    if (SchedulerBinding.instance.lifecycleState == AppLifecycleState.resumed) {
       auth();
     }
     super.initState();
@@ -29,7 +29,10 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if(state == AppLifecycleState.resumed && AuthPage.lock && mounted && !inProgress) {
+    if (state == AppLifecycleState.resumed &&
+        AuthPage.lock &&
+        mounted &&
+        !inProgress) {
       auth();
     }
     super.didChangeAppLifecycleState(state);
@@ -55,10 +58,8 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
                       size: 40,
                       color: context.colorScheme.secondary,
                     ),
-                    const SizedBox(
-                      height: 5,
-                    ),
-                    Text("点击完成身份验证".tl)
+                    const SizedBox(height: 5),
+                    Text("点击完成身份验证".tl),
                   ],
                 ),
               ),
@@ -72,12 +73,13 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
   bool inProgress = false;
 
   void auth() async {
-    if(inProgress) {
+    if (inProgress) {
       return;
     }
     inProgress = true;
-    var res =
-        await LocalAuthentication().authenticate(localizedReason: "需要身份验证".tl);
+    var res = await LocalAuthentication().authenticate(
+      localizedReason: "需要身份验证".tl,
+    );
     inProgress = false;
     if (res) {
       AuthPage.lock = false;

@@ -72,8 +72,13 @@ part "app_settings.dart";
 part 'components.dart';
 
 class SettingsPage extends StatefulWidget {
-  static void open([int initialPage = -1]) {
-    App.globalTo(() => SettingsPage(initialPage: initialPage));
+  static void open({BuildContext? context, int initialPage = -1}) {
+    final page = () => SettingsPage(initialPage: initialPage);
+    if (context != null) {
+      App.to(context, page);
+    } else {
+      App.globalTo(page);
+    }
   }
 
   const SettingsPage({this.initialPage = -1, super.key});
@@ -99,7 +104,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
     "本地收藏",
     "APP",
     "网络",
-    "关于"
+    "关于",
   ];
 
   final icons = <IconData>[
@@ -110,7 +115,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
     Icons.collections_bookmark_rounded,
     Icons.apps,
     Icons.public,
-    Icons.info
+    Icons.info,
   ];
 
   double offset = 0;
@@ -194,20 +199,14 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
       canPop.value = true;
       App.temporaryDisablePopGesture = false;
     }
-    return Material(
-      child: buildBody(),
-    );
+    return Material(child: buildBody());
   }
 
   Widget buildBody() {
     if (enableTwoViews) {
       return Row(
         children: [
-          SizedBox(
-            width: 320,
-            height: double.infinity,
-            child: buildLeft(),
-          ),
+          SizedBox(width: 320, height: double.infinity, child: buildLeft()),
           Container(
             height: double.infinity,
             decoration: BoxDecoration(
@@ -219,7 +218,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
               ),
             ),
           ),
-          Expanded(child: buildRight())
+          Expanded(child: buildRight()),
         ],
       );
     } else {
@@ -239,7 +238,9 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
                 switchOutCurve: Curves.fastOutSlowIn,
                 transitionBuilder: (child, animation) {
                   var tween = Tween<Offset>(
-                      begin: const Offset(1, 0), end: const Offset(0, 0));
+                    begin: const Offset(1, 0),
+                    end: const Offset(0, 0),
+                  );
 
                   return SlideTransition(
                     position: tween.animate(animation),
@@ -247,13 +248,11 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
                   );
                 },
                 child: currentPage == -1
-                    ? const SizedBox(
-                        key: Key("1"),
-                      )
+                    ? const SizedBox(key: Key("1"))
                     : buildRight(),
               ),
             ),
-          )
+          ),
         ],
       );
     }
@@ -269,37 +268,26 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
     return Material(
       child: Column(
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).padding.top,
-          ),
+          SizedBox(height: MediaQuery.of(context).padding.top),
           SizedBox(
             height: 56,
-            child: Row(children: [
-              const SizedBox(
-                width: 8,
-              ),
-              Tooltip(
-                message: "Back",
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => App.globalBack(),
+            child: Row(
+              children: [
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: "Back",
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => App.globalBack(),
+                  ),
                 ),
-              ),
-              const SizedBox(
-                width: 24,
-              ),
-              Text(
-                "设置".tl,
-                style: Theme.of(context).textTheme.headlineSmall,
-              )
-            ]),
+                const SizedBox(width: 24),
+                Text("设置".tl, style: Theme.of(context).textTheme.headlineSmall),
+              ],
+            ),
           ),
-          const SizedBox(
-            height: 4,
-          ),
-          Expanded(
-            child: buildCategories(),
-          )
+          const SizedBox(height: 4),
+          Expanded(child: buildCategories()),
         ],
       ),
     );
@@ -316,20 +304,18 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
         height: 48,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         decoration: BoxDecoration(
-            color: selected ? colors.primaryContainer : null,
-            borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [
-          Icon(icons[id]),
-          const SizedBox(
-            width: 16,
-          ),
-          Text(
-            name,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const Spacer(),
-          if (selected) const Icon(Icons.arrow_right)
-        ]),
+          color: selected ? colors.primaryContainer : null,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icons[id]),
+            const SizedBox(width: 16),
+            Text(name, style: Theme.of(context).textTheme.titleMedium),
+            const Spacer(),
+            if (selected) const Icon(Icons.arrow_right),
+          ],
+        ),
       );
 
       return Padding(
@@ -356,121 +342,120 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
   }
 
   Widget buildAppearanceSettings() => Column(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.color_lens),
-            title: Text("主题选择".tl),
-            trailing: Select(
-              initialValue: int.parse(appdata.settings[27]),
-              values: const [
-                "dynamic",
-                "red",
-                "pink",
-                "purple",
-                "indigo",
-                "blue",
-                "cyan",
-                "teal",
-                "green",
-                "lime",
-                "yellow",
-                "amber",
-                "orange",
-              ],
-              onChange: (i) {
-                appdata.settings[27] = i.toString();
-                appdata.updateSettings();
-                MyApp.updater?.call();
-              },
-              width: 140,
-            ),
+    children: [
+      ListTile(
+        leading: const Icon(Icons.color_lens),
+        title: Text("主题选择".tl),
+        trailing: Select(
+          initialValue: int.parse(appdata.settings[27]),
+          values: const [
+            "dynamic",
+            "red",
+            "pink",
+            "purple",
+            "indigo",
+            "blue",
+            "cyan",
+            "teal",
+            "green",
+            "lime",
+            "yellow",
+            "amber",
+            "orange",
+          ],
+          onChange: (i) {
+            appdata.settings[27] = i.toString();
+            appdata.updateSettings();
+            MyApp.updater?.call();
+          },
+          width: 140,
+        ),
+      ),
+      ListTile(
+        leading: const Icon(Icons.dark_mode),
+        title: Text("深色模式".tl),
+        trailing: Select(
+          initialValue: int.parse(appdata.settings[32]),
+          values: ["跟随系统".tl, "禁用".tl, "启用".tl],
+          onChange: (i) {
+            appdata.settings[32] = i.toString();
+            appdata.updateSettings();
+            MyApp.updater?.call();
+          },
+          width: 140,
+        ),
+      ),
+      if (appdata.settings[32] == "0" || appdata.settings[32] == "2")
+        ListTile(
+          leading: const Icon(Icons.remove_red_eye),
+          title: Text("纯黑色模式".tl),
+          trailing: Switch(
+            value: appdata.settings[84] == "1",
+            onChanged: (i) {
+              setState(() {
+                appdata.settings[84] = i ? "1" : "0";
+              });
+              appdata.updateSettings();
+              MyApp.updater?.call();
+            },
           ),
-          ListTile(
-            leading: const Icon(Icons.dark_mode),
-            title: Text("深色模式".tl),
-            trailing: Select(
-              initialValue: int.parse(appdata.settings[32]),
-              values: ["跟随系统".tl, "禁用".tl, "启用".tl],
-              onChange: (i) {
-                appdata.settings[32] = i.toString();
-                appdata.updateSettings();
-                MyApp.updater?.call();
-              },
-              width: 140,
-            ),
+        ),
+      if (App.isAndroid)
+        ListTile(
+          leading: const Icon(Icons.smart_screen_outlined),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("高刷新率模式".tl),
+              const SizedBox(width: 2),
+              InkWell(
+                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                onTap: () => showDialogMessage(
+                  context,
+                  "高刷新率模式".tl,
+                  "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}",
+                ),
+                child: const Icon(Icons.info_outline, size: 18),
+              ),
+            ],
           ),
-          if (appdata.settings[32] == "0" || appdata.settings[32] == "2")
-            ListTile(
-              leading: const Icon(Icons.remove_red_eye),
-              title: Text("纯黑色模式".tl),
-              trailing: Switch(
-                value: appdata.settings[84] == "1",
-                onChanged: (i) {
-                  setState(() {
-                    appdata.settings[84] = i ? "1" : "0";
-                  });
-                  appdata.updateSettings();
-                  MyApp.updater?.call();
-                },
-              ),
-            ),
-          if (App.isAndroid)
-            ListTile(
-              leading: const Icon(Icons.smart_screen_outlined),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text("高刷新率模式".tl),
-                  const SizedBox(
-                    width: 2,
-                  ),
-                  InkWell(
-                    borderRadius: const BorderRadius.all(Radius.circular(18)),
-                    onTap: () => showDialogMessage(context, "高刷新率模式".tl,
-                        "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}"),
-                    child: const Icon(
-                      Icons.info_outline,
-                      size: 18,
-                    ),
-                  )
-                ],
-              ),
-              trailing: Switch(
-                value: appdata.settings[38] == "1",
-                onChanged: (b) {
-                  setState(() {
-                    appdata.settings[38] = b ? "1" : "0";
-                  });
-                  appdata.updateSettings();
-                  if (b) {
-                    try {
-                      FlutterDisplayMode.setHighRefreshRate();
-                    } catch (e) {
-                      // ignore
-                    }
-                  } else {
-                    try {
-                      FlutterDisplayMode.setLowRefreshRate();
-                    } catch (e) {
-                      // ignore
-                    }
-                  }
-                },
-              ),
-            )
-        ],
-      );
+          trailing: Switch(
+            value: appdata.settings[38] == "1",
+            onChanged: (b) {
+              setState(() {
+                appdata.settings[38] = b ? "1" : "0";
+              });
+              appdata.updateSettings();
+              if (b) {
+                try {
+                  FlutterDisplayMode.setHighRefreshRate();
+                } catch (e) {
+                  // ignore
+                }
+              } else {
+                try {
+                  FlutterDisplayMode.setLowRefreshRate();
+                } catch (e) {
+                  // ignore
+                }
+              }
+            },
+          ),
+        ),
+    ],
+  );
 
   Widget buildAppSettings() {
     return Column(
       children: [
         if (Platform.isWindows)
           ListTile(
-              title: const Text('打开Data目录'),
-              leading: const Icon(Icons.folder),
-              onTap: () async {
-                FileUtils.openFileOrDirectory(App.dataPath);
-              }),
+            title: const Text('打开Data目录'),
+            leading: const Icon(Icons.folder),
+            onTap: () async {
+              FileUtils.openFileOrDirectory(App.dataPath);
+            },
+          ),
         ListTile(
           title: Text("打开Temp".tl),
           onTap: () {
@@ -485,19 +470,25 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
             onTap: () => setFont(context),
           ),
 
-        ListTile(
-          title: Text("日志".tl),
-        ),
+        ListTile(title: Text("日志".tl)),
         ListTile(
           leading: const Icon(Icons.sort),
           title: Text("日志级别".tl),
           trailing: Select(
-            initialValue: [
-              'auto','trace','debug','info','warning','error'
-            ].indexOf(appdata.settings.length > 90 ? appdata.settings[90] : 'auto'),
+            initialValue: ['auto', 'trace', 'debug', 'info', 'warning', 'error']
+                .indexOf(
+                  appdata.settings.length > 90 ? appdata.settings[90] : 'auto',
+                ),
             values: ["自动".tl, "Trace", "Debug", "Info", "Warning", "Error"],
             onChange: (i) {
-              final codes = ['auto','trace','debug','info','warning','error'];
+              final codes = [
+                'auto',
+                'trace',
+                'debug',
+                'info',
+                'warning',
+                'error',
+              ];
               appdata.settings[90] = codes[i];
               appdata.updateSettings();
               final code = appdata.settings[90];
@@ -519,9 +510,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           trailing: const Icon(Icons.arrow_right),
           onTap: () => context.to(() => const LogsPage()),
         ),
-        ListTile(
-          title: Text("更新".tl),
-        ),
+        ListTile(title: Text("更新".tl)),
         ListTile(
           leading: const Icon(Icons.update),
           title: Text("检查更新".tl),
@@ -535,9 +524,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           settingsIndex: 2,
           icon: const Icon(Icons.security_update),
         ),
-        ListTile(
-          title: Text("数据".tl),
-        ),
+        ListTile(title: Text("数据".tl)),
         if (App.isDesktop || App.isAndroid)
           ListTile(
             leading: const Icon(Icons.folder),
@@ -548,10 +535,11 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
         ListTile(
           leading: const Icon(Icons.sd_storage_outlined),
           title: Text("缓存大小限制".tl),
-          subtitle:
-              Text('${bytesLengthToReadableSize(CacheManager().currentSize)}'
-                  ' / '
-                  '${bytesLengthToReadableSize(CacheManager().limitSize)}'),
+          subtitle: Text(
+            '${bytesLengthToReadableSize(CacheManager().currentSize)}'
+            ' / '
+            '${bytesLengthToReadableSize(CacheManager().limitSize)}',
+          ),
           onTap: setCacheLimit,
           trailing: const Icon(Icons.arrow_right),
         ),
@@ -596,9 +584,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           trailing: const Icon(Icons.arrow_right),
           onTap: () => syncDataSettings(context),
         ),
-        ListTile(
-          title: Text("隐私".tl),
-        ),
+        ListTile(title: Text("隐私".tl)),
         if (App.isAndroid)
           ListTile(
             leading: const Icon(Icons.screenshot),
@@ -619,9 +605,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           settingsIndex: 13,
           icon: const Icon(Icons.security),
         ),
-        ListTile(
-          title: Text("其它".tl),
-        ),
+        ListTile(title: Text("其它".tl)),
         ListTile(
           title: Text("语言".tl),
           leading: const Icon(Icons.language),
@@ -639,8 +623,14 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           title: Text("下载并行".tl),
           leading: const Icon(Icons.download),
           trailing: Select(
-            initialValue:
-                ["1", "2", "4", "6", "8", "16"].indexOf(appdata.settings[79]),
+            initialValue: [
+              "1",
+              "2",
+              "4",
+              "6",
+              "8",
+              "16",
+            ].indexOf(appdata.settings[79]),
             values: const ["1", "2", "4", "6", "8", "16"],
             onChange: (value) {
               appdata.settings[79] = ["1", "2", "4", "6", "8", "16"][value];
@@ -658,14 +648,12 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
               const MethodChannel("pica_comic/settings").invokeMethod("link");
             },
           ),
-        if (kDebugMode)
-          const ListTile(
-            title: Text("Debug"),
-            onTap: debug,
-          ),
+        if (kDebugMode) const ListTile(title: Text("Debug"), onTap: debug),
         Padding(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }
@@ -680,8 +668,9 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
             child: Container(
               width: 156,
               height: 156,
-              decoration:
-                  BoxDecoration(borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+              ),
               child: const Image(
                 image: AssetImage("images/app_icon_no_bg.png"),
                 filterQuality: FilterQuality.medium,
@@ -689,28 +678,26 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
             ),
           ),
         ),
-        const Text(
-          "V$appVersion",
-          style: TextStyle(fontSize: 16),
-        ),
+        const Text("V$appVersion", style: TextStyle(fontSize: 16)),
         Text("Pica Comic是一个完全免费的漫画阅读APP".tl),
         Text("仅用于学习交流".tl),
-        const SizedBox(
-          height: 16,
-        ),
+        const SizedBox(height: 16),
         ListTile(
           leading: const Icon(Icons.code),
           title: Text("项目地址".tl),
-          onTap: () => launchUrlString("https://github.com/Pacalini/PicaComic",
-              mode: LaunchMode.externalApplication),
+          onTap: () => launchUrlString(
+            "https://github.com/Pacalini/PicaComic",
+            mode: LaunchMode.externalApplication,
+          ),
           trailing: const Icon(Icons.open_in_new),
         ),
         ListTile(
           leading: const Icon(Icons.comment_outlined),
           title: Text("问题反馈 (Github)".tl),
           onTap: () => launchUrlString(
-              "https://github.com/Pacalini/PicaComic/issues",
-              mode: LaunchMode.externalApplication),
+            "https://github.com/Pacalini/PicaComic/issues",
+            mode: LaunchMode.externalApplication,
+          ),
           trailing: const Icon(Icons.open_in_new),
         ),
         // ListTile(
@@ -728,8 +715,10 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
         //   trailing: const Icon(Icons.arrow_right),
         // ),
         Padding(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }
@@ -745,7 +734,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
       5 => buildAppSettings(),
       6 => const NetworkSettings(),
       7 => buildAbout(),
-      _ => throw UnimplementedError()
+      _ => throw UnimplementedError(),
     };
 
     if (currentPage != -1) {
@@ -754,18 +743,17 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           primary: false,
           slivers: [
             SliverAppBar(
-                title: Text(categories[currentPage].tl),
-                automaticallyImplyLeading: false,
-                scrolledUnderElevation: enableTwoViews ? 0 : null,
-                leading: enableTwoViews
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => setState(() => currentPage = -1),
-                      )),
-            SliverToBoxAdapter(
-              child: body,
-            )
+              title: Text(categories[currentPage].tl),
+              automaticallyImplyLeading: false,
+              scrolledUnderElevation: enableTwoViews ? 0 : null,
+              leading: enableTwoViews
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => setState(() => currentPage = -1),
+                    ),
+            ),
+            SliverToBoxAdapter(child: body),
           ],
         ),
       );

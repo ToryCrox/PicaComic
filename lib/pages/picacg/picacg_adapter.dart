@@ -30,28 +30,36 @@ import 'comments_page.dart';
 // ============================================================================
 
 class PicacgAdapter extends ComicPageAdapter<ComicItem> {
-  @override String get source => "Picacg";
-  @override ComicType get comicType => ComicType.picacg;
-  @override String tag(String id) => "Picacg Comic Page $id";
-  @override String downloadId(String id) => id;
-  @override String? url(ComicItem data) => null;
-  @override bool get supportThumbnails => false;
+  @override
+  String get source => "Picacg";
+  @override
+  ComicType get comicType => ComicType.picacg;
+  @override
+  String tag(String id) => comicPageTag(comicType, id);
+  @override
+  String downloadId(String id) => id;
+  @override
+  String? url(ComicItem data) => null;
+  @override
+  bool get supportThumbnails => false;
 
   // -------- B. 数据加载 --------
   @override
-  Future<Res<ComicItem>> loadData(String id) =>
-      network.getComicInfo(id).then((res) {
-        if (res.success) {
-          DiskCache.writeString(tag(id),
-              TypeUtil.parseString(res.data.toJson()));
-        }
-        return res;
-      });
+  Future<Res<ComicItem>> loadData(String id) => network.getComicInfo(id).then((
+    res,
+  ) {
+    if (res.success) {
+      DiskCache.writeString(tag(id), TypeUtil.parseString(res.data.toJson()));
+    }
+    return res;
+  });
 
   @override
   Future<ComicItem?> loadCachedData(String id) async {
     var data = await DiskCache.readModel(
-        tag(id), (map) => ComicItem.fromJson(map));
+      tag(id),
+      (map) => ComicItem.fromJson(map),
+    );
     if (data != null) return data;
     if (await downloadManager.isExists(id)) {
       var downloaded = await downloadManager.getComicOrNull(id);
@@ -63,19 +71,27 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   @override
   Future<bool> loadFavorite(ComicItem data) async =>
       data.isFavourite ||
-      (await LocalFavoritesManager()
-              .findWithModel(toLocalFavoriteItem(data)))
-          .isNotEmpty;
+      (await LocalFavoritesManager().findWithModel(
+        toLocalFavoriteItem(data),
+      )).isNotEmpty;
 
   // -------- C. 元数据提取 --------
-  @override String? title(ComicItem data) => data.title;
-  @override String? subTitle(ComicItem data) => null;
-  @override String? cover(ComicItem data) => data.thumbUrl;
-  @override int? pages(ComicItem data) => data.pagesCount;
-  @override String? introduction(ComicItem data) => data.description;
-  @override bool? favoriteOnPlatformInitial(ComicItem data) => data.isFavourite;
-  @override String? commentsCount(ComicItem data) => data.comments.toString();
-  @override String? likeCount(ComicItem data) => data.likes.toString();
+  @override
+  String? title(ComicItem data) => data.title;
+  @override
+  String? subTitle(ComicItem data) => null;
+  @override
+  String? cover(ComicItem data) => data.thumbUrl;
+  @override
+  int? pages(ComicItem data) => data.pagesCount;
+  @override
+  String? introduction(ComicItem data) => data.description;
+  @override
+  bool? favoriteOnPlatformInitial(ComicItem data) => data.isFavourite;
+  @override
+  String? commentsCount(ComicItem data) => data.comments.toString();
+  @override
+  String? likeCount(ComicItem data) => data.likes.toString();
 
   @override
   Map<String, List<String>>? tags(ComicItem data) => {
@@ -86,28 +102,39 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   };
 
   @override
-  EpsData? eps(ComicItem data, BuildContext context) => EpsData(
-    data.eps,
-    (i) async {
-      await History.findOrCreate(data);
-      App.globalTo(
-          () => ComicReadingPage.picacg(data.id, i + 1, data.eps, data.title));
-    },
-  );
-
-  @override ThumbnailsData? createThumbnails(ComicItem data) => null;
+  EpsData? eps(ComicItem data, BuildContext context) =>
+      EpsData(data.eps, (i) async {
+        await History.findOrCreate(data);
+        App.globalTo(
+          () => ComicReadingPage.picacg(data.id, i + 1, data.eps, data.title),
+        );
+      });
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required ComicItem data, List<String>? localImages}) =>
-      const SizedBox.shrink();
+  ThumbnailsData? createThumbnails(ComicItem data) => null;
+
+  @override
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required ComicItem data,
+    List<String>? localImages,
+  }) => const SizedBox.shrink();
 
   // -------- D. 操作 --------
   @override
   void read(ComicItem data, History? history, BuildContext context) async {
     final h = await History.createIfNull(history, data);
-    App.globalTo(() => ComicReadingPage.picacg(
-        data.id, h!.ep, data.eps, data.title, initialPage: h.page));
+    App.globalTo(
+      () => ComicReadingPage.picacg(
+        data.id,
+        h!.ep,
+        data.eps,
+        data.title,
+        initialPage: h.page,
+      ),
+    );
   }
 
   @override
@@ -117,7 +144,10 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
 
   @override
   void openFavoritePanel(
-      ComicItem data, ComicPageBridge bridge, BuildContext context) {
+    ComicItem data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: picacg.isLogin,
       needLoadFolderData: false,
@@ -156,8 +186,12 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
@@ -171,24 +205,41 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     data.isLiked = !data.isLiked;
   };
 
-  @override bool isLiked(ComicItem data) => data.isLiked;
-  @override ActionFunc? searchSimilar(ComicItem data, BuildContext context) => null;
+  @override
+  bool isLiked(ComicItem data) => data.isLiked;
+  @override
+  ActionFunc? searchSimilar(ComicItem data, BuildContext context) => null;
 
   @override
   void onTagTapped(
-      String tag, String key, ComicItem data, BuildContext context) {
+    String tag,
+    String key,
+    ComicItem data,
+    BuildContext context,
+  ) {
     if (data.categories.contains(tag)) {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) =>
-            CategoryComicsPage(category: tag, comicType: ComicType.picacg)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) =>
+              CategoryComicsPage(category: tag, comicType: ComicType.picacg),
+        ),
+      );
     } else if (data.author == tag) {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) => CategoryComicsPage(
-            category: tag, param: "a", comicType: ComicType.picacg)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) => CategoryComicsPage(
+            category: tag,
+            param: "a",
+            comicType: ComicType.picacg,
+          ),
+        ),
+      );
     } else {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) =>
-            SearchResultPage(keyword: tag, comicType: comicType)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) => SearchResultPage(keyword: tag, comicType: comicType),
+        ),
+      );
     }
   }
 
@@ -206,38 +257,62 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     color: Theme.of(context).colorScheme.inversePrimary,
     child: SizedBox(
       height: 60,
-      child: Row(children: [
-        Expanded(
+      child: Row(
+        children: [
+          Expanded(
             flex: 0,
             child: Avatar(
-                size: 50,
-                avatarUrl: data.creator.avatarUrl,
-                frame: data.creator.frameUrl,
-                couldBeShown: true,
-                name: data.creator.name,
-                slogan: data.creator.slogan,
-                level: data.creator.level)),
-        Expanded(
+              size: 50,
+              avatarUrl: data.creator.avatarUrl,
+              frame: data.creator.frameUrl,
+              couldBeShown: true,
+              name: data.creator.name,
+              slogan: data.creator.slogan,
+              level: data.creator.level,
+            ),
+          ),
+          Expanded(
             flex: 3,
             child: Padding(
-                padding: const EdgeInsets.fromLTRB(15, 10, 0, 0),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(data.creator.name,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                      Text(
-                          "${data.time.substring(0, 10)} ${data.time.substring(11, 19)}更新"),
-                    ]))),
-      ])));
-
-  @override Widget? buildMoreInfo(ComicItem data, BuildContext context) => null;
+              padding: const EdgeInsets.fromLTRB(15, 10, 0, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.creator.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    "${data.time.substring(0, 10)} ${data.time.substring(11, 19)}更新",
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   @override
-  List<Widget>? buildExtraActionButtons(ComicItem data, BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-          buildActionItem) => null;
+  Widget? buildMoreInfo(ComicItem data, BuildContext context) => null;
+
+  @override
+  List<Widget>? buildExtraActionButtons(
+    ComicItem data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) => null;
 
   @override
   FavoriteItem toLocalFavoriteItem(ComicItem data) => FavoriteItem(
@@ -259,8 +334,8 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     }
     var downloaded = <int>[];
     if (await downloadManager.isExists(comic.id)) {
-      var dc = (await downloadManager.getComicOrNull(comic.id))!
-          as DownloadedComic;
+      var dc =
+          (await downloadManager.getComicOrNull(comic.id))! as DownloadedComic;
       downloaded.addAll(dc.downloadedEps);
     }
     final content = SelectDownloadChapter(
@@ -283,7 +358,10 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       },
     );
     if (UiMode.m1(App.globalContext!)) {
-      showModalBottomSheet(context: App.globalContext!, builder: (_) => content);
+      showModalBottomSheet(
+        context: App.globalContext!,
+        builder: (_) => content,
+      );
     } else {
       showSideBar(App.globalContext!, content, useSurfaceTintColor: true);
     }

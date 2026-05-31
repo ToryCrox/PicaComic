@@ -172,6 +172,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   Future<void> _load(String id) async {
     // 第一步：尝试加载缓存
     final cached = await _adapter.loadCachedData(id);
+    if (!ref.mounted) return;
     if (cached != null) {
       _data = cached;
       state = state.copyWith(loading: false);
@@ -183,6 +184,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
     // 第二步：并发加载网络数据（至少等待100ms避免闪屏）
     final res = await _adapter.loadData(id);
+    if (!ref.mounted) return;
     if (res.error) {
       final msg = res.errorMessage;
       if (msg != "Exit") {
@@ -198,6 +200,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     _loadHistory(id);
     _loadFavorite(networkData);
     await _loadLocalTags(_adapter.downloadId(id));
+    if (!ref.mounted) return;
     state = state.copyWith(loading: false, clearMessage: true);
   }
 
@@ -207,6 +210,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   Future<void> _loadHistory(String id) async {
     final h = await HistoryManager().find(id);
+    if (!ref.mounted) return;
     if (h != null) {
       state = state.copyWith(history: h);
     }
@@ -218,6 +222,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   Future<void> _loadFavorite(Object data) async {
     final fav = await _adapter.loadFavorite(data);
+    if (!ref.mounted) return;
     state = state.copyWith(favorite: fav);
   }
 
@@ -227,6 +232,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   Future<void> _loadLocalTags(String downloadId) async {
     final isDownloaded = await downloadManager.isExists(downloadId);
+    if (!ref.mounted) return;
     if (!isDownloaded) {
       state = state.copyWith(
         isDownloaded: false,
@@ -238,11 +244,14 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     }
 
     final tags = await downloadManager.getComicTags(downloadId);
+    if (!ref.mounted) return;
     List<String>? images;
     if (_adapter.supportThumbnails) {
       images = await downloadManager.getAllImageFileList(downloadId, 0);
+      if (!ref.mounted) return;
     }
     final downloaded = await downloadManager.getComicOrNull(downloadId);
+    if (!ref.mounted) return;
     state = state.copyWith(
       isDownloaded: true,
       localTags: tags,

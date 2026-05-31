@@ -11,7 +11,6 @@ import 'package:pica_comic/base.dart';
 import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
-import '../../foundation/app_page_route.dart';
 import '../../foundation/history.dart';
 import '../../foundation/image_loader/base_image_provider.dart';
 import '../../foundation/image_manager.dart';
@@ -35,7 +34,8 @@ import 'tool_bar.dart';
 import 'touch_control.dart';
 
 /// 阅读器 - ConsumerStatefulWidget
-class ComicReaderPage extends ConsumerStatefulWidget {
+class ComicReaderPage extends ConsumerStatefulWidget
+    implements RootNavigatorPage {
   const ComicReaderPage({
     required this.readingData,
     required this.initialPage,
@@ -48,18 +48,18 @@ class ComicReaderPage extends ConsumerStatefulWidget {
   final int initialEp;
 
   /// 统一入口，替代所有命名构造函数。
-  static Future<void> open(BuildContext context, {
+  static Future<void> open(
+    BuildContext context, {
     required ReadingData readingData,
     int initialPage = 1,
     int initialEp = 1,
   }) {
-    return Navigator.of(context).push(
-      AppPageRoute(
-        builder: (context) => ComicReaderPage(
-          readingData: readingData,
-          initialPage: initialPage,
-          initialEp: initialEp,
-        ),
+    return App.to(
+      context,
+      () => ComicReaderPage(
+        readingData: readingData,
+        initialPage: initialPage,
+        initialEp: initialEp,
       ),
     );
   }
@@ -99,12 +99,12 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     if (appdata.settings[76] == "1") {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight
+        DeviceOrientation.landscapeRight,
       ]);
     } else if (appdata.settings[76] == "2") {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown
+        DeviceOrientation.portraitDown,
       ]);
     }
     BaseImageProvider.clearCache();
@@ -112,13 +112,18 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     PaintingBinding.instance.imageCache.maximumSizeBytes = 800 * 1024 * 1024;
 
     if (useDarkBackground) {
-      Future.microtask(() =>
-          StateController.findOrNull<WindowFrameController>()
-              ?.setDarkTheme());
+      Future.microtask(
+        () =>
+            StateController.findOrNull<WindowFrameController>()?.setDarkTheme(),
+      );
     }
 
     ReaderSession.prepare(
-        _sessionId, widget.readingData, widget.initialPage, widget.initialEp);
+      _sessionId,
+      widget.readingData,
+      widget.initialPage,
+      widget.initialEp,
+    );
   }
 
   @override
@@ -143,8 +148,10 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     ComicImage.clear();
     TapController.detach();
 
-    LocalFavoritesManager()
-        .onReadEnd(readingData.favoriteId, readingData.favoriteType);
+    LocalFavoritesManager().onReadEnd(
+      readingData.favoriteId,
+      readingData.favoriteType,
+    );
 
     _updateHistory(logic, true);
 
@@ -165,8 +172,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
     if (useDarkBackground) {
-      Future.microtask(() =>
-          StateController.findOrNull<WindowFrameController>()?.resetTheme());
+      Future.microtask(
+        () => StateController.findOrNull<WindowFrameController>()?.resetTheme(),
+      );
     }
 
     super.dispose();
@@ -222,9 +230,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
         extendBodyBehindAppBar: true,
         endDrawerEnableOpenDragGesture: false,
         key: _scaffoldKey,
-        endDrawer: Drawer(
-          child: EpsView(readingData, _sessionId),
-        ),
+        endDrawer: Drawer(child: EpsView(readingData, _sessionId)),
         floatingActionButton: buildEpChangeButton(state, logic),
         body: Builder(
           builder: (context) {
@@ -236,13 +242,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    BackButton(
-                      onPressed: () => App.globalBack(),
-                    ),
+                    BackButton(onPressed: () => App.globalBack()),
                     const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: Center(child: CircularProgressIndicator()),
                     ),
                   ],
                 ),
@@ -261,8 +263,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
               if (appdata.settings[7] == "1") {
                 if (logic.listenVolume == null) {
                   logic.listenVolume = ListenVolumeController(
-                      () => logic.jumpToLastPage(),
-                      () => logic.jumpToNextPage());
+                    () => logic.jumpToLastPage(),
+                    () => logic.jumpToNextPage(),
+                  );
                   logic.listenVolume!.listenVolumeChange();
                 }
               } else if (logic.listenVolume != null) {
@@ -307,22 +310,33 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                       ),
 
                     if (appdata.appSettings.showPageInfoInReader)
-                      buildPageInfoText(state, context,
-                          readingData: readingData,
-                          useDarkBackground: useDarkBackground),
-
-                    buildBottomToolBar(state, logic, context,
-                        showEps: readingData.hasEp,
+                      buildPageInfoText(
+                        state,
+                        context,
+                        readingData: readingData,
                         useDarkBackground: useDarkBackground,
-                        openEpsDrawer: openEpsDrawer,
-                        onShare: () => _share(logic),
-                        onSaveCurrentImage: () => _saveCurrentImage(logic)),
+                      ),
+
+                    buildBottomToolBar(
+                      state,
+                      logic,
+                      context,
+                      showEps: readingData.hasEp,
+                      useDarkBackground: useDarkBackground,
+                      openEpsDrawer: openEpsDrawer,
+                      onShare: () => _share(logic),
+                      onSaveCurrentImage: () => _saveCurrentImage(logic),
+                    ),
 
                     ...buildButtons(state, logic, context),
 
-                    buildTopToolBar(state, _sessionId, context,
-                        readingData: readingData,
-                        useDarkBackground: useDarkBackground),
+                    buildTopToolBar(
+                      state,
+                      _sessionId,
+                      context,
+                      readingData: readingData,
+                      useDarkBackground: useDarkBackground,
+                    ),
                   ],
                 ),
               );
@@ -351,96 +365,91 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
   Widget buildErrorView(ReaderPageState state, ComicReaderLogic logic) {
     return SafeArea(
-        child: Stack(
-      children: [
-        Positioned(
-          left: 8,
-          top: 12,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => App.globalBack(),
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.of(App.globalContext!).size.height / 2 - 80,
-          left: 0,
-          right: 0,
-          child: const Align(
-            alignment: Alignment.topCenter,
-            child: Icon(
-              Icons.error_outline,
-              size: 60,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 8,
+            top: 12,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => App.globalBack(),
             ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: MediaQuery.of(App.globalContext!).size.height / 2 - 10,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Text(
-              state.errorMessage ?? "未知错误".tl,
+          Positioned(
+            top: MediaQuery.of(App.globalContext!).size.height / 2 - 80,
+            left: 0,
+            right: 0,
+            child: const Align(
+              alignment: Alignment.topCenter,
+              child: Icon(Icons.error_outline, size: 60),
             ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: MediaQuery.of(App.globalContext!).size.height / 2 + 30,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              width: 250,
-              height: 40,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        logic.change();
-                      },
-                      child: Text("重试".tl),
-                    ),
-                  ),
-                  const SizedBox(
-                    width: 8,
-                  ),
-                  Expanded(
+          Positioned(
+            left: 0,
+            right: 0,
+            top: MediaQuery.of(App.globalContext!).size.height / 2 - 10,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Text(state.errorMessage ?? "未知错误".tl),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: MediaQuery.of(App.globalContext!).size.height / 2 + 30,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 250,
+                height: 40,
+                child: Row(
+                  children: [
+                    Expanded(
                       child: FilledButton(
-                    onPressed: () {
-                      if (!readingData.hasEp) {
-                        showToast(message: "没有其它章节".tl);
-                        return;
-                      }
-                      if (MediaQuery.of(context).size.width > 600) {
-                        showSideBar(
-                          context,
-                          EpsView(readingData, _sessionId),
-                          title: null,
-                          useSurfaceTintColor: true,
-                          addTopPadding: true,
-                          width: 400,
-                        );
-                      } else {
-                        showModalBottomSheet(
-                          context: context,
-                          useSafeArea: false,
-                          builder: (context) {
-                            return EpsView(readingData, _sessionId);
-                          },
-                        );
-                      }
-                    },
-                    child: Text("切换章节".tl),
-                  )),
-                ],
+                        onPressed: () {
+                          logic.change();
+                        },
+                        child: Text("重试".tl),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          if (!readingData.hasEp) {
+                            showToast(message: "没有其它章节".tl);
+                            return;
+                          }
+                          if (MediaQuery.of(context).size.width > 600) {
+                            showSideBar(
+                              context,
+                              EpsView(readingData, _sessionId),
+                              title: null,
+                              useSurfaceTintColor: true,
+                              addTopPadding: true,
+                              width: 400,
+                            );
+                          } else {
+                            showModalBottomSheet(
+                              context: context,
+                              useSafeArea: false,
+                              builder: (context) {
+                                return EpsView(readingData, _sessionId);
+                              },
+                            );
+                          }
+                        },
+                        child: Text("切换章节".tl),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ));
+        ],
+      ),
+    );
   }
 
   void openEpsDrawer() {
@@ -473,32 +482,31 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     logic.isShowSelectImage = true;
     int? res;
     await showDialog(
-        context: App.globalContext!,
-        builder: (context) {
-          return SimpleDialog(
-            title: Text("选择屏幕上的图片".tl),
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 400,
-                ),
-                child: Column(
-                  children: [
-                    for (var item in items)
-                      ListTile(
-                        title: Text((item.index + 1).toString()),
-                        onTap: () {
-                          res = item.index;
-                          App.globalBack();
-                        },
-                        trailing: const Icon(Icons.arrow_right),
-                      )
-                  ],
-                ),
-              )
-            ],
-          );
-        });
+      context: App.globalContext!,
+      builder: (context) {
+        return SimpleDialog(
+          title: Text("选择屏幕上的图片".tl),
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                children: [
+                  for (var item in items)
+                    ListTile(
+                      title: Text((item.index + 1).toString()),
+                      onTap: () {
+                        res = item.index;
+                        App.globalBack();
+                      },
+                      trailing: const Icon(Icons.arrow_right),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
     logic.isShowSelectImage = false;
     return res;
   }
@@ -521,8 +529,13 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       return;
     }
 
-    var file = await _getFileFromStream(readingData.loadImage(
-        logic.state.currentEpisode, index, logic.state.urls[index]));
+    var file = await _getFileFromStream(
+      readingData.loadImage(
+        logic.state.currentEpisode,
+        index,
+        logic.state.urls[index],
+      ),
+    );
 
     shareImage(file);
   }
@@ -536,8 +549,13 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       return;
     }
 
-    var file = await _getFileFromStream(readingData.loadImage(
-        logic.state.currentEpisode, index, logic.state.urls[index]));
+    var file = await _getFileFromStream(
+      readingData.loadImage(
+        logic.state.currentEpisode,
+        index,
+        logic.state.urls[index],
+      ),
+    );
 
     saveImage(file);
   }
@@ -554,50 +572,51 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
         return null;
       case 1:
         return Hero(
-            tag: "FAB",
-            child: Container(
-              width: 58,
-              height: 58,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                  color: Theme.of(App.globalContext!)
-                      .colorScheme
-                      .primaryContainer,
-                  borderRadius: BorderRadius.circular(16)),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                      child: Material(
+          tag: "FAB",
+          child: Container(
+            width: 58,
+            height: 58,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Theme.of(App.globalContext!).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () => logic.jumpToNextChapter(),
                       borderRadius: BorderRadius.circular(16),
                       child: Center(
-                          child: Icon(
-                        Icons.arrow_forward_ios,
-                        size: 24,
-                        color: Theme.of(App.globalContext!)
-                            .colorScheme
-                            .onPrimaryContainer,
-                      )),
+                        child: Icon(
+                          Icons.arrow_forward_ios,
+                          size: 24,
+                          color: Theme.of(
+                            App.globalContext!,
+                          ).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                     ),
-                  )),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: state.fabValue,
-                    child: ColoredBox(
-                      color: Theme.of(App.globalContext!)
-                          .colorScheme
-                          .surfaceTint
-                          .withOpacity(0.2),
-                      child: const SizedBox.expand(),
-                    ),
-                  )
-                ],
-              ),
-            ));
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: state.fabValue,
+                  child: ColoredBox(
+                    color: Theme.of(
+                      App.globalContext!,
+                    ).colorScheme.surfaceTint.withOpacity(0.2),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
     }
     return null;
   }

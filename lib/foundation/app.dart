@@ -9,6 +9,9 @@ import '../base.dart';
 export 'state_controller.dart';
 export 'widget_utils.dart';
 
+/// 标记需要打开在根 Navigator 上的页面。
+abstract class RootNavigatorPage {}
+
 class App {
   // platform
   static bool get isAndroid => Platform.isAndroid;
@@ -61,34 +64,92 @@ class App {
   }
 
   static globalBack() {
-    if (Navigator.canPop(globalContext!)) {
-      Navigator.of(globalContext!).maybePop();
+    final rootNavigator = navigatorKey.currentState;
+    if (rootNavigator != null && rootNavigator.canPop()) {
+      rootNavigator.maybePop();
+      return;
+    }
+
+    final mainNavigator = mainNavigatorKey?.currentState;
+    if (mainNavigator != null && mainNavigator.canPop()) {
+      mainNavigator.maybePop();
     }
   }
 
   static off(BuildContext context, Widget Function() page) {
-    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
-    Navigator.of(context).pushReplacement(AppPageRoute(builder: (context) => page()));
+    final targetPage = page();
+    Log.i("App Status Going to Page /${targetPage.runtimeType}");
+    _navigatorForPage(
+      context,
+      targetPage,
+    ).pushReplacement(AppPageRoute(builder: (context) => targetPage));
   }
 
   static globalOff(Widget Function() page) {
-    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
-    Navigator.of(globalContext!).pushReplacement(AppPageRoute(builder: (context) => page()));
+    final targetPage = page();
+    Log.i("App Status Going to Page /${targetPage.runtimeType}");
+    _navigatorForPage(
+      globalContext!,
+      targetPage,
+    ).pushReplacement(AppPageRoute(builder: (context) => targetPage));
   }
 
   static offAll(Widget Function() page) {
-    Navigator.of(globalContext!)
-        .pushAndRemoveUntil(AppPageRoute(builder: (context) => page()), (route) => false);
+    Navigator.of(globalContext!).pushAndRemoveUntil(
+      AppPageRoute(builder: (context) => page()),
+      (route) => false,
+    );
   }
 
-  static Future<T?> to<T extends Object?>(BuildContext context, Widget Function() page,
-      [bool enableIOSGesture = true]) {
-    Log.i("App Status Going to Page /${page.runtimeType.toString().replaceFirst("() => ", "")}");
-    return Navigator.of(context).push<T>(AppPageRoute(builder: (context) => page()));
+  static Future<T?> to<T extends Object?>(
+    BuildContext context,
+    Widget Function() page, {
+    bool enableIOSGesture = true,
+  }) {
+    final targetPage = page();
+    Log.i("App Status Going to Page /${targetPage.runtimeType}");
+    return _navigatorForPage(context, targetPage).push<T>(
+      AppPageRoute(
+        builder: (context) => targetPage,
+        enableIOSGesture: enableIOSGesture,
+      ),
+    );
   }
 
-  static Future<T?> globalTo<T extends Object?>(Widget Function() page, {bool preventDuplicates = false}) {
-    return Navigator.of(globalContext!).push<T>(AppPageRoute(builder: (context) => page()));
+  static Future<T?> globalTo<T extends Object?>(
+    Widget Function() page, {
+    bool preventDuplicates = false,
+  }) {
+    final targetPage = page();
+    final navigator = _navigatorForPage(globalContext!, targetPage);
+    return navigator.push<T>(AppPageRoute(builder: (context) => targetPage));
+  }
+
+  /// Windows 使用左侧导航栏 + 右侧内容区，普通页面应进入右侧的内部
+  /// Navigator。阅读器和认证页需要覆盖整个窗口，因此保留根 Navigator。
+  static NavigatorState _navigatorForPage(
+    BuildContext context,
+    Widget targetPage,
+  ) {
+    if (_shouldUseRootNavigator(targetPage)) {
+      final rootNavigator = navigatorKey.currentState;
+      if (rootNavigator != null) {
+        return rootNavigator;
+      }
+    }
+
+    final nearestNavigator = Navigator.of(context);
+    if (App.isWindows && nearestNavigator == navigatorKey.currentState) {
+      final mainNavigator = mainNavigatorKey?.currentState;
+      if (mainNavigator != null) {
+        return mainNavigator;
+      }
+    }
+    return nearestNavigator;
+  }
+
+  static bool _shouldUseRootNavigator(Widget targetPage) {
+    return targetPage is RootNavigatorPage;
   }
 
   static bool get enablePopGesture => isIOS;
@@ -99,13 +160,16 @@ class App {
 
   static String? get currentRoute => _currentRoute();
 
-  static bool get canPop => Navigator.of(globalContext!).canPop();
+  static bool get canPop =>
+      (navigatorKey.currentState?.canPop() ?? false) ||
+      (mainNavigatorKey?.currentState?.canPop() ?? false);
 
   static bool temporaryDisablePopGesture = false;
 
   static Locale get locale {
     Locale deviceLocale = PlatformDispatcher.instance.locale;
-    if (deviceLocale.languageCode == "zh" && deviceLocale.scriptCode == "Hant") {
+    if (deviceLocale.languageCode == "zh" &&
+        deviceLocale.scriptCode == "Hant") {
       deviceLocale = const Locale("zh", "TW");
     }
     return switch (appdata.settings[50]) {
@@ -116,11 +180,11 @@ class App {
     };
   }
 
-
   /// size of screen
   static Size screenSize(BuildContext context) => MediaQuery.of(context).size;
 
-  static ColorScheme colors(BuildContext context) => Theme.of(context).colorScheme;
+  static ColorScheme colors(BuildContext context) =>
+      Theme.of(context).colorScheme;
 }
 
 enum UiModes {
@@ -131,5 +195,5 @@ enum UiModes {
   m2,
 
   /// The screen's width is long. Usually the device is PC.
-  m3
+  m3,
 }

@@ -30,13 +30,19 @@ import '../comic_page/comic_page_logic.dart';
 // ============================================================================
 
 class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
-  @override String get source => "Kemono";
-  @override ComicType get comicType => ComicType.kemono;
-  @override String tag(String id) => "Kemono $id";
-  @override String downloadId(String id) =>
+  @override
+  String get source => "Kemono";
+  @override
+  ComicType get comicType => ComicType.kemono;
+  @override
+  String tag(String id) => comicPageTag(comicType, id);
+  @override
+  String downloadId(String id) =>
       downloadManager.getDownloadIdFromComicId(comicType, id);
-  @override String? url(KemonoPost data) => null;
-  @override bool get supportThumbnails => true;
+  @override
+  String? url(KemonoPost data) => null;
+  @override
+  bool get supportThumbnails => true;
 
   // -------- B. 数据加载 --------
   @override
@@ -48,24 +54,32 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     return KemonoNetwork().getPostDetail(parts[0], parts[1], parts[2]);
   }
 
-  @override Future<KemonoPost?> loadCachedData(String id) =>
-      SynchronousFuture(null);
+  @override
+  Future<KemonoPost?> loadCachedData(String id) => SynchronousFuture(null);
 
   @override
   Future<bool> loadFavorite(KemonoPost data) async =>
-      (await LocalFavoritesManager()
-              .findWithModel(toLocalFavoriteItem(data)))
-          .isNotEmpty;
+      (await LocalFavoritesManager().findWithModel(
+        toLocalFavoriteItem(data),
+      )).isNotEmpty;
 
   // -------- C. 元数据提取 --------
-  @override String? title(KemonoPost data) => data.title;
-  @override String? subTitle(KemonoPost data) => data.userName;
-  @override String? cover(KemonoPost data) => data.cover;
-  @override int? pages(KemonoPost data) => null;
-  @override String? introduction(KemonoPost data) => data.content;
-  @override bool? favoriteOnPlatformInitial(KemonoPost data) => null;
-  @override String? commentsCount(KemonoPost data) => null;
-  @override String? likeCount(KemonoPost data) => null;
+  @override
+  String? title(KemonoPost data) => data.title;
+  @override
+  String? subTitle(KemonoPost data) => data.userName;
+  @override
+  String? cover(KemonoPost data) => data.cover;
+  @override
+  int? pages(KemonoPost data) => null;
+  @override
+  String? introduction(KemonoPost data) => data.content;
+  @override
+  bool? favoriteOnPlatformInitial(KemonoPost data) => null;
+  @override
+  String? commentsCount(KemonoPost data) => null;
+  @override
+  String? likeCount(KemonoPost data) => null;
 
   @override
   Map<String, List<String>>? tags(KemonoPost data) => {
@@ -73,7 +87,8 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     "User": [data.userName],
   };
 
-  @override EpsData? eps(KemonoPost data, BuildContext context) => null;
+  @override
+  EpsData? eps(KemonoPost data, BuildContext context) => null;
 
   @override
   ThumbnailsData? createThumbnails(KemonoPost data) {
@@ -86,13 +101,20 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   }
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required KemonoPost data, List<String>? localImages}) {
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required KemonoPost data,
+    List<String>? localImages,
+  }) {
     // Kemono 使用 CachedNetworkImage 而非 PicaImage
     return Image(
-      image: CachedNetworkImageProvider(imageUrl,
-          headers: KemonoNetwork.getImageHeaders(),
-          cacheManager: picaImageManager),
+      image: CachedNetworkImageProvider(
+        imageUrl,
+        headers: KemonoNetwork.getImageHeaders(),
+        cacheManager: picaImageManager,
+      ),
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) =>
           const Center(child: Icon(Icons.error)),
@@ -110,7 +132,11 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     App.globalTo(
       () => ComicReadingPage(
         CustomReadingData(
-            data.target, data.title, ComicSource.find(comicType)!, null),
+          data.target,
+          data.title,
+          ComicSource.find(comicType)!,
+          null,
+        ),
         h!.page,
         h.ep,
       ),
@@ -119,7 +145,10 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
 
   @override
   void download(KemonoPost data, BuildContext context) async {
-    final dId = downloadManager.getDownloadIdFromComicId(comicType, data.target);
+    final dId = downloadManager.getDownloadIdFromComicId(
+      comicType,
+      data.target,
+    );
     if (downloadManager.downloading.any((e) => e.id == dId)) {
       showToast(message: "下载中".tl);
       return;
@@ -149,7 +178,10 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
 
   @override
   void openFavoritePanel(
-      KemonoPost data, ComicPageBridge bridge, BuildContext context) {
+    KemonoPost data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: false,
       needLoadFolderData: false,
@@ -168,32 +200,54 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
-  @override ActionFunc? openComments(KemonoPost data, BuildContext context) => null;
-  @override ActionFunc? onLike(KemonoPost data, BuildContext context) => null;
-  @override bool isLiked(KemonoPost data) => false;
-  @override ActionFunc? searchSimilar(KemonoPost data, BuildContext context) => null;
+  @override
+  ActionFunc? openComments(KemonoPost data, BuildContext context) => null;
+  @override
+  ActionFunc? onLike(KemonoPost data, BuildContext context) => null;
+  @override
+  bool isLiked(KemonoPost data) => false;
+  @override
+  ActionFunc? searchSimilar(KemonoPost data, BuildContext context) => null;
 
   @override
   void onTagTapped(
-      String tag, String key, KemonoPost data, BuildContext context) {
-    Navigator.of(context).push(AppPageRoute(
-      builder: (_) => SearchResultPage(keyword: tag, comicType: comicType)));
+    String tag,
+    String key,
+    KemonoPost data,
+    BuildContext context,
+  ) {
+    Navigator.of(context).push(
+      AppPageRoute(
+        builder: (_) => SearchResultPage(keyword: tag, comicType: comicType),
+      ),
+    );
   }
 
   @override
   void onThumbnailTapped(
-      int index, KemonoPost data, BuildContext context) async {
+    int index,
+    KemonoPost data,
+    BuildContext context,
+  ) async {
     if (data.imageUrls.isEmpty) return;
     await History.findOrCreate(data, page: index + 1);
     App.globalTo(
       () => ComicReadingPage(
         CustomReadingData(
-            data.target, data.title, ComicSource.find(comicType)!, null),
+          data.target,
+          data.title,
+          ComicSource.find(comicType)!,
+          null,
+        ),
         index + 1,
         1,
       ),
@@ -201,14 +255,26 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   }
 
   // -------- E. 自定义UI & 转换 --------
-  @override Widget? buildRecommendation(KemonoPost data, BuildContext context) => null;
-  @override Card? buildUploaderInfo(KemonoPost data, BuildContext context) => null;
-  @override Widget? buildMoreInfo(KemonoPost data, BuildContext context) => null;
+  @override
+  Widget? buildRecommendation(KemonoPost data, BuildContext context) => null;
+  @override
+  Card? buildUploaderInfo(KemonoPost data, BuildContext context) => null;
+  @override
+  Widget? buildMoreInfo(KemonoPost data, BuildContext context) => null;
 
   @override
-  List<Widget>? buildExtraActionButtons(KemonoPost data, BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-          buildActionItem) {
+  List<Widget>? buildExtraActionButtons(
+    KemonoPost data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) {
     return [
       buildActionItem(context, "附件下载".tl, Icons.attach_file, () {
         if (data.attachments.isEmpty) {
@@ -236,7 +302,8 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
       }),
       buildActionItem(context, "在网页中打开".tl, Icons.open_in_browser, () {
         launchUrlString(
-            "https://kemono.su/${data.service}/user/${data.userId}/post/${data.id}");
+          "https://kemono.su/${data.service}/user/${data.userId}/post/${data.id}",
+        );
       }),
     ];
   }

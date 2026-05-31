@@ -52,18 +52,16 @@ class ComicPageWidget extends ConsumerStatefulWidget {
   }
 
   /// 统一的页面入口 -- 替代所有直接子类构造
-  static Future<T?> open<T extends Object?>(BuildContext context, {
+  static Future<T?> open<T extends Object?>(
+    BuildContext context, {
     required ComicType comicType,
     required String id,
     String? cover,
   }) {
     return Navigator.of(context).push<T>(
       AppPageRoute<T>(
-        builder: (context) => ComicPageWidget(
-          comicType: comicType,
-          id: id,
-          cover: cover,
-        ),
+        builder: (context) =>
+            ComicPageWidget(comicType: comicType, id: id, cover: cover),
       ),
     );
   }
@@ -108,36 +106,41 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     );
     final adapter = notifier.adapter;
     final data = notifier.data;
-    final coverUrl = widget.cover ?? (data != null ? adapter.cover(data) : null);
+    final coverUrl =
+        widget.cover ?? (data != null ? adapter.cover(data) : null);
 
     // 数据首次到达后初始化缩略图
     if (data != null && notifier.thumbnailsData == null) {
       notifier.initThumbnails(adapter.createThumbnails(data));
     }
 
-    return LayoutBuilder(builder: (context, constraints) {
-      return Scaffold(
-        body: _buildBody(context, logic, notifier, adapter, data, coverUrl),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scaffold(
+          body: _buildBody(context, logic, notifier, adapter, data, coverUrl),
+        );
+      },
+    );
   }
 
   // ========================================================================
   // 主体切换：加载中 / 错误 / 内容
   // ========================================================================
 
-  Widget _buildBody(BuildContext context, ComicPageState state,
-      ComicPageLogic notifier, ComicPageAdapter adapter, Object? data,
-      String? coverUrl) {
+  Widget _buildBody(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageLogic notifier,
+    ComicPageAdapter adapter,
+    Object? data,
+    String? coverUrl,
+  ) {
     if (state.loading) {
       return _buildLoadingShimmer(context, adapter, coverUrl);
     }
 
     if (state.message != null && data == null) {
-      return NetworkError(
-        message: state.message!,
-        retry: notifier.refresh_,
-      );
+      return NetworkError(message: state.message!, retry: notifier.refresh_);
     }
 
     return _buildContent(context, state, notifier, adapter, data!, coverUrl);
@@ -148,7 +151,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   Widget _buildLoadingShimmer(
-      BuildContext context, ComicPageAdapter adapter, String? coverUrl) {
+    BuildContext context,
+    ComicPageAdapter adapter,
+    String? coverUrl,
+  ) {
     return SingleChildScrollView(
       child: Shimmer(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -162,8 +168,15 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             ).paddingLeft(8),
             SizedBox(
               width: double.infinity,
-              child: _buildComicInfo(context, null, null, adapter, null, coverUrl,
-                  sliver: false),
+              child: _buildComicInfo(
+                context,
+                null,
+                null,
+                adapter,
+                null,
+                coverUrl,
+                sliver: false,
+              ),
             ),
             const Divider(),
             _buildSectionHeader(context, "信息"),
@@ -179,10 +192,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                     constraints: const BoxConstraints(maxWidth: 400),
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withOpacity(0.4),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -199,9 +211,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 完整内容
   // ========================================================================
 
-  Widget _buildContent(BuildContext context, ComicPageState state,
-      ComicPageLogic notifier, ComicPageAdapter adapter, Object data,
-      String? coverUrl) {
+  Widget _buildContent(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageLogic notifier,
+    ComicPageAdapter adapter,
+    Object data,
+    String? coverUrl,
+  ) {
     return SmoothCustomScrollView(
       controller: notifier.controller,
       slivers: [
@@ -225,8 +242,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // SliverAppBar
   // ========================================================================
 
-  Widget _buildSliverAppBar(BuildContext context, ComicPageState state,
-      ComicPageAdapter adapter, Object data) {
+  Widget _buildSliverAppBar(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageAdapter adapter,
+    Object data,
+  ) {
     final titleText = adapter.title(data) ?? '';
     return SliverAppbar(
       title: AnimatedOpacity(
@@ -247,8 +268,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 更多操作菜单
   // ========================================================================
 
-  void _showMoreActions(BuildContext context, ComicPageAdapter adapter,
-      Object data, String title) {
+  void _showMoreActions(
+    BuildContext context,
+    ComicPageAdapter adapter,
+    Object data,
+    String title,
+  ) {
     final width = MediaQuery.of(context).size.width;
     final url = adapter.url(data);
 
@@ -289,61 +314,86 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 漫画信息区（封面 + 标题 + 操作按钮）
   // ========================================================================
 
-  Widget _buildComicInfo(BuildContext context, ComicPageState? state,
-      ComicPageLogic? notifier, ComicPageAdapter adapter, Object? data,
-      String? coverUrl, {bool sliver = true}) {
-    final body = LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      final sourceText = adapter.source;
-      final titleText = data != null ? adapter.title(data) : '';
-      final subTitleText = data != null ? adapter.subTitle(data) : null;
-      final pagesCount = data != null ? adapter.pages(data) : null;
+  Widget _buildComicInfo(
+    BuildContext context,
+    ComicPageState? state,
+    ComicPageLogic? notifier,
+    ComicPageAdapter adapter,
+    Object? data,
+    String? coverUrl, {
+    bool sliver = true,
+  }) {
+    final body = LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final sourceText = adapter.source;
+        final titleText = data != null ? adapter.title(data) : '';
+        final subTitleText = data != null ? adapter.subTitle(data) : null;
+        final pagesCount = data != null ? adapter.pages(data) : null;
 
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(width: 8),
-                _buildCover(context, notifier, adapter, coverUrl, 136, 102),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SelectableText(titleText?.trim() ?? "",
-                          style: const TextStyle(fontSize: 18)),
-                      if (subTitleText != null) ...[
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(width: 8),
+                  _buildCover(context, notifier, adapter, coverUrl, 136, 102),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          titleText?.trim() ?? "",
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                        if (subTitleText != null) ...[
+                          const SizedBox(height: 8),
+                          SelectableText(
+                            subTitleText,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
                         const SizedBox(height: 8),
-                        SelectableText(subTitleText,
-                            style: const TextStyle(fontSize: 14)),
+                        Text(sourceText, style: const TextStyle(fontSize: 12)),
+                        if (pagesCount != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            "${pagesCount}P",
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                        if (width >= 500)
+                          _buildActions(
+                            context,
+                            state,
+                            notifier,
+                            adapter,
+                            data,
+                            center: false,
+                          ).paddingTop(12),
                       ],
-                      const SizedBox(height: 8),
-                      Text(sourceText, style: const TextStyle(fontSize: 12)),
-                      if (pagesCount != null) ...[
-                        const SizedBox(height: 8),
-                        Text("${pagesCount}P",
-                            style: const TextStyle(fontSize: 12)),
-                      ],
-                      if (width >= 500)
-                        _buildActions(context, state, notifier, adapter, data,
-                                center: false)
-                            .paddingTop(12),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ).paddingHorizontal(10).paddingBottom(12),
-          if (width < 500)
-            _buildActions(context, state, notifier, adapter, data, center: true)
-                .paddingHorizontal(12),
-        ],
-      );
-    });
+                ],
+              ),
+            ).paddingHorizontal(10).paddingBottom(12),
+            if (width < 500)
+              _buildActions(
+                context,
+                state,
+                notifier,
+                adapter,
+                data,
+                center: true,
+              ).paddingHorizontal(12),
+          ],
+        );
+      },
+    );
 
     if (!sliver) return body;
     return SliverToBoxAdapter(child: body);
@@ -353,9 +403,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 封面
   // ========================================================================
 
-  Widget _buildCover(BuildContext context, ComicPageLogic? notifier,
-      ComicPageAdapter adapter, String? coverUrl,
-      double height, double width) {
+  Widget _buildCover(
+    BuildContext context,
+    ComicPageLogic? notifier,
+    ComicPageAdapter adapter,
+    String? coverUrl,
+    double height,
+    double width,
+  ) {
     if (coverUrl == null) {
       return Container(
         width: width,
@@ -367,7 +422,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       );
     }
 
-    final tag = adapter.tag(widget.id);
+    final tag = comicCoverHeroTag(adapter.comicType, widget.id);
     final displayUrl = (notifier?.state.coverPath != null)
         ? Uri.file(notifier!.state.coverPath!).toString()
         : coverUrl;
@@ -382,7 +437,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         ),
         clipBehavior: Clip.antiAlias,
         child: Hero(
-          tag: "image$tag",
+          tag: tag,
           child: PicaImage(
             url: displayUrl,
             fit: BoxFit.cover,
@@ -391,8 +446,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           ),
         ),
       ),
-      onTap: () =>
-          App.globalTo(() => ShowImagePageWithHero(coverUrl, "image$tag")),
+      onTap: () => App.globalTo(() => ShowImagePageWithHero(coverUrl, tag)),
     );
   }
 
@@ -400,16 +454,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 操作按钮行
   // ========================================================================
 
-  Widget _buildActions(BuildContext context, ComicPageState? state,
-      ComicPageLogic? notifier, ComicPageAdapter adapter, Object? data,
-      {required bool center}) {
+  Widget _buildActions(
+    BuildContext context,
+    ComicPageState? state,
+    ComicPageLogic? notifier,
+    ComicPageAdapter adapter,
+    Object? data, {
+    required bool center,
+  }) {
     if (state == null || notifier == null || data == null) {
       return Container(
         decoration: BoxDecoration(
-          color: Theme.of(context)
-              .colorScheme
-              .surfaceContainerHighest
-              .withOpacity(0.4),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
           borderRadius: BorderRadius.circular(12),
         ),
         height: 72,
@@ -430,12 +488,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             alignment: center ? WrapAlignment.center : WrapAlignment.start,
             children: [
               if (state.history != null && screenWidth >= 500)
-                _buildActionItem(context, "继续阅读".tl, Icons.menu_book,
-                    () => adapter.read(data, state.history, context)),
+                _buildActionItem(
+                  context,
+                  "继续阅读".tl,
+                  Icons.menu_book,
+                  () => adapter.read(data, state.history, context),
+                ),
               if (screenWidth >= 500 ||
                   (screenWidth < 500 && state.history != null))
-                _buildActionItem(context, "从头开始".tl,
-                    Icons.not_started_outlined, () => adapter.read(data, null, context)),
+                _buildActionItem(
+                  context,
+                  "从头开始".tl,
+                  Icons.not_started_outlined,
+                  () => adapter.read(data, null, context),
+                ),
               _buildActionItem(context, "分享".tl, Icons.share, () {
                 var text = adapter.title(data) ?? '';
                 final url = adapter.url(data);
@@ -452,30 +518,44 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 () async {
                   // 长按直接收藏到默认本地文件夹
                   var folder = appdata.settings[51];
-                  if ((await LocalFavoritesManager().folderNames)
-                      .contains(folder)) {
-                    LocalFavoritesManager()
-                        .addComic(folder, adapter.toLocalFavoriteItem(data));
+                  if ((await LocalFavoritesManager().folderNames).contains(
+                    folder,
+                  )) {
+                    LocalFavoritesManager().addComic(
+                      folder,
+                      adapter.toLocalFavoriteItem(data),
+                    );
                     showToast(message: "已收藏".tl);
                   }
                 },
               ),
               if (screenWidth >= 500)
-                _buildActionItem(context, "下载".tl, Icons.download,
-                    () => adapter.download(data, context)),
+                _buildActionItem(
+                  context,
+                  "下载".tl,
+                  Icons.download,
+                  () => adapter.download(data, context),
+                ),
               ..._buildExtraActions(adapter, data, state, screenWidth),
               ..._buildLikeAction(adapter, data),
               ..._buildCommentsAction(adapter, data),
               ..._buildSearchSimilarAction(adapter, data),
-              ..._buildAutoPageTurnAction(adapter, notifier, data, state,
-                  screenWidth),
+              ..._buildAutoPageTurnAction(
+                adapter,
+                notifier,
+                data,
+                state,
+                screenWidth,
+              ),
               ..._buildDeleteDownloadAction(adapter, notifier),
               _buildActionItem(context, "图片收藏".tl, Icons.image, () {
-                Navigator.of(context).push(AppPageRoute(
-                  builder: (_) => ImageFavoritesPage(
-                    filterTitle: adapter.title(data) ?? '',
+                Navigator.of(context).push(
+                  AppPageRoute(
+                    builder: (_) => ImageFavoritesPage(
+                      filterTitle: adapter.title(data) ?? '',
+                    ),
                   ),
-                ));
+                );
               }),
             ],
           ),
@@ -490,10 +570,15 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 额外操作按钮（来自adapter）
   // ========================================================================
 
-  List<Widget> _buildExtraActions(ComicPageAdapter adapter, Object data,
-      ComicPageState state, double screenWidth) {
+  List<Widget> _buildExtraActions(
+    ComicPageAdapter adapter,
+    Object data,
+    ComicPageState state,
+    double screenWidth,
+  ) {
     final extraButtons = adapter.buildExtraActionButtons(
-      data, context,
+      data,
+      context,
       (ctx, title, icon, onTap, [onLongPress]) =>
           _buildActionItem(ctx, title, icon, onTap, onLongPress),
     );
@@ -539,12 +624,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   List<Widget> _buildSearchSimilarAction(
-      ComicPageAdapter adapter, Object data) {
+    ComicPageAdapter adapter,
+    Object data,
+  ) {
     final searchSimilar = adapter.searchSimilar(data, context);
     if (searchSimilar == null) return [];
     return [
-      _buildActionItem(
-          context, "相关推荐".tl, Icons.account_tree, searchSimilar),
+      _buildActionItem(context, "相关推荐".tl, Icons.account_tree, searchSimilar),
     ];
   }
 
@@ -552,29 +638,31 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 自动翻页按钮
   // ========================================================================
 
-  List<Widget> _buildAutoPageTurnAction(ComicPageAdapter adapter,
-      ComicPageLogic notifier, Object data, ComicPageState state,
-      double screenWidth) {
-    if (state.history == null ||
-        screenWidth < 500 ||
-        screenWidth >= 600) return [];
+  List<Widget> _buildAutoPageTurnAction(
+    ComicPageAdapter adapter,
+    ComicPageLogic notifier,
+    Object data,
+    ComicPageState state,
+    double screenWidth,
+  ) {
+    if (state.history == null || screenWidth < 500 || screenWidth >= 600)
+      return [];
     return [
-      _buildActionItem(context, "auto_page_turning".tl, Icons.timer_outlined,
-          () {
-        final cs = ComicSource.find(widget.comicType);
-        App.globalTo(
-          () => ComicReadingPage(
-            CustomReadingData(
-              widget.id,
-              adapter.title(data) ?? '',
-              cs!,
-              {},
-            ),
-            1,
-            1,
-          )..readingData.history = state.history,
-        );
-      }),
+      _buildActionItem(
+        context,
+        "auto_page_turning".tl,
+        Icons.timer_outlined,
+        () {
+          final cs = ComicSource.find(widget.comicType);
+          App.globalTo(
+            () => ComicReadingPage(
+              CustomReadingData(widget.id, adapter.title(data) ?? '', cs!, {}),
+              1,
+              1,
+            )..readingData.history = state.history,
+          );
+        },
+      ),
     ];
   }
 
@@ -583,7 +671,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   List<Widget> _buildDeleteDownloadAction(
-      ComicPageAdapter adapter, ComicPageLogic notifier) {
+    ComicPageAdapter adapter,
+    ComicPageLogic notifier,
+  ) {
     final downloadId = adapter.downloadId(widget.id);
     return [
       FutureBuilder<bool>(
@@ -623,9 +713,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  Icon(Icons.delete_outline,
-                      size: 24,
-                      color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.delete_outline,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 8),
                   Text("删除下载".tl, style: const TextStyle(fontSize: 12)),
                 ],
@@ -641,8 +733,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 移动端底部按钮
   // ========================================================================
 
-  Widget _buildMobileButtons(BuildContext context, ComicPageAdapter adapter,
-      ComicPageLogic notifier, Object data, ComicPageState state) {
+  Widget _buildMobileButtons(
+    BuildContext context,
+    ComicPageAdapter adapter,
+    ComicPageLogic notifier,
+    Object data,
+    ComicPageState state,
+  ) {
     return SizedBox(
       height: 48,
       child: Row(
@@ -669,8 +766,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 单个操作按钮
   // ========================================================================
 
-  Widget _buildActionItem(BuildContext context, String title, IconData icon,
-      VoidCallback onTap, [VoidCallback? onLongPress]) {
+  Widget _buildActionItem(
+    BuildContext context,
+    String title,
+    IconData icon,
+    VoidCallback onTap, [
+    VoidCallback? onLongPress,
+  ]) {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -699,8 +801,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 标签区
   // ========================================================================
 
-  Widget _buildTagsSection(BuildContext context, ComicPageState state,
-      ComicPageAdapter adapter, Object data) {
+  Widget _buildTagsSection(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageAdapter adapter,
+    Object data,
+  ) {
     return SliverToBoxAdapter(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -716,8 +822,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   Tooltip(
                     message: state.message!,
                     child: IconButton(
-                      icon: const Icon(Icons.offline_bolt,
-                          color: Colors.orange),
+                      icon: const Icon(
+                        Icons.offline_bolt,
+                        color: Colors.orange,
+                      ),
                       onPressed: () {
                         showDialog(
                           context: context,
@@ -749,8 +857,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 信息卡片列表
   // ========================================================================
 
-  Iterable<Widget> _buildInfoCards(BuildContext context, ComicPageState state,
-      ComicPageAdapter adapter, Object data) sync* {
+  Iterable<Widget> _buildInfoCards(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageAdapter adapter,
+    Object data,
+  ) sync* {
     final notifier = ref.read(
       comicPageLogicProvider((widget.comicType, widget.id)).notifier,
     );
@@ -760,7 +872,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
         child: Wrap(
           children: [
-            _buildInfoCard(context, adapter, "本地标签", state.colorIndex % colors.length, title: true, key: ""),
+            _buildInfoCard(
+              context,
+              adapter,
+              "本地标签",
+              state.colorIndex % colors.length,
+              title: true,
+              key: "",
+            ),
             for (var tag in state.localTags)
               _buildLocalTagCard(context, tag.name),
             _buildOpenFolderButton(context, adapter.downloadId(widget.id)),
@@ -789,7 +908,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
           child: Wrap(
             children: [
-              _buildInfoCard(context, adapter, key, colorIndex, title: true, key: key),
+              _buildInfoCard(
+                context,
+                adapter,
+                key,
+                colorIndex,
+                title: true,
+                key: key,
+              ),
               for (var tag in tags[key]!)
                 _buildInfoCard(context, adapter, tag, colorIndex, key: key),
             ],
@@ -818,15 +944,21 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 单个信息卡片（标签芯片）
   // ========================================================================
 
-  Widget _buildInfoCard(BuildContext context, ComicPageAdapter adapter,
-      String text, int colorIndex, {bool title = false, String key = "key"}) {
+  Widget _buildInfoCard(
+    BuildContext context,
+    ComicPageAdapter adapter,
+    String text,
+    int colorIndex, {
+    bool title = false,
+    String key = "key",
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final displayText = text.isEmpty ? "未知".tl : text;
 
     final labelText = adapter.enableTranslationToCN
         ? (title
-            ? displayText.translateTagsCategoryToCN
-            : TagsTranslation.translationTagWithNamespace(displayText, key))
+              ? displayText.translateTagsCategoryToCN
+              : TagsTranslation.translationTagWithNamespace(displayText, key))
         : displayText;
 
     return GestureDetector(
@@ -846,14 +978,21 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(12)),
-          onTap: title ? null : () {
-            final data = ref.read(
-              comicPageLogicProvider((widget.comicType, widget.id)).notifier,
-            ).data;
-            if (data != null) {
-              adapter.onTagTapped(text, key, data, context);
-            }
-          },
+          onTap: title
+              ? null
+              : () {
+                  final data = ref
+                      .read(
+                        comicPageLogicProvider((
+                          widget.comicType,
+                          widget.id,
+                        )).notifier,
+                      )
+                      .data;
+                  if (data != null) {
+                    adapter.onTagTapped(text, key, data, context);
+                  }
+                },
           onSecondaryTapDown: (details) {
             showMenu(
               context: App.globalContext!,
@@ -863,7 +1002,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 details.globalPosition.dx,
                 details.globalPosition.dy,
               ),
-              items: _buildInfoCardPopMenus(text, labelText, title, key, adapter),
+              items: _buildInfoCardPopMenus(
+                text,
+                labelText,
+                title,
+                key,
+                adapter,
+              ),
             );
           },
           child: Card(
@@ -871,9 +1016,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             color: title
                 ? colors[colorIndex % colors.length].shade100.withOpacity(0.6)
                 : ElevationOverlay.applySurfaceTint(
-                    colorScheme.surface, colorScheme.surfaceTint, 3),
+                    colorScheme.surface,
+                    colorScheme.surfaceTint,
+                    3,
+                  ),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 0,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -886,8 +1035,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   }
 
   List<PopupMenuEntry> _buildInfoCardPopMenus(
-      String text, String labelText, bool title, String key,
-      ComicPageAdapter adapter) {
+    String text,
+    String labelText,
+    bool title,
+    String key,
+    ComicPageAdapter adapter,
+  ) {
     return [
       PopupMenuItem(
         child: Text("复制".tl),
@@ -979,7 +1132,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               3,
             ),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 0,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -1001,8 +1155,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         onTap: () async {
-          final folderPath =
-              await downloadManager.getFullDirectory(downloadId);
+          final folderPath = await downloadManager.getFullDirectory(downloadId);
           if (folderPath.isNotEmpty) {
             FileUtils.openFileOrDirectory(folderPath);
           } else {
@@ -1013,22 +1166,27 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           margin: EdgeInsets.zero,
           color: Theme.of(context).colorScheme.secondaryContainer,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_open, size: 16,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer),
+                Icon(
+                  Icons.folder_open,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
                 const SizedBox(width: 4),
-                Text("打开文件夹",
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSecondaryContainer)),
+                Text(
+                  "打开文件夹",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1047,22 +1205,27 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           margin: EdgeInsets.zero,
           color: Theme.of(context).colorScheme.primaryContainer,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add, size: 16,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer),
+                Icon(
+                  Icons.add,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
                 const SizedBox(width: 4),
-                Text("打标签",
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onPrimaryContainer)),
+                Text(
+                  "打标签",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1072,7 +1235,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   }
 
   Future<void> _openTagAssignmentDialog(
-      BuildContext context, ComicPageAdapter adapter) async {
+    BuildContext context,
+    ComicPageAdapter adapter,
+  ) async {
     final notifier = ref.read(
       comicPageLogicProvider((widget.comicType, widget.id)).notifier,
     );
@@ -1109,11 +1274,16 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 章节区
   // ========================================================================
 
-  Iterable<Widget> _buildEpisodeSection(BuildContext context,
-      ComicPageState state, ComicPageAdapter adapter, Object data) sync* {
+  Iterable<Widget> _buildEpisodeSection(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageAdapter adapter,
+    Object data,
+  ) sync* {
     final eps = adapter.eps(data, context);
     if (eps == null) return;
-    final hasCurrentEpisode = state.history != null &&
+    final hasCurrentEpisode =
+        state.history != null &&
         state.history!.ep > 0 &&
         state.history!.ep <= eps.eps.length &&
         eps.eps.length > 1;
@@ -1125,9 +1295,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Text("章节".tl,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w500, fontSize: 18)),
+            Text(
+              "章节".tl,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
+            ),
             if (hasCurrentEpisode) ...[
               const SizedBox(width: 6),
               Expanded(
@@ -1149,9 +1320,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 icon: const Icon(Icons.swap_vert),
                 onPressed: () {
                   final notifier = ref.read(
-                    comicPageLogicProvider(
-                            (widget.comicType, widget.id))
-                        .notifier,
+                    comicPageLogicProvider((
+                      widget.comicType,
+                      widget.id,
+                    )).notifier,
                   );
                   notifier.state = notifier.state.copyWith(
                     reverseEpsOrder: !state.reverseEpsOrder,
@@ -1172,58 +1344,58 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     yield SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       sliver: SliverGrid(
-        delegate: SliverChildBuilderDelegate(
-          childCount: length,
-          (context, i) {
-            var index = i;
-            if (state.reverseEpsOrder) {
-              index = eps.eps.length - i - 1;
-            }
-            final isLastRead = state.history?.ep == index + 1;
-            final visited =
-                (state.history?.readEpisode ?? const {}).contains(index + 1) || isLastRead;
-            final hasMultipleEps = eps.eps.length > 1;
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-              child: InkWell(
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
-                onTap: () => eps.onTap(index),
-                child: Material(
-                  elevation: 5,
-                  color: isLastRead && hasMultipleEps
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surface,
-                  surfaceTintColor:
-                      Theme.of(context).colorScheme.surfaceTint,
-                  borderRadius:
-                      const BorderRadius.all(Radius.circular(12)),
-                  shadowColor: Colors.transparent,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    child: Center(
-                      child: Text(
-                        eps.eps[index],
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isLastRead && hasMultipleEps
-                              ? Theme.of(context).colorScheme.onPrimaryContainer
-                              : visited
-                                  ? Theme.of(context).colorScheme.outline
-                                  : null,
-                        ),
+        delegate: SliverChildBuilderDelegate(childCount: length, (context, i) {
+          var index = i;
+          if (state.reverseEpsOrder) {
+            index = eps.eps.length - i - 1;
+          }
+          final isLastRead = state.history?.ep == index + 1;
+          final visited =
+              (state.history?.readEpisode ?? const {}).contains(index + 1) ||
+              isLastRead;
+          final hasMultipleEps = eps.eps.length > 1;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(16)),
+              onTap: () => eps.onTap(index),
+              child: Material(
+                elevation: 5,
+                color: isLastRead && hasMultipleEps
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.surface,
+                surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                shadowColor: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Center(
+                    child: Text(
+                      eps.eps[index],
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isLastRead && hasMultipleEps
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : visited
+                            ? Theme.of(context).colorScheme.outline
+                            : null,
                       ),
                     ),
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        }),
         gridDelegate: const SliverGridDelegateWithFixedHeight(
-            maxCrossAxisExtent: 200, itemHeight: 48),
+          maxCrossAxisExtent: 200,
+          itemHeight: 48,
+        ),
       ),
     );
 
@@ -1233,8 +1405,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           alignment: Alignment.center,
           child: FilledButton.tonal(
             style: ButtonStyle(
-              shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8)))),
+              shape: WidgetStateProperty.all(
+                const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                ),
+              ),
             ),
             onPressed: () {
               final notifier = ref.read(
@@ -1254,15 +1429,16 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   Iterable<Widget> _buildIntroductionSection(
-      BuildContext context, ComicPageAdapter adapter, Object data) sync* {
+    BuildContext context,
+    ComicPageAdapter adapter,
+    Object data,
+  ) sync* {
     final introduction = adapter.introduction(data);
     if (introduction == null) return;
 
     yield const SliverPadding(padding: EdgeInsets.all(5));
     yield const SliverToBoxAdapter(child: Divider());
-    yield SliverToBoxAdapter(
-      child: _buildSectionHeader(context, "简介"),
-    );
+    yield SliverToBoxAdapter(child: _buildSectionHeader(context, "简介"));
     yield SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
@@ -1276,9 +1452,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 缩略图区
   // ========================================================================
 
-  Iterable<Widget> _buildThumbnailsSection(BuildContext context,
-      ComicPageState state, ComicPageLogic notifier,
-      ComicPageAdapter adapter, Object data) sync* {
+  Iterable<Widget> _buildThumbnailsSection(
+    BuildContext context,
+    ComicPageState state,
+    ComicPageLogic notifier,
+    ComicPageAdapter adapter,
+    Object data,
+  ) sync* {
     if (!adapter.supportThumbnails) return;
 
     final localImages = state.localImages;
@@ -1311,60 +1491,63 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     yield SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       sliver: SliverGrid(
-        delegate: SliverChildBuilderDelegate(
-          childCount: childCount,
-          (context, index) {
-            if (localImages == null &&
-                thumbnailsData != null &&
-                index == thumbnailsData.thumbnails.length - 1) {
-              thumbnailsData.get(() {
-                if (mounted) setState(() {});
-              });
-            }
-            return Padding(
-              padding: UiMode.m1(context)
-                  ? const EdgeInsets.all(4)
-                  : const EdgeInsets.all(8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () =>
-                          adapter.onThumbnailTapped(index, data, context),
-                      borderRadius:
-                          const BorderRadius.all(Radius.circular(16)),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(16)),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+        delegate: SliverChildBuilderDelegate(childCount: childCount, (
+          context,
+          index,
+        ) {
+          if (localImages == null &&
+              thumbnailsData != null &&
+              index == thumbnailsData.thumbnails.length - 1) {
+            thumbnailsData.get(() {
+              if (mounted) setState(() {});
+            });
+          }
+          return Padding(
+            padding: UiMode.m1(context)
+                ? const EdgeInsets.all(4)
+                : const EdgeInsets.all(8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () =>
+                        adapter.onThumbnailTapped(index, data, context),
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(16),
                         ),
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: ClipRRect(
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(16)),
-                          child: adapter.buildThumbnailImage(
-                            index,
-                            localImages != null ? "" : thumbnailsData!.thumbnails[index],
-                            context,
-                            data: data,
-                            localImages: localImages,
-                          ),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(16),
+                        ),
+                        child: adapter.buildThumbnailImage(
+                          index,
+                          localImages != null
+                              ? ""
+                              : thumbnailsData!.thumbnails[index],
+                          context,
+                          data: data,
+                          localImages: localImages,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text((index + 1).toString()),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+                const SizedBox(height: 4),
+                Text((index + 1).toString()),
+              ],
+            ),
+          );
+        }),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 200,
           childAspectRatio: 0.65,
@@ -1384,7 +1567,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   Iterable<Widget> _buildRecommendationSection(
-      BuildContext context, ComicPageAdapter adapter, Object data) sync* {
+    BuildContext context,
+    ComicPageAdapter adapter,
+    Object data,
+  ) sync* {
     final recommendation = adapter.buildRecommendation(data, context);
     if (recommendation == null) return;
 
@@ -1406,8 +1592,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           const SizedBox(width: 18),
           Text(
             text.tl,
-            style: const TextStyle(
-                fontWeight: FontWeight.w500, fontSize: 18),
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
           ),
         ],
       ),

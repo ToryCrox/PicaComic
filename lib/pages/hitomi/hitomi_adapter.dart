@@ -29,12 +29,18 @@ import 'hitomi_search.dart';
 // ============================================================================
 
 class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
-  @override String get source => "hitomi";
-  @override ComicType get comicType => ComicType.hitomi;
-  @override String tag(String id) => "Hitomi $id";
-  @override String downloadId(String id) => "hitomi$id";
-  @override String? url(HitomiComic data) => null;
-  @override bool get enableTranslationToCN => App.locale.languageCode == "zh";
+  @override
+  String get source => "hitomi";
+  @override
+  ComicType get comicType => ComicType.hitomi;
+  @override
+  String tag(String id) => comicPageTag(comicType, id);
+  @override
+  String downloadId(String id) => "hitomi$id";
+  @override
+  String? url(HitomiComic data) => null;
+  @override
+  bool get enableTranslationToCN => App.locale.languageCode == "zh";
 
   // -------- B. 数据加载 --------
   @override
@@ -47,7 +53,9 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   @override
   Future<HitomiComic?> loadCachedData(String id) async {
     var data = await DiskCache.readModel(
-        tag(id), (map) => HitomiComic.fromMap(map));
+      tag(id),
+      (map) => HitomiComic.fromMap(map),
+    );
     if (data != null) return data;
     final downloadedId = "hitomi$id";
     if (await downloadManager.isExists(downloadedId)) {
@@ -59,19 +67,27 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
 
   @override
   Future<bool> loadFavorite(HitomiComic data) async =>
-      (await LocalFavoritesManager()
-              .findWithModel(toLocalFavoriteItem(data)))
-          .isNotEmpty;
+      (await LocalFavoritesManager().findWithModel(
+        toLocalFavoriteItem(data),
+      )).isNotEmpty;
 
   // -------- C. 元数据提取 --------
-  @override String? title(HitomiComic data) => data.title;
-  @override String? subTitle(HitomiComic data) => null;
-  @override String? cover(HitomiComic data) => data.cover;
-  @override int? pages(HitomiComic data) => null;
-  @override String? introduction(HitomiComic data) => null;
-  @override bool? favoriteOnPlatformInitial(HitomiComic data) => null;
-  @override String? commentsCount(HitomiComic data) => null;
-  @override String? likeCount(HitomiComic data) => null;
+  @override
+  String? title(HitomiComic data) => data.title;
+  @override
+  String? subTitle(HitomiComic data) => null;
+  @override
+  String? cover(HitomiComic data) => data.cover;
+  @override
+  int? pages(HitomiComic data) => null;
+  @override
+  String? introduction(HitomiComic data) => null;
+  @override
+  bool? favoriteOnPlatformInitial(HitomiComic data) => null;
+  @override
+  String? commentsCount(HitomiComic data) => null;
+  @override
+  String? likeCount(HitomiComic data) => null;
 
   @override
   Map<String, List<String>>? tags(HitomiComic data) => {
@@ -81,15 +97,12 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
     "Time": data.time.toList(),
     "Languages": data.lang.toList(),
     "Tags": List.generate(data.tags.length, (i) => data.tags[i].name),
-    "Series": data.parodys
-        ?.map((e) => e.name)
-        .toList() ?? [],
-    "Characters": data.characters
-        ?.map((e) => e.name)
-        .toList() ?? [],
+    "Series": data.parodys?.map((e) => e.name).toList() ?? [],
+    "Characters": data.characters?.map((e) => e.name).toList() ?? [],
   };
 
-  @override EpsData? eps(HitomiComic data, BuildContext context) => null;
+  @override
+  EpsData? eps(HitomiComic data, BuildContext context) => null;
 
   @override
   ThumbnailsData? createThumbnails(HitomiComic data) =>
@@ -98,8 +111,14 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
           var gg = GG();
           var images = <String>[];
           for (var file in data.files) {
-            images.add(await gg.urlFromUrlFromHash(
-                data.id, file, "webpsmallsmalltn", "webp"));
+            images.add(
+              await gg.urlFromUrlFromHash(
+                data.id,
+                file,
+                "webpsmallsmalltn",
+                "webp",
+              ),
+            );
           }
           return Res(images);
         } catch (e, s) {
@@ -109,8 +128,13 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
       }, 2);
 
   @override
-  Widget buildThumbnailImage(int index, String imageUrl, BuildContext context,
-      {required HitomiComic data, List<String>? localImages}) {
+  Widget buildThumbnailImage(
+    int index,
+    String imageUrl,
+    BuildContext context, {
+    required HitomiComic data,
+    List<String>? localImages,
+  }) {
     if (localImages != null && index < localImages.length) {
       return PicaImage(
         url: Uri.file(localImages[index]).toString(),
@@ -130,8 +154,9 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   @override
   void read(HitomiComic data, History? history, BuildContext context) async {
     final h = await History.createIfNull(history, data);
-    App.globalTo(() => ComicReadingPage.hitomi(data, data.id,
-        initialPage: h!.page));
+    App.globalTo(
+      () => ComicReadingPage.hitomi(data, data.id, initialPage: h!.page),
+    );
   }
 
   @override
@@ -152,7 +177,10 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
 
   @override
   void openFavoritePanel(
-      HitomiComic data, ComicPageBridge bridge, BuildContext context) {
+    HitomiComic data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: false,
       needLoadFolderData: false,
@@ -164,27 +192,38 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
         }
       },
       selectFolderCallback: (folder, _) {
-        LocalFavoritesManager().addComic(
-          folder, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
         return Future.value(const Res(true));
       },
     );
     if (UiMode.m1(context)) {
       showModalBottomSheet(context: context, builder: (_) => widget);
     } else {
-      showSideBar(App.globalContext!, widget,
-          title: "收藏漫画".tl, useSurfaceTintColor: true);
+      showSideBar(
+        App.globalContext!,
+        widget,
+        title: "收藏漫画".tl,
+        useSurfaceTintColor: true,
+      );
     }
   }
 
-  @override ActionFunc? openComments(HitomiComic data, BuildContext context) => null;
-  @override ActionFunc? onLike(HitomiComic data, BuildContext context) => null;
-  @override bool isLiked(HitomiComic data) => false;
-  @override ActionFunc? searchSimilar(HitomiComic data, BuildContext context) => null;
+  @override
+  ActionFunc? openComments(HitomiComic data, BuildContext context) => null;
+  @override
+  ActionFunc? onLike(HitomiComic data, BuildContext context) => null;
+  @override
+  bool isLiked(HitomiComic data) => false;
+  @override
+  ActionFunc? searchSimilar(HitomiComic data, BuildContext context) => null;
 
   @override
-  void onTagTapped(String tag, String key, HitomiComic data,
-      BuildContext context) {
+  void onTagTapped(
+    String tag,
+    String key,
+    HitomiComic data,
+    BuildContext context,
+  ) {
     var t = tag;
     if (key == "Tags") {
       if (t.endsWith(' ♀')) {
@@ -208,18 +247,25 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
       _ => null,
     };
     if (param != null && tag != "N/A") {
-      Navigator.of(context).push(AppPageRoute(
-        builder: (_) =>
-            SearchResultPage(keyword: param, comicType: comicType)));
+      Navigator.of(context).push(
+        AppPageRoute(
+          builder: (_) =>
+              SearchResultPage(keyword: param, comicType: comicType),
+        ),
+      );
     }
   }
 
   @override
   void onThumbnailTapped(
-      int index, HitomiComic data, BuildContext context) async {
+    int index,
+    HitomiComic data,
+    BuildContext context,
+  ) async {
     await History.findOrCreate(data, page: index + 1);
-    App.globalTo(() =>
-        ComicReadingPage.hitomi(data, data.id, initialPage: index + 1));
+    App.globalTo(
+      () => ComicReadingPage.hitomi(data, data.id, initialPage: index + 1),
+    );
   }
 
   // -------- E. 自定义UI & 转换 --------
@@ -227,18 +273,30 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   Widget? buildRecommendation(HitomiComic data, BuildContext context) =>
       SliverGrid(
         delegate: SliverChildBuilderDelegate(
-            childCount: data.related.length,
-            (_, i) => HitomiComicTileDynamicLoading(data.related[i])),
+          childCount: data.related.length,
+          (_, i) => HitomiComicTileDynamicLoading(data.related[i]),
+        ),
         gridDelegate: SliverGridDelegateWithComics(),
       );
 
-  @override Card? buildUploaderInfo(HitomiComic data, BuildContext context) => null;
-  @override Widget? buildMoreInfo(HitomiComic data, BuildContext context) => null;
+  @override
+  Card? buildUploaderInfo(HitomiComic data, BuildContext context) => null;
+  @override
+  Widget? buildMoreInfo(HitomiComic data, BuildContext context) => null;
 
   @override
-  List<Widget>? buildExtraActionButtons(HitomiComic data, BuildContext context,
-      Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-          buildActionItem) => null;
+  List<Widget>? buildExtraActionButtons(
+    HitomiComic data,
+    BuildContext context,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
+  ) => null;
 
   @override
   FavoriteItem toLocalFavoriteItem(HitomiComic data) =>
