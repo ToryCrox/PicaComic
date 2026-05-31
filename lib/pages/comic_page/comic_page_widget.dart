@@ -1108,6 +1108,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       ComicPageState state, ComicPageAdapter adapter, Object data) sync* {
     final eps = adapter.eps(data, context);
     if (eps == null) return;
+    final hasCurrentEpisode = state.history != null &&
+        state.history!.ep > 0 &&
+        state.history!.ep <= eps.eps.length &&
+        eps.eps.length > 1;
 
     yield const SliverToBoxAdapter(child: Divider());
 
@@ -1119,12 +1123,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             Text("章节".tl,
                 style: const TextStyle(
                     fontWeight: FontWeight.w500, fontSize: 18)),
-            if (state.history != null &&
-                state.history!.ep > 0 &&
-                state.history!.ep <= eps.eps.length &&
-                eps.eps.length > 1) ...[
+            if (hasCurrentEpisode) ...[
               const SizedBox(width: 6),
-              Flexible(
+              Expanded(
                 child: Text(
                   "· ${eps.eps[state.history!.ep - 1]}",
                   maxLines: 1,
@@ -1135,8 +1136,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   ),
                 ),
               ),
-            ],
-            const Spacer(),
+            ] else
+              const Spacer(),
             Tooltip(
               message: "排序".tl,
               child: IconButton(

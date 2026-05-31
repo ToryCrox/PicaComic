@@ -1736,6 +1736,10 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   Iterable<Widget> buildEpisodeInfo(BuildContext context) sync* {
     final colorScheme = Theme.of(context).colorScheme;
     if (eps == null) return;
+    final hasCurrentEpisode = logic.history != null &&
+        logic.history!.ep > 0 &&
+        logic.history!.ep <= eps!.eps.length &&
+        eps!.eps.length > 1;
 
     yield const SliverToBoxAdapter(
       child: Divider(),
@@ -1749,12 +1753,9 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
             "章节".tl,
             style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
           ),
-          if (logic.history != null &&
-              logic.history!.ep > 0 &&
-              logic.history!.ep <= eps!.eps.length &&
-              eps!.eps.length > 1) ...[
+          if (hasCurrentEpisode) ...[
             const SizedBox(width: 6),
-            Flexible(
+            Expanded(
               child: Text(
                 "· ${eps!.eps[logic.history!.ep - 1]}",
                 maxLines: 1,
@@ -1765,8 +1766,8 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-          const Spacer(),
+          ] else
+            const Spacer(),
           Tooltip(
             message: "排序".tl,
             child: IconButton(
