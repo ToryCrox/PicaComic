@@ -206,7 +206,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
     if (enableTwoViews) {
       return Row(
         children: [
-          SizedBox(width: 320, height: double.infinity, child: buildLeft()),
+          SizedBox(width: 160, height: double.infinity, child: buildLeft()),
           Container(
             height: double.infinity,
             decoration: BoxDecoration(

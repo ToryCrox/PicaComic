@@ -406,9 +406,20 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       if (_runtimeKey != currentKey) return;
 
       // 检查下载结果
+      if (queue.totalCount == 0) {
+        throw StateError('No images were loaded for download');
+      }
+
       if (queue.failedCount > 0) {
         // 有失败的图片，触发重试
         throw Exception('${queue.failedCount} images failed to download');
+      }
+
+      if (!queue.isAllCompleted) {
+        throw StateError(
+          'Image download queue finished with incomplete tasks: '
+          '${queue.getStatusSummary()}',
+        );
       }
 
       // 下载完成

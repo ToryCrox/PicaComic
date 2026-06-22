@@ -107,6 +107,9 @@ class ImageDownloadQueue {
   /// 失败的图片集合（key: ep-index）
   final Map<String, ImageDownloadQueueItem> _failedItems = {};
 
+  /// 正在等待退避重试的图片集合（key: ep-index）
+  final Map<String, ImageDownloadQueueItem> _retryingItems = {};
+
   /// 最大并发下载数
   final int maxConcurrentDownloads;
 
@@ -162,10 +165,14 @@ class ImageDownloadQueue {
   /// 获取失败的数量
   int get failedCount => _failedItems.length;
 
+  /// 获取等待退避重试的数量
+  int get retryingCount => _retryingItems.length;
+
   /// 获取总任务数量
   int get totalCount => 
       _waitingQueue.length + 
       _downloadingItems.length + 
+      _retryingItems.length +
       _completedItems.length + 
       _failedItems.length;
 
@@ -173,10 +180,8 @@ class ImageDownloadQueue {
   bool get isRunning => _isRunning;
 
   /// 是否全部完成
-  bool get isAllCompleted => 
-      _waitingQueue.isEmpty && 
-      _downloadingItems.isEmpty && 
-      _failedItems.isEmpty;
+  bool get isAllCompleted =>
+      totalCount > 0 && completedCount == totalCount;
 
   /// 是否处于流式模式（动态添加任务）
   bool _streamMode = false;
@@ -199,6 +204,7 @@ class ImageDownloadQueue {
     // 检查是否已存在
     if (_completedItems.containsKey(key) ||
         _downloadingItems.containsKey(key) ||
+        _retryingItems.containsKey(key) ||
         _failedItems.containsKey(key) ||
         _waitingQueue.any((i) => i.key == key)) {
       //Log.d('ImageDownloadQueue: Item $key already exists');
@@ -270,8 +276,12 @@ class ImageDownloadQueue {
     for (var item in _downloadingItems.values) {
       item.state = ImageDownloadTaskState.canceled;
     }
+    for (var item in _retryingItems.values) {
+      item.state = ImageDownloadTaskState.canceled;
+    }
 
     _downloadingItems.clear();
+    _retryingItems.clear();
     _waitingQueue.clear();
 
     Log.i('ImageDownloadQueue: All tasks canceled');
@@ -323,7 +333,9 @@ class ImageDownloadQueue {
     }
 
     // 检查是否全部完成
-    if (_waitingQueue.isEmpty && _downloadingItems.isEmpty) {
+    if (_waitingQueue.isEmpty &&
+        _downloadingItems.isEmpty &&
+        _retryingItems.isEmpty) {
       // 如果处于流式模式，等待新任务，不结束
       if (_streamMode) {
         return;
@@ -384,12 +396,16 @@ class ImageDownloadQueue {
         _downloadingItems.remove(key);
         item.state = ImageDownloadTaskState.waiting;
         item.error = null;
+        _retryingItems[key] = item;
 
         // 延迟后重新加入队列
         Future.delayed(Duration(milliseconds: delay), () {
-          if (!_isRunning) return;
+          if (item.state == ImageDownloadTaskState.canceled) return;
+          _retryingItems.remove(key);
           _waitingQueue.addLast(item);
-          _scheduleNext();
+          if (_isRunning) {
+            _scheduleNext();
+          }
         });
       } else {
         // 达到最大重试次数，标记为最终失败
@@ -437,7 +453,7 @@ class ImageDownloadQueue {
 
   /// 获取队列状态摘要
   String getStatusSummary() {
-    return 'Total: $totalCount, Completed: $completedCount, Downloading: $downloadingCount, Waiting: $waitingCount, Failed: $failedCount';
+    return 'Total: $totalCount, Completed: $completedCount, Downloading: $downloadingCount, Waiting: $waitingCount, Retrying: $retryingCount, Failed: $failedCount';
   }
 
   /// 获取每个章节的进度
@@ -475,6 +491,16 @@ class ImageDownloadQueue {
 
     // 从失败列表中移除该章节的任务
     _failedItems.removeWhere((key, item) => item.episodeIndex == episodeIndex);
+
+    // 取消等待退避重试的该章节任务
+    final retryingKeys = _retryingItems.keys.toList();
+    for (var key in retryingKeys) {
+      final item = _retryingItems[key];
+      if (item != null && item.episodeIndex == episodeIndex) {
+        item.state = ImageDownloadTaskState.canceled;
+        _retryingItems.remove(key);
+      }
+    }
 
     // 更新统计数据
     _episodeTotalCounts.remove(episodeIndex);
