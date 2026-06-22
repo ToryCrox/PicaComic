@@ -3,7 +3,7 @@ import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
-class EhGalleryBrief extends BaseComic{
+class EhGalleryBrief extends BaseComic {
   @override
   String title;
   String type;
@@ -16,7 +16,17 @@ class EhGalleryBrief extends BaseComic{
   List<String> tags;
   int? pages;
 
-  EhGalleryBrief(this.title,this.type,this.time,this.uploader,this.coverPath,this.stars,this.link,this.tags, {this.pages});
+  EhGalleryBrief(
+    this.title,
+    this.type,
+    this.time,
+    this.uploader,
+    this.coverPath,
+    this.stars,
+    this.link,
+    this.tags, {
+    this.pages,
+  });
 
   @override
   String get cover => coverPath;
@@ -33,16 +43,16 @@ class EhGalleryBrief extends BaseComic{
   @override
   bool get enableTagsTranslation => true;
 
-  EhGalleryBrief.fromJson(Map<String, dynamic> json):
-    title = json.optString('title'),
-    type = json.optString('type'),
-    time = json.optString('time'),
-    uploader = json.optString('uploader'),
-    stars = json.optDouble('stars'),
-    coverPath = json.optString('coverPath'),
-    tags = json.optStringList('tags'),
-    link = json.optString('link'),
-    pages = json.optInt('pages');
+  EhGalleryBrief.fromJson(Map<String, dynamic> json)
+    : title = json.optString('title'),
+      type = json.optString('type'),
+      time = json.optString('time'),
+      uploader = json.optString('uploader'),
+      stars = json.optDouble('stars'),
+      coverPath = json.optString('coverPath'),
+      tags = json.optStringList('tags'),
+      link = json.optString('link'),
+      pages = json.optInt('pages');
 
   Map<String, dynamic> toJson() {
     return {
@@ -54,32 +64,35 @@ class EhGalleryBrief extends BaseComic{
       "coverPath": coverPath,
       "tags": tags,
       "link": link,
-      "pages": pages
+      "pages": pages,
     };
   }
 }
 
-class Galleries{
+class Galleries {
   List<EhGalleryBrief> galleries = [];
-  String? next;//下一页的链接
-  EhGalleryBrief operator[](int index)=>galleries[index];
+  String? next; //下一页的链接
+  EhGalleryBrief operator [](int index) => galleries[index];
   int get length => galleries.length;
 
   Galleries();
 
-  Galleries.fromJson(Map<String, dynamic> json):
-    galleries = json.optMapList('galleries').map((e) => EhGalleryBrief.fromJson(e)).toList(),
-    next = json.optString('next');
+  Galleries.fromJson(Map<String, dynamic> json)
+    : galleries = json
+          .optMapList('galleries')
+          .map((e) => EhGalleryBrief.fromJson(e))
+          .toList(),
+      next = json.optString('next');
 
   Map<String, dynamic> toJson() {
     return {
       "galleries": galleries.map((e) => e.toJson()).toList(),
-      "next": next
+      "next": next,
     };
   }
 }
 
-class Comment{
+class Comment {
   String id;
   String name;
   String content;
@@ -89,9 +102,26 @@ class Comment{
   bool? voteUP;
 
   Comment(this.id, this.name, this.content, this.time, this.score, this.voteUP);
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'content': content,
+    'time': time,
+    'score': score,
+    'voteUP': voteUP,
+  };
+
+  Comment.fromJson(Map<String, dynamic> json)
+    : id = json['id'],
+      name = json['name'],
+      content = json['content'],
+      time = json['time'],
+      score = json['score'],
+      voteUP = json['voteUP'];
 }
 
-class Gallery with HistoryMixin{
+class Gallery with HistoryMixin {
   @override
   String title;
   @override
@@ -102,10 +132,11 @@ class Gallery with HistoryMixin{
   double stars;
   String? rating;
   String coverPath;
-  Map<String,List<String>> tags;
+  Map<String, List<String>> tags;
   List<Comment> comments = [];
+
   /// api身份验证信息
-  Map<String,String>? auth;
+  Map<String, String>? auth;
   bool favorite;
   String link;
   @override
@@ -115,10 +146,10 @@ class Gallery with HistoryMixin{
   String ext;
   int width;
 
-  List<String> _generateTags(){
+  List<String> _generateTags() {
     var res = <String>[];
     tags.forEach((key, value) {
-      for(var element in value) {
+      for (var element in value) {
         res.add("$key:$element");
       }
     });
@@ -126,14 +157,14 @@ class Gallery with HistoryMixin{
   }
 
   EhGalleryBrief toBrief() => EhGalleryBrief(
-      title,
-      type,
-      time,
-      uploader,
-      coverPath,
-      stars,
-      link,
-      _generateTags(),
+    title,
+    type,
+    time,
+    uploader,
+    coverPath,
+    stars,
+    link,
+    _generateTags(),
   );
 
   Map<String, dynamic> toJson() {
@@ -154,49 +185,53 @@ class Gallery with HistoryMixin{
       "ext": ext,
       'width': width,
       'thumbnails': thumbnails,
-      "auth": auth
+      "auth": auth,
+      'comments': comments.map((comment) => comment.toJson()).toList(),
     };
   }
 
-  Gallery.fromJson(Map<String, dynamic> json):
-    title = json["title"],
-    type = json["type"],
-    time = json["time"],
-    uploader = json["uploader"],
-    subTitle = json["subTitle"],
-    stars = json["stars"],
-    rating = json["rating"],
-    coverPath = json["coverPath"],
-    tags = json.optMap('tags').map((k, v) => MapEntry(k, TypeUtil.parseStringList(v))),
-    favorite = json["favorite"],
-    link = json["link"],
-    maxPage = json["maxPage"],
-    pageSize = json["pageSize"] ?? 20,
-    thumbnails = json.optStringList('thumbnails'),
-    ext = json["ext"] ?? "jpg",
-    width = json["width"] ?? 100,
-    auth = json.optMap('auth').map((k, v) => MapEntry(k, v)),
-    comments = [];
+  Gallery.fromJson(Map<String, dynamic> json)
+    : title = json["title"],
+      type = json["type"],
+      time = json["time"],
+      uploader = json["uploader"],
+      subTitle = json["subTitle"],
+      stars = json["stars"],
+      rating = json["rating"],
+      coverPath = json["coverPath"],
+      tags = json
+          .optMap('tags')
+          .map((k, v) => MapEntry(k, TypeUtil.parseStringList(v))),
+      favorite = json["favorite"],
+      link = json["link"],
+      maxPage = json["maxPage"],
+      pageSize = json["pageSize"] ?? 20,
+      thumbnails = json.optStringList('thumbnails'),
+      ext = json["ext"] ?? "jpg",
+      width = json["width"] ?? 100,
+      auth = json.optMap('auth').map((k, v) => MapEntry(k, v)),
+      comments = json.optList('comments', (e) => Comment.fromJson(e));
 
   Gallery(
-      this.title,
-      this.type,
-      this.time,
-      this.uploader,
-      this.stars,
-      this.rating,
-      this.coverPath,
-      this.tags,
-      this.comments,
-      this.auth,
-      this.favorite,
-      this.link,
-      this.maxPage,
-      this.pageSize,
-      this.thumbnails, // unused field
-      this.ext,
-      this.width,
-      this.subTitle);
+    this.title,
+    this.type,
+    this.time,
+    this.uploader,
+    this.stars,
+    this.rating,
+    this.coverPath,
+    this.tags,
+    this.comments,
+    this.auth,
+    this.favorite,
+    this.link,
+    this.maxPage,
+    this.pageSize,
+    this.thumbnails, // unused field
+    this.ext,
+    this.width,
+    this.subTitle,
+  );
 
   @override
   String get cover => coverPath;
@@ -208,7 +243,7 @@ class Gallery with HistoryMixin{
   String get target => link;
 }
 
-enum EhLeaderboardType{
+enum EhLeaderboardType {
   yesterday(15),
   month(13),
   year(12),
@@ -218,8 +253,8 @@ enum EhLeaderboardType{
 
   const EhLeaderboardType(this.value);
 
-  static EhLeaderboardType fromValue(int value){
-    switch(value){
+  static EhLeaderboardType fromValue(int value) {
+    switch (value) {
       case 15:
         return EhLeaderboardType.yesterday;
       case 13:
@@ -234,33 +269,43 @@ enum EhLeaderboardType{
   }
 }
 
-class EhLeaderboard{
+class EhLeaderboard {
   EhLeaderboardType type;
   List<EhGalleryBrief> galleries;
   int loaded;
   static const int max = 199;
 
-  EhLeaderboard(this.type,this.galleries,this.loaded);
+  EhLeaderboard(this.type, this.galleries, this.loaded);
 }
 
-class EhImageLimit{
+class EhImageLimit {
   final int current;
   final int max;
   final int resetCost;
   final int kGP;
   final int credits;
 
-  const EhImageLimit(this.current, this.max, this.resetCost, this.kGP, this.credits);
+  const EhImageLimit(
+    this.current,
+    this.max,
+    this.resetCost,
+    this.kGP,
+    this.credits,
+  );
 }
 
-class ArchiveDownloadInfo{
+class ArchiveDownloadInfo {
   final String originSize;
   final String resampleSize;
   final String originCost;
   final String resampleCost;
   final String? cancelUnlockUrl;
 
-  const ArchiveDownloadInfo(this.originSize,
-      this.resampleSize, this.originCost, this.resampleCost,
-      this.cancelUnlockUrl);
+  const ArchiveDownloadInfo(
+    this.originSize,
+    this.resampleSize,
+    this.originCost,
+    this.resampleCost,
+    this.cancelUnlockUrl,
+  );
 }

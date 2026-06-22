@@ -8,6 +8,8 @@ import '../../foundation/app.dart';
 import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
+import '../../network/download/download_model.dart';
+import '../../network/nhentai_network/download.dart';
 import '../../network/nhentai_network/nhentai_main_network.dart';
 import '../../network/res.dart';
 import '../../foundation/ui_mode.dart';
@@ -47,6 +49,16 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
 
   @override
   Future<NhentaiComic?> loadCachedData(String id) => SynchronousFuture(null);
+
+  @override
+  NhentaiComic? dataFromDownloadedItem(DownloadedItem item) =>
+      item is NhentaiDownloadedComic ? item.comic : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, NhentaiComic data) {
+    if (item is! NhentaiDownloadedComic) return null;
+    return NhentaiDownloadedComic(data, item.comicSize, color: item.color);
+  }
 
   @override
   Future<bool> loadFavorite(NhentaiComic data) async =>

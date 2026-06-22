@@ -68,8 +68,9 @@ class DownloadManager extends ChangeNotifier {
   String? path;
 
   /// 下载队列管理器（新的队列系统）
-  late final DownloadQueueManager _queueManager =
-      DownloadQueueManager(maxConcurrentTasks: 1);
+  late final DownloadQueueManager _queueManager = DownloadQueueManager(
+    maxConcurrentTasks: 1,
+  );
 
   ///下载队列（向后兼容，委托给 _queueManager）
   Queue<DownloadingTask> get downloading {
@@ -184,7 +185,8 @@ class DownloadManager extends ChangeNotifier {
   ///更换下载目录
   Future<String> updatePath(String newPath, {bool transform = true}) async {
     Log.d(
-        () => 'DownloadManager: 更换下载目录 newPath=$newPath, transform=$transform');
+      () => 'DownloadManager: 更换下载目录 newPath=$newPath, transform=$transform',
+    );
     if (transform) {
       var source = Directory(path!);
       final appPath = await getApplicationSupportDirectory();
@@ -192,8 +194,10 @@ class DownloadManager extends ChangeNotifier {
         newPath == "" ? "${appPath.path}${pathSep}download" : newPath,
       );
       try {
-        Log.d(() =>
-            'DownloadManager: 复制目录 from=${source.path} to=${destination.path}');
+        Log.d(
+          () =>
+              'DownloadManager: 复制目录 from=${source.path} to=${destination.path}',
+        );
         await copyDirectory(source, destination);
         for (var i in source.listSync()) {
           await i.delete(recursive: true);
@@ -221,8 +225,12 @@ class DownloadManager extends ChangeNotifier {
       try {
         var json = const JsonDecoder().convert(await file.readAsString());
         for (var item in json["downloading"]) {
-          final task =
-              downloadingItemFromMap(item, _onFinish, _onError, _saveInfo);
+          final task = downloadingItemFromMap(
+            item,
+            _onFinish,
+            _onError,
+            _saveInfo,
+          );
           // 直接调用 _addDownloadTask，统一处理 directory 初始化
           _addDownloadTask(task, skipSave: true, autoStart: false);
         }
@@ -233,7 +241,8 @@ class DownloadManager extends ChangeNotifier {
         // 如果有任务被加载，记录一下，但不自动启动
         if (_queueManager.totalTasksCount > 0) {
           Log.i(
-              'DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session');
+            'DownloadManager: Loaded ${_queueManager.totalTasksCount} pending download tasks from previous session',
+          );
           notifyListeners();
         }
       } catch (e, s) {
@@ -271,8 +280,9 @@ class DownloadManager extends ChangeNotifier {
     await _initDb();
   }
 
-  static final _saveInfoThrottle =
-      Debounce(duration: const Duration(milliseconds: 200));
+  static final _saveInfoThrottle = Debounce(
+    duration: const Duration(milliseconds: 200),
+  );
 
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
@@ -335,16 +345,17 @@ class DownloadManager extends ChangeNotifier {
       case ComicType.jm:
         return 'jm$comicID';
       case ComicType.hitomi:
-        // 从链接中提取数字ID
-        final match = RegExp(r'\d+(?=\.html)').firstMatch(comicID);
+        if (comicID.startsWith('hitomi')) return comicID;
+        // 从完整链接或纯数字 ID 中提取画廊 ID
+        final match = RegExp(r'(\d+)(?:\.html)?/?$').firstMatch(comicID);
         if (match != null) {
-          return 'hitomi${match.group(0)}';
+          return 'hitomi${match.group(1)}';
         }
         return comicID;
       case ComicType.htmanga:
         return 'Ht$comicID';
       case ComicType.nhentai:
-        return comicID;
+        return comicID.startsWith('nhentai') ? comicID : 'nhentai$comicID';
       default:
         return generateId(comicType.name, comicID);
     }
@@ -358,8 +369,9 @@ class DownloadManager extends ChangeNotifier {
     switch (comicType) {
       case ComicType.picacg:
       case ComicType.ehentai:
-      case ComicType.nhentai:
         return downloadId;
+      case ComicType.nhentai:
+        return downloadId.replaceFirst(RegExp(r'^nhentai'), '');
       case ComicType.jm:
         return downloadId.replaceFirst(RegExp(r'^jm'), '');
       case ComicType.hitomi:
@@ -381,8 +393,10 @@ class DownloadManager extends ChangeNotifier {
     final tasks = _queueManager.getAllTasks();
     if (tasks.isNotEmpty) {
       final finishedTask = tasks.first;
-      Log.d(() =>
-          'DownloadManager: 任务完成 id=${finishedTask.id}, title=${finishedTask.title}');
+      Log.d(
+        () =>
+            'DownloadManager: 任务完成 id=${finishedTask.id}, title=${finishedTask.title}',
+      );
       _queueManager.onTaskFinished(finishedTask.id);
 
       // 只有标记为需要保存的下载任务才会保存到数据库
@@ -427,8 +441,9 @@ class DownloadManager extends ChangeNotifier {
 
   ///开始或继续下载
   void start() {
-    Log.d(() =>
-        'DownloadManager: 开始/继续下载，当前队列任务数=${_queueManager.totalTasksCount}');
+    Log.d(
+      () => 'DownloadManager: 开始/继续下载，当前队列任务数=${_queueManager.totalTasksCount}',
+    );
     _error = false;
     _queueManager.start();
   }
@@ -527,7 +542,10 @@ class DownloadManager extends ChangeNotifier {
 
     // 同步更新或新增 Signal
     final newItem = LocalFavoriteItem(
-        path, sortOrder, DateTime.now().millisecondsSinceEpoch);
+      path,
+      sortOrder,
+      DateTime.now().millisecondsSinceEpoch,
+    );
     if (localFavoriteCache.containsKey(path)) {
       localFavoriteCache[path]!.value = newItem;
     } else {
@@ -542,8 +560,11 @@ class DownloadManager extends ChangeNotifier {
     if (localFavoriteCache.containsKey(path)) {
       final oldItem = localFavoriteCache[path]!.value;
       if (oldItem != null) {
-        localFavoriteCache[path]!.value =
-            LocalFavoriteItem(path, sortOrder, oldItem.time);
+        localFavoriteCache[path]!.value = LocalFavoriteItem(
+          path,
+          sortOrder,
+          oldItem.time,
+        );
       } else {
         _enqueueFavoriteQuery(path);
       }
@@ -646,8 +667,9 @@ class DownloadManager extends ChangeNotifier {
       comic.comicSize = size;
 
       // 更新数据库
-      Log.d(() =>
-          'DB DownloadManager: 更新漫画信息 comicId=${comic.id}, newSize=$size');
+      Log.d(
+        () => 'DB DownloadManager: 更新漫画信息 comicId=${comic.id}, newSize=$size',
+      );
       await addToDb(comic, comic.directory);
       return null;
     } catch (e, s) {
@@ -683,8 +705,10 @@ class DownloadManager extends ChangeNotifier {
       // 只有当文件大小发生变化时才更新数据库
       // 使用 0.01 MB 作为阈值，避免浮点数精度问题
       if ((size - oldSize).abs() > 0.01) {
-        Log.d(() =>
-            'DownloadManager: 漫画大小变化 comicId=${comic.id}, oldSize=$oldSize MB, newSize=$size MB');
+        Log.d(
+          () =>
+              'DownloadManager: 漫画大小变化 comicId=${comic.id}, oldSize=$oldSize MB, newSize=$size MB',
+        );
         await updateSize(comic.id, size);
       }
 
@@ -740,7 +764,8 @@ class DownloadManager extends ChangeNotifier {
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) return null;
     return dir.listSync().whereType<File>().toList().firstWhereOrNull(
-        (e) => Path.basenameWithoutExtension(e.path) == index.toString());
+      (e) => Path.basenameWithoutExtension(e.path) == index.toString(),
+    );
   }
 
   Future<String> getImageDirectory(String id, int ep) async {
@@ -773,8 +798,10 @@ class DownloadManager extends ChangeNotifier {
     final files = await dir.list(recursive: true).toList();
     sFileRelativeFromPath = downloadPath;
     return files
-        .where((e) =>
-            predictImageFile(e) && !Path.basename(e.path).startsWith("cover"))
+        .where(
+          (e) =>
+              predictImageFile(e) && !Path.basename(e.path).startsWith("cover"),
+        )
         .sortedByName()
         .map((e) => e.absolute.path)
         .toList();
@@ -840,37 +867,78 @@ class DownloadManager extends ChangeNotifier {
 }
 
 DownloadingTask downloadingItemFromMap(
-    Map<String, dynamic> map,
-    void Function() whenFinish,
-    void Function() whenError,
-    Future<void> Function() updateInfo) {
+  Map<String, dynamic> map,
+  void Function() whenFinish,
+  void Function() whenError,
+  Future<void> Function() updateInfo,
+) {
   switch (map["type"]) {
     case 0:
       return PicDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 1:
       return EhDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 2:
       return JmDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 3:
       return HitomiDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 4:
       return HtDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 5:
       return NhentaiDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 6:
       throw "Custom downloading task is no longer supported";
     case 7:
       return FavoriteDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     case 8:
       return KemonoAttachmentDownloadingTask.fromMap(
-          map, whenFinish, whenError, updateInfo, map["id"]);
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
+        map["id"],
+      );
     default:
       throw UnimplementedError();
   }
@@ -881,8 +949,11 @@ extension AddDownloadExt on DownloadManager {
   ///
   /// [skipSave] 跳过保存，用于批量添加任务时提高性能
   /// [autoStart] 是否自动开始下载
-  void _addDownloadTask(DownloadingTask task,
-      {bool skipSave = false, bool autoStart = true}) async {
+  void _addDownloadTask(
+    DownloadingTask task, {
+    bool skipSave = false,
+    bool autoStart = true,
+  }) async {
     Log.d(() => 'DownloadManager: 添加下载任务 id=${task.id}, title=${task.title}');
 
     // 确保 directory 不为空
@@ -894,7 +965,7 @@ extension AddDownloadExt on DownloadManager {
       // 如果还是空，生成新的
       if (task.directory.trim().isEmpty) {
         task.directory = _generateDirectoryName(task);
-// Directory(task.path).createSync(recursive: true);
+        // Directory(task.path).createSync(recursive: true);
       }
     }
 
@@ -920,7 +991,8 @@ extension AddDownloadExt on DownloadManager {
         // Windows MAX_PATH = 260
         // 预留约 60 字符给章节文件夹(如 /1/)和图片文件名(如 /1.jpg)以及可能的后缀
         const reserved = 60;
-        maxLength = 260 -
+        maxLength =
+            260 -
             path!.length -
             reserved -
             task.type.name.length -
@@ -948,7 +1020,13 @@ extension AddDownloadExt on DownloadManager {
   ///添加哔咔漫画下载
   void addPicDownload(picacg.ComicItem comic, List<int> downloadEps) {
     final task = PicDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, comic.id);
+      comic,
+      downloadEps,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      comic.id,
+    );
     _addDownloadTask(task);
   }
 
@@ -957,15 +1035,27 @@ extension AddDownloadExt on DownloadManager {
   /// - downloadEps: 下载的章节
   void addEhDownload(Gallery gallery, [int type = 0]) {
     final id = getGalleryId(gallery.link);
-    final task =
-        EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id, type);
+    final task = EhDownloadingTask(
+      gallery,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      id,
+      type,
+    );
     _addDownloadTask(task);
   }
 
   ///添加禁漫下载
   void addJmDownload(JmComicInfo comic, List<int> downloadEps) {
     final task = JmDownloadingTask(
-        comic, downloadEps, _onFinish, _onError, _saveInfo, "jm${comic.id}");
+      comic,
+      downloadEps,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      "jm${comic.id}",
+    );
     _addDownloadTask(task);
   }
 
@@ -973,7 +1063,14 @@ extension AddDownloadExt on DownloadManager {
   void addHitomiDownload(hitomi.HitomiComic comic, String cover, String link) {
     final id = "hitomi${comic.id}";
     final task = HitomiDownloadingTask(
-        comic, cover, link, _onFinish, _onError, _saveInfo, id);
+      comic,
+      cover,
+      link,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      id,
+    );
     _addDownloadTask(task);
   }
 
@@ -986,8 +1083,13 @@ extension AddDownloadExt on DownloadManager {
 
   void addNhentaiDownload(NhentaiComic comic) {
     final id = "nhentai${comic.id}";
-    final task =
-        NhentaiDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    final task = NhentaiDownloadingTask(
+      comic,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      id,
+    );
     _addDownloadTask(task);
   }
 
@@ -1004,12 +1106,18 @@ extension AddDownloadExt on DownloadManager {
       3 => "hitomi${RegExp(r"\d+(?=\.html)").firstMatch(comic.target)![0]!}",
       4 => "Ht${comic.target}",
       6 => "nhentai${comic.target}",
-      _ => comic.type.comicSource == null
-          ? throw "Comic Source Not Found"
-          : generateId(comic.type.comicSource!.key.name, comic.target)
+      _ =>
+        comic.type.comicSource == null
+            ? throw "Comic Source Not Found"
+            : generateId(comic.type.comicSource!.key.name, comic.target),
     };
-    final task =
-        FavoriteDownloadingTask(comic, _onFinish, _onError, _saveInfo, id);
+    final task = FavoriteDownloadingTask(
+      comic,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      id,
+    );
     _addDownloadTask(task);
   }
 
@@ -1046,12 +1154,10 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.jm ||
       DownloadType.hitomi ||
       DownloadType.htmanga ||
-      DownloadType.nhentai =>
-        true,
+      DownloadType.nhentai => true,
       DownloadType.other ||
       DownloadType.favorite ||
-      DownloadType.local =>
-        false,
+      DownloadType.local => false,
     };
   }
 
@@ -1064,7 +1170,8 @@ extension AddDownloadExt on DownloadManager {
 
   /// 批量重新下载漫画，保留已有文件并补齐缺失图片。
   Future<DownloadBatchResult> redownloadComics(
-      List<DownloadedItem> comics) async {
+    List<DownloadedItem> comics,
+  ) async {
     var successCount = 0;
     var skippedCount = 0;
     var failedCount = 0;
@@ -1088,8 +1195,10 @@ extension AddDownloadExt on DownloadManager {
       } catch (e, s) {
         failedCount++;
         errors.add("${comic.name}: $e");
-        Log.e("DownloadManager: 重新下载失败 id=${comic.id}, error=$e",
-            stackTrace: s);
+        Log.e(
+          "DownloadManager: 重新下载失败 id=${comic.id}, error=$e",
+          stackTrace: s,
+        );
       }
     }
 
@@ -1111,7 +1220,8 @@ extension AddDownloadExt on DownloadManager {
 
   /// 批量更新漫画封面。
   Future<DownloadBatchResult> refreshComicCovers(
-      List<DownloadedItem> comics) async {
+    List<DownloadedItem> comics,
+  ) async {
     var successCount = 0;
     var skippedCount = 0;
     var failedCount = 0;
@@ -1142,8 +1252,10 @@ extension AddDownloadExt on DownloadManager {
       } catch (e, s) {
         failedCount++;
         errors.add("${comic.name}: $e");
-        Log.e("DownloadManager: 更新封面失败 id=${comic.id}, error=$e",
-            stackTrace: s);
+        Log.e(
+          "DownloadManager: 更新封面失败 id=${comic.id}, error=$e",
+          stackTrace: s,
+        );
       }
     }
 
@@ -1167,7 +1279,9 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<void> _refreshCoverFile(
-      DownloadedItem oldComic, DownloadingTask task) async {
+    DownloadedItem oldComic,
+    DownloadingTask task,
+  ) async {
     await Directory(task.path).create(recursive: true);
 
     final coverFile = File(Path.join(task.path, 'cover.webp'));
@@ -1201,12 +1315,14 @@ extension AddDownloadExt on DownloadManager {
 
   String _getStoredCoverUrl(DownloadedItem comic) {
     return switch (comic.type) {
-      DownloadType.picacg => picacg_network
-          .getImageUrl((comic as DownloadedComic).comicItem.thumbUrl),
-      DownloadType.ehentai => (comic as DownloadedGallery)
-          .gallery
-          .coverPath
-          .replaceFirst('s.exhentai.org', 'ehgt.org'),
+      DownloadType.picacg => picacg_network.getImageUrl(
+        (comic as DownloadedComic).comicItem.thumbUrl,
+      ),
+      DownloadType.ehentai =>
+        (comic as DownloadedGallery).gallery.coverPath.replaceFirst(
+          's.exhentai.org',
+          'ehgt.org',
+        ),
       DownloadType.jm => (comic as DownloadedJmComic).comic.cover,
       DownloadType.hitomi => (comic as DownloadedHitomiComic).cover,
       DownloadType.htmanga => (comic as DownloadedHtComic).comic.cover,
@@ -1216,42 +1332,42 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
-      _buildLatestDownloadContext(DownloadedItem comic) async {
+  _buildLatestDownloadContext(DownloadedItem comic) async {
     return switch (comic.type) {
       DownloadType.picacg => await _buildPicacgDownloadContext(
-          comic as DownloadedComic,
-        ),
+        comic as DownloadedComic,
+      ),
       DownloadType.ehentai => await _buildEhentaiDownloadContext(
-          comic as DownloadedGallery,
-        ),
+        comic as DownloadedGallery,
+      ),
       DownloadType.jm => await _buildJmDownloadContext(
-          comic as DownloadedJmComic,
-        ),
+        comic as DownloadedJmComic,
+      ),
       DownloadType.hitomi => await _buildHitomiDownloadContext(
-          comic as DownloadedHitomiComic,
-        ),
+        comic as DownloadedHitomiComic,
+      ),
       DownloadType.htmanga => await _buildHtDownloadContext(
-          comic as DownloadedHtComic,
-        ),
+        comic as DownloadedHtComic,
+      ),
       DownloadType.nhentai => await _buildNhentaiDownloadContext(
-          comic as NhentaiDownloadedComic,
-        ),
+        comic as NhentaiDownloadedComic,
+      ),
       DownloadType.other ||
       DownloadType.favorite ||
-      DownloadType.local =>
-        throw UnsupportedError("不支持该漫画类型"),
+      DownloadType.local => throw UnsupportedError("不支持该漫画类型"),
     };
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
-      _buildPicacgDownloadContext(DownloadedComic comic) async {
+  _buildPicacgDownloadContext(DownloadedComic comic) async {
     final res = await picacg_network.PicacgNetwork().getComicInfo(comic.id);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
     final latest = res.data;
-    final epsCount =
-        latest.eps.isNotEmpty ? latest.eps.length : latest.epsCount;
+    final epsCount = latest.eps.isNotEmpty
+        ? latest.eps.length
+        : latest.epsCount;
     final downloadEps = List<int>.generate(epsCount, (index) => index);
     final item = DownloadedComic(
       latest,
@@ -1272,18 +1388,14 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
-      _buildEhentaiDownloadContext(DownloadedGallery comic) async {
+  _buildEhentaiDownloadContext(DownloadedGallery comic) async {
     final res = await EhNetwork().getGalleryInfo(comic.gallery.link);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
     final latest = res.data;
     final id = getGalleryId(latest.link);
-    final item = DownloadedGallery(
-      latest,
-      comic.comicSize,
-      color: comic.color,
-    );
+    final item = DownloadedGallery(latest, comic.comicSize, color: comic.color);
     final task = EhDownloadingTask(
       latest,
       _onFinish,
@@ -1296,7 +1408,8 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})> _buildJmDownloadContext(
-      DownloadedJmComic comic) async {
+    DownloadedJmComic comic,
+  ) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^jm'), '');
     final res = await JmNetwork().getComicInfo(rawId);
     if (res.error) {
@@ -1323,7 +1436,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
-      _buildHitomiDownloadContext(DownloadedHitomiComic comic) async {
+  _buildHitomiDownloadContext(DownloadedHitomiComic comic) async {
     final res = await HiNetwork().getComicInfo(comic.link);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
@@ -1350,18 +1463,15 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})> _buildHtDownloadContext(
-      DownloadedHtComic comic) async {
+    DownloadedHtComic comic,
+  ) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^Ht'), '');
     final res = await HtmangaNetwork().getComicInfo(rawId);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
     final latest = res.data;
-    final item = DownloadedHtComic(
-      latest,
-      comic.comicSize,
-      color: comic.color,
-    );
+    final item = DownloadedHtComic(latest, comic.comicSize, color: comic.color);
     final task = HtDownloadingTask(
       latest,
       _onFinish,
@@ -1373,7 +1483,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
-      _buildNhentaiDownloadContext(NhentaiDownloadedComic comic) async {
+  _buildNhentaiDownloadContext(NhentaiDownloadedComic comic) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^nhentai'), '');
     final res = await NhentaiNetwork().getComicInfo(rawId);
     if (res.error) {
@@ -1381,11 +1491,8 @@ extension AddDownloadExt on DownloadManager {
     }
     final latest = res.data;
     final item = NhentaiDownloadedComic(
-      comic.id,
-      latest.title,
+      latest,
       comic.comicSize,
-      latest.cover,
-      latest.tags["tags"] ?? comic.tags,
       color: comic.color,
     );
     final task = NhentaiDownloadingTask(
@@ -1447,12 +1554,17 @@ extension AddDownloadExt on DownloadManager {
   }
 
   /// 添加或更新下载记录到数据库（公开方法，供 DownloadingTask 使用）
-  Future<void> addToDb(DownloadedItem item, String directory,
-      [DateTime? time]) async {
+  Future<void> addToDb(
+    DownloadedItem item,
+    String directory, [
+    DateTime? time,
+  ]) async {
     // 使用锁保护数据库写入，防止并发导致的 SQLite 死锁
     await DownloadManager._dbLock.synchronized(() async {
-      Log.d(() =>
-          'DB DownloadManager: 添加/更新下载记录 id=${item.id}, name=${item.name}, directory=$directory');
+      Log.d(
+        () =>
+            'DB DownloadManager: 添加/更新下载记录 id=${item.id}, name=${item.name}, directory=$directory',
+      );
       await _db.addToDownload(
         item.id,
         item.name,
@@ -1464,6 +1576,35 @@ extension AddDownloadExt on DownloadManager {
         color: item.color?.name,
       );
     });
+  }
+
+  /// 在保留下载元数据的前提下更新漫画详情。
+  ///
+  /// 返回 true 表示详情发生变化并已写入数据库。
+  Future<bool> updateDownloadedDetails(
+    DownloadedItem original,
+    DownloadedItem updated,
+  ) async {
+    if (original.id != updated.id) {
+      throw ArgumentError('下载详情更新前后的 ID 不一致');
+    }
+    final originalJson = original.toJson();
+    final updatedJson = updated.toJson();
+    if (original.name == updated.name &&
+        original.subTitle == updated.subTitle &&
+        TypeUtil.equal(originalJson, updatedJson)) {
+      return false;
+    }
+
+    await DownloadManager._dbLock.synchronized(() async {
+      await _db.updateDownloadDetails(
+        id: original.id,
+        title: updated.name,
+        subtitle: updated.subTitle,
+        json: jsonEncode(updatedJson),
+      );
+    });
+    return true;
   }
 
   /// 更新漫画大小
@@ -1517,7 +1658,8 @@ extension AddDownloadExt on DownloadManager {
 
   /// 批量根据ID获取已下载的漫画
   Future<Map<String, DownloadedItem>> getDownloadedItemsByIds(
-      List<String> ids) async {
+    List<String> ids,
+  ) async {
     if (ids.isEmpty) return {};
 
     Log.d(() => 'DB DownloadManager: 批量获取漫画 ids=$ids');
@@ -1557,10 +1699,13 @@ extension AddDownloadExt on DownloadManager {
   }
 
   /// order: time, title, subtitle, size
-  Future<List<DownloadedItem>> getAll(
-      [String order = 'time', String direction = 'desc']) async {
+  Future<List<DownloadedItem>> getAll([
+    String order = 'time',
+    String direction = 'desc',
+  ]) async {
     Log.d(
-        () => 'DB DownloadManager: 获取所有下载 order=$order, direction=$direction');
+      () => 'DB DownloadManager: 获取所有下载 order=$order, direction=$direction',
+    );
     String orderBy;
     switch (order) {
       case 'time':
@@ -1639,8 +1784,9 @@ extension AddDownloadExt on DownloadManager {
     if (id.startsWith('LC')) {
       final item = await getDownloadedItemById(id);
       if (item is LocalDownloadedItem) {
-        final repoPath = await LocalRepositoryManager()
-            .getRepositoryPath(item.repositoryName);
+        final repoPath = await LocalRepositoryManager().getRepositoryPath(
+          item.repositoryName,
+        );
         if (repoPath != null && item.directory.isNotEmpty) {
           return Path.join(repoPath, item.directory);
         }
@@ -1658,8 +1804,9 @@ extension AddDownloadExt on DownloadManager {
     if (!id.startsWith('LC')) return null;
     final item = await getDownloadedItemById(id);
     if (item is LocalDownloadedItem) {
-      final repoPath =
-          await LocalRepositoryManager().getRepositoryPath(item.repositoryName);
+      final repoPath = await LocalRepositoryManager().getRepositoryPath(
+        item.repositoryName,
+      );
       if (repoPath != null && item.coverImagePath != null) {
         return Path.join(repoPath, item.coverImagePath!);
       }
@@ -1676,8 +1823,10 @@ extension AddDownloadExt on DownloadManager {
     required double size,
     required String cover,
   }) async {
-    Log.d(() =>
-        'DB DownloadManager: 添加本地漫画 title=$title, path=$path, size=$size MB');
+    Log.d(
+      () =>
+          'DB DownloadManager: 添加本地漫画 title=$title, path=$path, size=$size MB',
+    );
     await _db.addLocalComic(
       path: path,
       title: title,
@@ -1733,11 +1882,17 @@ extension AddDownloadExt on DownloadManager {
   // ==================== Tag Management Methods ====================
 
   /// 创建标签
-  Future<int> createTag(String name,
-      {String? coverComicId, int category = 0}) async {
+  Future<int> createTag(
+    String name, {
+    String? coverComicId,
+    int category = 0,
+  }) async {
     Log.d(() => 'DB DownloadManager: 创建标签 name=$name, category=$category');
-    return await _db.createTag(name,
-        coverComicId: coverComicId, category: category);
+    return await _db.createTag(
+      name,
+      coverComicId: coverComicId,
+      category: category,
+    );
   }
 
   /// 获取所有标签
@@ -1764,8 +1919,10 @@ extension AddDownloadExt on DownloadManager {
 
   /// 更新标签封面（使用漫画ID）
   Future<void> updateTagCover(int tagId, String coverComicId) async {
-    Log.d(() =>
-        'DB DownloadManager: 更新标签封面 tagId=$tagId, coverComicId=$coverComicId');
+    Log.d(
+      () =>
+          'DB DownloadManager: 更新标签封面 tagId=$tagId, coverComicId=$coverComicId',
+    );
     await _db.updateTagCover(tagId, coverComicId);
   }
 
@@ -1785,7 +1942,8 @@ extension AddDownloadExt on DownloadManager {
   /// 为漫画添加多个标签
   Future<void> addTagsToComic(String comicId, List<int> tagIds) async {
     Log.d(
-        () => 'DB DownloadManager: 为漫画添加多个标签 comicId=$comicId, tagIds=$tagIds');
+      () => 'DB DownloadManager: 为漫画添加多个标签 comicId=$comicId, tagIds=$tagIds',
+    );
     for (var tagId in tagIds) {
       await _db.addTagToComic(comicId, tagId);
     }
@@ -1800,10 +1958,15 @@ extension AddDownloadExt on DownloadManager {
   }
 
   /// 批量更新标签
-  Future<void> batchUpdateTags(List<String> comicIds, List<int> addTagIds,
-      List<int> removeTagIds) async {
-    Log.d(() =>
-        'DB DownloadManager: 批量更新标签 comicIds count=${comicIds.length}, add=${addTagIds.length}, remove=${removeTagIds.length}');
+  Future<void> batchUpdateTags(
+    List<String> comicIds,
+    List<int> addTagIds,
+    List<int> removeTagIds,
+  ) async {
+    Log.d(
+      () =>
+          'DB DownloadManager: 批量更新标签 comicIds count=${comicIds.length}, add=${addTagIds.length}, remove=${removeTagIds.length}',
+    );
     await _db.batchUpdateComicTags(comicIds, addTagIds, removeTagIds);
     _notifyTagsChanged();
   }
@@ -1858,7 +2021,8 @@ extension AddDownloadExt on DownloadManager {
   /// 更新标签排序
   Future<void> updateTagSortOrder(int tagId, int sortOrder) async {
     Log.d(
-        () => 'DB DownloadManager: 更新标签排序 tagId=$tagId, sortOrder=$sortOrder');
+      () => 'DB DownloadManager: 更新标签排序 tagId=$tagId, sortOrder=$sortOrder',
+    );
     await _db.updateTagSortOrder(tagId, sortOrder);
   }
 
@@ -1870,8 +2034,9 @@ extension AddDownloadExt on DownloadManager {
 
   /// 更新标签分类排序
   Future<void> updateTagCategorySortOrder(int tagId, int sortOrder) async {
-    Log.d(() =>
-        'DB DownloadManager: 更新标签分类排序 tagId=$tagId, sortOrder=$sortOrder');
+    Log.d(
+      () => 'DB DownloadManager: 更新标签分类排序 tagId=$tagId, sortOrder=$sortOrder',
+    );
     await _db.updateTagCategorySortOrder(tagId, sortOrder);
   }
 
@@ -1908,14 +2073,17 @@ extension AddDownloadExt on DownloadManager {
     const maxAttempts = 100;
 
     do {
-      final suffix =
-          List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
+      final suffix = List.generate(
+        8,
+        (_) => chars[random.nextInt(chars.length)],
+      ).join();
       id = 'LC$repositoryName$suffix';
       exists = await _db.isDownloadExists(id);
       attempts++;
       if (attempts >= maxAttempts) {
         throw Exception(
-            'Failed to generate unique ID after $maxAttempts attempts');
+          'Failed to generate unique ID after $maxAttempts attempts',
+        );
       }
     } while (exists);
 
@@ -1983,16 +2151,19 @@ extension AddDownloadExt on DownloadManager {
     List<int>? tagIds,
     List<Map<String, dynamic>>? comicDirs,
   }) async {
-    Log.d(() =>
-        'DB DownloadManager: 开始导入本地漫画 repository=$repositoryName, path=$draggedFolderPath');
+    Log.d(
+      () =>
+          'DB DownloadManager: 开始导入本地漫画 repository=$repositoryName, path=$draggedFolderPath',
+    );
     var successCount = 0;
     var failCount = 0;
     final errors = <String>[];
 
     try {
       // 获取存储库路径
-      final repositoryPath =
-          await LocalRepositoryManager().getRepositoryPath(repositoryName);
+      final repositoryPath = await LocalRepositoryManager().getRepositoryPath(
+        repositoryName,
+      );
       if (repositoryPath == null) {
         Log.d(() => 'DB DownloadManager: 存储库不存在 repository=$repositoryName');
         return {
@@ -2004,7 +2175,8 @@ extension AddDownloadExt on DownloadManager {
       }
 
       // 如果提供了已扫描的漫画目录列表，直接使用；否则进行扫描
-      final finalComicDirs = comicDirs ??
+      final finalComicDirs =
+          comicDirs ??
           await scanComicDirectories(draggedFolderPath, repositoryPath);
       Log.d(() => 'DB DownloadManager: 扫描到 ${finalComicDirs.length} 个漫画目录');
 
@@ -2014,8 +2186,9 @@ extension AddDownloadExt on DownloadManager {
           final relativePath = comicDir['relativePath'] as String;
 
           // 通过相对路径查询数据库，检查是否已存在（只查询相同相对路径的记录）
-          final existingRecords =
-              await _db.getDownloadsByDirectory(relativePath);
+          final existingRecords = await _db.getDownloadsByDirectory(
+            relativePath,
+          );
 
           // 检查是否有相同相对路径和存储库名称的记录
           bool isDuplicate = false;
@@ -2040,7 +2213,8 @@ extension AddDownloadExt on DownloadManager {
             failCount++;
             errors.add('${comicDir['name']}: 已存在');
             Log.d(
-                () => 'DB DownloadManager: 漫画已存在，跳过 name=${comicDir['name']}');
+              () => 'DB DownloadManager: 漫画已存在，跳过 name=${comicDir['name']}',
+            );
             continue;
           }
 
@@ -2068,8 +2242,9 @@ extension AddDownloadExt on DownloadManager {
           );
 
           // 保存到数据库
-          Log.d(() =>
-              'DB DownloadManager: 导入漫画 id=$id, name=$name, size=$size MB');
+          Log.d(
+            () => 'DB DownloadManager: 导入漫画 id=$id, name=$name, size=$size MB',
+          );
           await addToDb(item, relativePath);
 
           // 如果选择了标签，关联标签
@@ -2109,7 +2284,9 @@ extension AddDownloadExt on DownloadManager {
   /// 重命名漫画目录
   /// 返回 null 表示成功,返回错误信息表示失败
   Future<String?> renameComicDirectory(
-      String id, String newDirectoryName) async {
+    String id,
+    String newDirectoryName,
+  ) async {
     try {
       Log.d(() => 'DownloadManager: 重命名漫画目录 id=$id, newName=$newDirectoryName');
       // 获取当前目录名
@@ -2157,8 +2334,10 @@ extension AddDownloadExt on DownloadManager {
         }
       }
 
-      Log.d(() =>
-          'DB DownloadManager: 更新数据库中的目录名 id=$id, newDirectory=$newDirectoryName');
+      Log.d(
+        () =>
+            'DB DownloadManager: 更新数据库中的目录名 id=$id, newDirectory=$newDirectoryName',
+      );
       final result = await _db.updateDownloadDirectory(id, newDirectoryName);
       if (!result) {
         Log.d(() => 'DB DownloadManager: 更新数据库失败 id=$id');
@@ -2183,7 +2362,9 @@ extension AddDownloadExt on DownloadManager {
 
   /// 批量更新漫画颜色
   Future<void> batchUpdateColor(
-      List<String> ids, DownloadColorTag? color) async {
+    List<String> ids,
+    DownloadColorTag? color,
+  ) async {
     Log.d(() => 'DB DownloadManager: 批量更新漫画颜色 ids=$ids, color=${color?.name}');
     final colorName = color?.name;
     for (var id in ids) {

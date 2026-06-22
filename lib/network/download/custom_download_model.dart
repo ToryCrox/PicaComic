@@ -16,88 +16,93 @@ class CustomDownloadedItem extends DownloadedItem {
   @override
   final List<int> downloadedEps;
 
-  final Map<String, String>? chapters;
+  final ComicInfoData comic;
+
+  final String sourceName;
+
+  Map<String, String>? get chapters => comic.chapters;
 
   @override
   List<String> get eps => chapters?.values.toList() ?? ["EP 1"];
 
-  final String comicId;
+  String get comicId => comic.comicId;
 
   @override
   final String id;
 
   @override
-  final String name;
+  String get name => comic.title;
 
   @override
-  final String subTitle;
+  String get subTitle => comic.subTitle ?? '';
 
   @override
-  final List<String> tags;
+  List<String> get tags => comic.tags.values.expand((e) => e).toList();
 
   @override
   DownloadType get type => DownloadType.other;
 
-  final String sourceKey;
+  String get sourceKey => comic.sourceKey;
 
-  final String sourceName;
-
-  final String cover;
+  String get cover => comic.cover;
   @override
   DownloadColorTag? color;
 
   CustomDownloadedItem(
-      this.comicSize,
-      this.downloadedEps,
-      this.chapters,
-      this.id,
-      this.name,
-      this.subTitle,
-      this.tags,
-      this.sourceKey,
-      this.sourceName,
-      this.cover,
-      this.comicId,
-      {this.color});
+    this.comicSize,
+    this.downloadedEps,
+    this.id,
+    this.comic,
+    this.sourceName, {
+    this.color,
+  });
 
   @override
   Map<String, dynamic> toJson() => {
-        "comicSize": comicSize,
-        "downloadedEps": downloadedEps,
-        "chapters": chapters,
-        "id": id,
-        "name": name,
-        "subTitle": subTitle,
-        "tags": tags,
-        "sourceKey": sourceKey,
-        "sourceName": sourceName,
-        "cover": cover,
-        "comicId": comicId,
-        "color": color?.name,
-      };
+    "comicSize": comicSize,
+    "downloadedEps": downloadedEps,
+    "id": id,
+    "comic": comic.toJson(),
+    "sourceName": sourceName,
+    "color": color?.name,
+  };
 
   CustomDownloadedItem.fromJson(Map<String, dynamic> json)
-      : comicSize = json["comicSize"],
-        downloadedEps = List<int>.from(json["downloadedEps"]),
-        chapters = json["chapters"] != null
-            ? Map<String, String>.from(json["chapters"])
-            : null,
-        id = json["id"],
-        name = json["name"],
-        subTitle = json["subTitle"],
-        tags = List<String>.from(json["tags"]),
-        sourceKey = json["sourceKey"],
-        sourceName = json["sourceName"],
-        cover = json["cover"],
-        comicId = json["comicId"],
-        color = DownloadColorTag.fromString(json["color"]);
+    : comicSize = json["comicSize"],
+      downloadedEps = List<int>.from(json["downloadedEps"]),
+      id = json["id"],
+      comic = json["comic"] != null
+          ? ComicInfoData.fromJson(Map<String, dynamic>.from(json["comic"]))
+          : ComicInfoData(
+              json["name"] ?? '',
+              json["subTitle"],
+              json["cover"] ?? '',
+              json["description"],
+              {"Tags": List<String>.from(json["tags"] ?? [])},
+              json["chapters"] == null
+                  ? null
+                  : Map<String, String>.from(json["chapters"]),
+              null,
+              null,
+              0,
+              null,
+              json["sourceKey"] ?? '',
+              json["comicId"] ?? '',
+            ),
+      sourceName = json["sourceName"],
+      color = DownloadColorTag.fromString(json["color"]);
 }
 
 class CustomDownloadingTask extends DownloadingTask {
-  CustomDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
-      super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.other})
-      : source = ComicSource.find(comic.sourceKey);
+  CustomDownloadingTask(
+    this.comic,
+    this._downloadEps,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.other,
+  }) : source = ComicSource.find(comic.sourceKey);
 
   final ComicInfoData comic;
 
@@ -113,19 +118,24 @@ class CustomDownloadingTask extends DownloadingTask {
 
   Stream<DownloadProgress> _getImage(String url) {
     if (source?.getImageLoadingConfig != null) {
-      int ep = (links?.keys.length ?? 0) > downloadingEp ? links!.keys.elementAt(downloadingEp) : 0;
-      var config = source!.getImageLoadingConfig!(url, comic.comicId,
-          comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId);
-      return ImageManager()
-          .getImage(config?.url ?? url, Map.from(config?.headers ?? {}));
+      int ep = (links?.keys.length ?? 0) > downloadingEp
+          ? links!.keys.elementAt(downloadingEp)
+          : 0;
+      var config = source!.getImageLoadingConfig!(
+        url,
+        comic.comicId,
+        comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId,
+      );
+      return ImageManager().getImage(
+        config?.url ?? url,
+        Map.from(config?.headers ?? {}),
+      );
     }
     return ImageManager().getImage(url);
   }
 
   @override
-  Map<String, String> get headers => {
-        "User-Agent": webUA,
-      };
+  Map<String, String> get headers => {"User-Agent": webUA};
 
   Future<void> getOneEp(int i, Map<int, List<String>> links) async {
     if (links[i + 1] != null) return;
@@ -134,9 +144,12 @@ class CustomDownloadingTask extends DownloadingTask {
 
     while (retry < 3) {
       try {
-        links[i + 1] = (await source?.loadComicPages?.call(
-                comic.comicId, comic.chapters!.keys.elementAt(i)))
-            ?.data ?? [];
+        links[i + 1] =
+            (await source?.loadComicPages?.call(
+              comic.comicId,
+              comic.chapters!.keys.elementAt(i),
+            ))?.data ??
+            [];
         return;
       } catch (e) {
         await Future.delayed(const Duration(seconds: 3));
@@ -173,21 +186,21 @@ class CustomDownloadingTask extends DownloadingTask {
 
   @override
   Map<String, dynamic> toMap() => {
-        "comic": comic.toJson(),
-        "_downloadEps": _downloadEps,
-        ...super.toBaseMap()
-      };
+    "comic": comic.toJson(),
+    "_downloadEps": _downloadEps,
+    ...super.toBaseMap(),
+  };
 
   CustomDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = ComicInfoData.fromJson(map["comic"]),
-        _downloadEps = List<int>.from(map["_downloadEps"]),
-        source = ComicSource.find(ComicInfoData.fromJson(map["comic"]).sourceKey),
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = ComicInfoData.fromJson(map["comic"]),
+      _downloadEps = List<int>.from(map["_downloadEps"]),
+      source = ComicSource.find(ComicInfoData.fromJson(map["comic"]).sourceKey),
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   String getEpisodeName(int episodeIndex) {
@@ -211,20 +224,12 @@ class CustomDownloadingTask extends DownloadingTask {
     }
     var downloaded = (_downloadEps + previous).toSet().toList();
     downloaded.sort();
-    var tags = <String>[];
-    comic.tags.forEach((key, value) => tags.addAll(value));
     return CustomDownloadedItem(
       await getFolderSize(Directory(path)),
       downloaded,
-      comic.chapters,
       id,
-      comic.title,
-      comic.subTitle ?? "",
-      tags,
-      comic.sourceKey,
+      comic,
       source?.name ?? "Unknown",
-      comic.cover,
-      comic.comicId,
     );
   }
 

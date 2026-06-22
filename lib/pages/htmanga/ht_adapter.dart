@@ -9,6 +9,7 @@ import '../../foundation/def.dart';
 import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
+import '../../network/download/download_model.dart';
 import '../../network/htmanga_network/ht_download_model.dart';
 import '../../network/htmanga_network/htmanga_main_network.dart';
 import '../../network/htmanga_network/models.dart';
@@ -48,17 +49,17 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
 
   @override
   Future<HtComicInfo?> loadCachedData(String id) async {
-    var data = await DiskCache.readModel(
-      tag(id),
-      (map) => HtComicInfo.fromJson(map),
-    );
-    if (data != null) return data;
-    final downloadedId = "Ht$id";
-    if (await downloadManager.isExists(downloadedId)) {
-      var downloaded = await downloadManager.getComicOrNull(downloadedId);
-      if (downloaded is DownloadedHtComic) return downloaded.comic;
-    }
-    return null;
+    return DiskCache.readModel(tag(id), (map) => HtComicInfo.fromJson(map));
+  }
+
+  @override
+  HtComicInfo? dataFromDownloadedItem(DownloadedItem item) =>
+      item is DownloadedHtComic ? item.comic : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, HtComicInfo data) {
+    if (item is! DownloadedHtComic) return null;
+    return DownloadedHtComic(data, item.comicSize, color: item.color);
   }
 
   @override

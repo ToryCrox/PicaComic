@@ -10,6 +10,7 @@ import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
+import '../../network/download/download_model.dart';
 import '../../network/picacg_network/methods.dart';
 import '../../network/picacg_network/picacg_download_model.dart';
 import '../../network/res.dart';
@@ -56,16 +57,23 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
 
   @override
   Future<ComicItem?> loadCachedData(String id) async {
-    var data = await DiskCache.readModel(
-      tag(id),
-      (map) => ComicItem.fromJson(map),
+    return DiskCache.readModel(tag(id), (map) => ComicItem.fromJson(map));
+  }
+
+  @override
+  ComicItem? dataFromDownloadedItem(DownloadedItem item) =>
+      item is DownloadedComic ? item.comicItem : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, ComicItem data) {
+    if (item is! DownloadedComic) return null;
+    return DownloadedComic(
+      data,
+      List<String>.from(data.eps),
+      item.comicSize,
+      List<int>.from(item.downloadedEps),
+      color: item.color,
     );
-    if (data != null) return data;
-    if (await downloadManager.isExists(id)) {
-      var downloaded = await downloadManager.getComicOrNull(id);
-      if (downloaded is DownloadedComic) return downloaded.comicItem;
-    }
-    return null;
   }
 
   @override

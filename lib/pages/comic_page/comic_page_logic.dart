@@ -81,12 +81,12 @@ class ComicPageState {
       reverseEpsOrder: reverseEpsOrder ?? this.reverseEpsOrder,
       showFullEps: showFullEps ?? this.showFullEps,
       colorIndex: colorIndex ?? this.colorIndex,
-      favoriteOnPlatform:
-          clearFavoriteOnPlatform ? null : (favoriteOnPlatform ?? this.favoriteOnPlatform),
+      favoriteOnPlatform: clearFavoriteOnPlatform
+          ? null
+          : (favoriteOnPlatform ?? this.favoriteOnPlatform),
       isDownloaded: isDownloaded ?? this.isDownloaded,
       localTags: localTags ?? this.localTags,
-      localImages:
-          clearLocalImages ? null : (localImages ?? this.localImages),
+      localImages: clearLocalImages ? null : (localImages ?? this.localImages),
       coverPath: clearCoverPath ? null : (coverPath ?? this.coverPath),
       showAppbarTitle: showAppbarTitle ?? this.showAppbarTitle,
     );
@@ -154,7 +154,8 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   ComicPageState build((ComicType, String) key) {
     _key = key;
     final (comicType, id) = key;
-    _adapter = ComicPageAdapterRegistry.find(comicType) ??
+    _adapter =
+        ComicPageAdapterRegistry.find(comicType) ??
         DefaultComicPageAdapter(comicType);
 
     _controller = ScrollController();
@@ -170,8 +171,9 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   // ========================================================================
 
   Future<void> _load(String id) async {
-    // 第一步：尝试加载缓存
-    final cached = await _adapter.loadCachedData(id);
+    // 第一步：优先加载下载数据库，其次读取普通磁盘缓存
+    final downloaded = await _loadDownloadedData(id);
+    final cached = downloaded ?? await _adapter.loadCachedData(id);
     if (!ref.mounted) return;
     if (cached != null) {
       _data = cached;
@@ -197,11 +199,33 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
     final networkData = res.data;
     _data = networkData;
+    await _syncDownloadedData(id, networkData);
+    if (!ref.mounted) return;
     _loadHistory(id);
     _loadFavorite(networkData);
     await _loadLocalTags(_adapter.downloadId(id));
     if (!ref.mounted) return;
     state = state.copyWith(loading: false, clearMessage: true);
+  }
+
+  /// 从下载数据库读取详情页数据。
+  Future<Object?> _loadDownloadedData(String id) async {
+    final downloadId = _adapter.downloadId(id);
+    if (downloadId.isEmpty) return null;
+    final item = await downloadManager.getComicOrNull(downloadId);
+    if (item == null) return null;
+    return _adapter.dataFromDownloadedItem(item);
+  }
+
+  /// 网络请求成功后，将最新详情同步到已有下载记录。
+  Future<void> _syncDownloadedData(String id, Object data) async {
+    final downloadId = _adapter.downloadId(id);
+    if (downloadId.isEmpty) return;
+    final original = await downloadManager.getComicOrNull(downloadId);
+    if (original == null) return;
+    final updated = _adapter.mergeDownloadedItem(original, data);
+    if (updated == null) return;
+    await downloadManager.updateDownloadedDetails(original, updated);
   }
 
   // ========================================================================

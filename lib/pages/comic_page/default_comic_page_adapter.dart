@@ -12,6 +12,8 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/base_comic.dart';
+import '../../network/download/custom_download_model.dart';
+import '../../network/download/download_model.dart';
 import '../../network/res.dart';
 import '../../tools/translations.dart';
 import '../reader/comic_reading_page.dart';
@@ -65,6 +67,25 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   Future<ComicInfoData?> loadCachedData(String id) => SynchronousFuture(null);
+
+  @override
+  ComicInfoData? dataFromDownloadedItem(DownloadedItem item) =>
+      item is CustomDownloadedItem && item.sourceKey == comicType.name
+      ? item.comic
+      : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, ComicInfoData data) {
+    if (item is! CustomDownloadedItem) return null;
+    return CustomDownloadedItem(
+      item.comicSize,
+      List<int>.from(item.downloadedEps),
+      item.id,
+      data,
+      item.sourceName,
+      color: item.color,
+    );
+  }
 
   @override
   Future<bool> loadFavorite(ComicInfoData data) async =>

@@ -58,7 +58,7 @@ class DownloadedComicTile extends ComicTile {
   final void Function(String tag, TapDownDetails details)? onTagSecondaryTap;
   @override
   final void Function(String tag, TapDownDetails details)?
-      onPrimaryTagSecondaryTap;
+  onPrimaryTagSecondaryTap;
 
   final VoidCallback? onManageTags;
   final VoidCallback? onOpenFolder;
@@ -108,7 +108,9 @@ class DownloadedComicTile extends ComicTile {
       return (downloadedItem as DownloadedGallery).gallery.link;
     }
     return downloadManager.getComicIdFromDownloadId(
-        downloadedItem.type.toComicType(), downloadedItem.id);
+      downloadedItem.type.toComicType(),
+      downloadedItem.id,
+    );
   }
 
   @override
@@ -116,13 +118,14 @@ class DownloadedComicTile extends ComicTile {
 
   @override
   bool get showDownload => false;
-  
+
   @override
   bool get showRead => false;
 
   @override
   Widget? buildSubDescription(BuildContext context) {
-    if (onManageTags == null && onOpenFolder == null && onRead == null) return null;
+    if (onManageTags == null && onOpenFolder == null && onRead == null)
+      return null;
     return Padding(
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
       child: Row(
@@ -168,8 +171,9 @@ class DownloadedComicTile extends ComicTile {
     bool isPrimary = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final backgroundColor =
-        isPrimary ? colorScheme.primaryContainer : colorScheme.secondaryContainer;
+    final backgroundColor = isPrimary
+        ? colorScheme.primaryContainer
+        : colorScheme.secondaryContainer;
     final foregroundColor = isPrimary
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSecondaryContainer;
@@ -209,11 +213,12 @@ class DownloadedComicTile extends ComicTile {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTapDown: (details) async {
-          final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+          final overlay =
+              Overlay.of(context).context.findRenderObject() as RenderBox;
           final targetPosition = overlay.globalToLocal(details.globalPosition);
           final position = RelativeRect.fromRect(
-             Rect.fromPoints(targetPosition, targetPosition),
-             Offset.zero & overlay.size,
+            Rect.fromPoints(targetPosition, targetPosition),
+            Offset.zero & overlay.size,
           );
           final color = await showMenu<DownloadColorTag>(
             context: context,
@@ -289,12 +294,12 @@ class DownloadedComicTile extends ComicTile {
 
   @override
   Widget get image => Image.file(
-        imagePath,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        cacheWidth:
-            (100 * MediaQuery.of(App.globalContext!).devicePixelRatio).toInt(),
-      );
+    imagePath,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    cacheWidth: (100 * MediaQuery.of(App.globalContext!).devicePixelRatio)
+        .toInt(),
+  );
 
   @override
   Widget? get badge => Text(type);
@@ -443,10 +448,9 @@ class _DownloadedComicTileDragWrapperState
             final file = imageFiles[i];
             final item = DragItem(suggestedName: Path.basename(file.path));
             item.add(Formats.fileUri(Uri.file(file.path)));
-            items.add(DragConfigurationItem(
-              item: item,
-              image: refCountingImage,
-            ));
+            items.add(
+              DragConfigurationItem(item: item, image: refCountingImage),
+            );
           }
 
           return DragConfiguration(
@@ -476,7 +480,12 @@ void toComicInfoPage(DownloadedItem comic) {
   } else if (comic is NhentaiDownloadedComic) {
     context.to(() => NhentaiComicPage(comic.id.replaceFirst("nhentai", "")));
   } else if (comic is CustomDownloadedItem) {
-    context.to(() => ComicPage(comicType: ComicType.fromString(comic.type.name), id: comic.comicId));
+    context.to(
+      () => ComicPage(
+        comicType: ComicType.fromString(comic.sourceKey),
+        id: comic.comicId,
+      ),
+    );
   } else if (comic.type == DownloadType.local) {
     // 本地漫画不支持查看详情页面，可以显示提示
     showToast(message: "本地漫画不支持查看详情".tl);
@@ -496,7 +505,9 @@ void toDownloadingComicInfoPage(DownloadingTask task) {
         context.to(() => EhGalleryPage.fromLink(task.gallery.link));
       } else {
         // 如果不是 EhDownloadingTask，尝试构造完整链接
-        final link = task.id.contains('/') ? task.id : 'https://e-hentai.org/g/$task.id/';
+        final link = task.id.contains('/')
+            ? task.id
+            : 'https://e-hentai.org/g/$task.id/';
         context.to(() => EhGalleryPage.fromLink(link));
       }
       break;
@@ -511,7 +522,9 @@ void toDownloadingComicInfoPage(DownloadingTask task) {
         context.to(() => HitomiComicPage.fromLink(task.link));
       } else {
         // 如果不是 HitomiDownloadingTask，尝试使用 ID 构造链接
-        final hitomiId = task.id.startsWith('hitomi') ? task.id.substring(6) : task.id;
+        final hitomiId = task.id.startsWith('hitomi')
+            ? task.id.substring(6)
+            : task.id;
         context.to(() => HitomiComicPage.fromLink(hitomiId));
       }
       break;
@@ -522,13 +535,20 @@ void toDownloadingComicInfoPage(DownloadingTask task) {
       break;
     case DownloadType.nhentai:
       // Nhentai: ID 格式为 "nhentai{id}"，需要去掉前缀
-      final nhentaiId = task.id.startsWith('nhentai') ? task.id.replaceFirst('nhentai', '') : task.id;
+      final nhentaiId = task.id.startsWith('nhentai')
+          ? task.id.replaceFirst('nhentai', '')
+          : task.id;
       context.to(() => NhentaiComicPage(nhentaiId));
       break;
     case DownloadType.other:
       // 自定义源：需要检查是否是 CustomDownloadingTask
       if (task is CustomDownloadingTask) {
-        context.to(() => ComicPage(comicType: ComicType.fromString(task.comic.sourceKey), id: task.comic.comicId));
+        context.to(
+          () => ComicPage(
+            comicType: ComicType.fromString(task.comic.sourceKey),
+            id: task.comic.comicId,
+          ),
+        );
       } else {
         showToast(message: "无法打开该漫画详情".tl);
       }
@@ -620,7 +640,7 @@ class TagInfo {
 class _RefCountingSnapshot extends raw.TargetedWidgetSnapshot {
   int _count;
   _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count)
-      : super(snapshot, rect);
+    : super(snapshot, rect);
 
   @override
   void dispose() {

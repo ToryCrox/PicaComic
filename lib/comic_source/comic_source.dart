@@ -13,6 +13,7 @@ import 'package:pica_comic/foundation/app.dart';
 import '../foundation/history.dart';
 import '../foundation/log.dart';
 import '../tools/extensions.dart';
+import '../tools/type_util.dart';
 import '../base.dart';
 import '../network/base_comic.dart';
 import '../network/res.dart';
@@ -37,22 +38,39 @@ typedef LoginFunction = Future<Res<bool>> Function(String, String);
 
 typedef LoadComicFunc = Future<Res<ComicInfoData>> Function(String id);
 
-typedef LoadComicPagesFunc = Future<Res<List<String>>> Function(
-    String id, String? ep);
+typedef LoadComicPagesFunc =
+    Future<Res<List<String>>> Function(String id, String? ep);
 
-typedef CommentsLoader = Future<Res<List<Comment>>> Function(
-    String id, String? subId, int page, String? replyTo);
+typedef CommentsLoader =
+    Future<Res<List<Comment>>> Function(
+      String id,
+      String? subId,
+      int page,
+      String? replyTo,
+    );
 
-typedef SendCommentFunc = Future<Res<bool>> Function(
-    String id, String? subId, String content, String? replyTo);
+typedef SendCommentFunc =
+    Future<Res<bool>> Function(
+      String id,
+      String? subId,
+      String content,
+      String? replyTo,
+    );
 
-typedef GetImageLoadingConfigFunc = ImageConfig? Function(
-    String imageKey, String comicId, String epId);
-typedef GetThumbnailLoadingConfigFunc = ImageConfig? Function(
-    String imageKey);
+typedef GetImageLoadingConfigFunc =
+    ImageConfig? Function(String imageKey, String comicId, String epId);
+typedef GetThumbnailLoadingConfigFunc = ImageConfig? Function(String imageKey);
 
 class ComicSource {
-  static final builtIn = [picacg, ehentai, jm, hitomi, htManga, nhentai, kemono];
+  static final builtIn = [
+    picacg,
+    ehentai,
+    jm,
+    hitomi,
+    htManga,
+    nhentai,
+    kemono,
+  ];
 
   static List<ComicSource> sources = [];
 
@@ -60,11 +78,14 @@ class ComicSource {
     if (key is ComicType) {
       return sources.firstWhereOrNull((element) => element.key == key);
     }
-    return sources.firstWhereOrNull((element) => element.key.name == key.toString());
+    return sources.firstWhereOrNull(
+      (element) => element.key.name == key.toString(),
+    );
   }
 
-  static ComicSource? fromIntKey(int key) =>
-      sources.firstWhereOrNull((element) => element.key.index == key || element.key.name.hashCode == key);
+  static ComicSource? fromIntKey(int key) => sources.firstWhereOrNull(
+    (element) => element.key.index == key || element.key.name.hashCode == key,
+  );
 
   static Future<void> init() async {
     for (var source in builtInSources) {
@@ -119,11 +140,10 @@ class ComicSource {
   /// Load comic pages.
   final LoadComicPagesFunc? loadComicPages;
 
-  final ImageConfig? Function(
-      String url, String comicId, String epId)? getImageLoadingConfig;
+  final ImageConfig? Function(String url, String comicId, String epId)?
+  getImageLoadingConfig;
 
-  final ImageConfig? Function(String url)?
-      getThumbnailLoadingConfig;
+  final ImageConfig? Function(String url)? getThumbnailLoadingConfig;
 
   final String? matchBriefIdReg;
 
@@ -143,7 +163,8 @@ class ComicSource {
 
   final RegExp? idMatcher;
 
-  final Widget Function(BuildContext context, String id, String? cover)? comicPageBuilder;
+  final Widget Function(BuildContext context, String id, String? cover)?
+  comicPageBuilder;
 
   Future<void> loadData() async {
     var file = File("${App.dataPath}/comic_source/$key.data");
@@ -189,32 +210,32 @@ class ComicSource {
   bool get isBuiltIn => filePath == 'built-in';
 
   final Widget Function(BuildContext, BaseComic, List<ComicTileMenuOption>?)?
-      comicTileBuilderOverride;
+  comicTileBuilderOverride;
 
   ComicSource(
-      this.name,
-      this.key,
-      this.account,
-      this.categoryData,
-      this.categoryComicsData,
-      this.favoriteData,
-      this.explorePages,
-      this.searchPageData,
-      this.settings,
-      this.loadComicInfo,
-      this.loadComicPages,
-      this.getImageLoadingConfig,
-      this.getThumbnailLoadingConfig,
-      this.matchBriefIdReg,
-      this.filePath,
-      this.url,
-      this.version,
-      this.commentsLoader,
-      this.sendCommentFunc)
-      : initData = null,
-        comicTileBuilderOverride = null,
-        idMatcher = null,
-        comicPageBuilder = null;
+    this.name,
+    this.key,
+    this.account,
+    this.categoryData,
+    this.categoryComicsData,
+    this.favoriteData,
+    this.explorePages,
+    this.searchPageData,
+    this.settings,
+    this.loadComicInfo,
+    this.loadComicPages,
+    this.getImageLoadingConfig,
+    this.getThumbnailLoadingConfig,
+    this.matchBriefIdReg,
+    this.filePath,
+    this.url,
+    this.version,
+    this.commentsLoader,
+    this.sendCommentFunc,
+  ) : initData = null,
+      comicTileBuilderOverride = null,
+      idMatcher = null,
+      comicPageBuilder = null;
 
   ComicSource.named({
     required this.name,
@@ -243,29 +264,29 @@ class ComicSource {
   });
 
   ComicSource.unknown(String key)
-      : key = ComicType.fromString(key),
-        name = "Unknown",
-        account = null,
-        categoryData = null,
-        categoryComicsData = null,
-        favoriteData = null,
-        explorePages = [],
-        searchPageData = null,
-        settings = [],
-        loadComicInfo = null,
-        loadComicPages = null,
-        getImageLoadingConfig = null,
-        getThumbnailLoadingConfig = null,
-        matchBriefIdReg = null,
-        filePath = "",
-        url = "",
-        version = "",
-        commentsLoader = null,
-        sendCommentFunc = null,
-        initData = null,
-        comicTileBuilderOverride = null,
-        idMatcher = null,
-        comicPageBuilder = null;
+    : key = ComicType.fromString(key),
+      name = "Unknown",
+      account = null,
+      categoryData = null,
+      categoryComicsData = null,
+      favoriteData = null,
+      explorePages = [],
+      searchPageData = null,
+      settings = [],
+      loadComicInfo = null,
+      loadComicPages = null,
+      getImageLoadingConfig = null,
+      getThumbnailLoadingConfig = null,
+      matchBriefIdReg = null,
+      filePath = "",
+      url = "",
+      version = "",
+      commentsLoader = null,
+      sendCommentFunc = null,
+      initData = null,
+      comicTileBuilderOverride = null,
+      idMatcher = null,
+      comicPageBuilder = null;
 }
 
 class AccountConfig {
@@ -284,10 +305,13 @@ class AccountConfig {
   final List<AccountInfoItem> infoItems;
 
   const AccountConfig(
-      this.login, this.loginWebsite, this.registerWebsite, this.logout,
-      {this.onLogin})
-      : allowReLogin = true,
-        infoItems = const [];
+    this.login,
+    this.loginWebsite,
+    this.registerWebsite,
+    this.logout, {
+    this.onLogin,
+  }) : allowReLogin = true,
+       infoItems = const [];
 
   const AccountConfig.named({
     this.login,
@@ -336,10 +360,10 @@ class ExplorePageData {
   final WidgetBuilder? overridePageBuilder;
 
   ExplorePageData(this.title, this.type, this.loadPage, this.loadMultiPart)
-      : loadMixed = null,
-        loadCache = null,
-        loadMultiPartCache = null,
-        overridePageBuilder = null;
+    : loadMixed = null,
+      loadCache = null,
+      loadMultiPartCache = null,
+      overridePageBuilder = null;
 
   ExplorePageData.named({
     required this.title,
@@ -377,18 +401,26 @@ enum ExplorePageType {
   override,
 }
 
-typedef SearchFunction = Future<Res<List<BaseComic>>> Function(
-    String keyword, int page, List<String> searchOption);
+typedef SearchFunction =
+    Future<Res<List<BaseComic>>> Function(
+      String keyword,
+      int page,
+      List<String> searchOption,
+    );
 
 class SearchPageData {
   /// If this is not null, the default value of search options will be first element.
   final List<SearchOptions>? searchOptions;
 
-  final Widget Function(BuildContext, List<String> initialValues, void Function(List<String>))?
-      customOptionsBuilder;
+  final Widget Function(
+    BuildContext,
+    List<String> initialValues,
+    void Function(List<String>),
+  )?
+  customOptionsBuilder;
 
   final Widget Function(String keyword, List<String> options)?
-      overrideSearchResultBuilder;
+  overrideSearchResultBuilder;
 
   final SearchFunction? loadPage;
 
@@ -397,10 +429,10 @@ class SearchPageData {
   final bool enableTagsSuggestions;
 
   const SearchPageData(this.searchOptions, this.loadPage)
-      : enableLanguageFilter = false,
-        customOptionsBuilder = null,
-        overrideSearchResultBuilder = null,
-        enableTagsSuggestions = false;
+    : enableLanguageFilter = false,
+      customOptionsBuilder = null,
+      overrideSearchResultBuilder = null,
+      enableTagsSuggestions = false;
 
   const SearchPageData.named({
     this.searchOptions,
@@ -433,10 +465,39 @@ class SettingItem {
   const SettingItem(this.name, this.iconName, this.type, this.options);
 }
 
-enum SettingType {
-  switcher,
-  selector,
-  input,
+enum SettingType { switcher, selector, input }
+
+/// 可序列化的漫画详情推荐项。
+class ComicInfoSuggestion extends BaseComic {
+  @override
+  final String title;
+  @override
+  final String subTitle;
+  @override
+  final String cover;
+  @override
+  final String id;
+  @override
+  final List<String> tags;
+  @override
+  final String description;
+
+  const ComicInfoSuggestion(
+    this.title,
+    this.subTitle,
+    this.cover,
+    this.id,
+    this.tags,
+    this.description,
+  );
+
+  ComicInfoSuggestion.fromJson(Map<String, dynamic> json)
+    : title = json["title"],
+      subTitle = json["subTitle"] ?? "",
+      cover = json["cover"],
+      id = json["id"],
+      tags = List<String>.from(json["tags"] ?? []),
+      description = json["description"] ?? "";
 }
 
 class ComicInfoData with HistoryMixin {
@@ -459,7 +520,7 @@ class ComicInfoData with HistoryMixin {
   final List<String>? thumbnails;
 
   final Future<Res<List<String>>> Function(String id, int page)?
-      thumbnailLoader;
+  thumbnailLoader;
 
   final int thumbnailMaxPage;
 
@@ -474,20 +535,21 @@ class ComicInfoData with HistoryMixin {
   final String? subId;
 
   const ComicInfoData(
-      this.title,
-      this.subTitle,
-      this.cover,
-      this.description,
-      this.tags,
-      this.chapters,
-      this.thumbnails,
-      this.thumbnailLoader,
-      this.thumbnailMaxPage,
-      this.suggestions,
-      this.sourceKey,
-      this.comicId,
-      {this.isFavorite,
-      this.subId});
+    this.title,
+    this.subTitle,
+    this.cover,
+    this.description,
+    this.tags,
+    this.chapters,
+    this.thumbnails,
+    this.thumbnailLoader,
+    this.thumbnailMaxPage,
+    this.suggestions,
+    this.sourceKey,
+    this.comicId, {
+    this.isFavorite,
+    this.subId,
+  });
 
   Map<String, dynamic> toJson() {
     return {
@@ -497,6 +559,20 @@ class ComicInfoData with HistoryMixin {
       "description": description,
       "tags": tags,
       "chapters": chapters,
+      "thumbnails": thumbnails,
+      "thumbnailMaxPage": thumbnailMaxPage,
+      "suggestions": suggestions
+          ?.map(
+            (comic) => {
+              "title": comic.title,
+              "subTitle": comic.subTitle,
+              "cover": comic.cover,
+              "id": comic.id,
+              "tags": comic.tags,
+              "description": comic.description,
+            },
+          )
+          .toList(),
       "sourceKey": sourceKey,
       "comicId": comicId,
       "isFavorite": isFavorite,
@@ -513,20 +589,32 @@ class ComicInfoData with HistoryMixin {
   }
 
   ComicInfoData.fromJson(Map<String, dynamic> json)
-      : title = json["title"],
-        subTitle = json["subTitle"],
-        cover = json["cover"],
-        description = json["description"],
-        tags = _generateMap(json["tags"]),
-        chapters = Map<String, String>.from(json["chapters"]),
-        sourceKey = json["sourceKey"],
-        comicId = json["comicId"],
-        thumbnails = null,
-        thumbnailLoader = null,
-        thumbnailMaxPage = 0,
-        suggestions = null,
-        isFavorite = json["isFavorite"],
-        subId = json["subId"];
+    : title = json["title"],
+      subTitle = json["subTitle"],
+      cover = json["cover"],
+      description = json["description"],
+      tags = _generateMap(Map<String, dynamic>.from(json["tags"] ?? {})),
+      chapters = json["chapters"] == null
+          ? null
+          : Map<String, String>.from(json["chapters"]),
+      sourceKey = json["sourceKey"],
+      comicId = json["comicId"],
+      thumbnails = json["thumbnails"] == null
+          ? null
+          : List<String>.from(json["thumbnails"]),
+      thumbnailLoader = null,
+      thumbnailMaxPage = TypeUtil.parseInt(json["thumbnailMaxPage"]),
+      suggestions = json["suggestions"] == null
+          ? null
+          : (json["suggestions"] as List)
+                .map(
+                  (e) => ComicInfoSuggestion.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList(),
+      isFavorite = json["isFavorite"],
+      subId = json["subId"];
 
   @override
   HistoryType get historyType => HistoryType(sourceKey.hashCode);
@@ -535,8 +623,13 @@ class ComicInfoData with HistoryMixin {
   String get target => comicId;
 }
 
-typedef CategoryComicsLoader = Future<Res<List<BaseComic>>> Function(
-    String category, String? param, List<String> options, int page);
+typedef CategoryComicsLoader =
+    Future<Res<List<BaseComic>>> Function(
+      String category,
+      String? param,
+      List<String> options,
+      int page,
+    );
 
 class CategoryComicsData {
   /// options
@@ -567,10 +660,7 @@ class RankingData {
 
   const RankingData(this.options, this.load);
 
-  const RankingData.named({
-    required this.options,
-    required this.load,
-  });
+  const RankingData.named({required this.options, required this.load});
 }
 
 class CategoryComicsOptions {
@@ -601,6 +691,12 @@ class Comment {
   final int? replyCount;
   final String? id;
 
-  const Comment(this.userName, this.avatar, this.content, this.time,
-      this.replyCount, this.id);
+  const Comment(
+    this.userName,
+    this.avatar,
+    this.content,
+    this.time,
+    this.replyCount,
+    this.id,
+  );
 }

@@ -15,6 +15,7 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/pica_image_manager.dart';
 import '../../foundation/ui_mode.dart';
+import '../../network/download/download_model.dart';
 import '../../network/eh_network/eh_download_model.dart';
 import '../../network/eh_network/eh_main_network.dart';
 import '../../network/eh_network/eh_models.dart';
@@ -86,20 +87,17 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   Future<Gallery?> loadCachedData(String id) async {
-    var data = await DiskCache.readModel(
-      tag(id),
-      (map) => Gallery.fromJson(map),
-    );
-    if (data != null) return data;
-    final dId = downloadManager.getDownloadIdFromComicId(
-      comicType,
-      data?.link ?? "",
-    );
-    if (dId.isNotEmpty && await downloadManager.isExists(dId)) {
-      var downloaded = await downloadManager.getComicOrNull(dId);
-      if (downloaded is DownloadedGallery) return downloaded.gallery;
-    }
-    return null;
+    return DiskCache.readModel(tag(id), (map) => Gallery.fromJson(map));
+  }
+
+  @override
+  Gallery? dataFromDownloadedItem(DownloadedItem item) =>
+      item is DownloadedGallery ? item.gallery : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, Gallery data) {
+    if (item is! DownloadedGallery) return null;
+    return DownloadedGallery(data, item.comicSize, color: item.color);
   }
 
   @override

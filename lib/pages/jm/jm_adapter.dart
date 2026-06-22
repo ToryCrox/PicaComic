@@ -11,6 +11,7 @@ import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
+import '../../network/download/download_model.dart';
 import '../../network/jm_network/jm_image.dart';
 import '../../network/jm_network/jm_download.dart';
 import '../../network/jm_network/jm_models.dart';
@@ -58,19 +59,22 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
 
   @override
   Future<JmComicInfo?> loadCachedData(String id) async {
-    var data = await DiskCache.readModel(
-      tag(id),
-      (map) => JmComicInfo.fromMap(map),
+    return DiskCache.readModel(tag(id), (map) => JmComicInfo.fromMap(map));
+  }
+
+  @override
+  JmComicInfo? dataFromDownloadedItem(DownloadedItem item) =>
+      item is DownloadedJmComic ? item.comic : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, JmComicInfo data) {
+    if (item is! DownloadedJmComic) return null;
+    return DownloadedJmComic(
+      data,
+      item.comicSize,
+      List<int>.from(item.downloadedEps),
+      color: item.color,
     );
-    if (data != null) return data;
-    final downloadedId = "jm$id";
-    if (await downloadManager.isExists(downloadedId)) {
-      var downloaded = await downloadManager.getComicOrNull(downloadedId);
-      if (downloaded != null && downloaded is DownloadedJmComic) {
-        return downloaded.comic;
-      }
-    }
-    return null;
   }
 
   @override

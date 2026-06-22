@@ -4,6 +4,7 @@ import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/download/models/download_tag.dart';
+import '../../network/download/download_model.dart';
 import '../../network/res.dart';
 
 // 从原 comic_page.dart 引入的数据类型
@@ -53,6 +54,14 @@ abstract class ComicPageAdapter<T extends Object> {
 
   /// 从缓存加载漫画数据（返回null表示无缓存）
   Future<T?> loadCachedData(String id);
+
+  /// 从已下载记录中提取可用于详情页的数据。
+  T? dataFromDownloadedItem(DownloadedItem item) => null;
+
+  /// 将最新网络详情合并到原下载记录，返回 null 表示该类型不支持同步。
+  ///
+  /// 实现必须基于 [item] 更新，只替换详情数据，保留下载章节、大小、颜色等状态。
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, T data) => null;
 
   /// 检查是否已收藏
   Future<bool> loadFavorite(T data);
@@ -104,8 +113,14 @@ abstract class ComicPageAdapter<T extends Object> {
   List<Widget>? buildExtraActionButtons(
     T data,
     BuildContext context,
-    Widget Function(BuildContext, String, IconData, VoidCallback, [VoidCallback?])
-        buildActionItem,
+    Widget Function(
+      BuildContext,
+      String,
+      IconData,
+      VoidCallback, [
+      VoidCallback?,
+    ])
+    buildActionItem,
   );
 
   /// 转换为本地收藏项

@@ -10,12 +10,10 @@ class HomePageData {
   HomePageData(this.items);
 
   HomePageData.fromJson(Map<String, dynamic> json)
-      : items = json.optList("items", (e) => HomePageItem.fromJson(e));
+    : items = json.optList("items", (e) => HomePageItem.fromJson(e));
 
   Map<String, dynamic> toJson() {
-    return {
-      "items": items.map((e) => e.toJson()).toList()
-    };
+    return {"items": items.map((e) => e.toJson()).toList()};
   }
 }
 
@@ -28,17 +26,17 @@ class HomePageItem {
   HomePageItem(this.name, this.id, this.comics, this.category);
 
   HomePageItem.fromJson(Map<String, dynamic> json)
-      : name = json.optString("name"),
-        id = json.optString("id"),
-        category = json.optBool("category"),
-        comics = json.optList("comics", (e) => JmComicBrief.fromJson(e));
+    : name = json.optString("name"),
+      id = json.optString("id"),
+      category = json.optBool("category"),
+      comics = json.optList("comics", (e) => JmComicBrief.fromJson(e));
 
   Map<String, dynamic> toJson() {
     return {
       "name": name,
       "id": id,
       "category": category,
-      "comics": comics.map((e) => e.toJson()).toList()
+      "comics": comics.map((e) => e.toJson()).toList(),
     };
   }
 }
@@ -59,7 +57,7 @@ class JmComicBrief extends BaseComic {
     this.author,
     this.name,
     this.description,
-    this.categories
+    this.categories,
   );
 
   @override
@@ -72,12 +70,14 @@ class JmComicBrief extends BaseComic {
   String get title => name;
 
   JmComicBrief.fromJson(Map<String, dynamic> json)
-      : id = json["id"],
-        author = json["author"],
-        name = json["name"],
-        description = json["description"],
-        categories =
-            json.optList("categories", (e) => ComicCategoryInfo.fromJson(e));
+    : id = json["id"],
+      author = json["author"],
+      name = json["name"],
+      description = json["description"],
+      categories = json.optList(
+        "categories",
+        (e) => ComicCategoryInfo.fromJson(e),
+      );
 
   Map<String, dynamic> toJson() {
     return {
@@ -85,7 +85,7 @@ class JmComicBrief extends BaseComic {
       "author": author,
       "name": name,
       "description": description,
-      "categories": categories.map((e) => e.toJson()).toList()
+      "categories": categories.map((e) => e.toJson()).toList(),
     };
   }
 }
@@ -101,10 +101,7 @@ class ComicCategoryInfo {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "name": name
-    };
+    return {"id": id, "name": name};
   }
 }
 
@@ -168,21 +165,22 @@ class JmComicInfo with HistoryMixin {
   List<String> epNames;
 
   JmComicInfo(
-      this.name,
-      this.id,
-      this.author,
-      this.description,
-      this.likes,
-      this.views,
-      this.series,
-      this.tags,
-      this.works,
-      this.actors,
-      this.relatedComics,
-      this.liked,
-      this.favorite,
-      this.comments,
-      this.epNames);
+    this.name,
+    this.id,
+    this.author,
+    this.description,
+    this.likes,
+    this.views,
+    this.series,
+    this.tags,
+    this.works,
+    this.actors,
+    this.relatedComics,
+    this.liked,
+    this.favorite,
+    this.comments,
+    this.epNames,
+  );
 
   static Map<String, String> seriesToJsonMap(Map<int, String> map) {
     var res = <String, String>{};
@@ -206,35 +204,39 @@ class JmComicInfo with HistoryMixin {
       "id": id,
       "author": author,
       "description": description,
-      "likes": "",
-      "views": "",
+      "likes": likes,
+      "views": views,
       "series": seriesToJsonMap(series),
       "tags": tags,
       "works": works,
       "actors": actors,
       "relatedComics": relatedComics.map((e) => e.toJson()).toList(),
-      "liked": "",
-      "favorite": "",
-      "epNames": epNames
+      "liked": liked,
+      "favorite": favorite,
+      "comments": comments,
+      "epNames": epNames,
     };
   }
 
   JmComicInfo.fromMap(Map<String, dynamic> map)
-      : name = TypeUtil.parseString(map["name"]),
-        id = map["id"],
-        author = List<String>.from(map["author"]),
-        description = map["description"],
-        likes = 0,
-        views = 0,
-        series = jsonMapToSeries(map["series"]),
-        tags = List<String>.from(map["tags"]),
-        works = List<String>.from(map["works"] ?? []),
-        actors = List<String>.from(map["actors"] ?? []),
-        relatedComics = map.optList('relatedComics', (e) => JmComicBrief.fromJson(e)),
-        liked = false,
-        favorite = false,
-        comments = 0,
-        epNames = List.from(map["epNames"] ?? []);
+    : name = TypeUtil.parseString(map["name"]),
+      id = map["id"],
+      author = List<String>.from(map["author"]),
+      description = map["description"],
+      likes = TypeUtil.parseInt(map["likes"]),
+      views = TypeUtil.parseInt(map["views"]),
+      series = jsonMapToSeries(map["series"]),
+      tags = List<String>.from(map["tags"]),
+      works = List<String>.from(map["works"] ?? []),
+      actors = List<String>.from(map["actors"] ?? []),
+      relatedComics = map.optList(
+        'relatedComics',
+        (e) => JmComicBrief.fromJson(e),
+      ),
+      liked = map["liked"] is bool ? map["liked"] : false,
+      favorite = map["favorite"] is bool ? map["favorite"] : false,
+      comments = TypeUtil.parseInt(map["comments"]),
+      epNames = List.from(map["epNames"] ?? []);
 
   JmComicBrief toBrief() =>
       JmComicBrief(id, author.firstOrNull ?? "", name, description, []);

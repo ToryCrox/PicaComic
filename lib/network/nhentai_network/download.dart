@@ -9,16 +9,11 @@ import '../../tools/io_tools.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
 class NhentaiDownloadedComic extends DownloadedItem {
-  NhentaiDownloadedComic(
-      this.comicID, this.title, this.size, this.cover, this.tags, {this.color});
+  NhentaiDownloadedComic(this.comic, this.size, {this.color});
 
-  final String comicID;
+  NhentaiComic comic;
 
-  final String title;
-
-  final double? size;
-
-  final String cover;
+  double? size;
   @override
   DownloadColorTag? color;
 
@@ -32,40 +27,64 @@ class NhentaiDownloadedComic extends DownloadedItem {
   List<String> get eps => ["第一章".tl];
 
   @override
-  String get id => comicID;
+  String get id => "nhentai${comic.id}";
 
   @override
-  String get name => title;
+  String get name => comic.title;
 
   @override
-  String get subTitle => "";
+  String get subTitle => comic.subTitle;
 
   @override
   DownloadType get type => DownloadType.nhentai;
 
   @override
-  Map<String, dynamic> toJson() =>
-      {'comicID': comicID, 'title': title, 'size': size, 'cover': cover, 'color': color?.name};
+  Map<String, dynamic> toJson() => {
+    'comic': comic.toMap(),
+    'size': size,
+    'color': color?.name,
+  };
 
   NhentaiDownloadedComic.fromJson(Map<String, dynamic> json)
-      : comicID = json["comicID"],
-        title = json["title"],
-        size = json["size"],
-        tags = List.from(json["tags"] ?? []),
-        cover = json["cover"],
-        color = DownloadColorTag.fromString(json["color"]);
+    : comic = json['comic'] != null
+          ? NhentaiComic.fromMap(Map<String, dynamic>.from(json['comic']))
+          : NhentaiComic(
+              (json['comicID'] as String).replaceFirst(RegExp(r'^nhentai'), ''),
+              json['title'] ?? '',
+              json['subTitle'] ?? '',
+              json['cover'] ?? '',
+              {
+                if (json['tags'] != null)
+                  'Tags': List<String>.from(json['tags']),
+              },
+              false,
+              const [],
+              const [],
+              '',
+            ),
+      size = json["size"],
+      color = DownloadColorTag.fromString(json["color"]);
 
   @override
-  set comicSize(double? value) {}
+  set comicSize(double? value) => size = value;
 
   @override
-  List<String> tags;
+  List<String> get tags => comic.tags.values.expand((e) => e).toList();
+
+  String get cover => comic.cover;
+
+  String get title => comic.title;
 }
 
 class NhentaiDownloadingTask extends DownloadingTask {
   NhentaiDownloadingTask(
-      this.comic, super.whenFinish, super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.nhentai});
+    this.comic,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.nhentai,
+  });
 
   final NhentaiComic comic;
 
@@ -87,26 +106,22 @@ class NhentaiDownloadingTask extends DownloadingTask {
   String get title => comic.title;
 
   @override
-  Map<String, dynamic> toMap() =>
-      {"comic": comic.toMap(), ...super.toBaseMap()};
+  Map<String, dynamic> toMap() => {
+    "comic": comic.toMap(),
+    ...super.toBaseMap(),
+  };
 
   NhentaiDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = NhentaiComic.fromMap(map["comic"]),
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = NhentaiComic.fromMap(map["comic"]),
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    return NhentaiDownloadedComic(
-      id,
-      title,
-      await getFolderSize(Directory(path)),
-      comic.cover,
-      comic.tags["tags"] ?? [],
-    );
+    return NhentaiDownloadedComic(comic, await getFolderSize(Directory(path)));
   }
 }

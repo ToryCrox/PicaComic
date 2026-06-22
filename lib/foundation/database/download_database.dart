@@ -83,16 +83,18 @@ class DownloadDatabase {
         await dir.create(recursive: true);
       }
 
-      _db = await databaseFactory.openDatabase(dbPath,
-          options: OpenDatabaseOptions(
-            version: 8,
-            onCreate: _onCreate,
-            onUpgrade: _onUpgrade,
-            onOpen: (db) async {
-              // 启用外键约束支持,确保 ON DELETE CASCADE 生效
-              await db.execute('PRAGMA foreign_keys = ON');
-            },
-          ));
+      _db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 8,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+          onOpen: (db) async {
+            // 启用外键约束支持,确保 ON DELETE CASCADE 生效
+            await db.execute('PRAGMA foreign_keys = ON');
+          },
+        ),
+      );
 
       _initialized = true;
       _initCompleter.complete(_db);
@@ -112,15 +114,19 @@ class DownloadDatabase {
     if (oldVersion < 3) {
       // 为tags表添加新字段
       await db.execute(
-          'ALTER TABLE $kTableTags ADD COLUMN $kTagSortOrder INTEGER DEFAULT 0');
+        'ALTER TABLE $kTableTags ADD COLUMN $kTagSortOrder INTEGER DEFAULT 0',
+      );
       await db.execute(
-          'ALTER TABLE $kTableTags ADD COLUMN $kTagUpdatedTime INTEGER DEFAULT 0');
+        'ALTER TABLE $kTableTags ADD COLUMN $kTagUpdatedTime INTEGER DEFAULT 0',
+      );
       await db.execute(
-          'ALTER TABLE $kTableTags ADD COLUMN $kTagCategory INTEGER DEFAULT 0');
+        'ALTER TABLE $kTableTags ADD COLUMN $kTagCategory INTEGER DEFAULT 0',
+      );
     }
     if (oldVersion < 4) {
       await db.execute(
-          'ALTER TABLE $kTableTags ADD COLUMN $kTagCategorySortOrder INTEGER DEFAULT 0');
+        'ALTER TABLE $kTableTags ADD COLUMN $kTagCategorySortOrder INTEGER DEFAULT 0',
+      );
     }
     if (oldVersion < 5) {
       await db.execute('''
@@ -134,7 +140,8 @@ class DownloadDatabase {
     if (oldVersion < 7) {
       try {
         await db.execute(
-            'ALTER TABLE $kTableLocalHistory ADD COLUMN $kLocalHistoryTotalPages INTEGER DEFAULT 0');
+          'ALTER TABLE $kTableLocalHistory ADD COLUMN $kLocalHistoryTotalPages INTEGER DEFAULT 0',
+        );
       } catch (e) {
         // column may already exist
       }
@@ -142,7 +149,8 @@ class DownloadDatabase {
     if (oldVersion < 8) {
       try {
         await db.execute(
-            'ALTER TABLE $kTableDownload ADD COLUMN $kDownloadColor TEXT');
+          'ALTER TABLE $kTableDownload ADD COLUMN $kDownloadColor TEXT',
+        );
       } catch (e) {
         // column may already exist
       }
@@ -332,6 +340,22 @@ class DownloadDatabase {
     );
   }
 
+  /// 仅更新下载项的漫画详情，不修改下载时间、目录、大小和颜色。
+  Future<int> updateDownloadDetails({
+    required String id,
+    required String title,
+    required String subtitle,
+    required String json,
+  }) async {
+    final db = await _getDatabase();
+    return db.update(
+      kTableDownload,
+      {kDownloadTitle: title, kDownloadSubtitle: subtitle, kDownloadJson: json},
+      where: '$kDownloadId = ?',
+      whereArgs: [id],
+    );
+  }
+
   /// 检查下载项是否存在
   Future<bool> isDownloadExists(String id) async {
     final db = await _getDatabase();
@@ -347,11 +371,7 @@ class DownloadDatabase {
   /// 删除下载项
   Future<void> deleteDownload(String id) async {
     final db = await _getDatabase();
-    await db.delete(
-      kTableDownload,
-      where: '$kDownloadId = ?',
-      whereArgs: [id],
-    );
+    await db.delete(kTableDownload, where: '$kDownloadId = ?', whereArgs: [id]);
   }
 
   /// 获取下载项
@@ -393,10 +413,7 @@ class DownloadDatabase {
   }) async {
     final db = await _getDatabase();
     final order = descending ? 'DESC' : 'ASC';
-    return await db.query(
-      kTableDownload,
-      orderBy: '$orderBy $order',
-    );
+    return await db.query(kTableDownload, orderBy: '$orderBy $order');
   }
 
   /// 获取目录名
@@ -412,7 +429,9 @@ class DownloadDatabase {
   }
 
   /// 根据目录路径查询下载项（只返回 id 和 json，用于去重检查）
-  Future<List<Map<String, Object?>>> getDownloadsByDirectory(String directory) async {
+  Future<List<Map<String, Object?>>> getDownloadsByDirectory(
+    String directory,
+  ) async {
     final db = await _getDatabase();
     return await db.query(
       kTableDownload,
@@ -432,17 +451,14 @@ class DownloadDatabase {
     required String cover,
   }) async {
     final db = await _getDatabase();
-    await db.insert(
-        kTableLocalComic,
-        {
-          kLocalComicPath: path,
-          kLocalComicTitle: title,
-          kLocalComicSubtitle: subtitle,
-          kLocalComicJson: json,
-          kLocalComicSize: size,
-          kLocalComicCover: cover,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(kTableLocalComic, {
+      kLocalComicPath: path,
+      kLocalComicTitle: title,
+      kLocalComicSubtitle: subtitle,
+      kLocalComicJson: json,
+      kLocalComicSize: size,
+      kLocalComicCover: cover,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 获取所有本地漫画
@@ -471,17 +487,14 @@ class DownloadDatabase {
     int totalPages = 0,
   }) async {
     final db = await _getDatabase();
-    await db.insert(
-        kTableLocalHistory,
-        {
-          kLocalHistoryPath: path,
-          kLocalHistoryIsReversed: isReversed,
-          kLocalHistoryPageIndex: pageIndex,
-          kLocalHistoryTime: time,
-          kLocalHistoryJson: json,
-          kLocalHistoryTotalPages: totalPages,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(kTableLocalHistory, {
+      kLocalHistoryPath: path,
+      kLocalHistoryIsReversed: isReversed,
+      kLocalHistoryPageIndex: pageIndex,
+      kLocalHistoryTime: time,
+      kLocalHistoryJson: json,
+      kLocalHistoryTotalPages: totalPages,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 更新本地阅读历史页数
@@ -507,9 +520,11 @@ class DownloadDatabase {
   }
 
   /// 批量获取本地阅读历史
-  Future<List<Map<String, Object?>>> getLocalHistoryByPaths(List<String> paths) async {
+  Future<List<Map<String, Object?>>> getLocalHistoryByPaths(
+    List<String> paths,
+  ) async {
     if (paths.isEmpty) return [];
-    
+
     final db = await _getDatabase();
     final placeholders = paths.map((e) => '?').join(',');
     final result = await db.query(
@@ -539,20 +554,19 @@ class DownloadDatabase {
     );
   }
 
-
   // ==================== Local Favorite Management Methods ====================
 
   /// 添加或更新本地收藏
-  Future<void> addOrUpdateLocalFavorite(String path, {int sortOrder = 0}) async {
+  Future<void> addOrUpdateLocalFavorite(
+    String path, {
+    int sortOrder = 0,
+  }) async {
     final db = await _getDatabase();
-    await db.insert(
-        kTableLocalFavorite,
-        {
-          kLocalFavoritePath: path,
-          kLocalFavoriteSortOrder: sortOrder,
-          kLocalFavoriteTime: DateTime.now().millisecondsSinceEpoch,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(kTableLocalFavorite, {
+      kLocalFavoritePath: path,
+      kLocalFavoriteSortOrder: sortOrder,
+      kLocalFavoriteTime: DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 更新本地收藏排序权重
@@ -599,12 +613,16 @@ class DownloadDatabase {
   // ==================== Tag Management Methods ====================
 
   /// 创建标签
-  Future<int> createTag(String name,
-      {String? coverComicId, int category = 0}) async {
+  Future<int> createTag(
+    String name, {
+    String? coverComicId,
+    int category = 0,
+  }) async {
     final db = await _getDatabase();
     // 获取当前最大的排序值
-    final result = await db
-        .rawQuery('SELECT MAX($kTagSortOrder) as maxOrder FROM $kTableTags');
+    final result = await db.rawQuery(
+      'SELECT MAX($kTagSortOrder) as maxOrder FROM $kTableTags',
+    );
     final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
     final now = DateTime.now().millisecondsSinceEpoch;
 
@@ -664,11 +682,7 @@ class DownloadDatabase {
   /// 删除标签
   Future<void> deleteTag(int tagId) async {
     final db = await _getDatabase();
-    await db.delete(
-      kTableTags,
-      where: '$kTagId = ?',
-      whereArgs: [tagId],
-    );
+    await db.delete(kTableTags, where: '$kTagId = ?', whereArgs: [tagId]);
   }
 
   /// 为漫画添加标签(自动设置封面并更新时间)
@@ -680,14 +694,10 @@ class DownloadDatabase {
     final hasCover = tag != null && tag[kTagCoverComicId] != null;
 
     // 添加标签关联
-    await db.insert(
-      kTableComicTags,
-      {
-        kComicTagsComicId: comicId,
-        kComicTagsTagId: tagId,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert(kTableComicTags, {
+      kComicTagsComicId: comicId,
+      kComicTagsTagId: tagId,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     // 更新标签的updated_time
     await db.update(
@@ -737,25 +747,32 @@ class DownloadDatabase {
   /// 获取漫画的所有标签
   Future<List<Map<String, Object?>>> getComicTags(String comicId) async {
     final db = await _getDatabase();
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT t.* FROM $kTableTags t
       INNER JOIN $kTableComicTags ct ON t.$kTagId = ct.$kComicTagsTagId
       WHERE ct.$kComicTagsComicId = ?
       ORDER BY t.$kTagName
-    ''', [comicId]);
+    ''',
+      [comicId],
+    );
   }
 
   /// 获取漫画都有的标签
   Future<List<Map<String, Object?>>> getCommonComicTags(
-      List<String> comicIds) async {
+    List<String> comicIds,
+  ) async {
     final db = await _getDatabase();
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT t.* FROM $kTableTags t
       INNER JOIN $kTableComicTags ct ON t.$kTagId = ct.$kComicTagsTagId
       WHERE ct.$kComicTagsComicId IN (${comicIds.map((e) => '?').join(',')})
       GROUP BY t.$kTagId
       HAVING COUNT(t.$kTagId) = ?
-    ''', [...comicIds, comicIds.length]);
+    ''',
+      [...comicIds, comicIds.length],
+    );
   }
 
   /// 获取标签下的所有漫画ID
@@ -773,10 +790,13 @@ class DownloadDatabase {
   /// 获取标签下的漫画数量
   Future<int> getTagComicCount(int tagId) async {
     final db = await _getDatabase();
-    final result = await db.rawQuery('''
+    final result = await db.rawQuery(
+      '''
       SELECT COUNT(*) as count FROM $kTableComicTags
       WHERE $kComicTagsTagId = ?
-    ''', [tagId]);
+    ''',
+      [tagId],
+    );
     return result.first['count'] as int;
   }
 
@@ -791,21 +811,20 @@ class DownloadDatabase {
   }
 
   /// 批量为漫画添加/移除标签
-  Future<void> batchUpdateComicTags(List<String> comicIds, List<int> addTagIds,
-      List<int> removeTagIds) async {
+  Future<void> batchUpdateComicTags(
+    List<String> comicIds,
+    List<int> addTagIds,
+    List<int> removeTagIds,
+  ) async {
     final db = await _getDatabase();
     await db.transaction((txn) async {
       for (var comicId in comicIds) {
         // 1. 添加标签
         for (var tagId in addTagIds) {
-          await txn.insert(
-            kTableComicTags,
-            {
-              kComicTagsComicId: comicId,
-              kComicTagsTagId: tagId,
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await txn.insert(kTableComicTags, {
+            kComicTagsComicId: comicId,
+            kComicTagsTagId: tagId,
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
 
           // 更新标签时间戳
           await txn.update(
@@ -816,10 +835,12 @@ class DownloadDatabase {
           );
 
           // 检查并自动设置封面
-          final tagRes = await txn.query(kTableTags,
-              columns: [kTagCoverComicId],
-              where: '$kTagId = ?',
-              whereArgs: [tagId]);
+          final tagRes = await txn.query(
+            kTableTags,
+            columns: [kTagCoverComicId],
+            where: '$kTagId = ?',
+            whereArgs: [tagId],
+          );
           if (tagRes.isNotEmpty && tagRes.first[kTagCoverComicId] == null) {
             await txn.update(
               kTableTags,

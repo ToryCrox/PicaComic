@@ -6,6 +6,12 @@ class Tag {
   String link;
 
   Tag(this.name, this.link);
+
+  Map<String, dynamic> toMap() => {'name': name, 'link': link};
+
+  Tag.fromMap(Map<String, dynamic> map)
+    : name = map['name'],
+      link = map['link'] ?? '';
 }
 
 class HitomiComicBrief extends BaseComic {
@@ -73,27 +79,34 @@ class HitomiFile {
   int width;
   String galleryId;
 
-  HitomiFile(this.name, this.hash, this.hasWebp, this.hasAvif, this.height,
-      this.width, this.galleryId);
+  HitomiFile(
+    this.name,
+    this.hash,
+    this.hasWebp,
+    this.hasAvif,
+    this.height,
+    this.width,
+    this.galleryId,
+  );
 
   Map<String, dynamic> toMap() => {
-        "name": name,
-        "hash": hash,
-        "hasWebp": hasWebp,
-        "hasAvif": hasAvif,
-        "height": height,
-        "width": width,
-        "galleryId": galleryId
-      };
+    "name": name,
+    "hash": hash,
+    "hasWebp": hasWebp,
+    "hasAvif": hasAvif,
+    "height": height,
+    "width": width,
+    "galleryId": galleryId,
+  };
 
   HitomiFile.fromMap(Map<String, dynamic> map)
-      : name = map["name"],
-        hash = map["hash"],
-        hasWebp = map["hasWebp"],
-        hasAvif = map["hasAvif"],
-        height = map["height"],
-        width = map["width"],
-        galleryId = map["galleryId"];
+    : name = map["name"],
+      hash = map["hash"],
+      hasWebp = map["hasWebp"],
+      hasAvif = map["hasAvif"],
+      height = map["height"],
+      width = map["width"],
+      galleryId = map["galleryId"];
 }
 
 class HitomiComic with HistoryMixin {
@@ -137,41 +150,64 @@ class HitomiComic with HistoryMixin {
   }
 
   Map<String, dynamic> toMap() => {
-        "id": id,
-        "name": name,
-        "type": type,
-        "artists": artists,
-        "lang": lang,
-        "time": time,
-        "files": List<Map<String, dynamic>>.generate(
-            files.length, (index) => files[index].toMap())
-      };
+    "id": id,
+    "name": name,
+    "type": type,
+    "artists": artists,
+    "lang": lang,
+    "related": related,
+    "parodys": parodys?.map((tag) => tag.toMap()).toList(),
+    "characters": characters?.map((tag) => tag.toMap()).toList(),
+    "tags": tags.map((tag) => tag.toMap()).toList(),
+    "time": time,
+    "group": group,
+    "cover": cover,
+    "files": List<Map<String, dynamic>>.generate(
+      files.length,
+      (index) => files[index].toMap(),
+    ),
+  };
 
   HitomiComic.fromMap(Map<String, dynamic> map)
-      : id = map["id"],
-        name = map["name"],
-        type = map["type"],
-        artists = List<String>.from(map["artists"]),
-        lang = map["lang"] ?? "Unknown",
-        time = map["time"],
-        parodys = [],
-        characters = [],
-        tags = [],
-        related = [],
-        group = [],
-        cover = '',
-        files = List.generate(map["files"].length,
-            (index) => HitomiFile.fromMap(map["files"][index]));
+    : id = map["id"],
+      name = map["name"],
+      type = map["type"],
+      artists = List<String>.from(map["artists"]),
+      lang = map["lang"] ?? "Unknown",
+      time = map["time"],
+      parodys = map['parodys'] == null
+          ? []
+          : List<Map<String, dynamic>>.from(
+              map['parodys'],
+            ).map(Tag.fromMap).toList(),
+      characters = map['characters'] == null
+          ? []
+          : List<Map<String, dynamic>>.from(
+              map['characters'],
+            ).map(Tag.fromMap).toList(),
+      tags = map['tags'] == null
+          ? []
+          : List<Map<String, dynamic>>.from(
+              map['tags'],
+            ).map(Tag.fromMap).toList(),
+      related = List<int>.from(map['related'] ?? []),
+      group = List<String>.from(map['group'] ?? []),
+      cover = map['cover'] ?? '',
+      files = List.generate(
+        map["files"].length,
+        (index) => HitomiFile.fromMap(map["files"][index]),
+      );
 
   HitomiComicBrief toBrief(String link, String cover) => HitomiComicBrief(
-      name,
-      type,
-      lang,
-      tags,
-      time,
-      (artists ?? ["未知"]).isEmpty ? "未知" : (artists ?? ["未知"])[0],
-      link,
-      cover);
+    name,
+    type,
+    lang,
+    tags,
+    time,
+    (artists ?? ["未知"]).isEmpty ? "未知" : (artists ?? ["未知"])[0],
+    link,
+    cover,
+  );
 
   @override
   final String cover;

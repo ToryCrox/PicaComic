@@ -10,6 +10,7 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/log.dart';
 import '../../foundation/ui_mode.dart';
+import '../../network/download/download_model.dart';
 import '../../network/hitomi_network/hitomi_download_model.dart';
 import '../../network/hitomi_network/hitomi_main_network.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
@@ -36,7 +37,8 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) => "hitomi$id";
+  String downloadId(String id) =>
+      downloadManager.getDownloadIdFromComicId(comicType, id);
   @override
   String? url(HitomiComic data) => null;
   @override
@@ -52,17 +54,23 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
 
   @override
   Future<HitomiComic?> loadCachedData(String id) async {
-    var data = await DiskCache.readModel(
-      tag(id),
-      (map) => HitomiComic.fromMap(map),
+    return DiskCache.readModel(tag(id), (map) => HitomiComic.fromMap(map));
+  }
+
+  @override
+  HitomiComic? dataFromDownloadedItem(DownloadedItem item) =>
+      item is DownloadedHitomiComic ? item.comic : null;
+
+  @override
+  DownloadedItem? mergeDownloadedItem(DownloadedItem item, HitomiComic data) {
+    if (item is! DownloadedHitomiComic) return null;
+    return DownloadedHitomiComic(
+      data,
+      item.comicSize,
+      item.link,
+      data.cover.isEmpty ? item.cover : data.cover,
+      color: item.color,
     );
-    if (data != null) return data;
-    final downloadedId = "hitomi$id";
-    if (await downloadManager.isExists(downloadedId)) {
-      var downloaded = await downloadManager.getComicOrNull(downloadedId);
-      if (downloaded is DownloadedHitomiComic) return downloaded.comic;
-    }
-    return null;
   }
 
   @override
