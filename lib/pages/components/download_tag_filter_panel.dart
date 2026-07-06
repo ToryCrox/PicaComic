@@ -11,7 +11,7 @@ import '../../foundation/log.dart';
 
 class DownloadTagFilterPanel extends StatefulWidget {
   final List<TagInfo> tags;
-  final int? selectedTagId;
+  final Set<int> selectedTagIds;
   final ValueChanged<int?> onTagSelected;
   final VoidCallback onClose;
   final VoidCallback onManageTags;
@@ -20,7 +20,7 @@ class DownloadTagFilterPanel extends StatefulWidget {
   const DownloadTagFilterPanel({
     super.key,
     required this.tags,
-    required this.selectedTagId,
+    required this.selectedTagIds,
     required this.onTagSelected,
     required this.onClose,
     required this.onManageTags,
@@ -230,8 +230,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
   }
 
   Widget _buildTagItem(TagInfo tag) {
-    // 支持多标签选择，但这里只显示单个选中状态（用于兼容）
-    final isSelected = widget.selectedTagId == tag.id;
+    final isSelected = widget.selectedTagIds.contains(tag.id);
     return Card(
       key: ValueKey(tag.id.toString()),
       elevation: isSelected ? 4 : 1,

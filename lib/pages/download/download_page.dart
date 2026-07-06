@@ -495,14 +495,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         ),
       ),
       // 排序
-      IconButton(
-        icon: const Icon(Icons.sort),
-        onPressed: () {
-          showComicSortDialog(
-            context: context,
-            onRefresh: () => ref.refresh(allDownloadedComicsProvider),
-          );
-        },
+      buildComicSortMenuAnchor(
+        onChanged: () => triggerSortUpdate(ref, _pageId),
       ),
       // 更多菜单
       Builder(
@@ -827,47 +821,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                         for (var tag in displayTags)
                           Padding(
                             padding: const EdgeInsets.only(right: 4),
-                            child: InkWell(
-                              key: ValueKey(tag.id),
-                              onTap: () =>
-                                  updateTagFilter(ref, _pageId, tag.id),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: pageState.selectedTagIds
-                                          .contains(tag.id)
-                                      ? Theme.of(context).colorScheme.primary
-                                      : TagCategory.fromValue(tag.category)
-                                          .color
-                                          .withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      pageState.selectedTagIds.contains(tag.id)
-                                          ? null
-                                          : Border.all(
-                                              color: TagCategory.fromValue(
-                                                      tag.category)
-                                                  .color,
-                                              width: 1,
-                                            ),
-                                ),
-                                child: Text(
-                                  tag.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: pageState.selectedTagIds
-                                            .contains(tag.id)
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .onPrimary
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                  ),
-                                ),
-                              ),
+                            child: _buildTagFilterChip(
+                              context,
+                              tag,
+                              pageState.selectedTagIds.contains(tag.id),
                             ),
                           ),
                       ],
@@ -887,9 +844,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                       backgroundColor: Colors.transparent,
                       builder: (context) => DownloadTagFilterPanel(
                         tags: allTags,
-                        selectedTagId: pageState.selectedTagIds.isNotEmpty
-                            ? pageState.selectedTagIds.first
-                            : null,
+                        selectedTagIds: pageState.selectedTagIds,
                         onTagSelected: (id) {
                           updateTagFilter(ref, _pageId, id);
                           Navigator.pop(context);
@@ -917,6 +872,63 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       loading: () => const SizedBox(
           height: 48, child: Center(child: CircularProgressIndicator())),
       error: (e, s) => const SizedBox(height: 48),
+    );
+  }
+
+  Widget _buildTagFilterChip(
+    BuildContext context,
+    TagInfo tag,
+    bool isSelected,
+  ) {
+    final category = TagCategory.fromValue(tag.category);
+    final showCategory = category != TagCategory.none;
+
+    return InkWell(
+      key: ValueKey(tag.id),
+      onTap: () => updateTagFilter(ref, _pageId, tag.id),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : category.color.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected
+              ? null
+              : Border.all(
+                  color: category.color,
+                  width: 1,
+                ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showCategory) ...[
+              Text(
+                category.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : category.color,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              tag.name,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

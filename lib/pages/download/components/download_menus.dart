@@ -248,62 +248,68 @@ void showSelectingMenu({
   );
 }
 
-/// 显示排序对话框
-Future<void> showComicSortDialog({
-  required BuildContext context,
-  required VoidCallback onRefresh,
-}) async {
-  bool changed = false;
-  await showDialog(
-    context: context,
-    builder: (context) {
-      return SimpleDialog(
-        title: Text("漫画排序模式".tl),
-        children: [
-          SizedBox(
-            width: 400,
-            child: Column(
-              children: [
-                ListTile(
-                  title: Text("漫画排序模式".tl),
-                  trailing: Select(
-                    initialValue: int.parse(appdata.settings[26][0]),
-                    onChange: (i) {
-                      appdata.settings[26] =
-                          appdata.settings[26].setValueAt(i.toString(), 0);
-                      appdata.updateSettings();
-                      changed = true;
-                    },
-                    values: ["时间", "漫画名", "作者名", "大小"].tl,
-                  ),
-                ),
-                ListTile(
-                  title: Text("倒序".tl),
-                  trailing: StatefulSwitch(
-                    initialValue: appdata.settings[26][1] == "1",
-                    onChanged: (b) {
-                      if (b) {
-                        appdata.settings[26] =
-                            appdata.settings[26].setValueAt("1", 1);
-                      } else {
-                        appdata.settings[26] =
-                            appdata.settings[26].setValueAt("0", 1);
-                      }
-                      appdata.updateSettings();
-                      changed = true;
-                    },
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
+/// 构建漫画排序下拉菜单。
+Widget buildComicSortMenuAnchor({
+  required VoidCallback onChanged,
+}) {
+  final currentSortType = appdata.settings[26][0];
+  final isAscending = appdata.settings[26][1] == "1";
+
+  void updateSetting(int index, String value) {
+    if (appdata.settings[26][index] == value) return;
+    appdata.settings[26] = appdata.settings[26].setValueAt(value, index);
+    appdata.updateSettings();
+    onChanged();
+  }
+
+  return MenuAnchor(
+    menuChildren: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text("漫画排序模式".tl),
+      ),
+      ...["时间", "漫画名", "作者名", "大小"].tl.asMap().entries.map((entry) {
+        final value = entry.key.toString();
+        return MenuItemButton(
+          leadingIcon: currentSortType == value
+              ? const Icon(Icons.check)
+              : const SizedBox(width: 24),
+          onPressed: () => updateSetting(0, value),
+          child: Text(entry.value),
+        );
+      }),
+      const Divider(height: 1),
+      MenuItemButton(
+        leadingIcon: isAscending
+            ? const Icon(Icons.check)
+            : const SizedBox(width: 24),
+        onPressed: () => updateSetting(1, "1"),
+        child: Text("正序".tl),
+      ),
+      MenuItemButton(
+        leadingIcon: !isAscending
+            ? const Icon(Icons.check)
+            : const SizedBox(width: 24),
+        onPressed: () => updateSetting(1, "0"),
+        child: Text("倒序".tl),
+      ),
+    ],
+    builder: (context, controller, child) {
+      return Tooltip(
+        message: "排序".tl,
+        child: IconButton(
+          icon: const Icon(Icons.sort),
+          onPressed: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+        ),
       );
     },
   );
-  if (changed) {
-    onRefresh();
-  }
 }
 
 /// 显示下载类型筛选菜单
@@ -676,14 +682,8 @@ List<Widget> buildAppBarActions({
         ),
       ),
     if (!isSelecting)
-      Tooltip(
-        message: "排序".tl,
-        child: IconButton(
-          icon: const Icon(Icons.sort),
-          onPressed: () async {
-            await showComicSortDialog(context: context, onRefresh: onRefresh);
-          },
-        ),
+      buildComicSortMenuAnchor(
+        onChanged: () => triggerSortUpdate(ref, pageId),
       ),
     if (!isSelecting && !isSearchMode)
       Tooltip(
