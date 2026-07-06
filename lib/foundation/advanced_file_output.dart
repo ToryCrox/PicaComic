@@ -55,6 +55,9 @@ class MAdvancedFileOutput extends LogOutput {
   /// The [latestFileName] will not be counted. The default [fileSorter] strategy is
   /// sorting by last modified date, beware that could be not reliable in some
   /// platforms and/or filesystems.
+  ///
+  /// [maxTotalSizeKB] 限制 [path] 目录内日志文件的总大小。
+  /// 当前写入的 [latestFileName] 会被保留，超过限制时优先删除最旧的轮转日志。
   MAdvancedFileOutput({
     required String path,
     bool overrideExisting = false,
@@ -66,6 +69,7 @@ class MAdvancedFileOutput extends LogOutput {
     String latestFileName = 'latest.log',
     String Function(DateTime timestamp)? fileNameFormatter,
     int? maxRotatedFilesCount,
+    int? maxTotalSizeKB,
     Comparator<File>? fileSorter,
     Level? level,
   })  : _path = path,
@@ -85,6 +89,7 @@ class MAdvancedFileOutput extends LogOutput {
               Level.wtf,
             ],
         _maxRotatedFilesCount = maxRotatedFilesCount,
+        _maxTotalSizeKB = maxTotalSizeKB,
         _fileSorter = fileSorter ?? _defaultFileSorter,
         _file = maxFileSizeKB > 0 ? File('$path/$latestFileName') : File(path);
 
@@ -101,6 +106,7 @@ class MAdvancedFileOutput extends LogOutput {
   final int _maxBufferSize;
   final String Function(DateTime timestamp) _fileNameFormatter;
   final int? _maxRotatedFilesCount;
+  final int? _maxTotalSizeKB;
   final Comparator<File> _fileSorter;
 
   final File _file;
@@ -150,6 +156,7 @@ class MAdvancedFileOutput extends LogOutput {
     await _openSink();
     if (_rotatingFilesMode) {
       await _updateTargetFile(); // Run first check without waiting for timer tick
+      await _deleteRotatedFiles();
     }
   }
 
@@ -212,31 +219,86 @@ class MAdvancedFileOutput extends LogOutput {
   }
 
   Future<void> _deleteRotatedFiles() async {
-    // If maxRotatedFilesCount is not set, keep all files
-    if (_maxRotatedFilesCount == null) return;
-
     final dir = Directory(_path);
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        // Filter out the latest file
-        .where((f) => f.path != _file.path)
-        .toList();
+    if (!dir.existsSync()) {
+      return;
+    }
 
-    // If the number of files is less than the limit, don't delete anything
-    if (files.length <= _maxRotatedFilesCount) return;
-
+    final files = _listRotatedLogFiles(dir);
     files.sort(_fileSorter);
 
-    final filesToDelete =
-        files.sublist(0, files.length - _maxRotatedFilesCount);
-    for (final file in filesToDelete) {
-      try {
-        await file.delete();
-      } catch (e, s) {
-        print('Failed to delete file: $e');
-        print(s);
+    final maxRotatedFilesCount = _maxRotatedFilesCount;
+    if (maxRotatedFilesCount != null && files.length > maxRotatedFilesCount) {
+      final filesToDelete = files.sublist(
+        0,
+        files.length - maxRotatedFilesCount,
+      );
+      for (final file in filesToDelete) {
+        await _deleteFile(file);
       }
+    }
+
+    final maxTotalSizeKB = _maxTotalSizeKB;
+    if (maxTotalSizeKB == null || maxTotalSizeKB <= 0) {
+      return;
+    }
+
+    final maxTotalSizeBytes = maxTotalSizeKB * 1024;
+    var totalSize = _getLogFilesTotalSize(dir);
+    final rotatedFiles = _listRotatedLogFiles(dir)..sort(_fileSorter);
+    for (final file in rotatedFiles) {
+      if (totalSize <= maxTotalSizeBytes) {
+        break;
+      }
+
+      final fileSize = await _getFileLength(file);
+      await _deleteFile(file);
+      totalSize -= fileSize;
+    }
+  }
+
+  List<File> _listRotatedLogFiles(Directory dir) {
+    return dir
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.path != _file.path)
+        .where((file) => file.path.endsWith('.log'))
+        .toList();
+  }
+
+  int _getLogFilesTotalSize(Directory dir) {
+    var totalSize = 0;
+    final files = dir.listSync().whereType<File>().where(
+      (file) => file.path.endsWith('.log'),
+    );
+    for (final file in files) {
+      totalSize += _getFileLengthSync(file);
+    }
+    return totalSize;
+  }
+
+  int _getFileLengthSync(File file) {
+    try {
+      return file.lengthSync();
+    } on FileSystemException {
+      return 0;
+    }
+  }
+
+  Future<int> _getFileLength(File file) async {
+    try {
+      return await file.length();
+    } on FileSystemException {
+      // 忽略文件状态读取失败，下一次轮转时会重新计算。
+      return 0;
+    }
+  }
+
+  Future<void> _deleteFile(File file) async {
+    try {
+      await file.delete();
+    } on FileSystemException {
+      // 忽略删除失败，避免日志清理影响正常写入。
     }
   }
 

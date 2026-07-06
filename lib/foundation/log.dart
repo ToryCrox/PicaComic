@@ -26,6 +26,7 @@ final logger = Logger(
       MAdvancedFileOutput(
         path: '${App.dataPath}/logger',
         overrideExisting: false,
+        maxTotalSizeKB: 50 * 1024,
       ),
     logMemoryOut,
     LogViewerOutput(),
