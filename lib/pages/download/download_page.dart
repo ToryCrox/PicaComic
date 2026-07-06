@@ -68,6 +68,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         state.keyword.isNotEmpty ||
         state.downloadTypeFilter != null ||
         state.excludeLocal ||
+        state.tagCategoryFilter != null ||
         state.selectedTagIds.isNotEmpty;
   }
 
@@ -286,6 +287,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         pageState.keyword.isNotEmpty ||
         pageState.downloadTypeFilter != null ||
         pageState.excludeLocal ||
+        pageState.tagCategoryFilter != null ||
         pageState.selectedTagIds.isNotEmpty;
 
     Widget? leading;
@@ -307,6 +309,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           }
           if (pageState.downloadTypeFilter != null) {
             updateDownloadTypeFilter(ref, _pageId, null);
+          }
+          if (pageState.tagCategoryFilter != null) {
+            updateTagCategoryFilter(ref, _pageId, null);
           }
           if (pageState.excludeLocal) updateExcludeLocal(ref, _pageId, false);
         },
@@ -389,6 +394,15 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           suffix = '$suffix / $excludeText';
         } else {
           suffix = ' [$excludeText]';
+        }
+      }
+      if (pageState.tagCategoryFilter != null) {
+        final categoryName =
+            TagCategory.fromValue(pageState.tagCategoryFilter!).label;
+        if (suffix.isNotEmpty) {
+          suffix = '$suffix / $categoryName';
+        } else {
+          suffix = ' [$categoryName]';
         }
       }
 
@@ -494,6 +508,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           },
         ),
       ),
+      // 标签分类筛选
+      _buildTagCategoryFilterAction(pageState),
       // 排序
       buildComicSortMenuAnchor(
         onChanged: () => triggerSortUpdate(ref, _pageId),
@@ -544,6 +560,47 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         ),
       ),
     ];
+  }
+
+  Widget _buildTagCategoryFilterAction(DownloadPageState pageState) {
+    return MenuAnchor(
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: pageState.tagCategoryFilter == null
+              ? const Icon(Icons.check)
+              : const SizedBox(width: 24),
+          onPressed: () => updateTagCategoryFilter(ref, _pageId, null),
+          child: Text("全部分类".tl),
+        ),
+        const Divider(height: 1),
+        for (final category in TagCategory.values)
+          MenuItemButton(
+            leadingIcon: pageState.tagCategoryFilter == category.value
+                ? const Icon(Icons.check)
+                : const SizedBox(width: 24),
+            onPressed: () =>
+                updateTagCategoryFilter(ref, _pageId, category.value),
+            child: Text(category.label),
+          ),
+      ],
+      builder: (context, controller, child) {
+        final hasFilter = pageState.tagCategoryFilter != null;
+        return Tooltip(
+          message: "标签分类筛选".tl,
+          child: IconButton(
+            color: hasFilter ? Theme.of(context).colorScheme.primary : null,
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () {
+              if (controller.isOpen) {
+                controller.close();
+              } else {
+                controller.open();
+              }
+            },
+          ),
+        );
+      },
+    );
   }
 
   List<Widget> _buildSelectionActions(BuildContext context, int count) {
@@ -836,6 +893,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   onPressed: () async {
                     // 获取所有标签用于展开的标签面板
                     final allTags = await ref.read(downloadTagsProvider.future);
+                    final panelTags = pageState.tagCategoryFilter == null
+                        ? allTags
+                        : allTags
+                            .where((tag) =>
+                                tag.category == pageState.tagCategoryFilter)
+                            .toList();
                     if (!context.mounted) return;
                     showModalBottomSheet(
                       context: context,
@@ -843,7 +906,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                       constraints: const BoxConstraints(maxWidth: 1000),
                       backgroundColor: Colors.transparent,
                       builder: (context) => DownloadTagFilterPanel(
-                        tags: allTags,
+                        tags: panelTags,
                         selectedTagIds: pageState.selectedTagIds,
                         onTagSelected: (id) {
                           updateTagFilter(ref, _pageId, id);
@@ -881,7 +944,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     bool isSelected,
   ) {
     final category = TagCategory.fromValue(tag.category);
-    final showCategory = category != TagCategory.none;
 
     return InkWell(
       key: ValueKey(tag.id),
@@ -901,32 +963,14 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   width: 1,
                 ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showCategory) ...[
-              Text(
-                category.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : category.color,
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              tag.name,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ],
+        child: Text(
+          tag.name,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected
+                ? Theme.of(context).colorScheme.onPrimary
+                : Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ),
     );

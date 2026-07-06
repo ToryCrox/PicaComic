@@ -244,6 +244,9 @@ class DownloadPageState {
   /// 标签筛选
   final Set<int> selectedTagIds;
 
+  /// 标签分类筛选
+  final int? tagCategoryFilter;
+
   /// 下载类型筛选
   final DownloadType? downloadTypeFilter;
 
@@ -264,6 +267,7 @@ class DownloadPageState {
     this.isSelecting = false,
     this.selectedIds = const {},
     this.selectedTagIds = const {},
+    this.tagCategoryFilter,
     this.downloadTypeFilter,
     this.excludeLocal = false,
     this.sortVersion = 0,
@@ -276,6 +280,8 @@ class DownloadPageState {
     bool? isSelecting,
     Set<String>? selectedIds,
     Set<int>? selectedTagIds,
+    int? tagCategoryFilter,
+    bool clearTagCategoryFilter = false,
     DownloadType? downloadTypeFilter,
     bool? excludeLocal,
     bool clearDownloadTypeFilter = false,
@@ -288,6 +294,9 @@ class DownloadPageState {
       isSelecting: isSelecting ?? this.isSelecting,
       selectedIds: selectedIds ?? this.selectedIds,
       selectedTagIds: selectedTagIds ?? this.selectedTagIds,
+      tagCategoryFilter: clearTagCategoryFilter
+          ? null
+          : (tagCategoryFilter ?? this.tagCategoryFilter),
       downloadTypeFilter: clearDownloadTypeFilter
           ? null
           : (downloadTypeFilter ?? this.downloadTypeFilter),
@@ -415,6 +424,16 @@ void updateTagFilter(WidgetRef ref, String pageId, int? tagId) {
     }
 
     return state.copyWith(selectedTagIds: newIds);
+  });
+}
+
+/// 更新标签分类筛选
+void updateTagCategoryFilter(WidgetRef ref, String pageId, int? category) {
+  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
+    if (category == null || category == state.tagCategoryFilter) {
+      return state.copyWith(clearTagCategoryFilter: true);
+    }
+    return state.copyWith(tagCategoryFilter: category);
   });
 }
 
@@ -559,6 +578,23 @@ Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
     }).toList();
   }
 
+  // 标签分类过滤：只筛选拥有该分类自定义标签的漫画
+  if (pageState.tagCategoryFilter != null) {
+    final categoryTagNames = allTags
+        .where((tag) => tag.category == pageState.tagCategoryFilter)
+        .map((tag) => tag.name)
+        .toSet();
+
+    if (categoryTagNames.isNotEmpty) {
+      filtered = filtered.where((comic) {
+        final comicTags = getUserTags(comic, userTagsMap);
+        return comicTags.any(categoryTagNames.contains);
+      }).toList();
+    } else {
+      filtered = [];
+    }
+  }
+
   // 标签过滤
   if (pageState.selectedTagIds.isNotEmpty) {
     final selectedTagNames = pageState.selectedTagIds.map((id) {
@@ -618,13 +654,21 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
   final filteredComics = await ref.watch(filteredComicsProvider(pageId).future);
   final allTags = await ref.watch(downloadTagsProvider.future);
   final comicUserTags = await ref.watch(comicUserTagsProvider.future);
-  final pageState = ref.read(downloadPageStateProvider(pageId));
+  final pageState = ref.watch(downloadPageStateProvider(pageId));
 
   // check if filtering
   bool isFiltering = pageState.keyword.isNotEmpty ||
       pageState.downloadTypeFilter != null ||
       pageState.excludeLocal ||
+      pageState.tagCategoryFilter != null ||
       pageState.selectedTagIds.isNotEmpty;
+
+  List<TagInfo> applyCategoryFilter(List<TagInfo> tags) {
+    if (pageState.tagCategoryFilter == null) return tags;
+    return tags.where((tag) {
+      return tag.category == pageState.tagCategoryFilter;
+    }).toList();
+  }
 
   List<TagInfo> tags;
   if (isFiltering && filteredComics.isNotEmpty) {
@@ -662,6 +706,7 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
         .toList();
 
     tags.sort((a, b) => b.comicCount.compareTo(a.comicCount));
+    tags = applyCategoryFilter(tags);
 
     if (tags.length > 20) {
       tags = tags.sublist(0, 20);
@@ -682,10 +727,13 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
       tags = [...selectedTags, ...unselectedTags];
     }
 
+    tags = applyCategoryFilter(tags);
+
     if (tags.length > 20) {
       tags = tags.sublist(0, 20);
     }
   }
+
   return tags;
 }
 
