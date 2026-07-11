@@ -266,7 +266,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       onProgressUpdate: (downloaded, total) {
         // 更新下载进度
         updateInfo?.call();
-        runRecorder(); // 确保速度统计正常运行
+        downloadManager.notifyListeners();
         
         // 更新通知
         notifications.sendProgressNotification(
@@ -737,7 +737,7 @@ class _ImageDownloadWrapper {
           }
           onReceiveData?.call(progress.currentBytes - last);
           last = progress.currentBytes;
-          if (progress.finished) {
+          if (progress.finished && !isFinished) {
             var data = progress.data ?? await progress.getFile().readAsBytes();
             if (data.isEmpty) {
               error = Exception("Download data is empty");

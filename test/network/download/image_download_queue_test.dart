@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
 
 void main() {
@@ -38,6 +39,14 @@ void main() {
 
       expect(queue.totalCount, 0);
       expect(queue.isAllCompleted, isFalse);
+    });
+
+    test('流式下载分块事件不会提前标记完成', () {
+      const chunk = DownloadProgress(100, 101, 'url', 'path');
+      const completed = DownloadProgress(100, 100, 'url', 'path');
+
+      expect(chunk.finished, isFalse);
+      expect(completed.finished, isTrue);
     });
   });
 }

@@ -13,7 +13,8 @@ class CachedNetwork {
       {CacheExpiredTime expiredTime = CacheExpiredTime.short,
       CookieJarSql? cookieJar,
       bool log = true,
-      bool http2 = false}) async {
+      bool http2 = false,
+      CancelToken? cancelToken}) async {
     await setNetworkProxy();
     var fileName = md5.convert(const Utf8Encoder().convert(url)).toString();
     if (fileName.length > 20) {
@@ -33,7 +34,7 @@ class CachedNetwork {
       dio.interceptors.add(CookieManagerSql(cookieJar));
     }
 
-    var res = await dio.get<Uint8List>(url);
+    var res = await dio.get<Uint8List>(url, cancelToken: cancelToken);
     if (res.data == null && !url.contains("random")) {
       throw Exception("Empty data");
     }

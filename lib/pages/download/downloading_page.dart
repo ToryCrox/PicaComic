@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -331,10 +332,23 @@ class _DownloadingTileState extends State<_DownloadingTile> {
             ),
             const SizedBox(width: 4),
             SizedBox(
-              width: 60,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              width: 68,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                runAlignment: WrapAlignment.center,
+                spacing: 4,
+                runSpacing: 4,
                 children: [
+                  // 打开下载目录按钮
+                  IconButton(
+                    icon: const Icon(Icons.folder_open, size: 20),
+                    onPressed: () async {
+                      await FileUtils.openFileOrDirectory(comic.path);
+                    },
+                    tooltip: "打开下载目录".tl,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
                   // 取消按钮
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
@@ -343,7 +357,6 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(height: 4),
                   // 暂停/继续按钮
                   IconButton(
                     icon: Icon(
@@ -368,7 +381,6 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(height: 4),
                   // 置顶按钮
                   IconButton(
                     icon: const Icon(Icons.vertical_align_top, size: 20),

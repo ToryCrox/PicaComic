@@ -114,7 +114,8 @@ class EhNetwork {
   Future<Res<String>> request(String url,
       {Map<String, String>? headers,
       CacheExpiredTime expiredTime = CacheExpiredTime.short,
-      bool setNW = true}) async {
+      bool setNW = true,
+      CancelToken? cancelToken}) async {
     await getCookies(setNW, url);
     var options = BaseOptions(
         connectTimeout: const Duration(seconds: 8),
@@ -129,7 +130,9 @@ class EhNetwork {
     var dio = CachedNetwork();
     try {
       var data = await dio.get(url, options,
-          cookieJar: cookieJar, expiredTime: expiredTime);
+          cookieJar: cookieJar,
+          expiredTime: expiredTime,
+          cancelToken: cancelToken);
       if (data.data.isEmpty) {
         throw Exception("Empty Data. "
             "No permission to access this page.\n"
@@ -173,6 +176,7 @@ class EhNetwork {
   Future<Res<String>> apiRequest(
     Map<String, dynamic> data, {
     Map<String, String>? headers,
+    CancelToken? cancelToken,
   }) async {
     await getCookies(false, ehApiUrl);
     await setNetworkProxy();
@@ -180,6 +184,7 @@ class EhNetwork {
     try {
       var res = await apiDio.post<String>(ehApiUrl,
           data: data,
+          cancelToken: cancelToken,
           options: Options(headers: {
             "user-agent": webUA,
             ...?headers,
@@ -749,8 +754,9 @@ class EhNetwork {
 
   Set<String> loadingReaderLinks = {};
 
-  Future<Res<String>> getReaderLink(String gLink, int page) async {
-    var res = await _getReaderLinks(gLink, 1);
+  Future<Res<String>> getReaderLink(String gLink, int page,
+      {CancelToken? cancelToken}) async {
+    var res = await _getReaderLinks(gLink, 1, cancelToken: cancelToken);
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -763,7 +769,8 @@ class EhNetwork {
     }
 
     final shouldLoadPage = (page - 1) ~/ urlsOnePage + 1;
-    final urlsRes = await _getReaderLinks(gLink, shouldLoadPage);
+    final urlsRes = await _getReaderLinks(gLink, shouldLoadPage,
+        cancelToken: cancelToken);
     if (urlsRes.error) {
       return Res.fromErrorRes(urlsRes);
     }
@@ -779,7 +786,8 @@ class EhNetwork {
   final _readerLinksCache = <String, (List<String>, DateTime)>{};
 
   /// page starts from 1
-  Future<Res<List<String>>> _getReaderLinks(String link, int page) async {
+  Future<Res<List<String>>> _getReaderLinks(String link, int page,
+      {CancelToken? cancelToken}) async {
     String url = link;
     if (page != 1) {
       url = url.contains("?") ? "$url&p=${page - 1}" : "$url?p=${page - 1}";
@@ -796,7 +804,9 @@ class EhNetwork {
       if (cache != null && DateTime.now().isBefore(cache.$2)) {
         return Res(cache.$1);
       }
-      var res = await request(url);
+      // 阅读页链接可能失效，不使用磁盘中的长期页面缓存。
+      var res = await request(url,
+          expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
       }
@@ -817,8 +827,10 @@ class EhNetwork {
   }
 
   Future<(String image, String? nl)> getImageLinkWithNL(
-      String gid, String imgKey, int p, String nl) async {
-    var res = await request("$ehBaseUrl/s/$imgKey/$gid-$p?nl=$nl");
+      String gid, String imgKey, int p, String nl,
+      {CancelToken? cancelToken}) async {
+    var res = await request("$ehBaseUrl/s/$imgKey/$gid-$p?nl=$nl",
+        expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
     if (res.error) {
       throw res.errorMessage ?? "error";
     } else {
