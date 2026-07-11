@@ -5,7 +5,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'download_model.dart';
 
 /// 下载队列管理器
-/// 
+///
 /// 负责管理所有下载任务的队列，控制并发下载数量，调度任务执行
 class DownloadQueueManager {
   /// 等待队列 - 等待执行的任务
@@ -28,7 +28,7 @@ class DownloadQueueManager {
 
   /// 获取正在运行的任务数量
   int get runningTasksCount => _runningTasks.length;
-  
+
   /// 获取正在运行的任务ID集合
   Set<String> get runningTaskIds => _runningTasks.keys.toSet();
 
@@ -68,12 +68,16 @@ class DownloadQueueManager {
     }
 
     if (_waitingQueue.any((t) => t.id == task.id)) {
-      Log.w('DownloadQueueManager: Task ${task.id} is already in waiting queue');
+      Log.w(
+        'DownloadQueueManager: Task ${task.id} is already in waiting queue',
+      );
       return;
     }
 
     _waitingQueue.addLast(task);
-    Log.i('DownloadQueueManager: Task ${task.id} added to queue. Total: $totalTasksCount');
+    Log.i(
+      'DownloadQueueManager: Task ${task.id} added to queue. Total: $totalTasksCount',
+    );
     _notifyListeners();
 
     // 如果队列正在运行，尝试调度下一个任务
@@ -90,12 +94,16 @@ class DownloadQueueManager {
     }
 
     if (_waitingQueue.any((t) => t.id == task.id)) {
-      Log.w('DownloadQueueManager: Task ${task.id} is already in waiting queue');
+      Log.w(
+        'DownloadQueueManager: Task ${task.id} is already in waiting queue',
+      );
       return;
     }
 
     _waitingQueue.addFirst(task);
-    Log.i('DownloadQueueManager: Task ${task.id} added to front of queue. Total: $totalTasksCount');
+    Log.i(
+      'DownloadQueueManager: Task ${task.id} added to front of queue. Total: $totalTasksCount',
+    );
     _notifyListeners();
 
     // 如果队列正在运行，尝试调度下一个任务
@@ -105,7 +113,7 @@ class DownloadQueueManager {
   }
 
   /// 移除指定任务
-  /// 
+  ///
   /// 如果任务正在运行，会先停止任务再移除
   Future<void> removeTask(String taskId) async {
     // 检查是否在运行中
@@ -115,7 +123,7 @@ class DownloadQueueManager {
       await runningTask.stop();
       _runningTasks.remove(taskId);
       _notifyListeners();
-      
+
       // 任务停止后，尝试调度下一个
       if (_isRunning) {
         _scheduleNext();
@@ -252,7 +260,9 @@ class DownloadQueueManager {
 
     // 如果已达到最大并发数，不再调度
     if (_runningTasks.length >= maxConcurrentTasks) {
-      Log.d('DownloadQueueManager: Max concurrent tasks reached (${_runningTasks.length}/$maxConcurrentTasks)');
+      Log.d(
+        'DownloadQueueManager: Max concurrent tasks reached (${_runningTasks.length}/$maxConcurrentTasks)',
+      );
       return;
     }
 
@@ -286,8 +296,10 @@ class DownloadQueueManager {
 
     _waitingQueue.remove(task);
     _runningTasks[task.id] = task;
-    
-    Log.i('DownloadQueueManager: Starting task ${task.id}. Running: ${_runningTasks.length}, Waiting: ${_waitingQueue.length}');
+
+    Log.i(
+      'DownloadQueueManager: Starting task ${task.id}. Running: ${_runningTasks.length}, Waiting: ${_waitingQueue.length}',
+    );
     _notifyListeners();
 
     // 启动任务
@@ -295,7 +307,7 @@ class DownloadQueueManager {
   }
 
   /// 任务完成回调
-  /// 
+  ///
   /// 由外部在任务完成时调用
   void onTaskFinished(String taskId) {
     final task = _runningTasks.remove(taskId);
@@ -304,7 +316,9 @@ class DownloadQueueManager {
       return;
     }
 
-    Log.i('DownloadQueueManager: Task $taskId finished. Running: ${_runningTasks.length}, Waiting: ${_waitingQueue.length}');
+    Log.i(
+      'DownloadQueueManager: Task $taskId finished. Running: ${_runningTasks.length}, Waiting: ${_waitingQueue.length}',
+    );
     _notifyListeners();
 
     // 调度下一个任务
@@ -314,7 +328,7 @@ class DownloadQueueManager {
   }
 
   /// 任务出错回调
-  /// 
+  ///
   /// 由外部在任务出错时调用
   void onTaskError(String taskId) {
     Log.e('DownloadQueueManager: Task $taskId encountered an error');
@@ -359,12 +373,12 @@ class DownloadQueueManager {
   /// 恢复指定任务
   void resumeTask(String taskId) {
     bool found = false;
-    
+
     // 检查是否在运行中（理论上不应该，因为暂停的任务不会运行，但为了健壮性）
     if (_runningTasks.containsKey(taskId)) {
       _runningTasks[taskId]?.userPaused = false;
       found = true;
-    } 
+    }
     // 检查等待队列
     else {
       for (var task in _waitingQueue) {
@@ -392,7 +406,7 @@ class DownloadQueueManager {
   }
 
   /// 取消指定任务的指定章节
-  /// 
+  ///
   /// [taskId] 任务ID
   /// [episodeIndex] 章节索引（links Map 的 key）
   void cancelEpisode(String taskId, int episodeIndex) {
@@ -400,7 +414,9 @@ class DownloadQueueManager {
     final runningTask = _runningTasks[taskId];
     if (runningTask != null) {
       runningTask.cancelEpisode(episodeIndex);
-      Log.i('DownloadQueueManager: Cancelled episode $episodeIndex for running task $taskId');
+      Log.i(
+        'DownloadQueueManager: Cancelled episode $episodeIndex for running task $taskId',
+      );
       _notifyListeners();
       return;
     }
@@ -409,13 +425,17 @@ class DownloadQueueManager {
     for (var task in _waitingQueue) {
       if (task.id == taskId) {
         task.cancelEpisode(episodeIndex);
-        Log.i('DownloadQueueManager: Cancelled episode $episodeIndex for waiting task $taskId');
+        Log.i(
+          'DownloadQueueManager: Cancelled episode $episodeIndex for waiting task $taskId',
+        );
         _notifyListeners();
         return;
       }
     }
 
-    Log.w('DownloadQueueManager: Task $taskId not found for episode cancellation');
+    Log.w(
+      'DownloadQueueManager: Task $taskId not found for episode cancellation',
+    );
   }
 
   /// 获取所有任务（等待 + 运行中）

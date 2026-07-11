@@ -13,8 +13,7 @@ import 'reading_data.dart';
 import 'reading_settings.dart';
 import 'reading_type.dart';
 
-bool _isReversed() =>
-    appdata.settings[9] == "2" || appdata.settings[9] == "6";
+bool _isReversed() => appdata.settings[9] == "2" || appdata.settings[9] == "6";
 
 /// 构建底部工具栏
 Widget buildBottomToolBar(
@@ -42,37 +41,29 @@ Widget buildBottomToolBar(
           height: 105 + MediaQuery.of(context).padding.bottom,
           child: Column(
             children: [
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   IconButton.filledTonal(
-                      onPressed: () => !_isReversed()
-                          ? logic.jumpToLastChapter()
-                          : logic.jumpToNextChapter(),
-                      icon: const Icon(Icons.first_page)),
-                  Expanded(
-                    child: buildSlider(state, logic),
+                    onPressed: () => !_isReversed()
+                        ? logic.jumpToLastChapter()
+                        : logic.jumpToNextChapter(),
+                    icon: const Icon(Icons.first_page),
                   ),
+                  Expanded(child: buildSlider(state, logic)),
                   IconButton.filledTonal(
-                      onPressed: () => !_isReversed()
-                          ? logic.jumpToNextChapter()
-                          : logic.jumpToLastChapter(),
-                      icon: const Icon(Icons.last_page)),
-                  const SizedBox(
-                    width: 8,
+                    onPressed: () => !_isReversed()
+                        ? logic.jumpToNextChapter()
+                        : logic.jumpToLastChapter(),
+                    icon: const Icon(Icons.last_page),
                   ),
+                  const SizedBox(width: 8),
                 ],
               ),
               Row(
                 children: [
-                  const SizedBox(
-                    width: 16,
-                  ),
+                  const SizedBox(width: 16),
                   Container(
                     height: 24,
                     padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
@@ -117,12 +108,13 @@ Widget buildBottomToolBar(
                             logic.setRotation(true);
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.landscapeLeft,
-                              DeviceOrientation.landscapeRight
+                              DeviceOrientation.landscapeRight,
                             ]);
                           } else {
                             logic.setRotation(null);
                             SystemChrome.setPreferredOrientations(
-                                DeviceOrientation.values);
+                              DeviceOrientation.values,
+                            );
                           }
                         },
                       ),
@@ -171,18 +163,18 @@ Widget buildBottomToolBar(
                       onPressed: onShare,
                     ),
                   ),
-                  const SizedBox(
-                    width: 5,
-                  )
+                  const SizedBox(width: 5),
                 ],
-              )
+              ),
             ],
           ),
         );
 
         child = Material(
           borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
           surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
           elevation: 3,
           child: child,
@@ -194,7 +186,9 @@ Widget buildBottomToolBar(
           switchInCurve: Curves.fastOutSlowIn,
           transitionBuilder: (Widget child, Animation<double> animation) {
             var tween = Tween<Offset>(
-                begin: const Offset(0, 1), end: const Offset(0, 0));
+              begin: const Offset(0, 1),
+              end: const Offset(0, 0),
+            );
             return SlideTransition(
               position: tween.animate(animation),
               child: child,
@@ -202,10 +196,7 @@ Widget buildBottomToolBar(
           },
           child: state.toolsVisible
               ? child
-              : const SizedBox(
-                  width: 0,
-                  height: 0,
-                ),
+              : const SizedBox(width: 0, height: 0),
         );
       },
     ),
@@ -233,14 +224,15 @@ Widget buildSlider(ReaderPageState state, ComicReaderLogic logic) {
       },
     );
   } else {
-    return const SizedBox(
-      height: 0,
-    );
+    return const SizedBox(height: 0);
   }
 }
 
 Iterable<Widget> buildButtons(
-    ReaderPageState state, ComicReaderLogic logic, BuildContext context) sync* {
+  ReaderPageState state,
+  ComicReaderLogic logic,
+  BuildContext context,
+) sync* {
   if (context.width > context.height &&
       appdata.appSettings.showButtonsInReader) {
     if (appdata.settings[9] != "4" &&
@@ -303,8 +295,12 @@ Iterable<Widget> buildButtons(
 
 /// 构建顶部工具栏
 Widget buildTopToolBar(
-    ReaderPageState state, String sessionId, BuildContext context,
-    {required ReadingData readingData, required bool useDarkBackground}) {
+  ReaderPageState state,
+  String sessionId,
+  BuildContext context, {
+  required ReadingData readingData,
+  required bool useDarkBackground,
+}) {
   return Positioned(
     top: 0,
     child: AnimatedSwitcher(
@@ -315,8 +311,9 @@ Widget buildTopToolBar(
           ? Material(
               surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
               elevation: 3,
-              shadowColor:
-                  Theme.of(context).colorScheme.shadow.withOpacity(0.3),
+              shadowColor: Theme.of(
+                context,
+              ).colorScheme.shadow.withOpacity(0.3),
               child: SizedBox(
                 width: MediaQuery.of(context).size.width,
                 child: Row(
@@ -336,8 +333,8 @@ Widget buildTopToolBar(
                       child: Container(
                         height: 50,
                         constraints: BoxConstraints(
-                            maxWidth:
-                                MediaQuery.of(context).size.width - 75),
+                          maxWidth: MediaQuery.of(context).size.width - 75,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.only(top: 10),
                           child: Text(
@@ -363,13 +360,12 @@ Widget buildTopToolBar(
                 ),
               ).paddingTop(MediaQuery.of(context).padding.top),
             )
-          : const SizedBox(
-              width: 0,
-              height: 0,
-            ),
+          : const SizedBox(width: 0, height: 0),
       transitionBuilder: (Widget child, Animation<double> animation) {
         var tween = Tween<Offset>(
-            begin: const Offset(0, -1), end: const Offset(0, 0));
+          begin: const Offset(0, -1),
+          end: const Offset(0, 0),
+        );
         return SlideTransition(
           position: tween.animate(animation),
           child: child,
@@ -381,15 +377,18 @@ Widget buildTopToolBar(
 
 /// 显示当前的章节和页面位置
 Widget buildPageInfoText(
-    ReaderPageState state, BuildContext context,
-    {required ReadingData readingData, required bool useDarkBackground}) {
+  ReaderPageState state,
+  BuildContext context, {
+  required ReadingData readingData,
+  required bool useDarkBackground,
+}) {
   return Positioned(
     bottom: 13,
     left: 25,
     child: Builder(
       builder: (context) {
-        var epName = readingData.eps?.values
-                .elementAtOrNull(state.currentEpisode - 1) ??
+        var epName =
+            readingData.eps?.values.elementAtOrNull(state.currentEpisode - 1) ??
             "E1";
         if (epName.length > 18) {
           epName = "${epName.substring(0, 18)}...";
@@ -406,7 +405,8 @@ Widget buildPageInfoText(
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 1.4
-                  ..color = (useDarkBackground ||
+                  ..color =
+                      (useDarkBackground ||
                           Theme.of(context).brightness == Brightness.dark)
                       ? Colors.black
                       : Colors.white,

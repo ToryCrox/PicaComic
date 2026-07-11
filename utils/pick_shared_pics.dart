@@ -1,5 +1,3 @@
-
-
 import 'dart:io';
 import 'package:path/path.dart' as Path;
 
@@ -26,6 +24,7 @@ Future<void> main() async {
       }
       String targetKey;
       String mayName = fileNameArray[2];
+
       /// 判断mayName是否是纯数字
       if (int.tryParse(mayName) == null) {
         targetKey = fileNameArray.sublist(0, 3).join('_');

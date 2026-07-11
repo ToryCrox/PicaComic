@@ -1,12 +1,9 @@
-
 import 'dart:convert';
 
 import 'type_util.dart';
 
-
 /// map扩展
 extension ExtendedMap on Map<dynamic, dynamic> {
-
   /// 获取int类型的值
   /// 如果key不存在，则返回默认值
   int optInt(String key, [int defaultValue = 0]) {
@@ -20,12 +17,12 @@ extension ExtendedMap on Map<dynamic, dynamic> {
   }
 
   /// 获取bool类型的值
-  bool optBool(String key, [bool  defaultValue = false]) {
+  bool optBool(String key, [bool defaultValue = false]) {
     return TypeUtil.parseBool(this[key], defaultValue);
   }
 
   /// 获取String类型的值
-  String optString(String key, [String  defaultValue = '']) {
+  String optString(String key, [String defaultValue = '']) {
     return TypeUtil.parseString(this[key], defaultValue: defaultValue);
   }
 
@@ -60,7 +57,10 @@ extension ExtendedMap on Map<dynamic, dynamic> {
   /// 转换成json字符串
   String toJsonString([bool pretty = false]) {
     if (pretty) {
-      return const JsonEncoder.withIndent('  ', _toEncodableFallback).convert(this);
+      return const JsonEncoder.withIndent(
+        '  ',
+        _toEncodableFallback,
+      ).convert(this);
     } else {
       return const JsonEncoder(_toEncodableFallback).convert(this);
     }

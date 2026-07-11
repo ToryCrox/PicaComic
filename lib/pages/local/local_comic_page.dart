@@ -38,8 +38,10 @@ class _LocalComicPageState extends State<LocalComicPage> {
   String _fileSize = '';
 
   // 文件排序方式
-  late ComicFileSort _fileSort = ComicFileSort.values
-          .asNameMap()[PrefsHelper.getString('local_comic_folder_sort')] ??
+  late ComicFileSort _fileSort =
+      ComicFileSort.values.asNameMap()[PrefsHelper.getString(
+        'local_comic_folder_sort',
+      )] ??
       ComicFileSort.asc;
 
   // 是否倒序
@@ -61,9 +63,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
       for (final map in localComics) {
         final m = LocalComicModel.fromMap(map);
         final imagePath = await _getCoverImage(m.path);
-        list.add(m.copyWith(
-          cover: m.cover.isNotEmpty ? m.cover : imagePath,
-        ));
+        list.add(m.copyWith(cover: m.cover.isNotEmpty ? m.cover : imagePath));
       }
       _localComics.clear();
       _localComics.addAll(list.sortedFileNameBy((e) => e.path));
@@ -98,7 +98,9 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 计算并显示当前目录所有文件大小
   Future<void> _loadAllFileSize(final String dir) async {
-    int totalFileSize = await workerManager.execute<int>(_buildComputeTask(dir));
+    int totalFileSize = await workerManager.execute<int>(
+      _buildComputeTask(dir),
+    );
     if (widget.parentPath == dir) {
       setState(() {
         _fileSize = bytesLengthToReadableSize(totalFileSize);
@@ -136,60 +138,67 @@ class _LocalComicPageState extends State<LocalComicPage> {
   @override
   Widget build(BuildContext context) {
     final parentPath = widget.parentPath;
-    String titleText = '本地漫画${parentPath != null ? '(${Path.basename(parentPath)})' : ''}';
+    String titleText =
+        '本地漫画${parentPath != null ? '(${Path.basename(parentPath)})' : ''}';
     if (_fileSize.isNotEmpty) {
       titleText += ' | $_fileSize';
     }
     return Scaffold(
-        appBar: AppBar(
-          title: Text(titleText),
-          actions: [
-            if (parentPath != null)
-              IconButton(
-                onPressed: () => _loadAllFileSize(parentPath),
-                icon: const Icon(Icons.refresh),
-              ),
+      appBar: AppBar(
+        title: Text(titleText),
+        actions: [
+          if (parentPath != null)
             IconButton(
-              onPressed: () => showDialog(context: context, builder: (context) => const PickOutNyakoDialog()),
-              icon: const Icon(Icons.auto_fix_high),
-              tooltip: "漫画整理工具".tl,
+              onPressed: () => _loadAllFileSize(parentPath),
+              icon: const Icon(Icons.refresh),
             ),
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  _fileSort = isReversed ? ComicFileSort.asc : ComicFileSort.desc;
-                  PrefsHelper.setString('local_comic_folder_sort', _fileSort.name);
-                  _localComics.setAll(0, _localComics.reversed.toList());
-                });
-              },
-              icon: Icon(isReversed ? Icons.arrow_downward : Icons.arrow_upward),
+          IconButton(
+            onPressed: () => showDialog(
+              context: context,
+              builder: (context) => const PickOutNyakoDialog(),
             ),
-            IconButton(
-              onPressed: () => App.to(context, () => const LocalHistoryPage()),
-              icon: const Icon(Icons.history),
-              tooltip: "历史记录".tl,
-            ),
-            IconButton(
-              onPressed: () => App.to(context, () => const LocalFavoritesPage()),
-              icon: const Icon(Icons.collections_bookmark),
-              tooltip: "本地收藏".tl,
-            ),
-            const SizedBox(width: 10),
-          ],
-        ),
-        body: DropRegion(
-          formats: Formats.standardFormats,
-          hitTestBehavior: HitTestBehavior.opaque,
-          onDropOver: (event) => DropOperation.copy,
-          onPerformDrop: (event) async {
-            final item = event.session.items.first;
-            item.dataReader?.getValue(Formats.fileUri, (value) {
-              if (value != null) _dropFile(value.toFilePath());
-            });
-          },
-          child: _buildBody(),
-        ),
-      );
+            icon: const Icon(Icons.auto_fix_high),
+            tooltip: "漫画整理工具".tl,
+          ),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _fileSort = isReversed ? ComicFileSort.asc : ComicFileSort.desc;
+                PrefsHelper.setString(
+                  'local_comic_folder_sort',
+                  _fileSort.name,
+                );
+                _localComics.setAll(0, _localComics.reversed.toList());
+              });
+            },
+            icon: Icon(isReversed ? Icons.arrow_downward : Icons.arrow_upward),
+          ),
+          IconButton(
+            onPressed: () => App.to(context, () => const LocalHistoryPage()),
+            icon: const Icon(Icons.history),
+            tooltip: "历史记录".tl,
+          ),
+          IconButton(
+            onPressed: () => App.to(context, () => const LocalFavoritesPage()),
+            icon: const Icon(Icons.collections_bookmark),
+            tooltip: "本地收藏".tl,
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
+      body: DropRegion(
+        formats: Formats.standardFormats,
+        hitTestBehavior: HitTestBehavior.opaque,
+        onDropOver: (event) => DropOperation.copy,
+        onPerformDrop: (event) async {
+          final item = event.session.items.first;
+          item.dataReader?.getValue(Formats.fileUri, (value) {
+            if (value != null) _dropFile(value.toFilePath());
+          });
+        },
+        child: _buildBody(),
+      ),
+    );
   }
 
   // 处理拖拽文件/文件夹
@@ -209,128 +218,144 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 构建页面主体
   Widget _buildBody() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      // 计算每行显示的列数，根据窗口宽度动态调整
-      int crossAxisCount = (width / 180).floor();
-      if (crossAxisCount < 2) crossAxisCount = 2;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // 计算每行显示的列数，根据窗口宽度动态调整
+        int crossAxisCount = (width / 180).floor();
+        if (crossAxisCount < 2) crossAxisCount = 2;
 
-      return GridView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _localComics.length,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.7,
-        ),
-        itemBuilder: (context, index) {
-          final model = _localComics[index];
-          return LocalComicTile(
-            model: model,
-            onReload: _loadLocalComics,
-            allDirPaths: _localComics.map((e) => e.path).toList(),
-            onTap: (history) async {
-              if (history != null) {
-                // 读取漫画
-                final initIndex = history.optInt('pageIndex', 1);
-                final isReversed = history.optInt('isReversed') == 1;
-                await App.globalTo(() => ComicReadingPage.localComic(
-                      model.path,
-                      model.title,
-                      allDirPaths: _localComics.map((e) => e.path).toList(),
-                      initialPage: initIndex,
-                      isReversed: isReversed,
-                    ));
-              } else {
-                final dir = Directory(model.path);
-                final subDirs = (await dir.list().toList()).whereType<Directory>();
-                if (subDirs.isNotEmpty) {
-                  // 如果含有子目录，进入下一级
-                  App.to(context, () => LocalComicPage(parentPath: model.path));
-                } else {
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: _localComics.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.7,
+          ),
+          itemBuilder: (context, index) {
+            final model = _localComics[index];
+            return LocalComicTile(
+              model: model,
+              onReload: _loadLocalComics,
+              allDirPaths: _localComics.map((e) => e.path).toList(),
+              onTap: (history) async {
+                if (history != null) {
                   // 读取漫画
-                  final initIndex = history?.optInt('pageIndex', 1) ?? 1;
-                  final isReversed = history?.optInt('isReversed') == 1;
-                  await App.globalTo(() => ComicReadingPage.localComic(
+                  final initIndex = history.optInt('pageIndex', 1);
+                  final isReversed = history.optInt('isReversed') == 1;
+                  await App.globalTo(
+                    () => ComicReadingPage.localComic(
                       model.path,
                       model.title,
                       allDirPaths: _localComics.map((e) => e.path).toList(),
                       initialPage: initIndex,
                       isReversed: isReversed,
-                    ));
+                    ),
+                  );
+                } else {
+                  final dir = Directory(model.path);
+                  final subDirs = (await dir.list().toList())
+                      .whereType<Directory>();
+                  if (subDirs.isNotEmpty) {
+                    // 如果含有子目录，进入下一级
+                    App.to(
+                      context,
+                      () => LocalComicPage(parentPath: model.path),
+                    );
+                  } else {
+                    // 读取漫画
+                    final initIndex = history?.optInt('pageIndex', 1) ?? 1;
+                    final isReversed = history?.optInt('isReversed') == 1;
+                    await App.globalTo(
+                      () => ComicReadingPage.localComic(
+                        model.path,
+                        model.title,
+                        allDirPaths: _localComics.map((e) => e.path).toList(),
+                        initialPage: initIndex,
+                        isReversed: isReversed,
+                      ),
+                    );
+                  }
                 }
-              }
-            },
-            onSecondaryTap: (details) => _showComicMenu(context, model, details),
-            onLongPress: () => _showComicMenu(context, model, null),
-          );
-        },
-      );
-    });
+              },
+              onSecondaryTap: (details) =>
+                  _showComicMenu(context, model, details),
+              onLongPress: () => _showComicMenu(context, model, null),
+            );
+          },
+        );
+      },
+    );
   }
 
-  void _showComicMenu(BuildContext context, LocalComicModel model, TapDownDetails? details) {
+  void _showComicMenu(
+    BuildContext context,
+    LocalComicModel model,
+    TapDownDetails? details,
+  ) {
     if (details == null) return;
     final parentPath = widget.parentPath;
-    showDesktopMenu(
-      App.globalContext!,
-      details.globalPosition,
-      [
-        DesktopMenuEntry(
-          text: "查看详情".tl,
-          onClick: () async {
-            App.globalTo(() => LocalThumbsPage(
-                  dirPath: model.path,
-                  allDirPaths: _localComics.map((e) => e.path).toList(),
-                ));
-          },
-        ),
-        DesktopMenuEntry(
-          text: "清除历史记录".tl,
-          onClick: () async {
-            await LocalHistoryManager().remove(model.path);
-            _loadLocalComics();
-          },
-        ),
-        DesktopMenuEntry(
-          text: "删除".tl,
-          onClick: () {
-            Future.delayed(const Duration(milliseconds: 0), () {
-              showDialog(
-                context: App.globalContext!,
-                builder: (context) => AlertDialog(
-                  title: Text("确认删除".tl),
-                  content: Text("确定要删除此本地漫画吗？".tl + (parentPath == null ? "\n(仅移除记录，不删除文件)" : "\n(将物理删除文件夹)")),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text("取消".tl),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        if (parentPath == null) {
-                          await downloadManager.deleteLocal(model.path);
-                        } else {
-                          try {
-                            Directory(model.path).deleteSync(recursive: true);
-                          } catch (e) {
-                            showToast(message: "删除失败: $e");
-                          }
-                        }
-                        _loadLocalComics();
-                      },
-                      child: Text("确定".tl),
-                    ),
-                  ],
+    showDesktopMenu(App.globalContext!, details.globalPosition, [
+      DesktopMenuEntry(
+        text: "查看详情".tl,
+        onClick: () async {
+          App.globalTo(
+            () => LocalThumbsPage(
+              dirPath: model.path,
+              allDirPaths: _localComics.map((e) => e.path).toList(),
+            ),
+          );
+        },
+      ),
+      DesktopMenuEntry(
+        text: "清除历史记录".tl,
+        onClick: () async {
+          await LocalHistoryManager().remove(model.path);
+          _loadLocalComics();
+        },
+      ),
+      DesktopMenuEntry(
+        text: "删除".tl,
+        onClick: () {
+          Future.delayed(const Duration(milliseconds: 0), () {
+            showDialog(
+              context: App.globalContext!,
+              builder: (context) => AlertDialog(
+                title: Text("确认删除".tl),
+                content: Text(
+                  "确定要删除此本地漫画吗？".tl +
+                      (parentPath == null ? "\n(仅移除记录，不删除文件)" : "\n(将物理删除文件夹)"),
                 ),
-              );
-            });
-          },
-        ),
-      ],
-    );
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("取消".tl),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      if (parentPath == null) {
+                        await downloadManager.deleteLocal(model.path);
+                      } else {
+                        try {
+                          Directory(model.path).deleteSync(recursive: true);
+                        } catch (e) {
+                          showToast(message: "删除失败: $e");
+                        }
+                      }
+                      _loadLocalComics();
+                    },
+                    child: Text("确定".tl),
+                  ),
+                ],
+              ),
+            );
+          });
+        },
+      ),
+    ]);
   }
 }
 

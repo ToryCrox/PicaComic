@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart';
 class PostMountCallback extends StatelessWidget {
   /// Creates a [PostMountCallback] widget.
   const PostMountCallback({required this.child, this.callback, Key? key})
-      : super(key: key);
+    : super(key: key);
 
   /// The widget below this widget in the tree.
   final Widget child;

@@ -1,4 +1,3 @@
-
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_history.dart';
@@ -18,8 +17,9 @@ extension ReadComic on DownloadedItem {
   void read({int? ep, int? initialPage}) async {
     var comic = this;
     if (comic.type == DownloadType.picacg) {
-      var history =
-          await History.findOrCreate((comic as DownloadedComic).comicItem);
+      var history = await History.findOrCreate(
+        (comic as DownloadedComic).comicItem,
+      );
       App.globalTo(
         () => ComicReadingPage.picacg(
           comic.id,
@@ -30,8 +30,9 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.ehentai) {
-      var history =
-          await History.findOrCreate((comic as DownloadedGallery).gallery);
+      var history = await History.findOrCreate(
+        (comic as DownloadedGallery).gallery,
+      );
       App.globalTo(
         () => ComicReadingPage.ehentai(
           (comic).gallery,
@@ -39,8 +40,9 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.jm) {
-      var history =
-          await History.findOrCreate((comic as DownloadedJmComic).comic);
+      var history = await History.findOrCreate(
+        (comic as DownloadedJmComic).comic,
+      );
       App.globalTo(
         () => ComicReadingPage.jmComic(
           comic.comic,
@@ -49,8 +51,9 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.hitomi) {
-      var history =
-          await History.findOrCreate((comic as DownloadedHitomiComic).comic);
+      var history = await History.findOrCreate(
+        (comic as DownloadedHitomiComic).comic,
+      );
       App.globalTo(
         () => ComicReadingPage.hitomi(
           comic.comic,
@@ -59,8 +62,9 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.htmanga) {
-      var history =
-          await History.findOrCreate((comic as DownloadedHtComic).comic);
+      var history = await History.findOrCreate(
+        (comic as DownloadedHtComic).comic,
+      );
       App.globalTo(
         () => ComicReadingPage.htmanga(
           comic.comic.id,
@@ -70,15 +74,16 @@ extension ReadComic on DownloadedItem {
       );
     } else if (comic.type == DownloadType.nhentai) {
       var nc = NhentaiComic(
-          comic.id.replaceFirst("nhentai", ""),
-          comic.name,
-          comic.subTitle,
-          (comic as NhentaiDownloadedComic).cover,
-          {},
-          false,
-          [],
-          [],
-          "");
+        comic.id.replaceFirst("nhentai", ""),
+        comic.name,
+        comic.subTitle,
+        (comic as NhentaiDownloadedComic).cover,
+        {},
+        false,
+        [],
+        [],
+        "",
+      );
       var history = await History.findOrCreate(nc);
       App.globalTo(
         () => ComicReadingPage.nhentai(
@@ -117,8 +122,7 @@ extension ReadComic on DownloadedItem {
         ),
       );
     } else if (comic.type == DownloadType.local) {
-      final history =
-          await LocalHistoryManager().find(comic.directoryPath);
+      final history = await LocalHistoryManager().find(comic.directoryPath);
       final initIndex = history?.pageIndex ?? 1;
       App.globalTo(
         () => ComicReadingPage.localComic(

@@ -66,13 +66,13 @@ class LocalHistory {
   }
 
   Map<String, dynamic> toMap() => {
-        kLocalHistoryPath: path,
-        kLocalHistoryIsReversed: isReversed,
-        kLocalHistoryPageIndex: pageIndex,
-        kLocalHistoryTime: time,
-        kLocalHistoryJson: json,
-        kLocalHistoryTotalPages: totalPages
-      };
+    kLocalHistoryPath: path,
+    kLocalHistoryIsReversed: isReversed,
+    kLocalHistoryPageIndex: pageIndex,
+    kLocalHistoryTime: time,
+    kLocalHistoryJson: json,
+    kLocalHistoryTotalPages: totalPages,
+  };
 }
 
 class LocalHistoryManager {
@@ -108,7 +108,7 @@ class LocalHistoryManager {
       _updateHistoryCache(path, null);
       return null;
     }
-    
+
     final e = LocalHistory.fromMap(res);
     _updateHistoryCache(path, e);
     return e;
@@ -118,7 +118,10 @@ class LocalHistoryManager {
     await _db.updateLocalHistoryPageCount(path, count);
     final currentSig = historyCache[path];
     if (currentSig?.value != null) {
-      currentSig!.set(currentSig.value!.copyWith(totalPages: count), force: true);
+      currentSig!.set(
+        currentSig.value!.copyWith(totalPages: count),
+        force: true,
+      );
     }
   }
 

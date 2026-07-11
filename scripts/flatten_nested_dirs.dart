@@ -18,21 +18,22 @@ import 'package:path/path.dart' as p;
 
 class ScanResult {
   final Directory parentDir;
-  final Directory? subDir;     // 仅当 canMove 为 true 时非空
-  final int itemCount;         // 仅当 canMove 为 true 时有效
+  final Directory? subDir; // 仅当 canMove 为 true 时非空
+  final int itemCount; // 仅当 canMove 为 true 时有效
   final bool canMove;
-  final String? skipReason;    // 仅当 canMove 为 false 时非空
+  final String? skipReason; // 仅当 canMove 为 false 时非空
 
   ScanResult.move({
     required this.parentDir,
     required this.subDir,
     required this.itemCount,
-  }) : canMove = true, skipReason = null;
+  }) : canMove = true,
+       skipReason = null;
 
-  ScanResult.skip({
-    required this.parentDir,
-    required this.skipReason,
-  }) : canMove = false, subDir = null, itemCount = 0;
+  ScanResult.skip({required this.parentDir, required this.skipReason})
+    : canMove = false,
+      subDir = null,
+      itemCount = 0;
 }
 
 void main(List<String> args) async {
@@ -70,7 +71,7 @@ void main(List<String> args) async {
   }
 
   // 2. 预览阶段
-  
+
   // 显示被跳过的项
   if (skipResults.isNotEmpty) {
     print('以下目录将被 [跳过] (不符合条件):\n');
@@ -83,7 +84,9 @@ void main(List<String> args) async {
       if (displayDirName.length > 39) {
         displayDirName = '${displayDirName.substring(0, 36)}...';
       }
-      print('${'SKIP'.padRight(6)} | ${displayDirName.padRight(40)} | ${res.skipReason}');
+      print(
+        '${'SKIP'.padRight(6)} | ${displayDirName.padRight(40)} | ${res.skipReason}',
+      );
     }
     print('-' * 80);
     print('共计跳过 ${skipResults.length} 个目录。\n');
@@ -98,7 +101,9 @@ void main(List<String> args) async {
     for (var res in moveResults) {
       final subDirName = p.basename(res.subDir!.path);
       final parentDirName = p.basename(res.parentDir.path);
-      print('${'MOVE'.padRight(6)} | ${res.itemCount.toString().padRight(6)} | $subDirName -> $parentDirName');
+      print(
+        '${'MOVE'.padRight(6)} | ${res.itemCount.toString().padRight(6)} | $subDirName -> $parentDirName',
+      );
     }
     print('-' * 80);
   } else {
@@ -114,7 +119,7 @@ void main(List<String> args) async {
   // 3. 确认阶段
   stdout.write('是否确认执行上述 ${moveResults.length} 个移动操作? (y/n): ');
   final input = stdin.readLineSync();
-  
+
   if (input?.toLowerCase() != 'y') {
     print('操作已取消。');
     exit(0);
@@ -123,7 +128,7 @@ void main(List<String> args) async {
   // 4. 执行阶段
   print('\n开始执行...\n');
   int successCount = 0;
-  
+
   for (var res in moveResults) {
     bool success = await _executeOperation(res);
     if (success) successCount++;
@@ -137,14 +142,17 @@ void main(List<String> args) async {
 Future<ScanResult> _analyzeDirectory(Directory parentDir) async {
   try {
     final children = await parentDir.list(followLinks: false).toList();
-    
+
     if (children.isEmpty) {
       return ScanResult.skip(parentDir: parentDir, skipReason: '目录为空');
     }
 
     // 如果目录下的内容数量不为 1
     if (children.length > 1) {
-       return ScanResult.skip(parentDir: parentDir, skipReason: '包含多个文件/目录 (${children.length}个)');
+      return ScanResult.skip(
+        parentDir: parentDir,
+        skipReason: '包含多个文件/目录 (${children.length}个)',
+      );
     }
 
     // 如果唯一的内容不是目录
@@ -153,16 +161,15 @@ Future<ScanResult> _analyzeDirectory(Directory parentDir) async {
     }
 
     final subDir = children.first as Directory;
-    
+
     // 统计子目录下的内容数量
     final subContents = await subDir.list(followLinks: false).toList();
-    
-    return ScanResult.move(
-      subDir: subDir, 
-      parentDir: parentDir, 
-      itemCount: subContents.length
-    );
 
+    return ScanResult.move(
+      subDir: subDir,
+      parentDir: parentDir,
+      itemCount: subContents.length,
+    );
   } catch (e) {
     return ScanResult.skip(parentDir: parentDir, skipReason: '访问出错: $e');
   }
@@ -178,7 +185,7 @@ Future<bool> _executeOperation(ScanResult op) async {
     await for (var entity in op.subDir!.list(followLinks: false)) {
       final fileName = p.basename(entity.path);
       final newPath = p.join(op.parentDir.path, fileName);
-      
+
       if (entity.path == newPath) continue;
 
       if (entity is File) {
@@ -192,7 +199,6 @@ Future<bool> _executeOperation(ScanResult op) async {
     await op.subDir!.delete();
     print('已完成: $parentDirName');
     return true;
-
   } catch (e) {
     print('失败 ($parentDirName): $e');
     return false;

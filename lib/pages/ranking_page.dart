@@ -41,19 +41,18 @@ class _RankingPageState extends State<RankingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: Appbar(
-        title: Text("排行榜".tl),
-      ),
+      appBar: Appbar(title: Text("排行榜".tl)),
       body: Column(
         children: [
           Expanded(
-              child: _CustomCategoryComicsList(
-            key: ValueKey("RankingPage with $optionValue"),
-            loader: data.rankingData!.load,
-            optionValue: optionValue,
-            header: buildOptions(),
-            fieldComicType: widget.comicType,
-          ))
+            child: _CustomCategoryComicsList(
+              key: ValueKey("RankingPage with $optionValue"),
+              loader: data.rankingData!.load,
+              optionValue: optionValue,
+              header: buildOptions(),
+              fieldComicType: widget.comicType,
+            ),
+          ),
         ],
       ),
     );
@@ -74,14 +73,16 @@ class _RankingPageState extends State<RankingPage> {
 
   Widget buildOptions() {
     List<Widget> children = [];
-    children.add(Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var option in options.entries)
-          buildOptionItem(option.value.tl, option.key, context)
-      ],
-    ));
+    children.add(
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var option in options.entries)
+            buildOptionItem(option.value.tl, option.key, context),
+        ],
+      ),
+    );
     return SliverToBoxAdapter(
       child: Column(
         mainAxisSize: MainAxisSize.min,

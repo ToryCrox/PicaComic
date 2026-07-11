@@ -56,13 +56,12 @@ class JmWeekRecommendationPage extends StatelessWidget {
                   : MediaQuery.of(context).size.width - titleLength,
               height: 40,
               decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: const BorderRadius.all(Radius.circular(16))),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+              ),
               child: Row(
                 children: [
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       logic.currentName,
@@ -80,35 +79,39 @@ class JmWeekRecommendationPage extends StatelessWidget {
                       var offset = renderObject.localToGlobal(Offset.zero);
                       offset = Offset(offset.dx + 246, offset.dy + 53);
                       showMenu(
-                          constraints: BoxConstraints(
-                              maxHeight: 300,
-                              minWidth: (MediaQuery.of(context).size.width > 250
-                                      ? 250
-                                      : MediaQuery.of(context).size.width) -
-                                  16),
-                          context: context,
-                          position: RelativeRect.fromLTRB(
-                              offset.dx,
-                              offset.dy,
-                              MediaQuery.of(context).size.width - offset.dx,
-                              MediaQuery.of(context).size.height - offset.dy),
-                          items: [
-                            for (var item in logic.rec!.entries)
-                              PopupMenuItem(
-                                child: Text(item.value),
-                                onTap: () {
-                                  logic.currentId = item.key;
-                                  logic.currentName = item.value;
-                                  logic.update();
-                                },
-                              )
-                          ]);
+                        constraints: BoxConstraints(
+                          maxHeight: 300,
+                          minWidth:
+                              (MediaQuery.of(context).size.width > 250
+                                  ? 250
+                                  : MediaQuery.of(context).size.width) -
+                              16,
+                        ),
+                        context: context,
+                        position: RelativeRect.fromLTRB(
+                          offset.dx,
+                          offset.dy,
+                          MediaQuery.of(context).size.width - offset.dx,
+                          MediaQuery.of(context).size.height - offset.dy,
+                        ),
+                        items: [
+                          for (var item in logic.rec!.entries)
+                            PopupMenuItem(
+                              child: Text(item.value),
+                              onTap: () {
+                                logic.currentId = item.key;
+                                logic.currentName = item.value;
+                                logic.update();
+                              },
+                            ),
+                        ],
+                      );
                     },
                   ),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
       body: Column(
@@ -118,9 +121,7 @@ class JmWeekRecommendationPage extends StatelessWidget {
               builder: (logic) {
                 if (logic.loading) {
                   logic.get();
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 } else if (logic.message != null) {
                   return NetworkError(
                     message: logic.message!,
@@ -137,7 +138,7 @@ class JmWeekRecommendationPage extends StatelessWidget {
                 }
               },
             ),
-          )
+          ),
         ],
       ),
     );
@@ -150,8 +151,10 @@ class WRLLogic extends StateController {
   var loading = <bool>[true, true, true];
 
   void get(int index, String id) async {
-    var res = await JmNetwork()
-        .getWeekRecommendationComics(id, WeekRecommendationType.values[index]);
+    var res = await JmNetwork().getWeekRecommendationComics(
+      id,
+      WeekRecommendationType.values[index],
+    );
     if (res.error) {
       messages[index] = res.errorMessage;
     } else {
@@ -176,40 +179,38 @@ class WeekRecommendationList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-        length: 3,
-        child: Column(
-          children: [
-            TabBar(tabs: [
-              Tab(
-                text: "韩漫".tl,
-              ),
-              Tab(
-                text: "日漫".tl,
-              ),
-              Tab(
-                text: "其它".tl,
-              )
-            ]),
-            Expanded(
-                child: StateBuilder<WRLLogic>(
-                    init: WRLLogic(),
-                    tag: id,
-                    builder: (logic) {
-                      return TabBarView(children: [
-                        for (int i = 0; i <= 2; i++)
-                          buildPage(i, logic, context)
-                      ]);
-                    }))
-          ],
-        ));
+      length: 3,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: [
+              Tab(text: "韩漫".tl),
+              Tab(text: "日漫".tl),
+              Tab(text: "其它".tl),
+            ],
+          ),
+          Expanded(
+            child: StateBuilder<WRLLogic>(
+              init: WRLLogic(),
+              tag: id,
+              builder: (logic) {
+                return TabBarView(
+                  children: [
+                    for (int i = 0; i <= 2; i++) buildPage(i, logic, context),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget buildPage(int index, WRLLogic logic, BuildContext context) {
     if (logic.loading[index]) {
       logic.get(index, id);
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     } else if (logic.comics[index].isEmpty) {
       return NetworkError(
         message: logic.messages[index] ?? "未知错误".tl,
@@ -218,7 +219,10 @@ class WeekRecommendationList extends StatelessWidget {
     } else {
       return CustomScrollView(
         slivers: [
-          SliverGridComics(comics: logic.comics[index], comicType: ComicType.jm),
+          SliverGridComics(
+            comics: logic.comics[index],
+            comicType: ComicType.jm,
+          ),
         ],
       );
     }

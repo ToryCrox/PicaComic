@@ -9,13 +9,9 @@ import 'advanced_file_output.dart';
 import 'app.dart';
 import 'logger_pretty_printer.dart';
 
-final excludePaths = [
-  'package:pica_comic/foundation/log.dart',
-];
+final excludePaths = ['package:pica_comic/foundation/log.dart'];
 final excludeMethods = <String>[];
-final logMemoryOut = MemoryOutput(
-  bufferSize: 500,
-);
+final logMemoryOut = MemoryOutput(bufferSize: 500);
 final logFilter = ProductionFilter();
 final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
@@ -32,29 +28,29 @@ final logger = Logger(
     LogViewerOutput(),
   ]),
   printer: LoggerPrettyPrinter(
-      methodCount: 1,
-      printEmojis: false,
-      lineLength: 160,
-      printTime: true,
-      colors: !Platform.isIOS && kDebugMode,
-      excludePaths: [],
-      excludeFilter: (method, segment) {
-        if (excludeMethods.contains(method)) {
-          return true;
-        }
+    methodCount: 1,
+    printEmojis: false,
+    lineLength: 160,
+    printTime: true,
+    colors: !Platform.isIOS && kDebugMode,
+    excludePaths: [],
+    excludeFilter: (method, segment) {
+      if (excludeMethods.contains(method)) {
+        return true;
+      }
 
-        /// segment: package:app/src/log/log.dart:96:15
-        if (excludePaths.any((e) => segment.contains(e))) {
-          return true;
-        }
-        return false;
-      }),
+      /// segment: package:app/src/log/log.dart:96:15
+      if (excludePaths.any((e) => segment.contains(e))) {
+        return true;
+      }
+      return false;
+    },
+  ),
 );
 
 void setLoggerLevel(Level level) {
   logFilter.level = level;
 }
-
 
 class LogManager {
   static final List<Log> _logs = <Log>[];
@@ -75,8 +71,12 @@ class LogManager {
   //   print('\x1B[31m$text\x1B[0m');
   // }
 
-  static void addLog(LogLevel level, String title, String content,
-      {StackTrace? stackTrace}) {
+  static void addLog(
+    LogLevel level,
+    String title,
+    String content, {
+    StackTrace? stackTrace,
+  }) {
     // if (!ignoreLimitation && content.length > maxLogLength) {
     //   content = "${content.substring(0, maxLogLength)}...";
     // }
@@ -151,15 +151,14 @@ class LogManager {
   static File? _logFile;
   static IOSink? _logSink;
 
-
-
   static void writeLog(LogLevel level, String title, String content) {
     IOSink? logSink = _logSink ??= _logFile?.openWrite(mode: FileMode.append);
     if (logSink == null) {
       return;
     }
     logSink.writeln(
-        '${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n');
+      '${DateTime.now().toIso8601String()} ${level.name}\n$title: $content\n',
+    );
     // if (!_isWriting) {
     //   /// 延迟1秒写入文件
     //   Future.delayed(const Duration(seconds: 1), () {

@@ -66,10 +66,12 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     // 其他tab: 按分类过滤,按 categorySortOrder 排序
     for (int i = 0; i < _categories.length; i++) {
       final category = _categories[i];
-      final categoryTags =
-          _allTags.where((t) => t.category == category.value).toList();
-      categoryTags
-          .sort((a, b) => a.categorySortOrder.compareTo(b.categorySortOrder));
+      final categoryTags = _allTags
+          .where((t) => t.category == category.value)
+          .toList();
+      categoryTags.sort(
+        (a, b) => a.categorySortOrder.compareTo(b.categorySortOrder),
+      );
       _displayTagsByTab[i + 1] = categoryTags;
     }
   }
@@ -116,10 +118,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Text(
-            "标签筛选".tl,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text("标签筛选".tl, style: Theme.of(context).textTheme.titleMedium),
           const Spacer(),
           TextButton.icon(
             onPressed: widget.onManageTags,
@@ -152,9 +151,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
     final displayTags = _displayTagsByTab[pageIndex] ?? [];
 
     if (displayTags.isEmpty) {
-      return Center(
-        child: Text("无标签".tl),
-      );
+      return Center(child: Text("无标签".tl));
     }
 
     final scrollController = _scrollControllers[pageIndex];
@@ -249,8 +246,9 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
                       errorBuilder: (_, __, ___) => const Icon(Icons.image),
                     )
                   : Container(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.label),
                     ),
             ),

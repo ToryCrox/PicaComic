@@ -112,16 +112,17 @@ class _LocalRepositoryManagementPageState
         nameController.text.isNotEmpty &&
         pathController.text.isNotEmpty) {
       try {
-        final success = await LocalRepositoryManager()
-            .addRepository(
-              nameController.text,
-              pathController.text,
-            );
+        final success = await LocalRepositoryManager().addRepository(
+          nameController.text,
+          pathController.text,
+        );
         if (success) {
           // 如果提供了标题，更新标题
           if (titleController.text.isNotEmpty) {
-            await LocalRepositoryManager()
-                .updateRepositoryTitle(nameController.text, titleController.text);
+            await LocalRepositoryManager().updateRepositoryTitle(
+              nameController.text,
+              titleController.text,
+            );
           }
           showToast(message: "存储库添加成功".tl);
           _loadRepositories();
@@ -276,63 +277,65 @@ class _LocalRepositoryManagementPageState
       body: loading && repositories.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : repositories.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.folder_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    "暂无存储库".tl,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "点击右上角添加按钮创建存储库".tl,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: repositories.length,
+              itemBuilder: (context, index) {
+                final repo = repositories[index];
+                return ListTile(
+                  leading: const Icon(Icons.folder),
+                  title: Text(repo.title),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.folder_off, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        "暂无存储库".tl,
-                        style: Theme.of(context).textTheme.titleLarge,
+                      Text(repo.path),
+                      if (repo.title != repo.name)
+                        Text(
+                          "标识: ${repo.name}".tl,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                        ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _editRepository(repo),
+                        tooltip: "编辑".tl,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "点击右上角添加按钮创建存储库".tl,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteRepository(repo),
+                        tooltip: "删除".tl,
                       ),
                     ],
                   ),
-                )
-              : ListView.builder(
-                  itemCount: repositories.length,
-                  itemBuilder: (context, index) {
-                    final repo = repositories[index];
-                    return ListTile(
-                      leading: const Icon(Icons.folder),
-                      title: Text(repo.title),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(repo.path),
-                          if (repo.title != repo.name)
-                            Text(
-                              "标识: ${repo.name}".tl,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                                  ),
-                            ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _editRepository(repo),
-                            tooltip: "编辑".tl,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _deleteRepository(repo),
-                            tooltip: "删除".tl,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                );
+              },
+            ),
     );
   }
 }
-

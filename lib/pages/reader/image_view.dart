@@ -20,8 +20,10 @@ import 'touch_control.dart';
 extension ScrollExtension on ScrollController {
   /// 鼠标滚轮滚动时直接跳转到目标位置，不使用动画，使滚动更跟手
   void smoothTo(double value) {
-    final targetPosition = (position.pixels + value)
-        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    final targetPosition = (position.pixels + value).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     jumpTo(targetPosition);
   }
 }
@@ -32,7 +34,7 @@ const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
   PointerDeviceKind.stylus,
   PointerDeviceKind.invertedStylus,
   PointerDeviceKind.trackpad,
-  PointerDeviceKind.unknown
+  PointerDeviceKind.unknown,
 };
 
 /// Build the main comic image view.
@@ -53,8 +55,10 @@ Widget buildComicView(
       addSemanticIndexes: false,
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
       scrollController: logic.scrollController,
-      scrollBehavior: const MaterialScrollBehavior()
-          .copyWith(scrollbars: false, dragDevices: _kTouchLikeDeviceTypes),
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        scrollbars: false,
+        dragDevices: _kTouchLikeDeviceTypes,
+      ),
       physics: (state.noScroll || logic.isCtrlPressed || logic.mouseScroll)
           ? const NeverScrollableScrollPhysics()
           : const ClampingScrollPhysics(),
@@ -109,10 +113,21 @@ Widget buildComicView(
           imageWidth = min(height / 0.8, 2160 / mediaQuery.devicePixelRatio);
         }
 
-        precacheComicImage(state, logic, context, index + 1, target, readingData);
+        precacheComicImage(
+          state,
+          logic,
+          context,
+          index + 1,
+          target,
+          readingData,
+        );
 
-        ImageProvider image =
-            createImageProvider(state, index, target, readingData);
+        ImageProvider image = createImageProvider(
+          state,
+          index,
+          target,
+          readingData,
+        );
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -133,13 +148,10 @@ Widget buildComicView(
                   alignment: Alignment.center,
                   child: Text(
                     "${index + 1}",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 40),
                   ),
                 ),
-              )
+              ),
           ],
         );
       },
@@ -157,14 +169,19 @@ Widget buildComicView(
       backgroundDecoration: decoration,
       key: Key(state.readingMethod.index.toString()),
       reverse: appdata.settings[9] == "2",
-      scrollDirection:
-          appdata.settings[9] != "3" ? Axis.horizontal : Axis.vertical,
+      scrollDirection: appdata.settings[9] != "3"
+          ? Axis.horizontal
+          : Axis.vertical,
       itemCount: state.urls.length + 2,
       builder: (BuildContext context, int index) {
         ImageProvider? imageProvider;
         if (index != 0 && index != state.urls.length + 1) {
-          imageProvider =
-              createImageProvider(state, index - 1, target, readingData);
+          imageProvider = createImageProvider(
+            state,
+            index - 1,
+            target,
+            readingData,
+          );
         } else {
           return PhotoViewGalleryPageOptions.customChild(
             scaleStateController: PhotoViewScaleStateController(),
@@ -204,16 +221,15 @@ Widget buildComicView(
                         child: Text(
                           error.toString(),
                           style: TextStyle(
-                              color: appdata.appSettings.useDarkBackground
-                                  ? Colors.white
-                                  : null),
+                            color: appdata.appSettings.useDarkBackground
+                                ? Colors.white
+                                : null,
+                          ),
                           maxLines: 3,
                         ),
                       ),
                     ),
-                    const SizedBox(
-                      height: 4,
-                    ),
+                    const SizedBox(height: 4),
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Listener(
@@ -233,16 +249,15 @@ Widget buildComicView(
                         ),
                       ),
                     ),
-                    const SizedBox(
-                      height: 16,
-                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             );
           },
-          heroAttributes:
-              PhotoViewHeroAttributes(tag: "$index/${state.urls.length}"),
+          heroAttributes: PhotoViewHeroAttributes(
+            tag: "$index/${state.urls.length}",
+          ),
         );
       },
       pageController: logic.pageController,
@@ -279,10 +294,11 @@ Widget buildComicView(
     );
   }
 
-  Widget buildComicImageOrEmpty(
-      {required int imageIndex,
-      required BoxFit fit,
-      required Alignment alignment}) {
+  Widget buildComicImageOrEmpty({
+    required int imageIndex,
+    required BoxFit fit,
+    required Alignment alignment,
+  }) {
     if (imageIndex < 0 || imageIndex >= state.urls.length) {
       return const SizedBox();
     }
@@ -314,10 +330,17 @@ Widget buildComicView(
       builder: (BuildContext context, int index) {
         if (index == 0 || index == calcItemCount() - 1) {
           return PhotoViewGalleryPageOptions.customChild(
-              child: const SizedBox());
+            child: const SizedBox(),
+          );
         }
         precacheComicImage(
-            state, logic, context, index * 2 + 1, target, readingData);
+          state,
+          logic,
+          context,
+          index * 2 + 1,
+          target,
+          readingData,
+        );
 
         logic.photoViewControllers[index] ??= PhotoViewController();
 
@@ -334,31 +357,31 @@ Widget buildComicView(
         }
 
         return PhotoViewGalleryPageOptions.customChild(
-            controller: logic.photoViewControllers[index],
-            child: Row(
-              children: [
-                Expanded(
-                  child: buildComicImageOrEmpty(
-                    imageIndex: images[0],
-                    fit: BoxFit.contain,
-                    alignment: Alignment.centerRight,
-                  ),
+          controller: logic.photoViewControllers[index],
+          child: Row(
+            children: [
+              Expanded(
+                child: buildComicImageOrEmpty(
+                  imageIndex: images[0],
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerRight,
                 ),
-                Expanded(
-                  child: buildComicImageOrEmpty(
-                    imageIndex: images[1],
-                    fit: BoxFit.contain,
-                    alignment: Alignment.centerLeft,
-                  ),
+              ),
+              Expanded(
+                child: buildComicImageOrEmpty(
+                  imageIndex: images[1],
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
                 ),
-              ],
-            ));
+              ),
+            ],
+          ),
+        );
       },
       pageController: logic.pageController,
       onPageChanged: (i) {
         if (i == 0) {
-          if (!readingData.hasEp ||
-              state.currentEpisode == 1) {
+          if (!readingData.hasEp || state.currentEpisode == 1) {
             logic.pageController.jumpByDeviceType(1, logic);
             return;
           }
@@ -366,8 +389,10 @@ Widget buildComicView(
         } else if (i == calcItemCount() - 1) {
           if (!readingData.hasEp ||
               state.currentEpisode == readingData.eps?.length) {
-            logic.pageController
-                .jumpByDeviceType(logic.pageController.page!.round() - 1, logic);
+            logic.pageController.jumpByDeviceType(
+              logic.pageController.page!.round() - 1,
+              logic,
+            );
             return;
           }
           logic.jumpToNextChapter();
@@ -429,8 +454,10 @@ Widget buildComicView(
                     logic.scrollController.position.maxScrollExtent &&
                 pointerSignal.scrollDelta.dy > 0)) {
           logic.photoViewController.updateMultiple(
-              position: logic.photoViewController.position -
-                  Offset(0, pointerSignal.scrollDelta.dy));
+            position:
+                logic.photoViewController.position -
+                Offset(0, pointerSignal.scrollDelta.dy),
+          );
         } else if (!App.isMacOS) {
           logic.scrollController.smoothTo(pointerSignal.scrollDelta.dy);
         }
@@ -461,8 +488,10 @@ Widget buildComicView(
           if (timeDiff > 0) {
             final positionDiff = last.position - secondLast.position;
             logic.releaseVelocity = positionDiff / timeDiff;
-            Log.d(() =>
-                "onPointerUp velocity: ${logic.releaseVelocity} (timeDiff: ${timeDiff}s, positionDiff: $positionDiff)");
+            Log.d(
+              () =>
+                  "onPointerUp velocity: ${logic.releaseVelocity} (timeDiff: ${timeDiff}s, positionDiff: $positionDiff)",
+            );
           }
         }
 
@@ -490,8 +519,7 @@ Widget buildComicView(
           if (notification is ScrollUpdateNotification) {
             TapController.lastScrollTime = DateTime.now();
 
-            if (state.readingMethod ==
-                    ReadingMethod.topToBottomContinuously &&
+            if (state.readingMethod == ReadingMethod.topToBottomContinuously &&
                 logic.scrollController.hasClients) {
               final now = DateTime.now().millisecondsSinceEpoch;
               final position = logic.scrollController.position.pixels;
@@ -522,10 +550,11 @@ Widget buildComicView(
             return true;
           }
           if (notification is ScrollEndNotification) {
-            if (state.readingMethod ==
-                ReadingMethod.topToBottomContinuously) {
-              Log.d(() =>
-                  "ScrollEndNotification releaseVelocity: ${logic.releaseVelocity}");
+            if (state.readingMethod == ReadingMethod.topToBottomContinuously) {
+              Log.d(
+                () =>
+                    "ScrollEndNotification releaseVelocity: ${logic.releaseVelocity}",
+              );
 
               if (logic.releaseVelocity != null) {
                 final velocity = logic.releaseVelocity!;
@@ -557,9 +586,16 @@ Widget buildComicView(
 
 /// Create an image provider for the given page.
 ImageProvider createImageProvider(
-    ReaderPageState state, int index, String target, ReadingData readingData) {
+  ReaderPageState state,
+  int index,
+  String target,
+  ReadingData readingData,
+) {
   return readingData.createImageProvider(
-      state.currentEpisode, index, state.urls[index]);
+    state.currentEpisode,
+    index,
+    state.urls[index],
+  );
 }
 
 /// Check current location of [PageView], update location when it is out of range.
@@ -575,7 +611,8 @@ bool updateLocation(BuildContext context, PhotoViewController controller) {
   final showWidth = width / scale;
   if (showWidth >= imageWidth && currentLocation.dx != 0) {
     controller.updateMultiple(
-        position: Offset(controller.initial.position.dx, currentLocation.dy));
+      position: Offset(controller.initial.position.dx, currentLocation.dy),
+    );
     return true;
   }
   if (showWidth < imageWidth) {
@@ -588,11 +625,13 @@ bool updateLocation(BuildContext context, PhotoViewController controller) {
     final updateValue = (width / 2 - (rEdge - showWidth / 2)) * scale;
     if (lEdge > showLEdge) {
       controller.updateMultiple(
-          position: Offset(0 - updateValue, currentLocation.dy));
+        position: Offset(0 - updateValue, currentLocation.dy),
+      );
       return true;
     } else if (rEdge < showREdge) {
       controller.updateMultiple(
-          position: Offset(updateValue, currentLocation.dy));
+        position: Offset(updateValue, currentLocation.dy),
+      );
       return true;
     }
   }
@@ -600,30 +639,38 @@ bool updateLocation(BuildContext context, PhotoViewController controller) {
 }
 
 /// Preload images.
-void precacheComicImage(ReaderPageState state, ComicReaderLogic logic, BuildContext context,
-    int index, String target, ReadingData readingData) {
+void precacheComicImage(
+  ReaderPageState state,
+  ComicReaderLogic logic,
+  BuildContext context,
+  int index,
+  String target,
+  ReadingData readingData,
+) {
   logic.loadImageSizes(index);
   if (logic.requestedLoadingItems.length != logic.length) {
     logic.requestedLoadingItems = List.filled(logic.length + 1, false);
   }
   int precacheNum = int.parse(appdata.settings[28]) + index;
   for (; index < precacheNum; index++) {
-    if (index >= state.urls.length ||
-        logic.requestedLoadingItems[index]) {
+    if (index >= state.urls.length || logic.requestedLoadingItems[index]) {
       return;
     }
     precacheImage(
-        createImageProvider(state, index, target, readingData), context);
+      createImageProvider(state, index, target, readingData),
+      context,
+    );
   }
   if (!ImageManager.haveTask) {
     precacheNum += 3;
     for (; index < precacheNum; index++) {
-      if (index >= state.urls.length ||
-          logic.requestedLoadingItems[index]) {
+      if (index >= state.urls.length || logic.requestedLoadingItems[index]) {
         return;
       }
       precacheImage(
-          createImageProvider(state, index, target, readingData), context);
+        createImageProvider(state, index, target, readingData),
+        context,
+      );
     }
   }
 }

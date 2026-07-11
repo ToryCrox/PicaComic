@@ -11,7 +11,7 @@ import 'notification.dart';
 void onStart() {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
-  Workmanager().executeTask((taskName, inputData) async{
+  Workmanager().executeTask((taskName, inputData) async {
     await App.init();
     appdata = Appdata();
     await appdata.readData();
@@ -36,7 +36,7 @@ void onStart() {
   });
 }
 
-void runBackgroundService() async{
+void runBackgroundService() async {
   await Workmanager().cancelAll();
   await Workmanager().registerPeriodicTask(
     "Piacg PunchIn",
@@ -46,6 +46,6 @@ void runBackgroundService() async{
   );
 }
 
-void cancelBackgroundService() async{
+void cancelBackgroundService() async {
   await Workmanager().cancelAll();
 }

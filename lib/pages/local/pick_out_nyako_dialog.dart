@@ -18,7 +18,7 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
   bool _isScanning = false;
   bool _isMoving = false;
   MoveTargets? _moveTargets;
-  
+
   // 错误日志列表
   final List<String> _errorLogs = [];
 
@@ -33,7 +33,13 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text("文件整理工具".tl, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(
+                "文件整理工具".tl,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 16),
               _buildSourceSelector(),
               const SizedBox(height: 8),
@@ -48,17 +54,23 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
                         if (_errorLogs.isNotEmpty) ...[
                           const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               "${_errorLogs.length}",
-                              style: const TextStyle(color: Colors.white, fontSize: 10),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
                             ),
-                          )
-                        ]
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -67,10 +79,7 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
               const Divider(height: 1),
               Expanded(
                 child: TabBarView(
-                  children: [
-                    _buildPreviewList(),
-                    _buildLogList(),
-                  ],
+                  children: [_buildPreviewList(), _buildLogList()],
                 ),
               ),
               const SizedBox(height: 16),
@@ -115,13 +124,8 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: Text(_sourcePath ?? "请选择或拖入文件夹".tl),
-            ),
-            ElevatedButton(
-              onPressed: _pickDirectory,
-              child: Text("选择文件夹".tl),
-            ),
+            Expanded(child: Text(_sourcePath ?? "请选择或拖入文件夹".tl)),
+            ElevatedButton(onPressed: _pickDirectory, child: Text("选择文件夹".tl)),
           ],
         ),
       ),
@@ -178,11 +182,18 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
         ),
         const SizedBox(width: 8),
         ElevatedButton(
-          onPressed: (_moveTargets == null || _moveTargets!.targetMoveMap.isEmpty || _isMoving)
+          onPressed:
+              (_moveTargets == null ||
+                  _moveTargets!.targetMoveMap.isEmpty ||
+                  _isMoving)
               ? null
               : _executeMoves,
           child: _isMoving
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : Text("执行整理".tl),
         ),
       ],
@@ -314,7 +325,7 @@ class _PickOutNyakoDialogState extends State<PickOutNyakoDialog> {
         }
       }
     } catch (e) {
-       _logError("扫描目录失败 ${srcDir.path}: $e");
+      _logError("扫描目录失败 ${srcDir.path}: $e");
     }
 
     return MoveTargets(targetMoveMap, subDirectories);

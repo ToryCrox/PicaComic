@@ -1,7 +1,11 @@
 part of 'components.dart';
 
 class SmoothCustomScrollView extends StatelessWidget {
-  const SmoothCustomScrollView({super.key, required this.slivers, this.controller});
+  const SmoothCustomScrollView({
+    super.key,
+    required this.slivers,
+    this.controller,
+  });
 
   final ScrollController? controller;
 
@@ -9,10 +13,7 @@ class SmoothCustomScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: controller,
-      slivers: slivers,
-    );
+    return CustomScrollView(controller: controller, slivers: slivers);
     // return SmoothScrollProvider(
     //   controller: controller,
     //   builder: (context, controller, physics) {
@@ -26,9 +27,12 @@ class SmoothCustomScrollView extends StatelessWidget {
   }
 }
 
-
 class SmoothScrollProvider extends StatefulWidget {
-  const SmoothScrollProvider({super.key, this.controller, required this.builder});
+  const SmoothScrollProvider({
+    super.key,
+    this.controller,
+    required this.builder,
+  });
 
   final ScrollController? controller;
 
@@ -55,7 +59,7 @@ class _SmoothScrollProviderState extends State<SmoothScrollProvider> {
 
   @override
   Widget build(BuildContext context) {
-    if(App.isMacOS) {
+    if (App.isMacOS) {
       return widget.builder(
         context,
         _controller,
@@ -83,13 +87,16 @@ class _SmoothScrollProviderState extends State<SmoothScrollProvider> {
           var currentLocation = _controller.position.pixels;
           _futurePosition ??= currentLocation;
           double k = (_futurePosition! - currentLocation).abs() / 1600 + 1;
-          _futurePosition =
-              _futurePosition! + pointerSignal.scrollDelta.dy * k;
+          _futurePosition = _futurePosition! + pointerSignal.scrollDelta.dy * k;
           _futurePosition = _futurePosition!.clamp(
-              _controller.position.minScrollExtent,
-              _controller.position.maxScrollExtent);
-          _controller.animateTo(_futurePosition!,
-              duration: _fastAnimationDuration, curve: Curves.linear);
+            _controller.position.minScrollExtent,
+            _controller.position.maxScrollExtent,
+          );
+          _controller.animateTo(
+            _futurePosition!,
+            duration: _fastAnimationDuration,
+            curve: Curves.linear,
+          );
         }
       },
       child: widget.builder(

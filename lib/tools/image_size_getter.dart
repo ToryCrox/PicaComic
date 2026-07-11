@@ -17,7 +17,8 @@ Map<String, ImageSizeInfo> _imageSizeCache = {};
 ///
 /// [imagePaths] 一组图片的路径
 Stream<Map<String, ImageSizeInfo>> computeImageSizes(
-    List<String> imagePaths) async* {
+  List<String> imagePaths,
+) async* {
   // 初始化图片尺寸结果集
   Map<String, ImageSizeInfo> imageSizeResult = <String, ImageSizeInfo>{};
   // 需要计算尺寸的图片路径列表
@@ -54,30 +55,32 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
           : i + checkBatchSize;
       final list = checkList.sublist(i, end);
 
-      await Future.wait(list.map((imagePath) async {
-        final imagePathKey = adjustImagePath(imagePath);
-        final imageSizeInfo = _imageSizeCache[imagePathKey];
-        if (imageSizeInfo == null) return;
+      await Future.wait(
+        list.map((imagePath) async {
+          final imagePathKey = adjustImagePath(imagePath);
+          final imageSizeInfo = _imageSizeCache[imagePathKey];
+          if (imageSizeInfo == null) return;
 
-        try {
-          final file = File(imagePathKey);
-          if (!file.existsSync()) {
+          try {
+            final file = File(imagePathKey);
+            if (!file.existsSync()) {
+              _imageSizeCache.remove(imagePathKey);
+              needsCompute.add(imagePath);
+              return;
+            }
+            final stat = await file.stat();
+            if (stat.size != imageSizeInfo.fileSize ||
+                stat.modified.millisecondsSinceEpoch !=
+                    imageSizeInfo.lastModifiedTime) {
+              _imageSizeCache.remove(imagePathKey);
+              needsCompute.add(imagePath);
+            }
+          } catch (e) {
             _imageSizeCache.remove(imagePathKey);
             needsCompute.add(imagePath);
-            return;
           }
-          final stat = await file.stat();
-          if (stat.size != imageSizeInfo.fileSize ||
-              stat.modified.millisecondsSinceEpoch !=
-                  imageSizeInfo.lastModifiedTime) {
-            _imageSizeCache.remove(imagePathKey);
-            needsCompute.add(imagePath);
-          }
-        } catch (e) {
-          _imageSizeCache.remove(imagePathKey);
-          needsCompute.add(imagePath);
-        }
-      }));
+        }),
+      );
     }
   }
 
@@ -90,7 +93,9 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
     final list = needsCompute.sublist(i, end).toList();
     // 使用共享计算资源并行计算图片尺寸
     // final result = await sharedCompute(loadImageSizes, list);
-    final result = await workerManager.execute<Map<String, ImageSizeInfo>>(_buildLoadImageSizesTask(list));
+    final result = await workerManager.execute<Map<String, ImageSizeInfo>>(
+      _buildLoadImageSizesTask(list),
+    );
     // 更新缓存并合并结果
     for (var imagePath in result.keys) {
       final imagePathKey = adjustImagePath(imagePath);
@@ -102,7 +107,8 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
 }
 
 Future<Map<String, ImageSizeInfo>> Function() _buildLoadImageSizesTask(
-    List<String> list) {
+  List<String> list,
+) {
   return () async => loadImageSizes(list);
 }
 

@@ -37,7 +37,7 @@ class EhNetwork {
   EhNetwork.create() {
     getCookies(true);
     folderNames = List.from(ehentai.data["favoriteNames"] ?? []);
-    if(folderNames.length != 10){
+    if (folderNames.length != 10) {
       folderNames = List.generate(10, (index) => "Favorite $index");
     }
   }
@@ -67,16 +67,14 @@ class EhNetwork {
     url ??= ehBaseUrl;
 
     var shouldAdd = [
-      if (setNW) Cookie("nw", "1")
-      else Cookie("nw", "0"),
-      if (appdata.settings[75] != "")
-        Cookie("sp", appdata.settings[75]),
+      if (setNW) Cookie("nw", "1") else Cookie("nw", "0"),
+      if (appdata.settings[75] != "") Cookie("sp", appdata.settings[75]),
     ];
 
     var cookies = await cookieJar.loadForRequest(Uri.parse(url));
-    
-    if(ehentai.isLogin
-        && cookies.every((element) => element.name != "ipb_member_id")){
+
+    if (ehentai.isLogin &&
+        cookies.every((element) => element.name != "ipb_member_id")) {
       // 迁移旧版本数据
       SharedPreferences prefs = await SharedPreferences.getInstance();
       id = prefs.getString("ehId") ?? "";
@@ -85,7 +83,7 @@ class EhNetwork {
 
       shouldAdd.add(Cookie("ipb_member_id", id));
       shouldAdd.add(Cookie("ipb_pass_hash", hash));
-      if(igneous.isNotEmpty) {
+      if (igneous.isNotEmpty) {
         shouldAdd.add(Cookie("igneous", igneous));
       }
     }
@@ -95,11 +93,11 @@ class EhNetwork {
     var res = "";
     for (var cookie in cookies) {
       res += "${cookie.name}=${cookie.value}; ";
-      if(cookie.name == "ipb_member_id"){
+      if (cookie.name == "ipb_member_id") {
         id = cookie.value;
-      } else if(cookie.name == "ipb_pass_hash"){
+      } else if (cookie.name == "ipb_pass_hash") {
         hash = cookie.value;
-      } else if(cookie.name == "igneous"){
+      } else if (cookie.name == "igneous") {
         igneous = cookie.value;
       }
     }
@@ -111,43 +109,49 @@ class EhNetwork {
   }
 
   ///从url获取数据, 在请求时设置了cookie
-  Future<Res<String>> request(String url,
-      {Map<String, String>? headers,
-      CacheExpiredTime expiredTime = CacheExpiredTime.short,
-      bool setNW = true,
-      CancelToken? cancelToken}) async {
+  Future<Res<String>> request(
+    String url, {
+    Map<String, String>? headers,
+    CacheExpiredTime expiredTime = CacheExpiredTime.short,
+    bool setNW = true,
+    CancelToken? cancelToken,
+  }) async {
     await getCookies(setNW, url);
     var options = BaseOptions(
-        connectTimeout: const Duration(seconds: 8),
-        sendTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-        followRedirects: true,
-        headers: {
-          "user-agent": webUA,
-          ...?headers,
-          "host": Uri.parse(url).host
-        });
+      connectTimeout: const Duration(seconds: 8),
+      sendTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+      followRedirects: true,
+      headers: {"user-agent": webUA, ...?headers, "host": Uri.parse(url).host},
+    );
     var dio = CachedNetwork();
     try {
-      var data = await dio.get(url, options,
-          cookieJar: cookieJar,
-          expiredTime: expiredTime,
-          cancelToken: cancelToken);
+      var data = await dio.get(
+        url,
+        options,
+        cookieJar: cookieJar,
+        expiredTime: expiredTime,
+        cancelToken: cancelToken,
+      );
       if (data.data.isEmpty) {
-        throw Exception("Empty Data. "
-            "No permission to access this page.\n"
-            "Please check your account and cookie.");
+        throw Exception(
+          "Empty Data. "
+          "No permission to access this page.\n"
+          "Please check your account and cookie.",
+        );
       }
-      
-      if(data.url.contains("bounce_login.php")){
+
+      if (data.url.contains("bounce_login.php")) {
         throw Exception("未登录或登录到期".tl);
       }
-      
+
       await getCookies(true);
       if ((data.data).substring(0, 4) == "Your") {
         dio.delete(url);
-        return const Res(null,
-            errorMessage: "Your IP address has been temporarily banned");
+        return const Res(
+          null,
+          errorMessage: "Your IP address has been temporarily banned",
+        );
       }
       return Res(data.data);
     } on DioException catch (e) {
@@ -163,8 +167,9 @@ class EhNetwork {
       if (e.toString() != "null") {
         message = e.toString();
       }
-      if(message?.contains("Redirect loop") ?? false){
-        message = "Redirect loop: No permission to view this page. \nCheck your account and cookie.";
+      if (message?.contains("Redirect loop") ?? false) {
+        message =
+            "Redirect loop: No permission to view this page. \nCheck your account and cookie.";
       }
       return Res(null, errorMessage: message ?? "Network Error");
     }
@@ -182,15 +187,19 @@ class EhNetwork {
     await setNetworkProxy();
 
     try {
-      var res = await apiDio.post<String>(ehApiUrl,
-          data: data,
-          cancelToken: cancelToken,
-          options: Options(headers: {
+      var res = await apiDio.post<String>(
+        ehApiUrl,
+        data: data,
+        cancelToken: cancelToken,
+        options: Options(
+          headers: {
             "user-agent": webUA,
             ...?headers,
             "host": Uri.parse(ehBaseUrl).host,
-            "Cookie": cookiesStr
-          }));
+            "Cookie": cookiesStr,
+          },
+        ),
+      );
       return Res(res.data);
     } on DioException catch (e) {
       String? message;
@@ -217,12 +226,13 @@ class EhNetwork {
     await getCookies(true, url);
     await setNetworkProxy(); //更新代理
     var options = BaseOptions(
-        connectTimeout: const Duration(seconds: 8),
-        sendTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-        receiveDataWhenStatusError: true,
-        validateStatus: (status) => status == 200 || status == 302,
-        headers: {"user-agent": webUA, ...?headers});
+      connectTimeout: const Duration(seconds: 8),
+      sendTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+      receiveDataWhenStatusError: true,
+      validateStatus: (status) => status == 200 || status == 302,
+      headers: {"user-agent": webUA, ...?headers},
+    );
 
     var dio = logDio(options)..interceptors.add(LogInterceptor());
     dio.interceptors.add(CookieManagerSql(cookieJar));
@@ -250,16 +260,18 @@ class EhNetwork {
   ///获取用户名, 同时用于检测cookie是否有效
   Future<bool> getUserName() async {
     try {
-      var res = await request("https://forums.e-hentai.org/",
-          headers: {
-            "referer": "https://forums.e-hentai.org/index.php?",
-            "accept":
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "accept-encoding": "gzip, deflate, br",
-            "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-            "user-agent": appdata.implicitData[3],
-          },
-          expiredTime: CacheExpiredTime.no);
+      var res = await request(
+        "https://forums.e-hentai.org/",
+        headers: {
+          "referer": "https://forums.e-hentai.org/index.php?",
+          "accept":
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+          "accept-encoding": "gzip, deflate, br",
+          "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+          "user-agent": appdata.implicitData[3],
+        },
+        expiredTime: CacheExpiredTime.no,
+      );
       if (res.error) {
         return false;
       }
@@ -279,20 +291,19 @@ class EhNetwork {
     String url = "https://e-hentai.org/home.php";
     await getCookies(false, url);
     var options = BaseOptions(
-        connectTimeout: const Duration(seconds: 8),
-        sendTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-        followRedirects: false,
-        headers: {
-          "user-agent": webUA,
-        });
+      connectTimeout: const Duration(seconds: 8),
+      sendTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+      followRedirects: false,
+      headers: {"user-agent": webUA},
+    );
     var dio = CachedNetwork();
     try {
       var res = await dio.get(
-          url,
-          options,
-          cookieJar: cookieJar,
-          expiredTime: CacheExpiredTime.no
+        url,
+        options,
+        cookieJar: cookieJar,
+        expiredTime: CacheExpiredTime.no,
       );
       if (res.statusCode == 200) {
         ehentai.data['name'] = "PLACEHOLDER";
@@ -341,8 +352,11 @@ class EhNetwork {
   }
 
   ///从e-hentai链接中获取当前页面的所有画廊
-  Future<Res<Galleries>> getGalleries(String url,
-      {bool leaderboard = false, bool favoritePage = false}) async {
+  Future<Res<Galleries>> getGalleries(
+    String url, {
+    bool leaderboard = false,
+    bool favoritePage = false,
+  }) async {
     //从一个链接中获取所有画廊, 同时获得下一页的链接
     //leaderboard比正常的表格多了第一列
     int t = 0;
@@ -358,15 +372,28 @@ class EhNetwork {
       var galleries = <EhGalleryBrief>[];
 
       // compact mode
-      for (var item in document.querySelectorAll("table.itg.gltc > tbody > tr")) {
+      for (var item in document.querySelectorAll(
+        "table.itg.gltc > tbody > tr",
+      )) {
         try {
           var type = item.children[0 + t].children[0].text;
           var time = item.children[1 + t].children[2].children[0].text;
-          var stars = getStarsFromPosition(item
-              .children[1 + t].children[2].children[1].attributes["style"]!);
-          var cover = item.children[1 + t].children[1].children[0].children[0].attributes["src"];
+          var stars = getStarsFromPosition(
+            item.children[1 + t].children[2].children[1].attributes["style"]!,
+          );
+          var cover = item
+              .children[1 + t]
+              .children[1]
+              .children[0]
+              .children[0]
+              .attributes["src"];
           if (cover![0] == 'd') {
-            cover = item.children[1 + t].children[1].children[0].children[0].attributes["data-src"];
+            cover = item
+                .children[1 + t]
+                .children[1]
+                .children[0]
+                .children[0]
+                .attributes["data-src"];
           }
           var title = item.children[2 + t].children[0].children[0].text;
           var link = item.children[2 + t].children[0].attributes["href"];
@@ -384,8 +411,19 @@ class EhNetwork {
             tags.add(node.attributes["title"]!);
           }
 
-          galleries.add(EhGalleryBrief(
-              title, type, time, uploader, cover!, stars, link!, tags, pages: pages));
+          galleries.add(
+            EhGalleryBrief(
+              title,
+              type,
+              time,
+              uploader,
+              cover!,
+              stars,
+              link!,
+              tags,
+              pages: pages,
+            ),
+          );
         } catch (e) {
           //表格中存在空行或者被屏蔽
           continue;
@@ -398,70 +436,165 @@ class EhNetwork {
           final title = item.querySelector("a")?.text ?? "Unknown";
           final type =
               item.querySelector("div.gl5t > div > div.cs")?.text ?? "Unknown";
-          final time = item
+          final time =
+              item
                   .querySelectorAll("div.gl5t > div > div")
                   .firstWhereOrNull(
-                      (element) => DateTime.tryParse(element.text) != null)
+                    (element) => DateTime.tryParse(element.text) != null,
+                  )
                   ?.text ??
               "Unknown";
           final coverPath = item.querySelector("img")?.attributes["src"] ?? "";
-          final stars = getStarsFromPosition(item
-                  .querySelector("div.gl5t > div > div.ir")
-                  ?.attributes["style"] ??
-              "");
+          final stars = getStarsFromPosition(
+            item
+                    .querySelector("div.gl5t > div > div.ir")
+                    ?.attributes["style"] ??
+                "",
+          );
           final link = item.querySelector("a")?.attributes["href"] ?? "";
-          final pages = int.tryParse(item
-                  .querySelectorAll("div.gl5t > div > div")
-                  .firstWhereOrNull((element) => element.text.contains("pages"))
-                  ?.text
-                  .nums ??
-              "");
-          galleries.add(EhGalleryBrief(
-              title, type, time, "", coverPath, stars, link, [],
-              pages: pages));
+          final pages = int.tryParse(
+            item
+                    .querySelectorAll("div.gl5t > div > div")
+                    .firstWhereOrNull(
+                      (element) => element.text.contains("pages"),
+                    )
+                    ?.text
+                    .nums ??
+                "",
+          );
+          galleries.add(
+            EhGalleryBrief(
+              title,
+              type,
+              time,
+              "",
+              coverPath,
+              stars,
+              link,
+              [],
+              pages: pages,
+            ),
+          );
         } catch (e) {
           //忽视
         }
       }
 
       // Extended mode
-      for(var item in document.querySelectorAll("table.itg.glte > tbody > tr")){
-        try{
-          final title = item.querySelector("td.gl2e > div > a > div > div.glink")?.text ?? "Unknown";
-          final type = item.querySelector("td.gl2e > div > div.gl3e > div.cn")?.text ?? "Unknown";
-          final time = item.querySelectorAll("td.gl2e > div > div.gl3e > div")
-              .firstWhereOrNull((element) => DateTime.tryParse(element.text) != null)?.text ?? "Unknown";
-          final uploader = item.querySelector("td.gl2e > div > div.gl3e > div > a")?.text ?? "Unknown";
-          final coverPath = item.querySelector("td.gl1e > div > a > img")?.attributes["src"] ?? "";
-          final stars = getStarsFromPosition(item.querySelector("td.gl2e > div > div.gl3e > div.ir")?.attributes["style"] ?? "");
-          final link = item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
-          final tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "").toList();
-          final pages = int.tryParse(item.querySelectorAll("td.gl2e > div > div.gl3e > div")
-              .firstWhereOrNull((element) => element.text.contains("pages"))?.text.nums ?? "");
-          galleries.add(EhGalleryBrief(title, type, time, uploader, coverPath, stars, link, tags, pages: pages));
-        }
-        catch(e){
+      for (var item in document.querySelectorAll(
+        "table.itg.glte > tbody > tr",
+      )) {
+        try {
+          final title =
+              item.querySelector("td.gl2e > div > a > div > div.glink")?.text ??
+              "Unknown";
+          final type =
+              item.querySelector("td.gl2e > div > div.gl3e > div.cn")?.text ??
+              "Unknown";
+          final time =
+              item
+                  .querySelectorAll("td.gl2e > div > div.gl3e > div")
+                  .firstWhereOrNull(
+                    (element) => DateTime.tryParse(element.text) != null,
+                  )
+                  ?.text ??
+              "Unknown";
+          final uploader =
+              item.querySelector("td.gl2e > div > div.gl3e > div > a")?.text ??
+              "Unknown";
+          final coverPath =
+              item
+                  .querySelector("td.gl1e > div > a > img")
+                  ?.attributes["src"] ??
+              "";
+          final stars = getStarsFromPosition(
+            item
+                    .querySelector("td.gl2e > div > div.gl3e > div.ir")
+                    ?.attributes["style"] ??
+                "",
+          );
+          final link =
+              item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
+          final tags = item
+              .querySelectorAll('div.gt, div.gtl')
+              .map((e) => e.attributes["title"] ?? "")
+              .toList();
+          final pages = int.tryParse(
+            item
+                    .querySelectorAll("td.gl2e > div > div.gl3e > div")
+                    .firstWhereOrNull(
+                      (element) => element.text.contains("pages"),
+                    )
+                    ?.text
+                    .nums ??
+                "",
+          );
+          galleries.add(
+            EhGalleryBrief(
+              title,
+              type,
+              time,
+              uploader,
+              coverPath,
+              stars,
+              link,
+              tags,
+              pages: pages,
+            ),
+          );
+        } catch (e) {
           //忽视
         }
       }
 
       // minimal mode
-      for(var item in document.querySelectorAll("table.itg.gltm > tbody > tr")){
-        try{
-          final title = item.querySelector("td.gl3m > a > div.glink")?.text ?? "Unknown";
-          final type = item.querySelector("td.gl1m > div.cs")?.text ?? "Unknown";
-          final time = item.querySelectorAll("td.gl2m > div")
-              .firstWhereOrNull((element) => DateTime.tryParse(element.text) != null)?.text ?? "Unknown";
-          final uploader = item.querySelector("td.gl5m > div > a")?.text ?? "Unknown";
-          var coverPath = item.querySelector("td.gl2m > div > div > img")?.attributes["src"];
+      for (var item in document.querySelectorAll(
+        "table.itg.gltm > tbody > tr",
+      )) {
+        try {
+          final title =
+              item.querySelector("td.gl3m > a > div.glink")?.text ?? "Unknown";
+          final type =
+              item.querySelector("td.gl1m > div.cs")?.text ?? "Unknown";
+          final time =
+              item
+                  .querySelectorAll("td.gl2m > div")
+                  .firstWhereOrNull(
+                    (element) => DateTime.tryParse(element.text) != null,
+                  )
+                  ?.text ??
+              "Unknown";
+          final uploader =
+              item.querySelector("td.gl5m > div > a")?.text ?? "Unknown";
+          var coverPath = item
+              .querySelector("td.gl2m > div > div > img")
+              ?.attributes["src"];
           if (coverPath![0] == 'd') {
-            coverPath = item.children[1 + t].children[1].children[0].children[0].attributes["data-src"];
+            coverPath = item
+                .children[1 + t]
+                .children[1]
+                .children[0]
+                .children[0]
+                .attributes["data-src"];
           }
-          final stars = getStarsFromPosition(item.querySelector("td.gl4m > div.ir")?.attributes["style"] ?? "");
-          final link = item.querySelector("td.gl3m > a")?.attributes["href"] ?? "";
-          galleries.add(EhGalleryBrief(title, type, time, uploader, coverPath!, stars, link, []));
-        }
-        catch(e){
+          final stars = getStarsFromPosition(
+            item.querySelector("td.gl4m > div.ir")?.attributes["style"] ?? "",
+          );
+          final link =
+              item.querySelector("td.gl3m > a")?.attributes["href"] ?? "";
+          galleries.add(
+            EhGalleryBrief(
+              title,
+              type,
+              time,
+              uploader,
+              coverPath!,
+              stars,
+              link,
+              [],
+            ),
+          );
+        } catch (e) {
           //忽视
         }
       }
@@ -481,7 +614,8 @@ class EhNetwork {
         try {
           var folderDivs = document.querySelectorAll("div.fp");
           for (var folderDiv in folderDivs) {
-            var name = folderDiv.children.elementAtOrNull(2)?.text ??
+            var name =
+                folderDiv.children.elementAtOrNull(2)?.text ??
                 "Favorite ${names.length}";
             var length = folderDiv.children.elementAtOrNull(0)?.text;
             if (length != null) {
@@ -532,29 +666,43 @@ class EhNetwork {
   }
 
   Comment _parseComment(dom.Element e) {
-    var name = e
-        .getElementsByClassName("c3")[0]
-        .getElementsByTagName("a")
-        .elementAtOrNull(0)
-        ?.text ??
+    var name =
+        e
+            .getElementsByClassName("c3")[0]
+            .getElementsByTagName("a")
+            .elementAtOrNull(0)
+            ?.text ??
         "未知";
-    var time = e.getElementsByClassName("c3").elementAtOrNull(0)
-        ?.text
-        .split('Posted on')
-        .elementAtOrNull(1)
-        ?.split('by')
-        .elementAtOrNull(0)
-        ?.trim()
-        ?? 'unknown';
+    var time =
+        e
+            .getElementsByClassName("c3")
+            .elementAtOrNull(0)
+            ?.text
+            .split('Posted on')
+            .elementAtOrNull(1)
+            ?.split('by')
+            .elementAtOrNull(0)
+            ?.trim() ??
+        'unknown';
     var content = e.getElementsByClassName("c6")[0].text;
     var score = int.parse(e.querySelector("div.c5 > span")?.text ?? '0');
     var id = e.previousElementSibling?.attributes['name']?.nums ?? "0";
-    bool voteUp = e.querySelector("a#comment_vote_up_$id")?.attributes['style']?.isNotEmpty == true;
-    bool voteDown = e.querySelector("a#comment_vote_down_$id")?.attributes['style']?.isNotEmpty == true;
+    bool voteUp =
+        e
+            .querySelector("a#comment_vote_up_$id")
+            ?.attributes['style']
+            ?.isNotEmpty ==
+        true;
+    bool voteDown =
+        e
+            .querySelector("a#comment_vote_down_$id")
+            ?.attributes['style']
+            ?.isNotEmpty ==
+        true;
     bool? vote;
-    if(voteUp){
+    if (voteUp) {
       vote = true;
-    } else if(voteDown){
+    } else if (voteDown) {
       vote = false;
     }
     return Comment(id, name, content, time, score, vote);
@@ -563,8 +711,11 @@ class EhNetwork {
   ///从漫画详情页链接中获取漫画详细信息
   Future<Res<Gallery>> getGalleryInfo(String link, [bool setNW = true]) async {
     try {
-      var res =
-          await request(link, expiredTime: CacheExpiredTime.no, setNW: setNW);
+      var res = await request(
+        link,
+        expiredTime: CacheExpiredTime.no,
+        setNW: setNW,
+      );
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
       }
@@ -575,8 +726,9 @@ class EhNetwork {
       var document = parse(res.data);
       //tags
       var tags = <String, List<String>>{};
-      var tagLists =
-          document.querySelectorAll("div#taglist > table > tbody > tr");
+      var tagLists = document.querySelectorAll(
+        "div#taglist > table > tbody > tr",
+      );
       for (var tr in tagLists) {
         var list = <String>[];
         for (var div in tr.children[1].children) {
@@ -606,9 +758,9 @@ class EhNetwork {
           ?.attributes["style"];
       var coverPath = coverStyle != null
           ? (RegExp(
-                  r"https?://([-a-zA-Z0-9.]+(/\S*)?\.(?:jpg|jpeg|gif|png|webp))")
-              .firstMatch(coverStyle)
-              ?.group(0) ?? "")
+                  r"https?://([-a-zA-Z0-9.]+(/\S*)?\.(?:jpg|jpeg|gif|png|webp))",
+                ).firstMatch(coverStyle)?.group(0) ??
+                "")
           : "";
       //评论
       var comments = <Comment>[];
@@ -618,20 +770,24 @@ class EhNetwork {
       //上传者
       var uploader =
           document.getElementById("gdn")?.children.elementAtOrNull(0)?.text ??
-              "未知";
+          "未知";
 
       //星星
       var stars = getStarsFromPosition(
-          document.getElementById("rating_image")?.attributes["style"] ?? "");
+        document.getElementById("rating_image")?.attributes["style"] ?? "",
+      );
 
       //平均分数
       var rating = document.getElementById("rating_label")?.text;
       //类型
-      var type = document.getElementsByClassName("cs").elementAtOrNull(0)?.text ?? "";
+      var type =
+          document.getElementsByClassName("cs").elementAtOrNull(0)?.text ?? "";
       //时间
-      var time = document
-          .querySelector("div#gdd > table > tbody > tr > td.gdt2")
-          ?.text ?? "";
+      var time =
+          document
+              .querySelector("div#gdd > table > tbody > tr > td.gdt2")
+              ?.text ??
+          "";
       //身份认证数据
       var auth = getVariablesFromJsCode(res.data);
       var thumbnailUrls = <String>[];
@@ -646,7 +802,9 @@ class EhNetwork {
       var ext = "webp";
 
       // Small Thumbnails on Page 0 (if exist)
-      var smallThumbnails = document.querySelectorAll("div#gdt.gt100 > a > div");
+      var smallThumbnails = document.querySelectorAll(
+        "div#gdt.gt100 > a > div",
+      );
       if (smallThumbnails.isNotEmpty) {
         // Merged
         var div = smallThumbnails[0].children.isEmpty
@@ -657,8 +815,11 @@ class EhNetwork {
           width = 100;
           pageSize = ext == "webp" ? 40 : 20;
           var r = style.split("background:transparent url(")[1];
-          var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-              .where((element) => element.text.isNum).last.text;
+          var totalPages = document
+              .querySelectorAll("table.ptt > tbody > tr > td > a")
+              .where((element) => element.text.isNum)
+              .last
+              .text;
           var url = r.split(")")[0];
           ext = url.substring(url.lastIndexOf('.') + 1);
           auth["thumbnailKey"] = "$url $totalPages";
@@ -666,7 +827,9 @@ class EhNetwork {
       }
 
       // Large Thumbnails on Page 0 (if exist)
-      var largeThumbnails = document.querySelectorAll("div#gdt.gt200 > a > div");
+      var largeThumbnails = document.querySelectorAll(
+        "div#gdt.gt200 > a > div",
+      );
       if (largeThumbnails.isNotEmpty) {
         pageSize = 20;
         var div = largeThumbnails[0].children.isEmpty
@@ -678,37 +841,51 @@ class EhNetwork {
           var r = style.split("background:transparent url(")[1];
           if (r.contains("px")) {
             // Merged
-            var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-                .where((element) => element.text.isNum).last.text;
+            var totalPages = document
+                .querySelectorAll("table.ptt > tbody > tr > td > a")
+                .where((element) => element.text.isNum)
+                .last
+                .text;
             var url = r.split(")")[0];
             ext = url.substring(url.lastIndexOf('.') + 1);
             auth["thumbnailKey"] = "$url $totalPages";
           } else {
             // Stand-alone (legacy)
-            var totalPages = document.querySelectorAll("table.ptt > tbody > tr > td > a")
-                .where((element) => element.text.isNum).last.text;
+            var totalPages = document
+                .querySelectorAll("table.ptt > tbody > tr > td > a")
+                .where((element) => element.text.isNum)
+                .last
+                .text;
             auth["thumbnailKey"] = "large thumbnail: $totalPages";
             thumbnailUrls.addAll(
-                largeThumbnails.map((div){
-                  div = div.children.isEmpty ? div : div.children[0];
-                  var s = div.attributes["style"];
-                  return s != null ? s.split("background:transparent url(")[1].split(")")[0] : "";
-                }).where((url) => url.isNotEmpty)
+              largeThumbnails
+                  .map((div) {
+                    div = div.children.isEmpty ? div : div.children[0];
+                    var s = div.attributes["style"];
+                    return s != null
+                        ? s
+                              .split("background:transparent url(")[1]
+                              .split(")")[0]
+                        : "";
+                  })
+                  .where((url) => url.isNotEmpty),
             );
           }
         }
       }
 
-      var archiveDownload = document.querySelectorAll('a')
+      var archiveDownload = document
+          .querySelectorAll('a')
           .firstWhereOrNull((element) => element.text == "Archive Download")
           ?.attributes["onclick"];
-      if(archiveDownload != null){
+      if (archiveDownload != null) {
         archiveDownload = archiveDownload.split("'")[1];
-        if(archiveDownload.isURL){
+        if (archiveDownload.isURL) {
           auth["archiveDownload"] = archiveDownload;
         }
       }
-      return Res(Gallery(
+      return Res(
+        Gallery(
           title,
           type,
           time,
@@ -726,7 +903,9 @@ class EhNetwork {
           thumbnailUrls,
           ext,
           width,
-          subTitle));
+          subTitle,
+        ),
+      );
     } catch (e, s) {
       Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
@@ -754,8 +933,11 @@ class EhNetwork {
 
   Set<String> loadingReaderLinks = {};
 
-  Future<Res<String>> getReaderLink(String gLink, int page,
-      {CancelToken? cancelToken}) async {
+  Future<Res<String>> getReaderLink(
+    String gLink,
+    int page, {
+    CancelToken? cancelToken,
+  }) async {
     var res = await _getReaderLinks(gLink, 1, cancelToken: cancelToken);
     if (res.error) {
       return Res.fromErrorRes(res);
@@ -769,30 +951,37 @@ class EhNetwork {
     }
 
     final shouldLoadPage = (page - 1) ~/ urlsOnePage + 1;
-    final urlsRes = await _getReaderLinks(gLink, shouldLoadPage,
-        cancelToken: cancelToken);
+    final urlsRes = await _getReaderLinks(
+      gLink,
+      shouldLoadPage,
+      cancelToken: cancelToken,
+    );
     if (urlsRes.error) {
       return Res.fromErrorRes(urlsRes);
     }
     final index = (page - 1) % urlsOnePage;
     if (index >= urlsRes.data.length) {
-      return const Res.error('get reader link failed: page out of bounds or empty data');
+      return const Res.error(
+        'get reader link failed: page out of bounds or empty data',
+      );
     }
     return Res(urlsRes.data[index]);
   }
-
 
   final _readerLinkerLocks = <String, Lock>{};
   final _readerLinksCache = <String, (List<String>, DateTime)>{};
 
   /// page starts from 1
-  Future<Res<List<String>>> _getReaderLinks(String link, int page,
-      {CancelToken? cancelToken}) async {
+  Future<Res<List<String>>> _getReaderLinks(
+    String link,
+    int page, {
+    CancelToken? cancelToken,
+  }) async {
     String url = link;
     if (page != 1) {
       url = url.contains("?") ? "$url&p=${page - 1}" : "$url?p=${page - 1}";
     }
-    
+
     var cache = _readerLinksCache[url];
     if (cache != null && DateTime.now().isBefore(cache.$2)) {
       return Res(cache.$1);
@@ -805,8 +994,11 @@ class EhNetwork {
         return Res(cache.$1);
       }
       // 阅读页链接可能失效，不使用磁盘中的长期页面缓存。
-      var res = await request(url,
-          expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
+      var res = await request(
+        url,
+        expiredTime: CacheExpiredTime.no,
+        cancelToken: cancelToken,
+      );
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
       }
@@ -817,7 +1009,10 @@ class EhNetwork {
         for (var link in links) {
           urls_.add(link.attributes["href"]!);
         }
-        _readerLinksCache[url] = (urls_, DateTime.now().add(const Duration(minutes: 10)));
+        _readerLinksCache[url] = (
+          urls_,
+          DateTime.now().add(const Duration(minutes: 10)),
+        );
         return Res(urls_);
       } catch (e, s) {
         Log.e("Data Analysis $e\n$s");
@@ -827,10 +1022,17 @@ class EhNetwork {
   }
 
   Future<(String image, String? nl)> getImageLinkWithNL(
-      String gid, String imgKey, int p, String nl,
-      {CancelToken? cancelToken}) async {
-    var res = await request("$ehBaseUrl/s/$imgKey/$gid-$p?nl=$nl",
-        expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
+    String gid,
+    String imgKey,
+    int p,
+    String nl, {
+    CancelToken? cancelToken,
+  }) async {
+    var res = await request(
+      "$ehBaseUrl/s/$imgKey/$gid-$p?nl=$nl",
+      expiredTime: CacheExpiredTime.no,
+      cancelToken: cancelToken,
+    );
     if (res.error) {
       throw res.errorMessage ?? "error";
     } else {
@@ -859,28 +1061,30 @@ class EhNetwork {
       var url = style!.split("background:transparent url(")[1].split(")")[0];
       gallery.auth!["thumbnailKey"] = url;
     }
-    return Res(List.generate(int.parse(gallery.maxPage), (index) {
-      var page = (index ~/ gallery.pageSize).toString();
-      if (page.length == 1) {
-        page = "0$page";
-      }
-      return "${gallery.auth!["thumbnailKey"]!}/${getGalleryId(gallery.link)}-$page.${gallery.ext}";
-    }));
+    return Res(
+      List.generate(int.parse(gallery.maxPage), (index) {
+        var page = (index ~/ gallery.pageSize).toString();
+        if (page.length == 1) {
+          page = "0$page";
+        }
+        return "${gallery.auth!["thumbnailKey"]!}/${getGalleryId(gallery.link)}-$page.${gallery.ext}";
+      }),
+    );
   }
 
-  Future<Res<List<String>>> getThumbnails(Gallery gallery, int page) async{
+  Future<Res<List<String>>> getThumbnails(Gallery gallery, int page) async {
     var res = await request("${gallery.link}?p=${page - 1}");
-    if(res.error){
+    if (res.error) {
       return Res.fromErrorRes(res);
     }
     var document = parse(res.data);
     return Res(
-        document.querySelectorAll("div#gdt > a > div").map((div){
-          div = div.children.isEmpty ? div : div.children[0];
-          var style = div.attributes["style"];
-          var url = style!.split("background:transparent url(")[1].split(")")[0];
-          return url;
-        }).toList()
+      document.querySelectorAll("div#gdt > a > div").map((div) {
+        div = div.children.isEmpty ? div : div.children[0];
+        var style = div.attributes["style"];
+        var url = style!.split("background:transparent url(")[1].split(")")[0];
+        return url;
+      }).toList(),
     );
   }
 
@@ -888,21 +1092,21 @@ class EhNetwork {
     var res = <String>[];
     var buffer = StringBuffer();
     var qs = Queue<String>();
-    for(int i = 0; i<keyword.length; i++) {
+    for (int i = 0; i < keyword.length; i++) {
       var char = keyword[i];
-      if(char == '"' || char == "'") {
-        if(qs.isEmpty) {
+      if (char == '"' || char == "'") {
+        if (qs.isEmpty) {
           qs.add(char);
         } else {
-          if(qs.first == char) {
+          if (qs.first == char) {
             qs.removeFirst();
           } else {
             qs.add(char);
           }
         }
       }
-      if(char == ' ') {
-        if(qs.isEmpty) {
+      if (char == ' ') {
+        if (qs.isEmpty) {
           res.add(buffer.toString());
           buffer.clear();
         } else {
@@ -912,37 +1116,42 @@ class EhNetwork {
         buffer.write(char);
       }
     }
-    if(buffer.isNotEmpty) {
+    if (buffer.isNotEmpty) {
       res.add(buffer.toString());
     }
     return res;
   }
 
   ///搜索e-hentai
-  Future<Res<Galleries>> search(String keyword,
-      {int? fCats, int? startPages, int? endPages, int? minStars, int? expunged}) async {
+  Future<Res<Galleries>> search(
+    String keyword, {
+    int? fCats,
+    int? startPages,
+    int? endPages,
+    int? minStars,
+    int? expunged,
+  }) async {
     if (keyword != "") {
       appdata.searchHistory.remove(keyword);
       appdata.searchHistory.add(keyword);
       appdata.writeHistory();
     }
     keyword = keyword.replaceAll(RegExp(r"\s+"), " ").trim();
-    if(keyword.contains(" | ")) {
+    if (keyword.contains(" | ")) {
       var keywords = _splitKeyword(keyword);
       var newKeywords = <String>[];
-      for(var k in keywords) {
-        if(!k.contains(' | '))  {
+      for (var k in keywords) {
+        if (!k.contains(' | ')) {
           newKeywords.add(k);
         } else {
           var lr = k.split(':');
-          if(lr.length != 2
-              && !((lr[1].startsWith('"') && lr[1].endsWith('"'))
-              || (lr[1].startsWith("'") && lr[1].endsWith("'")))
-          ) {
+          if (lr.length != 2 &&
+              !((lr[1].startsWith('"') && lr[1].endsWith('"')) ||
+                  (lr[1].startsWith("'") && lr[1].endsWith("'")))) {
             newKeywords.add(k);
           } else {
             var key = lr[0];
-            var value = lr[1].substring(1, lr[1].length-1);
+            var value = lr[1].substring(1, lr[1].length - 1);
             value = '${value.split(' | ').first}\$';
             newKeywords.add('$key:"$value"');
           }
@@ -978,12 +1187,14 @@ class EhNetwork {
   }
 
   Future<Res<List<EhGalleryBrief>>> getLeaderBoardByPage(
-      int type, int page) async {
+    int type,
+    int page,
+  ) async {
     var res = await getGalleries(
       "https://e-hentai.org/toplist.php?tl=$type&p=$page",
       leaderboard: true,
     );
-    if(res.error){
+    if (res.error) {
       return Res.fromErrorRes(res);
     }
     return Res(res.data.galleries, subData: 200);
@@ -992,8 +1203,9 @@ class EhNetwork {
   ///获取排行榜
   Future<Res<EhLeaderboard>> getLeaderboard(EhLeaderboardType type) async {
     var res = await getGalleries(
-        "https://e-hentai.org/toplist.php?tl=${type.value}",
-        leaderboard: true);
+      "https://e-hentai.org/toplist.php?tl=${type.value}",
+      leaderboard: true,
+    );
     if (res.error) return Res(null, errorMessage: res.errorMessage);
     return Res(EhLeaderboard(type, res.data.galleries, 0));
   }
@@ -1004,8 +1216,9 @@ class EhNetwork {
       return;
     } else {
       var res = await getGalleries(
-          "https://e-hentai.org/toplist.php?tl=${leaderboard.type.value}&p=${leaderboard.loaded + 1}",
-          leaderboard: true);
+        "https://e-hentai.org/toplist.php?tl=${leaderboard.type.value}&p=${leaderboard.loaded + 1}",
+        leaderboard: true,
+      );
       if (!res.error) {
         leaderboard.galleries.addAll(res.data.galleries);
       }
@@ -1021,7 +1234,7 @@ class EhNetwork {
       "apikey": auth["apikey"],
       "gid": auth["gid"],
       "token": auth["token"],
-      "rating": rating
+      "rating": rating,
     });
     return !res.error;
   }
@@ -1029,9 +1242,10 @@ class EhNetwork {
   ///收藏
   Future<bool> favorite(String gid, String token, {String id = "0"}) async {
     var res = await post(
-        "https://e-hentai.org/gallerypopups.php?gid=$gid&t=$token&act=addfav",
-        "favcat=$id&favnote=&apply=Add+to+Favorites&update=1",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"});
+      "https://e-hentai.org/gallerypopups.php?gid=$gid&t=$token&act=addfav",
+      "favcat=$id&favnote=&apply=Add+to+Favorites&update=1",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    );
     if (res.error) {
       return false;
     }
@@ -1045,9 +1259,10 @@ class EhNetwork {
   ///取消收藏
   Future<bool> unfavorite(String gid, String token) async {
     var res = await post(
-        "https://e-hentai.org/gallerypopups.php?gid=$gid&t=$token&act=addfav",
-        "favcat=favdel&favnote=&apply=Apply+Changes&update=1",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"});
+      "https://e-hentai.org/gallerypopups.php?gid=$gid&t=$token&act=addfav",
+      "favcat=favdel&favnote=&apply=Apply+Changes&update=1",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    );
     if (res.error || res.data[0] != "<") {
       return false;
     } else {
@@ -1056,9 +1271,11 @@ class EhNetwork {
   }
 
   Future<bool> unfavorite2(String gid) async {
-    var res = await post("https://e-hentai.org/favorites.php",
-        "ddact=delete&modifygids%5B%5D=$gid",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"});
+    var res = await post(
+      "https://e-hentai.org/favorites.php",
+      "ddact=delete&modifygids%5B%5D=$gid",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    );
     if (res.error) {
       return false;
     } else {
@@ -1069,8 +1286,10 @@ class EhNetwork {
   ///发送评论
   Future<Res<bool>> comment(String content, String link) async {
     var res = await post(
-        link, "commenttext_new=${Uri.encodeComponent(content)}",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"});
+      link,
+      "commenttext_new=${Uri.encodeComponent(content)}",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    );
 
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
@@ -1082,64 +1301,101 @@ class EhNetwork {
     return const Res(true);
   }
 
-  Future<Res<EhImageLimit>> getImageLimit() async{
-    if(!ehentai.isLogin){
+  Future<Res<EhImageLimit>> getImageLimit() async {
+    if (!ehentai.isLogin) {
       return const Res(null, errorMessage: "Not logged in");
     }
     var [res, res1] = await Future.wait([
-      request("https://e-hentai.org/home.php", expiredTime: CacheExpiredTime.no),
-      request("https://e-hentai.org/exchange.php?t=gp", expiredTime: CacheExpiredTime.no)
+      request(
+        "https://e-hentai.org/home.php",
+        expiredTime: CacheExpiredTime.no,
+      ),
+      request(
+        "https://e-hentai.org/exchange.php?t=gp",
+        expiredTime: CacheExpiredTime.no,
+      ),
     ]);
-    if(res.error){
+    if (res.error) {
       return Res.fromErrorRes(res);
     }
-    if(res1.error){
+    if (res1.error) {
       return Res.fromErrorRes(res1);
     }
     var document = parse(res.data);
-    var infoBox = document.querySelectorAll("div.homebox > p")
+    var infoBox = document
+        .querySelectorAll("div.homebox > p")
         .firstWhere((element) => element.text.contains("You are currently at"));
-    var [current, limit] = infoBox.querySelectorAll("strong").map((e) => e.text).toList();
-    var resetBox = document.querySelectorAll("div.homebox > p")
+    var [current, limit] = infoBox
+        .querySelectorAll("strong")
+        .map((e) => e.text)
+        .toList();
+    var resetBox = document
+        .querySelectorAll("div.homebox > p")
         .firstWhere((element) => element.text.contains("Reset Cost"));
     var cost = resetBox.querySelector("strong")!.text;
     document = parse(res1.data);
-    var credits = document.querySelectorAll("div.outer > div > div")
-        .where((element) => element.children.isEmpty && element.text.contains("Credits")).map((e) => e.text.nums).first;
-    var gp = document.querySelectorAll("div.outer > div > div")
-        .where((element) => element.children.isEmpty && element.text.contains("kGP")).map((e) => e.text.nums).first;
-    return Res(EhImageLimit(int.parse(current.nums), int.parse(limit.nums),
-        int.parse(cost.nums), int.parse(gp.nums), int.parse(credits.nums)));
+    var credits = document
+        .querySelectorAll("div.outer > div > div")
+        .where(
+          (element) =>
+              element.children.isEmpty && element.text.contains("Credits"),
+        )
+        .map((e) => e.text.nums)
+        .first;
+    var gp = document
+        .querySelectorAll("div.outer > div > div")
+        .where(
+          (element) => element.children.isEmpty && element.text.contains("kGP"),
+        )
+        .map((e) => e.text.nums)
+        .first;
+    return Res(
+      EhImageLimit(
+        int.parse(current.nums),
+        int.parse(limit.nums),
+        int.parse(cost.nums),
+        int.parse(gp.nums),
+        int.parse(credits.nums),
+      ),
+    );
   }
 
-  Future<bool> resetImageLimit() async{
-    if(!ehentai.isLogin){
+  Future<bool> resetImageLimit() async {
+    if (!ehentai.isLogin) {
       return false;
     }
-    var res = await post("https://e-hentai.org/home.php", "reset_imagelimit=Reset+Limit",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"});
-    if(res.error){
+    var res = await post(
+      "https://e-hentai.org/home.php",
+      "reset_imagelimit=Reset+Limit",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    );
+    if (res.error) {
       return false;
     }
     return true;
   }
-  
+
   /// key - value: id - name
-  Future<Res<Map<String, String>>> getProfiles() async{
-    var res = await request("$ehBaseUrl/uconfig.php", expiredTime: CacheExpiredTime.no);
-    if(res.error){
+  Future<Res<Map<String, String>>> getProfiles() async {
+    var res = await request(
+      "$ehBaseUrl/uconfig.php",
+      expiredTime: CacheExpiredTime.no,
+    );
+    if (res.error) {
       return Res.fromErrorRes(res);
     }
     var document = parse(res.data);
-    var options = document.querySelectorAll("select[name=profile_set] > option");
-    if(options.isEmpty){
+    var options = document.querySelectorAll(
+      "select[name=profile_set] > option",
+    );
+    if (options.isEmpty) {
       return const Res.error("No profiles found");
     } else {
-      return Res({ for (var e in options) e.attributes["value"] ?? "" : e.text });
+      return Res({for (var e in options) e.attributes["value"] ?? "": e.text});
     }
   }
 
-  Future<Res<ArchiveDownloadInfo>> getArchiveDownloadInfo(String url) async{
+  Future<Res<ArchiveDownloadInfo>> getArchiveDownloadInfo(String url) async {
     var res = await request(url, expiredTime: CacheExpiredTime.no);
     if (res.error) {
       return Res.fromErrorRes(res);
@@ -1154,24 +1410,30 @@ class EhNetwork {
       var resample = body.children[index].children[1];
       var resampleCost = resample.querySelector("div > strong")!.text;
       var resampleSize = resample.querySelector("p > strong")!.text;
-      return Res(ArchiveDownloadInfo(originSize, resampleSize,
-          originCost, resampleCost,
+      return Res(
+        ArchiveDownloadInfo(
+          originSize,
+          resampleSize,
+          originCost,
+          resampleCost,
           document.querySelector("form#invalidate_form")?.attributes["action"],
-      ));
-    }
-    catch(e, s){
+        ),
+      );
+    } catch (e, s) {
       Log.e("Network $e\n$s\n${res.data}");
       return Res.error(e.toString());
     }
   }
 
-
-
-  Future<Res<ArchiveDownloadInfo>> cancelAndReloadArchiveInfo(ArchiveDownloadInfo info) async {
+  Future<Res<ArchiveDownloadInfo>> cancelAndReloadArchiveInfo(
+    ArchiveDownloadInfo info,
+  ) async {
     var url = info.cancelUnlockUrl!;
-    var res = await post(url, "invalidate_sessions=1", headers: {
-      "content-type": "application/x-www-form-urlencoded",
-    });
+    var res = await post(
+      url,
+      "invalidate_sessions=1",
+      headers: {"content-type": "application/x-www-form-urlencoded"},
+    );
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -1185,52 +1447,55 @@ class EhNetwork {
       var resample = body.children[index].children[1];
       var resampleCost = resample.querySelector("div > strong")!.text;
       var resampleSize = resample.querySelector("p > strong")!.text;
-      return Res(ArchiveDownloadInfo(originSize, resampleSize,
-        originCost, resampleCost,
-        document
-            .querySelector("form#invalidate_form")
-            ?.attributes["action"],
-      ));
-    }
-    catch (e, s) {
+      return Res(
+        ArchiveDownloadInfo(
+          originSize,
+          resampleSize,
+          originCost,
+          resampleCost,
+          document.querySelector("form#invalidate_form")?.attributes["action"],
+        ),
+      );
+    } catch (e, s) {
       Log.e("Network $e\n$s\n${res.data}");
       return Res.error(e.toString());
     }
   }
 
-  Future<Res<String>> getArchiveDownloadLink(String apiUrl, int type) async{
+  Future<Res<String>> getArchiveDownloadLink(String apiUrl, int type) async {
     try {
       var data = type == 1
           ? "dltype=org&dlcheck=Download+Original+Archive"
           : "dltype=res&dlcheck=Download+Resample+Archive";
-      var res = await post(apiUrl, data, headers: {
-        "content-type": "application/x-www-form-urlencoded",
-      });
+      var res = await post(
+        apiUrl,
+        data,
+        headers: {"content-type": "application/x-www-form-urlencoded"},
+      );
       if (res.error) {
         return Res.fromErrorRes(res);
       }
       var document = parse(res.data);
-      var link = document
-          .querySelector("a")
-          ?.attributes["href"];
+      var link = document.querySelector("a")?.attributes["href"];
       if (link == null) {
         showToast(message: 'download error ${res.dataOrNull}');
         return Res.error("Failed to get download link, ${res.data}");
       }
       var res2 = await logDio().get<String>(link);
       document = parse(res2.data);
-      var link2 = document
-          .querySelector("a")
-          ?.attributes["href"];
+      var link2 = document.querySelector("a")?.attributes["href"];
       var host = Uri.parse(link).host;
       return Res("https://$host$link2");
-    }
-    catch(e){
+    } catch (e) {
       return Res.error(e.toString());
     }
   }
 
-  Future<Res<int>> voteComment(Map<String, String> auth, String cid, bool isUp) async {
+  Future<Res<int>> voteComment(
+    Map<String, String> auth,
+    String cid,
+    bool isUp,
+  ) async {
     var res = await apiRequest({
       "method": "votecomment",
       "apikey": auth["apikey"],
@@ -1238,20 +1503,19 @@ class EhNetwork {
       "comment_id": cid,
       "gid": auth["gid"],
       "token": auth["token"],
-      "comment_vote": isUp ? "1" : "-1"
+      "comment_vote": isUp ? "1" : "-1",
     });
-    if(res.error){
+    if (res.error) {
       return Res.fromErrorRes(res);
     }
     try {
       var json = jsonDecode(res.data);
       var newScore = json["comment_score"];
-      if(newScore is! int) {
+      if (newScore is! int) {
         return const Res.error("Failed to get new score");
       }
       return Res(newScore);
-    }
-    catch(e){
+    } catch (e) {
       return Res.error(e.toString());
     }
   }

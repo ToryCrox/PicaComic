@@ -15,28 +15,35 @@ import '../http_client.dart';
 /// 获取主页时不需要传入end, 因为需要和js脚本保持一致, 设置获取宽度100, 避免出现问题
 ///
 /// 响应头中 Content-Range 指明数据范围, 此函数用subData形式返回此值
-Future<Res<List<int>>> fetchComicData(String url, int start, {int? maxLength, int? endData, String? ref}) async{
+Future<Res<List<int>>> fetchComicData(
+  String url,
+  int start, {
+  int? maxLength,
+  int? endData,
+  String? ref,
+}) async {
   await getProxy();
-  try{
+  try {
     var end = start + 100 - 1;
-    if(endData != null){
+    if (endData != null) {
       end = endData;
     }
-    if(maxLength != null && maxLength < end){
+    if (maxLength != null && maxLength < end) {
       end = maxLength;
     }
     assert(start < end);
-    var dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
-      sendTimeout: const Duration(seconds: 5),
-    ));
+    var dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 5),
+        sendTimeout: const Duration(seconds: 5),
+      ),
+    );
     dio.options.responseType = ResponseType.bytes;
     dio.options.headers = {
       "User-Agent": webUA,
       "Range": "bytes=$start-$end",
-      if(ref != null)
-        "Referer": ref
+      if (ref != null) "Referer": ref,
     };
     var res = await dio.get(url);
     var bytes = Uint8List.fromList(res.data);
@@ -50,15 +57,18 @@ Future<Res<List<int>>> fetchComicData(String url, int start, {int? maxLength, in
       int number = list.buffer.asByteData().getInt32(0);
       comicIds.add(number);
     }
-    var range = (res.headers["content-range"]?? res.headers["Content-Range"])![0];
+    var range =
+        (res.headers["content-range"] ?? res.headers["Content-Range"])![0];
     int i = 0;
-    for(;i<range.length;i++){
-      if(range[i] == '/') break;
+    for (; i < range.length; i++) {
+      if (range[i] == '/') break;
     }
-    return Res(comicIds, subData: range.substring(i+1));
-  }
-  catch(e, s){
+    return Res(comicIds, subData: range.substring(i + 1));
+  } catch (e, s) {
     Log.e("Network $e\n$s");
-    return Res(null, errorMessage: e.toString()=="null" ? "Unknown Error" : e.toString());
+    return Res(
+      null,
+      errorMessage: e.toString() == "null" ? "Unknown Error" : e.toString(),
+    );
   }
 }

@@ -1,7 +1,5 @@
 import 'dart:math';
 
-
-
 final sDigits = _initDigitsMap();
 
 Map<String, int> _initDigitsMap() {
@@ -14,7 +12,6 @@ Map<String, int> _initDigitsMap() {
 }
 
 extension StringExt on String {
-
   int compareIndex(String str) {
     final name1 = this;
     final name2 = str;

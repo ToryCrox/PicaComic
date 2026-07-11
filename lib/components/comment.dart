@@ -3,23 +3,23 @@ import 'package:flutter/material.dart';
 import 'components.dart';
 
 class CommentTile extends StatelessWidget {
-  const CommentTile(
-      {Key? key,
-      required this.avatarUrl,
-      this.frameUrl,
-      required this.name,
-      required this.content,
-      this.onTap,
-      this.slogan,
-      this.level,
-      this.time,
-      this.tailing,
-      this.likes,
-      this.liked,
-      this.comments,
-      this.leading,
-      this.like})
-      : super(key: key);
+  const CommentTile({
+    Key? key,
+    required this.avatarUrl,
+    this.frameUrl,
+    required this.name,
+    required this.content,
+    this.onTap,
+    this.slogan,
+    this.level,
+    this.time,
+    this.tailing,
+    this.likes,
+    this.liked,
+    this.comments,
+    this.leading,
+    this.like,
+  }) : super(key: key);
   final String? avatarUrl;
   final String? frameUrl;
   final String name;
@@ -46,7 +46,7 @@ class CommentTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if(avatarUrl != null)
+              if (avatarUrl != null)
                 Avatar(
                   size: 58,
                   avatarUrl: avatarUrl,
@@ -56,37 +56,35 @@ class CommentTile extends StatelessWidget {
                   couldBeShown: level != null,
                   level: level ?? 0,
                 ),
-              if(leading != null)
-                leading!,
-              const SizedBox(
-                width: 8,
-              ),
+              if (leading != null) leading!,
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(
-                      height: 12,
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      content,
+                      style: const TextStyle(fontSize: 15),
                     ),
-                    SelectableText(content, style: const TextStyle(fontSize: 15),),
-                    const SizedBox(
-                      height: 4,
-                    ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         if (time != null)
-                          Text(
-                            time!,
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          Text(time!, style: const TextStyle(fontSize: 12)),
                         const Spacer(),
-                        if(like != null)
+                        if (like != null)
                           InkWell(
-                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(8),
+                            ),
                             onTap: like,
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(3, 5, 3, 5),
@@ -96,26 +94,31 @@ class CommentTile extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    liked!?Icon(
-                                      Icons.favorite,
-                                      size: 15,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ):const Icon(
-                                      Icons.favorite_outline,
-                                      size: 15,
-                                    ),
-                                    const SizedBox(width: 5,),
-                                    Text(likes.toString())
+                                    liked!
+                                        ? Icon(
+                                            Icons.favorite,
+                                            size: 15,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          )
+                                        : const Icon(
+                                            Icons.favorite_outline,
+                                            size: 15,
+                                          ),
+                                    const SizedBox(width: 5),
+                                    Text(likes.toString()),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                        if(like != null)
-                          const SizedBox(width: 16,),
-                        if(comments != null)
+                        if (like != null) const SizedBox(width: 16),
+                        if (comments != null)
                           InkWell(
-                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(8),
+                            ),
                             onTap: onTap,
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(3, 6, 3, 5),
@@ -129,15 +132,15 @@ class CommentTile extends StatelessWidget {
                                       Icons.mode_comment_outlined,
                                       size: 15,
                                     ),
-                                    const SizedBox(width: 5,),
-                                    Text(comments.toString())
+                                    const SizedBox(width: 5),
+                                    Text(comments.toString()),
                                   ],
                                 ),
                               ),
                             ),
-                          )
+                          ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),

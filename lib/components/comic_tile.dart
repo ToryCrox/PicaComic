@@ -12,8 +12,9 @@ abstract class ComicTile extends StatelessWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
 
-  static final ValueNotifier<ComicTile?> _activeCoverHeroOwner =
-      ValueNotifier(null);
+  static final ValueNotifier<ComicTile?> _activeCoverHeroOwner = ValueNotifier(
+    null,
+  );
 
   Widget get image;
 
@@ -58,7 +59,7 @@ abstract class ComicTile extends StatelessWidget {
 
   /// Callback when a primary tag is secondary tapped
   void Function(String tag, TapDownDetails details)?
-      get onPrimaryTagSecondaryTap => null;
+  get onPrimaryTagSecondaryTap => null;
 
   /// Comic ID, used to identify a comic.
   String? get comicID => null;
@@ -457,10 +458,10 @@ abstract class ComicTile extends StatelessWidget {
       App.globalContext!,
       Offset(details.globalPosition.dx, details.globalPosition.dy),
       [
-      DesktopMenuEntry(
-        text: "查看".tl,
-        onClick: () => Future.microtask(_openDetailWithHero),
-      ),
+        DesktopMenuEntry(
+          text: "查看".tl,
+          onClick: () => Future.microtask(_openDetailWithHero),
+        ),
         if (read != null)
           DesktopMenuEntry(
             text: "阅读".tl,

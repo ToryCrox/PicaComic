@@ -96,10 +96,7 @@ class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
   /// 为每个漫画创建一个 UpdateTask 对象
   Future<void> _loadTasks() async {
     for (var comic in widget.comics) {
-      _tasks.add(UpdateTask(
-        comic: comic,
-        oldSize: comic.comicSize ?? 0,
-      ));
+      _tasks.add(UpdateTask(comic: comic, oldSize: comic.comicSize ?? 0));
     }
     if (mounted) {
       setState(() {
@@ -201,9 +198,9 @@ class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: task.hasChanged
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .primary
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
                                             : null,
                                         fontWeight: task.hasChanged
                                             ? FontWeight.bold
@@ -263,10 +260,7 @@ class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text('取消'.tl),
           ),
-          FilledButton(
-            onPressed: _startUpdate,
-            child: Text('确认更新'.tl),
-          ),
+          FilledButton(onPressed: _startUpdate, child: Text('确认更新'.tl)),
         ],
         if (!_isUpdating && (_successCount + _failCount > 0)) ...[
           FilledButton(

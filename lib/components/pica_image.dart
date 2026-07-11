@@ -39,7 +39,8 @@ class PicaImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 决定 BoxFit
-    final imageFit = fit ?? (appdata.settings[66] == "0" ? BoxFit.cover : BoxFit.contain);
+    final imageFit =
+        fit ?? (appdata.settings[66] == "0" ? BoxFit.cover : BoxFit.contain);
 
     final Map<String, String> finalHeaders = {
       ...?headers,
@@ -62,9 +63,9 @@ class PicaImage extends StatelessWidget {
       fadeOutDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
       fadeInDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
       placeholder: placeholder ?? (context, url) => const Center(),
-      errorWidget: errorWidget ?? (context, url, error) => const Center(
-        child: Icon(Icons.error),
-      ),
+      errorWidget:
+          errorWidget ??
+          (context, url, error) => const Center(child: Icon(Icons.error)),
     );
   }
 }

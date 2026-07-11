@@ -26,13 +26,14 @@ class CloudflareException implements DioException {
   }
 
   @override
-  DioException copyWith(
-      {RequestOptions? requestOptions,
-      Response<dynamic>? response,
-      DioExceptionType? type,
-      Object? error,
-      StackTrace? stackTrace,
-      String? message}) {
+  DioException copyWith({
+    RequestOptions? requestOptions,
+    Response<dynamic>? response,
+    DioExceptionType? type,
+    Object? error,
+    StackTrace? stackTrace,
+    String? message,
+  }) {
     return this;
   }
 
@@ -58,7 +59,7 @@ class CloudflareException implements DioException {
 class CloudflareInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if(options.headers['cookie'].toString().contains('cf_clearance')) {
+    if (options.headers['cookie'].toString().contains('cf_clearance')) {
       options.headers['user-agent'] = appdata.implicitData[3];
     }
     handler.next(options);
@@ -107,7 +108,9 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
       uri,
       List<io.Cookie>.generate(cookies.length, (index) {
         var cookie = io.Cookie(
-            cookies.keys.elementAt(index), cookies.values.elementAt(index));
+          cookies.keys.elementAt(index),
+          cookies.values.elementAt(index),
+        );
         cookie.domain = domain;
         return cookie;
       }),
@@ -119,7 +122,8 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
       initialUrl: url,
       onTitleChange: (title, controller) async {
         var res = await controller.evaluateJavascript(
-            "document.head.innerHTML.includes('#challenge-success-text')");
+          "document.head.innerHTML.includes('#challenge-success-text')",
+        );
         if (res == 'false') {
           var ua = controller.userAgent;
           if (ua != null) {
@@ -127,7 +131,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
             appdata.writeImplicitData();
           }
           var cookiesMap = await controller.getCookies(url);
-          if(cookiesMap['cf_clearance'] == null) {
+          if (cookiesMap['cf_clearance'] == null) {
             return;
           }
           await saveCookies(cookiesMap);
@@ -144,8 +148,9 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
         singlePage: true,
         onTitleChange: (title, controller) async {
           var res = await controller.platform.evaluateJavascript(
-              source:
-                  "document.head.innerHTML.includes('#challenge-success-text')");
+            source:
+                "document.head.innerHTML.includes('#challenge-success-text')",
+          );
           if (res == false) {
             var ua = await controller.getUA();
             if (ua != null) {
@@ -153,7 +158,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
               appdata.writeImplicitData();
             }
             var cookiesMap = await controller.getCookies(url) ?? {};
-            if(cookiesMap['cf_clearance'] == null) {
+            if (cookiesMap['cf_clearance'] == null) {
               return;
             }
             await saveCookies(cookiesMap);

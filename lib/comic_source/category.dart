@@ -28,10 +28,7 @@ class CategoryButtonData {
 
   final void Function() onTap;
 
-  const CategoryButtonData({
-    required this.label,
-    required this.onTap,
-  });
+  const CategoryButtonData({required this.label, required this.onTap});
 }
 
 abstract class BaseCategoryPart {
@@ -66,8 +63,12 @@ class FixedCategoryPart extends BaseCategoryPart {
   final List<String>? categoryParams;
 
   /// A [BaseCategoryPart] that show fixed tags on category page.
-  const FixedCategoryPart(this.title, this.categories, this.categoryType,
-      [this.categoryParams]);
+  const FixedCategoryPart(
+    this.title,
+    this.categories,
+    this.categoryType, [
+    this.categoryParams,
+  ]);
 }
 
 class RandomCategoryPart extends BaseCategoryPart {
@@ -96,7 +97,11 @@ class RandomCategoryPart extends BaseCategoryPart {
 
   /// A [BaseCategoryPart] that show random tags on category page.
   const RandomCategoryPart(
-      this.title, this.tags, this.randomNumber, this.categoryType);
+    this.title,
+    this.tags,
+    this.randomNumber,
+    this.categoryType,
+  );
 }
 
 class RandomCategoryPartWithRuntimeData extends BaseCategoryPart {
@@ -140,7 +145,11 @@ class RandomCategoryPartWithRuntimeData extends BaseCategoryPart {
 
   /// A [BaseCategoryPart] that show random tags on category page.
   RandomCategoryPartWithRuntimeData(
-      this.title, this.loadTags, this.randomNumber, this.categoryType);
+    this.title,
+    this.loadTags,
+    this.randomNumber,
+    this.categoryType,
+  );
 }
 
 CategoryData getCategoryDataWithKey(String key) {

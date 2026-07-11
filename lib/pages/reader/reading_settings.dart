@@ -16,19 +16,19 @@ import 'reading_type.dart';
 void showSettings(BuildContext context, String sessionId) {
   if (UiMode.m1(context)) {
     showModalBottomSheet(
-        context: context,
-        builder: (context) => AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              child: ReadingSettings(sessionId: sessionId),
-            ));
+      context: context,
+      builder: (context) => AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: ReadingSettings(sessionId: sessionId),
+      ),
+    );
   } else {
     showSideBar(
-        context,
-        SingleChildScrollView(
-          child: ReadingSettings(sessionId: sessionId),
-        ),
-        useSurfaceTintColor: true,
-        width: 450);
+      context,
+      SingleChildScrollView(child: ReadingSettings(sessionId: sessionId)),
+      useSurfaceTintColor: true,
+      width: 450,
+    );
   }
 }
 
@@ -49,8 +49,10 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
   int i = 0;
   double opacityLevel = 1.0;
 
-  ComicReaderLogic get _logic => ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
-  ReaderPageState get _state => ref.read(comicReaderLogicProvider(widget.sessionId));
+  ComicReaderLogic get _logic =>
+      ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
+  ReaderPageState get _state =>
+      ref.read(comicReaderLogicProvider(widget.sessionId));
 
   @override
   Widget build(BuildContext context) {
@@ -62,22 +64,21 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 0, 5),
-            child: Text(
-              "阅读设置".tl,
-              style: const TextStyle(fontSize: 18),
-            ),
+            child: Text("阅读设置".tl, style: const TextStyle(fontSize: 18)),
           ),
           ListTile(
             leading: const Icon(Icons.chrome_reader_mode),
             title: Text("阅读模式".tl),
-            subtitle: Text([
-              "从左至右".tl,
-              "从右至左".tl,
-              "从上至下".tl,
-              "从上至下(连续)".tl,
-              "双页".tl,
-              "双页(反向)".tl
-            ][int.parse(appdata.settings[9]) - 1]),
+            subtitle: Text(
+              [
+                "从左至右".tl,
+                "从右至左".tl,
+                "从上至下".tl,
+                "从上至下(连续)".tl,
+                "双页".tl,
+                "双页(反向)".tl,
+              ][int.parse(appdata.settings[9]) - 1],
+            ),
             trailing: const Icon(Icons.arrow_right),
             onTap: () => setState(() {
               i = 1;
@@ -123,24 +124,26 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
                   clipBehavior: Clip.none,
                   children: [
                     Positioned(
-                        top: 0,
-                        bottom: 0,
-                        left: -20,
-                        right: 0,
-                        child: Slider(
-                          max: 40,
-                          min: 0,
-                          divisions: 40,
-                          value: int.parse(appdata.settings[40]).toDouble(),
-                          overlayColor: WidgetStateColor.resolveWith(
-                              (states) => Colors.transparent),
-                          onChanged: (v) {
-                            if (v == 0) return;
-                            appdata.settings[40] = v.toInt().toString();
-                            appdata.updateSettings();
-                            setState(() {});
-                          },
-                        ))
+                      top: 0,
+                      bottom: 0,
+                      left: -20,
+                      right: 0,
+                      child: Slider(
+                        max: 40,
+                        min: 0,
+                        divisions: 40,
+                        value: int.parse(appdata.settings[40]).toDouble(),
+                        overlayColor: WidgetStateColor.resolveWith(
+                          (states) => Colors.transparent,
+                        ),
+                        onChanged: (v) {
+                          if (v == 0) return;
+                          appdata.settings[40] = v.toInt().toString();
+                          appdata.updateSettings();
+                          setState(() {});
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -187,24 +190,26 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: -20,
-                      right: 0,
-                      child: Slider(
-                        max: 20,
-                        min: 0,
-                        divisions: 20,
-                        value: int.parse(appdata.settings[33]).toDouble(),
-                        overlayColor: WidgetStateColor.resolveWith(
-                            (states) => Colors.transparent),
-                        onChanged: (v) {
-                          if (v == 0) return;
-                          appdata.settings[33] = v.toInt().toString();
-                          appdata.updateSettings();
-                          setState(() {});
-                        },
-                      ))
+                    top: 0,
+                    bottom: 0,
+                    left: -20,
+                    right: 0,
+                    child: Slider(
+                      max: 20,
+                      min: 0,
+                      divisions: 20,
+                      value: int.parse(appdata.settings[33]).toDouble(),
+                      overlayColor: WidgetStateColor.resolveWith(
+                        (states) => Colors.transparent,
+                      ),
+                      onChanged: (v) {
+                        if (v == 0) return;
+                        appdata.settings[33] = v.toInt().toString();
+                        appdata.updateSettings();
+                        setState(() {});
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -240,11 +245,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
               onTap: () {},
               trailing: Select(
                 initialValue: int.parse(appdata.settings[76]),
-                values: [
-                  "禁用".tl,
-                  "横屏".tl,
-                  "竖屏".tl,
-                ],
+                values: ["禁用".tl, "横屏".tl, "竖屏".tl],
                 onChange: (int i) {
                   appdata.settings[76] = i.toString();
                   logic.notifySettingsChanged();
@@ -252,7 +253,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
                   if (i == 1) {
                     SystemChrome.setPreferredOrientations([
                       DeviceOrientation.landscapeLeft,
-                      DeviceOrientation.landscapeRight
+                      DeviceOrientation.landscapeRight,
                     ]);
                   } else if (i == 2) {
                     SystemChrome.setPreferredOrientations([
@@ -355,9 +356,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
             height: 60,
             child: Row(
               children: [
-                const SizedBox(
-                  width: 6,
-                ),
+                const SizedBox(width: 6),
                 IconButton(
                   icon: Icon(
                     Icons.arrow_back_outlined,
@@ -367,16 +366,11 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
                     i = 0;
                   }),
                 ),
-                Text(
-                  "设置分流".tl,
-                  style: const TextStyle(fontSize: 18),
-                ),
+                Text("设置分流".tl, style: const TextStyle(fontSize: 18)),
               ],
             ),
           ),
-          const SizedBox(
-            height: 40,
-          ),
+          const SizedBox(height: 40),
           Center(
             child: FilledButton(
               child: Text("重启阅读器".tl),
@@ -386,9 +380,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
               },
             ),
           ),
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
         ],
       ),
     ];
@@ -403,10 +395,14 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
           Tween<Offset> tween;
           if (i == 0) {
             tween = Tween<Offset>(
-                begin: const Offset(-0.1, 0), end: const Offset(0, 0));
+              begin: const Offset(-0.1, 0),
+              end: const Offset(0, 0),
+            );
           } else {
             tween = Tween<Offset>(
-                begin: const Offset(0.1, 0), end: const Offset(0, 0));
+              begin: const Offset(0.1, 0),
+              end: const Offset(0, 0),
+            );
           }
           return SlideTransition(
             position: tween.animate(animation),
@@ -416,8 +412,9 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
         child: SingleChildScrollView(
           primary: false,
           key: Key(i.toString()),
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
           child: pages[i],
         ),
       ),
@@ -451,7 +448,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
       "从上至下".tl,
       "从上至下(连续)".tl,
       "双页".tl,
-      "双页(反向)".tl
+      "双页(反向)".tl,
     ];
     return Column(
       children: [
@@ -459,9 +456,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
           height: 60,
           child: Row(
             children: [
-              const SizedBox(
-                width: 6,
-              ),
+              const SizedBox(width: 6),
               IconButton(
                 icon: Icon(
                   Icons.arrow_back_outlined,
@@ -471,28 +466,26 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
                   i = 0;
                 }),
               ),
-              Text(
-                "阅读模式".tl,
-                style: const TextStyle(fontSize: 18),
-              ),
+              Text("阅读模式".tl, style: const TextStyle(fontSize: 18)),
             ],
           ),
         ),
         ...List.generate(
-            6,
-            (index) => ListTile(
-                  trailing: Radio<int>(
-                    value: index + 1,
-                    groupValue: value,
-                    onChanged: (i) {
-                      setValue(i!);
-                    },
-                  ),
-                  title: Text(options[index]),
-                  onTap: () {
-                    setValue(index + 1);
-                  },
-                ))
+          6,
+          (index) => ListTile(
+            trailing: Radio<int>(
+              value: index + 1,
+              groupValue: value,
+              onChanged: (i) {
+                setValue(i!);
+              },
+            ),
+            title: Text(options[index]),
+            onTap: () {
+              setValue(index + 1);
+            },
+          ),
+        ),
       ],
     );
   }

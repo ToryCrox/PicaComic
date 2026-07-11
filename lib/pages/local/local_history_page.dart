@@ -32,7 +32,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
     if (mounted) {
       setState(() => _loading = true);
     }
-    
+
     final history = await LocalHistoryManager().getAll();
     // 转换为 Map 以便修改
     final items = history.map((e) => e.toMap()).toList();
@@ -48,7 +48,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
   Future<void> _clearInvalidHistory() async {
     showLoadingDialog(context);
     int clearedCount = 0;
-    
+
     final history = List<Map<String, dynamic>>.from(_history);
     for (var item in history) {
       final path = item['path'] as String;
@@ -57,7 +57,7 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
         clearedCount++;
       }
     }
-    
+
     if (mounted) {
       App.back(context); // 关闭加载对话框
       if (clearedCount > 0) {
@@ -82,12 +82,17 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
           ),
           IconButton(
             onPressed: () {
-              showConfirmDialog(context, "清除历史记录".tl, "确认清除所有历史记录?".tl, () async {
-                for (var item in _history) {
-                  await LocalHistoryManager().remove(item['path'] as String);
-                }
-                _loadHistory();
-              });
+              showConfirmDialog(
+                context,
+                "清除历史记录".tl,
+                "确认清除所有历史记录?".tl,
+                () async {
+                  for (var item in _history) {
+                    await LocalHistoryManager().remove(item['path'] as String);
+                  }
+                  _loadHistory();
+                },
+              );
             },
             icon: const Icon(Icons.delete_sweep),
           ),
@@ -96,59 +101,70 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
-              ? Center(child: Text("暂无记录".tl))
-              : LayoutBuilder(builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  int crossAxisCount = (width / 180).floor();
-                  if (crossAxisCount < 2) crossAxisCount = 2;
+          ? Center(child: Text("暂无记录".tl))
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                int crossAxisCount = (width / 180).floor();
+                if (crossAxisCount < 2) crossAxisCount = 2;
 
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _history.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.7,
-                    ),
-                    itemBuilder: (context, index) {
-                      final item = _history[index];
-                      final path = item['path'] as String;
-                      final title = Path.basename(path);
-                      final cover = item['cover'] as String? ?? '';
-                      
-                      final model = LocalComicModel(
-                        path: path,
-                        title: title,
-                        cover: cover,
-                      );
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _history.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.7,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = _history[index];
+                    final path = item['path'] as String;
+                    final title = Path.basename(path);
+                    final cover = item['cover'] as String? ?? '';
 
-                      return LocalComicTile(
-                        model: model,
-                        onReload: _loadHistory,
-                        allDirPaths: _history.map((e) => e['path'] as String).toList(),
-                        onTap: (historyMap) async {
-                           final history = await LocalHistoryManager().find(path);
-                           final initIndex = history?.pageIndex ?? 1;
-                           final isReversed = history?.isReversed == 1;
-                           await App.globalTo(() => ComicReadingPage.localComic(
-                                path,
-                                title,
-                                initialPage: initIndex,
-                                isReversed: isReversed,
-                              ));
-                           _loadHistory();
-                        },
-                        onSecondaryTap: (details) => _showComicMenu(context, model, details),
-                        onLongPress: () => _showComicMenu(context, model, null),
-                      );
-                    },
-                  );
-                }),
+                    final model = LocalComicModel(
+                      path: path,
+                      title: title,
+                      cover: cover,
+                    );
+
+                    return LocalComicTile(
+                      model: model,
+                      onReload: _loadHistory,
+                      allDirPaths: _history
+                          .map((e) => e['path'] as String)
+                          .toList(),
+                      onTap: (historyMap) async {
+                        final history = await LocalHistoryManager().find(path);
+                        final initIndex = history?.pageIndex ?? 1;
+                        final isReversed = history?.isReversed == 1;
+                        await App.globalTo(
+                          () => ComicReadingPage.localComic(
+                            path,
+                            title,
+                            initialPage: initIndex,
+                            isReversed: isReversed,
+                          ),
+                        );
+                        _loadHistory();
+                      },
+                      onSecondaryTap: (details) =>
+                          _showComicMenu(context, model, details),
+                      onLongPress: () => _showComicMenu(context, model, null),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
-  void _showComicMenu(BuildContext context, LocalComicModel model, TapDownDetails? details) {
+  void _showComicMenu(
+    BuildContext context,
+    LocalComicModel model,
+    TapDownDetails? details,
+  ) {
     showDesktopMenu(
       App.globalContext!,
       details?.globalPosition ?? Offset.zero,
@@ -156,10 +172,12 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
         DesktopMenuEntry(
           text: "查看详情".tl,
           onClick: () async {
-            App.globalTo(() => LocalThumbsPage(
-                  dirPath: model.path,
-                  allDirPaths: _history.map((e) => e['path'] as String).toList(),
-                ));
+            App.globalTo(
+              () => LocalThumbsPage(
+                dirPath: model.path,
+                allDirPaths: _history.map((e) => e['path'] as String).toList(),
+              ),
+            );
           },
         ),
         DesktopMenuEntry(

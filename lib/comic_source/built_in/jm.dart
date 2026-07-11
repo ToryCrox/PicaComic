@@ -57,88 +57,79 @@ final jm = ComicSource.named(
           "meiman",
           "another_cosplay",
           "3D",
-          "禁漫漢化組"
+          "禁漫漢化組",
         ],
       ),
-      const FixedCategoryPart(
-        "主題A漫",
-        [
-          '無修正',
-          '劇情向',
-          '青年漫',
-          '校服',
-          '純愛',
-          '人妻',
-          '教師',
-          '百合',
-          'Yaoi',
-          '性轉',
-          'NTR',
-          '女裝',
-          '癡女',
-          '全彩',
-          '女性向',
-          '完結',
-          '純愛',
-          '禁漫漢化組'
-        ],
-        "search",
-      ),
-      const FixedCategoryPart(
-        "角色扮演",
-        [
-          '御姐',
-          '熟女',
-          '巨乳',
-          '貧乳',
-          '女性支配',
-          '教師',
-          '女僕',
-          '護士',
-          '泳裝',
-          '眼鏡',
-          '連褲襪',
-          '其他制服',
-          '兔女郎'
-        ],
-        "search",
-      ),
-      const FixedCategoryPart(
-        "特殊PLAY",
-        [
-          '群交',
-          '足交',
-          '束縛',
-          '肛交',
-          '阿黑顏',
-          '藥物',
-          '扶他',
-          '調教',
-          '野外露出',
-          '催眠',
-          '自慰',
-          '觸手',
-          '獸交',
-          '亞人',
-          '怪物女孩',
-          '皮物',
-          'ryona',
-          '騎大車'
-        ],
-        "search",
-      ),
-      const FixedCategoryPart(
-        "其它",
-        ['CG', '重口', '獵奇', '非H', '血腥暴力', '站長推薦'],
-        "search",
-      ),
+      const FixedCategoryPart("主題A漫", [
+        '無修正',
+        '劇情向',
+        '青年漫',
+        '校服',
+        '純愛',
+        '人妻',
+        '教師',
+        '百合',
+        'Yaoi',
+        '性轉',
+        'NTR',
+        '女裝',
+        '癡女',
+        '全彩',
+        '女性向',
+        '完結',
+        '純愛',
+        '禁漫漢化組',
+      ], "search"),
+      const FixedCategoryPart("角色扮演", [
+        '御姐',
+        '熟女',
+        '巨乳',
+        '貧乳',
+        '女性支配',
+        '教師',
+        '女僕',
+        '護士',
+        '泳裝',
+        '眼鏡',
+        '連褲襪',
+        '其他制服',
+        '兔女郎',
+      ], "search"),
+      const FixedCategoryPart("特殊PLAY", [
+        '群交',
+        '足交',
+        '束縛',
+        '肛交',
+        '阿黑顏',
+        '藥物',
+        '扶他',
+        '調教',
+        '野外露出',
+        '催眠',
+        '自慰',
+        '觸手',
+        '獸交',
+        '亞人',
+        '怪物女孩',
+        '皮物',
+        'ryona',
+        '騎大車',
+      ], "search"),
+      const FixedCategoryPart("其它", [
+        'CG',
+        '重口',
+        '獵奇',
+        '非H',
+        '血腥暴力',
+        '站長推薦',
+      ], "search"),
     ],
     enableRankingPage: true,
     buttons: [
       CategoryButtonData(
         label: "每周推荐",
         onTap: () => App.mainNavigatorKey?.currentContext?.to(
-              () => JmWeekRecommendationPage(),
+          () => JmWeekRecommendationPage(),
         ),
       ),
     ],
@@ -165,15 +156,13 @@ final jm = ComicSource.named(
       ),
     ],
     rankingData: RankingData.named(
-      options: {
-        "mv": "总排行",
-        "mv_m": "月排行",
-        "mv_w": "周排行",
-        "mv_t": "日排行",
-      },
+      options: {"mv": "总排行", "mv_m": "月排行", "mv_w": "周排行", "mv_t": "日排行"},
       load: (option, page) {
-        return JmNetwork()
-            .getCategoryComics('0', ComicsOrder.fromValue(option), page);
+        return JmNetwork().getCategoryComics(
+          '0',
+          ComicsOrder.fromValue(option),
+          page,
+        );
       },
     ),
   ),
@@ -198,10 +187,7 @@ final jm = ComicSource.named(
     ],
   ),
   comicTileBuilderOverride: (context, comic, options) {
-    return _JmComicTile(
-      comic as JmComicBrief,
-      addonMenuOptions: options,
-    );
+    return _JmComicTile(comic as JmComicBrief, addonMenuOptions: options);
   },
   explorePages: [
     ExplorePageData.named(
@@ -217,42 +203,53 @@ final jm = ComicSource.named(
         }
         var res = <ExplorePagePart>[];
         for (var part in homePageData.data.items) {
-          res.add(ExplorePagePart(
-            part.name,
-            part.comics,
-            'category:${part.name}@${part.id}',
-          ));
-        }
-        return Res(res);
-      },
-      loadMultiPartCache: () async {
-        var homePageData = await DiskCache.readModel('jm_home_page', (e) => HomePageData.fromJson(e));
-        if (homePageData == null) {
-          return [];
-        }
-        return [
-          for(var part in homePageData.items)
+          res.add(
             ExplorePagePart(
               part.name,
               part.comics,
               'category:${part.name}@${part.id}',
-            )
+            ),
+          );
+        }
+        return Res(res);
+      },
+      loadMultiPartCache: () async {
+        var homePageData = await DiskCache.readModel(
+          'jm_home_page',
+          (e) => HomePageData.fromJson(e),
+        );
+        if (homePageData == null) {
+          return [];
+        }
+        return [
+          for (var part in homePageData.items)
+            ExplorePagePart(
+              part.name,
+              part.comics,
+              'category:${part.name}@${part.id}',
+            ),
         ];
-      }
+      },
     ),
     ExplorePageData.named(
       title: "禁漫最新",
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) => JmNetwork().getLatest(page).then((e){
+      loadPage: (page) => JmNetwork().getLatest(page).then((e) {
         final data = e.dataOrNull;
         if (data != null && page == 1) {
-          DiskCache.writeModelList('jm_latest', data.map((e) => e.toJson()).toList());
+          DiskCache.writeModelList(
+            'jm_latest',
+            data.map((e) => e.toJson()).toList(),
+          );
         }
         return e;
       }),
       loadCache: () {
-        return DiskCache.readModelList('jm_latest', (e) => JmComicBrief.fromJson(e));
-      }
+        return DiskCache.readModelList(
+          'jm_latest',
+          (e) => JmComicBrief.fromJson(e),
+        );
+      },
     ),
   ],
   idMatcher: RegExp(r"^(\d+|jm\d+)$"),
@@ -283,16 +280,10 @@ final jm = ComicSource.named(
     return JmComicPage(id);
   },
   getImageLoadingConfig: (url, comicId, epId) {
-    return ImageConfig(
-      url: url,
-      headers: getImgHeaders(),
-    );
+    return ImageConfig(url: url, headers: getImgHeaders());
   },
   getThumbnailLoadingConfig: (url) {
-    return ImageConfig(
-      url: url,
-      headers: getImgHeaders(),
-    );
+    return ImageConfig(url: url, headers: getImgHeaders());
   },
 );
 
@@ -306,18 +297,19 @@ class _JmComicTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: getJmCoverUrl(comic.id),
-        sourceKey: ComicType.jm.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: getJmCoverUrl(comic.id),
+    sourceKey: ComicType.jm.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {
     App.mainNavigatorKey!.currentContext!.to(
-      () => ComicPage(comicType: ComicType.jm, id: comic.id, cover: comic.cover),
+      () =>
+          ComicPage(comicType: ComicType.jm, id: comic.id, cover: comic.cover),
     );
   }
 
@@ -329,29 +321,29 @@ class _JmComicTile extends ComicTile {
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(
-          App.globalContext!,
-          onCancel: () => cancel = true,
-        );
-        var res = await JmNetwork().getComicInfo(comic.id);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await History.findOrCreate(res.data);
-          App.globalTo(
-                () => ComicReadingPage.jmComic(
-              res.data,
-              history.ep,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await JmNetwork().getComicInfo(comic.id);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await History.findOrCreate(res.data);
+      App.globalTo(
+        () => ComicReadingPage.jmComic(
+          res.data,
+          history.ep,
+          initialPage: history.page,
+        ),
+      );
+    }
+  };
 
   @override
   List<String>? get tags => comic.tags;

@@ -18,23 +18,28 @@ class DownloadedComic extends DownloadedItem {
   DownloadColorTag? color;
 
   DownloadedComic(
-      this.comicItem, this.chapters, this.size, this.downloadedChapters, {this.color});
+    this.comicItem,
+    this.chapters,
+    this.size,
+    this.downloadedChapters, {
+    this.color,
+  });
 
   @override
   Map<String, dynamic> toJson() => {
-        "comicItem": comicItem.toJson(),
-        "chapters": chapters,
-        "size": size,
-        "downloadedChapters": downloadedChapters,
-        "color": color?.name,
-      };
+    "comicItem": comicItem.toJson(),
+    "chapters": chapters,
+    "size": size,
+    "downloadedChapters": downloadedChapters,
+    "color": color?.name,
+  };
 
   DownloadedComic.fromJson(Map<String, dynamic> json)
-      : comicItem = ComicItem.fromJson(json["comicItem"]),
-        chapters = List<String>.from(json["chapters"]),
-        size = json["size"],
-        color = DownloadColorTag.fromString(json["color"]),
-        downloadedChapters = [] {
+    : comicItem = ComicItem.fromJson(json["comicItem"]),
+      chapters = List<String>.from(json["chapters"]),
+      size = json["size"],
+      color = DownloadColorTag.fromString(json["color"]),
+      downloadedChapters = [] {
     if (json["downloadedChapters"] == null) {
       //旧版本中的数据不包含这一项
       for (int i = 0; i < chapters.length; i++) {
@@ -75,9 +80,15 @@ class DownloadedComic extends DownloadedItem {
 
 ///picacg的下载进程模型
 class PicDownloadingTask extends DownloadingTask {
-  PicDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
-      super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.picacg});
+  PicDownloadingTask(
+    this.comic,
+    this._downloadEps,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.picacg,
+  });
 
   ///漫画模型
   final ComicItem comic;
@@ -113,16 +124,16 @@ class PicDownloadingTask extends DownloadingTask {
     if (_eps.isEmpty) {
       _eps = (await network.getEps(id)).data;
     }
-    
+
     links ??= {};
-    
+
     // 2. 对要下载的章节进行排序，确保按顺序下载
     final sortedEps = List<int>.from(_downloadEps)..sort();
-    
+
     // 3. 逐个章节获取图片链接并加入队列（生产者模式）
     for (var i in sortedEps) {
       final epNum = i + 1;
-      
+
       // 如果 links 中已经有了（可能是恢复下载），直接使用，否则请求网络
       List<String> urls;
       if (links!.containsKey(epNum)) {
@@ -131,13 +142,13 @@ class PicDownloadingTask extends DownloadingTask {
         urls = (await network.getComicContent(id, epNum)).data;
         links![epNum] = urls;
       }
-      
+
       // 将该章节的图片加入队列
       for (var j = 0; j < urls.length; j++) {
         // Picacg 始终有章节目录
         var downloadTo = "$path/$epNum";
         var basename = j.toString();
-        
+
         var item = ImageDownloadQueueItem(
           url: urls[j],
           episodeIndex: epNum, // 1-based index
@@ -145,7 +156,7 @@ class PicDownloadingTask extends DownloadingTask {
           savePath: downloadTo,
           fileBaseName: basename,
         );
-        
+
         queue.addImage(item);
       }
     }
@@ -158,22 +169,22 @@ class PicDownloadingTask extends DownloadingTask {
 
   @override
   Map<String, dynamic> toMap() => {
-        "comic": comic.toJson(),
-        "_eps": _eps,
-        "_downloadEps": _downloadEps,
-        ...super.toBaseMap()
-      };
+    "comic": comic.toJson(),
+    "_eps": _eps,
+    "_downloadEps": _downloadEps,
+    ...super.toBaseMap(),
+  };
 
   PicDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = ComicItem.fromJson(map["comic"]),
-        _eps = List<String>.from(map["_eps"]),
-        _downloadEps = List<int>.from(map["_downloadEps"]),
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = ComicItem.fromJson(map["comic"]),
+      _eps = List<String>.from(map["_eps"]),
+      _downloadEps = List<int>.from(map["_downloadEps"]),
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   String getEpisodeName(int episodeIndex) {
@@ -211,7 +222,9 @@ class PicDownloadingTask extends DownloadingTask {
   }
 
   @override
-  FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) async {
+  FutureOr<DownloadedItem?> toDownloadedItemPartial(
+    List<int> completedEpisodes,
+  ) async {
     var previous = <int>[];
     if (await downloadManager.isExists(id)) {
       var existingComic =
@@ -232,4 +245,3 @@ class PicDownloadingTask extends DownloadingTask {
     );
   }
 }
-

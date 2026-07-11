@@ -6,31 +6,44 @@ String timeToDateString(DateTime time) {
   return DateFormat('yyyy-MM-dd').format(time);
 }
 
-String timeToString(DateTime time){
+String timeToString(DateTime time) {
   var current = DateTime.now();
-  if(current.millisecondsSinceEpoch < time.millisecondsSinceEpoch){
+  if (current.millisecondsSinceEpoch < time.millisecondsSinceEpoch) {
     return "Error";
   }
-  if(current.difference(time).inDays > 360){
-    return "@year 年前".tlParams({"year": (current.difference(time).inDays ~/ 360).toString()});
-  }else if(current.difference(time).inDays > 30){
-    return "@month 个月前".tlParams({"month": (current.difference(time).inDays ~/ 30).toString()});
-  }else if(current.difference(time).inHours > 24){
-    return "@day 天前".tlParams({"day": (current.difference(time).inDays).toString()});
-  }else if(current.difference(time).inMinutes > 60){
-    return "@hour 小时前".tlParams({"hour": (current.difference(time).inHours).toString()});
-  }else if(current.difference(time).inSeconds > 60){
-    return "@minute 分钟前".tlParams({"minute": (current.difference(time).inMinutes).toString()});
-  }else{
+  if (current.difference(time).inDays > 360) {
+    return "@year 年前".tlParams({
+      "year": (current.difference(time).inDays ~/ 360).toString(),
+    });
+  } else if (current.difference(time).inDays > 30) {
+    return "@month 个月前".tlParams({
+      "month": (current.difference(time).inDays ~/ 30).toString(),
+    });
+  } else if (current.difference(time).inHours > 24) {
+    return "@day 天前".tlParams({
+      "day": (current.difference(time).inDays).toString(),
+    });
+  } else if (current.difference(time).inMinutes > 60) {
+    return "@hour 小时前".tlParams({
+      "hour": (current.difference(time).inHours).toString(),
+    });
+  } else if (current.difference(time).inSeconds > 60) {
+    return "@minute 分钟前".tlParams({
+      "minute": (current.difference(time).inMinutes).toString(),
+    });
+  } else {
     return "刚刚".tl;
   }
 }
 
-extension TimeExtension on DateTime{
-  Duration operator-(DateTime other){
-    return Duration(microseconds: microsecondsSinceEpoch - other.microsecondsSinceEpoch);
+extension TimeExtension on DateTime {
+  Duration operator -(DateTime other) {
+    return Duration(
+      microseconds: microsecondsSinceEpoch - other.microsecondsSinceEpoch,
+    );
   }
-  static DateTime parseEhTime(String dateString){
+
+  static DateTime parseEhTime(String dateString) {
     final format = DateFormat('d MMMM yyyy, HH:mm', 'en_US');
     final dateTime = format.parse(dateString);
     return dateTime;

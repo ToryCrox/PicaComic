@@ -43,21 +43,24 @@ class _TagManagementPageState extends State<TagManagementPage> {
       // 如果有封面漫画ID,获取其封面路径
       String? coverPath;
       if (tag.coverComicId != null) {
-        final comic =
-            await downloadManager.getDownloadedItemById(tag.coverComicId!);
+        final comic = await downloadManager.getDownloadedItemById(
+          tag.coverComicId!,
+        );
         if (comic != null) {
           coverPath = comic.coverPath;
         }
       }
 
-      tagList.add(TagInfo(
-        id: tag.id,
-        name: tag.name,
-        coverPath: coverPath,
-        comicCount: count,
-        category: tag.category.value,
-        sortOrder: tag.sortOrder,
-      ));
+      tagList.add(
+        TagInfo(
+          id: tag.id,
+          name: tag.name,
+          coverPath: coverPath,
+          comicCount: count,
+          category: tag.category.value,
+          sortOrder: tag.sortOrder,
+        ),
+      );
     }
 
     setState(() {
@@ -110,15 +113,25 @@ class _TagManagementPageState extends State<TagManagementPage> {
                 ),
                 items: [
                   DropdownMenuItem(
-                      value: 0, child: Text(TagCategory.none.label)),
+                    value: 0,
+                    child: Text(TagCategory.none.label),
+                  ),
                   DropdownMenuItem(
-                      value: 1, child: Text(TagCategory.author.label)),
+                    value: 1,
+                    child: Text(TagCategory.author.label),
+                  ),
                   DropdownMenuItem(
-                      value: 2, child: Text(TagCategory.work.label)),
+                    value: 2,
+                    child: Text(TagCategory.work.label),
+                  ),
                   DropdownMenuItem(
-                      value: 3, child: Text(TagCategory.character.label)),
+                    value: 3,
+                    child: Text(TagCategory.character.label),
+                  ),
                   DropdownMenuItem(
-                      value: 4, child: Text(TagCategory.manga.label)),
+                    value: 4,
+                    child: Text(TagCategory.manga.label),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -146,8 +159,10 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (result == true && controller.text.isNotEmpty) {
       try {
-        await downloadManager.createTag(controller.text,
-            category: selectedCategory);
+        await downloadManager.createTag(
+          controller.text,
+          category: selectedCategory,
+        );
         showToast(message: "标签创建成功".tl);
         _loadTags();
       } catch (e) {
@@ -402,10 +417,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
               _updateFilteredTags();
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 0,
-                child: Text("全部".tl),
-              ),
+              PopupMenuItem(value: 0, child: Text("全部".tl)),
               for (var category in TagCategory.values)
                 if (category != TagCategory.none)
                   PopupMenuItem(
@@ -424,53 +436,51 @@ class _TagManagementPageState extends State<TagManagementPage> {
       body: loading && tags.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : _filteredTags.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.label_outline,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "暂无标签".tl,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: _createTag,
-                        icon: const Icon(Icons.add),
-                        label: Text("创建标签".tl),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.label_outline,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.outline,
                   ),
-                )
-              : ReorderableBuilder(
-                  scrollController: _scrollController,
-                  onReorder: _onReorder,
-                  enableDraggable: _keyword.isEmpty && _selectedCategory == 0,
-                  children:
-                      _filteredTags.map((tag) => _buildTagItem(tag)).toList(),
-                  builder: (children) {
-                    return GridView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(8),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 300,
-                        childAspectRatio: 1.2,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      children: children,
-                    );
-                  },
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "暂无标签".tl,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _createTag,
+                    icon: const Icon(Icons.add),
+                    label: Text("创建标签".tl),
+                  ),
+                ],
+              ),
+            )
+          : ReorderableBuilder(
+              scrollController: _scrollController,
+              onReorder: _onReorder,
+              enableDraggable: _keyword.isEmpty && _selectedCategory == 0,
+              children: _filteredTags.map((tag) => _buildTagItem(tag)).toList(),
+              builder: (children) {
+                return GridView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(8),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 300,
+                    childAspectRatio: 1.2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  children: children,
+                );
+              },
+            ),
     );
   }
 
@@ -507,18 +517,17 @@ class _TagManagementPageState extends State<TagManagementPage> {
                       width: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.label, size: 48),
                       ),
                     )
                   : Container(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Center(
-                        child: Icon(Icons.label, size: 48),
-                      ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      child: const Center(child: Icon(Icons.label, size: 48)),
                     ),
             ),
             // 信息区域
@@ -549,18 +558,18 @@ class _TagManagementPageState extends State<TagManagementPage> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 _getCategoryLabel(tag.category),
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                                 ),
                               ),
                             ),

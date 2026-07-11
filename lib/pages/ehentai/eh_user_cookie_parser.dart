@@ -30,11 +30,12 @@ class _EhUserCookieParserState extends State<EhUserCookieParser>
     cookieDataController = TextEditingController();
 
     scaleController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    scaleAnimation = Tween(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-      parent: scaleController,
-      curve: Curves.easeInOut,
-    ));
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    scaleAnimation = Tween(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: scaleController, curve: Curves.easeInOut),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       widget.controller.setFunctions(show, hide, parse);
@@ -94,7 +95,7 @@ class _EhUserCookieParserState extends State<EhUserCookieParser>
     for (var pair in cookieDataPairs) {
       final splitData = pair.split(':');
       if (splitData.length != 2) {
-        showToast(message:  "cookie 信息格式可能有误".tl);
+        showToast(message: "cookie 信息格式可能有误".tl);
         continue;
       }
       final key = splitData[0].trim();
@@ -114,7 +115,10 @@ class EhUserCookieParserController {
   var visible = false;
 
   void setFunctions(
-      Function() show, Function() hide, Map<String, String> Function() parse) {
+    Function() show,
+    Function() hide,
+    Map<String, String> Function() parse,
+  ) {
     showFunction = show;
     hideFunction = hide;
     parseFunction = parse;

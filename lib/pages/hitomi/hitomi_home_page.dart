@@ -20,7 +20,7 @@ class HitomiHomePageLogic extends StateController {
       message = res.errorMessage!;
     } else {
       var parseRes = await parseIds(res.data);
-      if(parseRes) {
+      if (parseRes) {
         comics = res.data;
       }
     }
@@ -34,7 +34,7 @@ class HitomiHomePageLogic extends StateController {
       showToast(message: res.errorMessage!);
     } else {
       var parseRes = await parseIds(comics!);
-      if(parseRes) {
+      if (parseRes) {
         update();
       } else {
         showToast(message: message ?? "Error");
@@ -48,7 +48,7 @@ class HitomiHomePageLogic extends StateController {
       var result = await Future.wait(futures);
       futures.clear();
       for (var r in result) {
-        if(r.error) {
+        if (r.error) {
           message = r.errorMessage;
           return false;
         }
@@ -56,15 +56,16 @@ class HitomiHomePageLogic extends StateController {
       }
       return true;
     }
-    for(var id in comics.comicIds) {
-      if(futures.length >= 5) {
+
+    for (var id in comics.comicIds) {
+      if (futures.length >= 5) {
         var res = await wait();
-        if(!res) return false;
+        if (!res) return false;
       }
       futures.add(HiNetwork().getComicInfoBrief(id.toString()));
     }
     var res = await wait();
-    if(!res) return false;
+    if (!res) return false;
     comics.comicIds.clear();
     return true;
   }
@@ -87,39 +88,36 @@ class HitomiHomePageComics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StateBuilder<HitomiHomePageLogic>(
-        tag: url,
-        init: HitomiHomePageLogic(),
-        builder: (logic) {
-          refresh = logic.refresh_;
-          if (logic.loading) {
-            logic.get(url);
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          } else if (logic.message != null) {
-            return NetworkError(
-              message: logic.message!,
-              retry: () => logic.refresh_(),
-              withAppbar: false,
-            );
-          } else {
-            return CustomScrollView(
-              slivers: [
-                SliverGridComics(
-                  comics: logic.hitomiComics,
-                  comicType: ComicType.hitomi,
-                  onLastItemBuild: () {
-                    logic.loadNextPage(url);
-                  },
-                ),
-                if (logic.comics!.toLoad < logic.comics!.total)
-                  const SliverToBoxAdapter(
-                    child: ListLoadingIndicator(),
-                  )
-              ],
-            );
-          }
-        });
+      tag: url,
+      init: HitomiHomePageLogic(),
+      builder: (logic) {
+        refresh = logic.refresh_;
+        if (logic.loading) {
+          logic.get(url);
+          return const Center(child: CircularProgressIndicator());
+        } else if (logic.message != null) {
+          return NetworkError(
+            message: logic.message!,
+            retry: () => logic.refresh_(),
+            withAppbar: false,
+          );
+        } else {
+          return CustomScrollView(
+            slivers: [
+              SliverGridComics(
+                comics: logic.hitomiComics,
+                comicType: ComicType.hitomi,
+                onLastItemBuild: () {
+                  logic.loadNextPage(url);
+                },
+              ),
+              if (logic.comics!.toLoad < logic.comics!.total)
+                const SliverToBoxAdapter(child: ListLoadingIndicator()),
+            ],
+          );
+        }
+      },
+    );
   }
 }
 
@@ -146,9 +144,7 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 4),
                   child: Text("hitomi"),
@@ -161,7 +157,7 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
                       "热门 | 今天".tl,
                       "热门 | 一周".tl,
                       "热门 | 本月".tl,
-                      "热门 | 一年".tl
+                      "热门 | 一年".tl,
                     ],
                     initialValue: 0,
                     onChange: (i) => setState(() {
@@ -170,14 +166,12 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
                         "popular/today",
                         "popular/week",
                         "popular/month",
-                        "popular/year"
+                        "popular/year",
                       ][i];
                     }),
                   ),
                 ),
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 Material(
                   child: Select(
                     width: 100,
@@ -188,20 +182,13 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
                     }),
                   ),
                 ),
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
               ],
             ),
           ),
         ),
         const Divider(),
-        Expanded(
-          child: HitomiHomePageComics(
-            url,
-            key: Key(url),
-          ),
-        )
+        Expanded(child: HitomiHomePageComics(url, key: Key(url))),
       ],
     );
   }

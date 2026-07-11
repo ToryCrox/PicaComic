@@ -54,10 +54,7 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
-            child: Text(
-              name,
-              style: const TextStyle(fontSize: 22),
-            ),
+            child: Text(name, style: const TextStyle(fontSize: 22)),
           ),
           Expanded(
             child: GridView.builder(
@@ -72,20 +69,19 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
                     borderRadius: const BorderRadius.all(Radius.circular(16)),
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(16)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(16),
+                        ),
                         color: downloadedEps.contains(i)
                             ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
+                            : Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                       ),
                       child: Row(
                         children: [
                           const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(eps[i]),
-                          ),
+                          Expanded(child: Text(eps[i])),
                           const SizedBox(width: 4),
                           if (downloadedEps.contains(i))
                             const Icon(Icons.download_done),
@@ -129,9 +125,7 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
               ],
             ),
           ),
-          SizedBox(
-            height: MediaQuery.of(context).padding.bottom,
-          )
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
@@ -162,19 +156,13 @@ void showDownloadedComicInfo({
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return DownloadedComicInfoView(
-          item: comic,
-          onRefresh: onRefresh,
-        );
+        return DownloadedComicInfoView(item: comic, onRefresh: onRefresh);
       },
     );
   } else {
     showSideBar(
       App.globalContext!,
-      DownloadedComicInfoView(
-        item: comic,
-        onRefresh: onRefresh,
-      ),
+      DownloadedComicInfoView(item: comic, onRefresh: onRefresh),
       useSurfaceTintColor: true,
     );
   }

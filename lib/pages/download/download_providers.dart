@@ -175,18 +175,22 @@ Future<List<TagInfo>> downloadTags(Ref ref) async {
   for (final tag in allTags) {
     String? coverPath;
     if (tag.coverComicId != null) {
-      coverPath = allComics.firstWhereOrNull((c) => c.id == tag.coverComicId)?.coverPath;
+      coverPath = allComics
+          .firstWhereOrNull((c) => c.id == tag.coverComicId)
+          ?.coverPath;
     }
 
-    tagInfos.add(TagInfo(
-      id: tag.id,
-      name: tag.name,
-      comicCount: 0,
-      category: tag.category.value,
-      sortOrder: tag.sortOrder,
-      categorySortOrder: tag.categorySortOrder,
-      coverPath: coverPath,
-    ));
+    tagInfos.add(
+      TagInfo(
+        id: tag.id,
+        name: tag.name,
+        comicCount: 0,
+        category: tag.category.value,
+        sortOrder: tag.sortOrder,
+        categorySortOrder: tag.categorySortOrder,
+        coverPath: coverPath,
+      ),
+    );
   }
 
   tagInfos.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -347,7 +351,10 @@ void enterSelecting(WidgetRef ref, String pageId) {
 /// 切换搜索模式
 void setIsSearching(WidgetRef ref, String pageId, bool isSearching) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    return state.copyWith(isSearching: isSearching, keyword: isSearching ? state.keyword : '');
+    return state.copyWith(
+      isSearching: isSearching,
+      keyword: isSearching ? state.keyword : '',
+    );
   });
 }
 
@@ -441,7 +448,10 @@ void updateTagCategoryFilter(WidgetRef ref, String pageId, int? category) {
 ///
 /// 选择特定类型时会自动取消"排除本地"选项
 void updateDownloadTypeFilter(
-    WidgetRef ref, String pageId, DownloadType? type) {
+  WidgetRef ref,
+  String pageId,
+  DownloadType? type,
+) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
     if (type == state.downloadTypeFilter) {
       return state.copyWith(clearDownloadTypeFilter: true);
@@ -459,7 +469,10 @@ void updateExcludeLocal(WidgetRef ref, String pageId, bool exclude) {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
     if (exclude) {
       // 启用排除本地时，取消特定类型选择
-      return state.copyWith(excludeLocal: exclude, clearDownloadTypeFilter: true);
+      return state.copyWith(
+        excludeLocal: exclude,
+        clearDownloadTypeFilter: true,
+      );
     }
     return state.copyWith(excludeLocal: exclude);
   });
@@ -492,7 +505,7 @@ void triggerSortUpdate(WidgetRef ref, String pageId) {
 List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
   if (comics.isEmpty) return comics;
 
-  final sortType = appdata.settings[26][0];   // 0:时间, 1:标题, 2:副标题, 3:大小
+  final sortType = appdata.settings[26][0]; // 0:时间, 1:标题, 2:副标题, 3:大小
   final isAscending = appdata.settings[26][1] == "1";
 
   final sorted = List<DownloadedItem>.from(comics);
@@ -597,9 +610,12 @@ Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
 
   // 标签过滤
   if (pageState.selectedTagIds.isNotEmpty) {
-    final selectedTagNames = pageState.selectedTagIds.map((id) {
-      return allTags.firstWhereOrNull((element) => element.id == id)?.name;
-    }).whereType<String>().toSet();
+    final selectedTagNames = pageState.selectedTagIds
+        .map((id) {
+          return allTags.firstWhereOrNull((element) => element.id == id)?.name;
+        })
+        .whereType<String>()
+        .toSet();
 
     if (selectedTagNames.isNotEmpty) {
       filtered = filtered.where((comic) {
@@ -621,8 +637,9 @@ Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
 @Riverpod(keepAlive: false)
 int selectedCount(Ref ref, String pageId) {
   return ref.watch(
-    downloadPageStateProvider(pageId)
-        .select((state) => state.selectedIds.length),
+    downloadPageStateProvider(
+      pageId,
+    ).select((state) => state.selectedIds.length),
   );
 }
 
@@ -657,7 +674,8 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
   final pageState = ref.watch(downloadPageStateProvider(pageId));
 
   // check if filtering
-  bool isFiltering = pageState.keyword.isNotEmpty ||
+  bool isFiltering =
+      pageState.keyword.isNotEmpty ||
       pageState.downloadTypeFilter != null ||
       pageState.excludeLocal ||
       pageState.tagCategoryFilter != null ||
@@ -742,12 +760,16 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
 // ============================================================================
 
 List<String> getUserTags(
-    DownloadedItem item, Map<String, List<String>> userTagsMap) {
+  DownloadedItem item,
+  Map<String, List<String>> userTagsMap,
+) {
   return userTagsMap[item.id] ?? [];
 }
 
 List<String> getOriginalTags(
-    DownloadedItem item, Map<String, List<String>> userTagsMap) {
+  DownloadedItem item,
+  Map<String, List<String>> userTagsMap,
+) {
   final userTags = getUserTags(item, userTagsMap);
   final originalTags = item.tags.map((e) => e.translateTagsToCN);
   if (userTags.isEmpty) {
@@ -758,7 +780,9 @@ List<String> getOriginalTags(
 }
 
 List<String> getRawTags(
-    DownloadedItem item, Map<String, List<String>> userTagsMap) {
+  DownloadedItem item,
+  Map<String, List<String>> userTagsMap,
+) {
   final userTags = getUserTags(item, userTagsMap);
   if (userTags.isEmpty) {
     return item.tags.toList();

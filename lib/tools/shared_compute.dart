@@ -1,13 +1,13 @@
-
 import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter/cupertino.dart';
 
-
 /// 复用型 Isolate 计算器 (线程池风格)
 /// 使用示例: final result = await sharedCompute(complexCalculation, 42);
-Future<R> sharedCompute<Q, R>(ComputeFunc<Q, R> function, Q parameter, {
+Future<R> sharedCompute<Q, R>(
+  ComputeFunc<Q, R> function,
+  Q parameter, {
   String sharedKey = 'defaultIsolate', // 可选的共享键
 }) async {
   // 使用单例模式管理复用 Isolate
@@ -33,18 +33,24 @@ class _IsolatePool {
   final int _maxWorkers = 3; // 按 CPU 核数优化
 
   /// 核心执行方法
-  Future<R> execute<Q, R>(Function function, Q parameter, String functionSignature) async {
+  Future<R> execute<Q, R>(
+    Function function,
+    Q parameter,
+    String functionSignature,
+  ) async {
     // 获取或创建 Worker
     final worker = await _getWorker(functionSignature);
 
     try {
       // 通过 ReceivePort 进行通信
       final responsePort = ReceivePort();
-      worker.sendPort(_IsolateTask(
-        function: function,
-        argument: parameter,
-        responsePort: responsePort.sendPort,
-      ));
+      worker.sendPort(
+        _IsolateTask(
+          function: function,
+          argument: parameter,
+          responsePort: responsePort.sendPort,
+        ),
+      );
 
       return await responsePort.first.timeout(_timeout) as R;
     } on TimeoutException catch (_) {
@@ -76,7 +82,9 @@ class _IsolatePool {
     _workers[functionSignature] = worker;
     await worker.start();
     final t2 = DateTime.now().millisecondsSinceEpoch;
-    print('start end new isolate: $functionSignature, cost time: ${t2 - t1} ms');
+    print(
+      'start end new isolate: $functionSignature, cost time: ${t2 - t1} ms',
+    );
     return worker;
   }
 
@@ -149,7 +157,9 @@ class _Worker {
           debugPrint('IsolateError: $e');
           debugPrintStack(stackTrace: stack);
           // 异常捕获处理
-          message.responsePort.send(IsolateError(e.toString(), stack.toString()));
+          message.responsePort.send(
+            IsolateError(e.toString(), stack.toString()),
+          );
         }
       }
     });

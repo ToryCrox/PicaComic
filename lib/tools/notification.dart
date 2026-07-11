@@ -12,17 +12,15 @@ class Notifications {
       if (App.isAndroid) {
         return await flutterLocalNotificationsPlugin!
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()!
+              AndroidFlutterLocalNotificationsPlugin
+            >()!
             .requestNotificationsPermission();
       } else if (App.isIOS) {
         return await flutterLocalNotificationsPlugin
             ?.resolvePlatformSpecificImplementation<
-                IOSFlutterLocalNotificationsPlugin>()
-            ?.requestPermissions(
-              alert: true,
-              badge: true,
-              sound: true,
-            );
+              IOSFlutterLocalNotificationsPlugin
+            >()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
       }
       return true;
     } catch (e) {
@@ -37,17 +35,21 @@ class Notifications {
         AndroidInitializationSettings('@drawable/notification');
     final DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings(
-            onDidReceiveLocalNotification: onDidReceiveLocalNotification);
+          onDidReceiveLocalNotification: onDidReceiveLocalNotification,
+        );
     InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
     );
-    await flutterLocalNotificationsPlugin!.initialize(initializationSettings,
-        onDidReceiveNotificationResponse: onDidReceiveNotificationResponse);
+    await flutterLocalNotificationsPlugin!.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
+    );
   }
 
   void onDidReceiveNotificationResponse(
-      NotificationResponse notificationResponse) async {
+    NotificationResponse notificationResponse,
+  ) async {
     if (!(App.isAndroid || App.isIOS)) return;
     final String? payload = notificationResponse.payload;
     if (payload != "item y") {
@@ -56,34 +58,54 @@ class Notifications {
   }
 
   void onDidReceiveLocalNotification(
-      int id, String? title, String? body, String? payload) async {
+    int id,
+    String? title,
+    String? body,
+    String? payload,
+  ) async {
     if (payload != "item y") {
       App.globalTo(() => const DownloadingPage());
     }
   }
 
   void sendProgressNotification(
-      int progress, int total, String title, String content) async {
+    int progress,
+    int total,
+    String title,
+    String content,
+  ) async {
     if (!(App.isAndroid || App.isIOS)) return;
     AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails('download', '下载漫画'.tl,
-            channelDescription: '显示下载进度'.tl,
-            importance: Importance.low,
-            priority: Priority.low,
-            showProgress: true,
-            maxProgress: total,
-            progress: progress,
-            ongoing: true,
-            onlyAlertOnce: true,
-            autoCancel: false);
+        AndroidNotificationDetails(
+          'download',
+          '下载漫画'.tl,
+          channelDescription: '显示下载进度'.tl,
+          importance: Importance.low,
+          priority: Priority.low,
+          showProgress: true,
+          maxProgress: total,
+          progress: progress,
+          ongoing: true,
+          onlyAlertOnce: true,
+          autoCancel: false,
+        );
     DarwinNotificationDetails ios = const DarwinNotificationDetails(
-        presentSound: false, presentAlert: false, presentBadge: false,
-        presentBanner: false);
-    NotificationDetails notificationDetails =
-        NotificationDetails(android: androidNotificationDetails, iOS: ios);
+      presentSound: false,
+      presentAlert: false,
+      presentBadge: false,
+      presentBanner: false,
+    );
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: ios,
+    );
     await flutterLocalNotificationsPlugin!.show(
-        progressId, title, content, notificationDetails,
-        payload: 'item x');
+      progressId,
+      title,
+      content,
+      notificationDetails,
+      payload: 'item x',
+    );
   }
 
   void endProgress() async {
@@ -104,36 +126,53 @@ class Notifications {
     if (!(App.isAndroid || App.isIOS)) return;
     AndroidNotificationDetails androidNotificationDetails =
         const AndroidNotificationDetails(
-      'PicaComic',
-      'notification',
-      channelDescription: 'notification',
-      importance: Importance.max,
-      priority: Priority.max,
-    );
+          'PicaComic',
+          'notification',
+          channelDescription: 'notification',
+          importance: Importance.max,
+          priority: Priority.max,
+        );
     DarwinNotificationDetails ios = const DarwinNotificationDetails();
-    NotificationDetails notificationDetails =
-        NotificationDetails(android: androidNotificationDetails, iOS: ios);
-    await flutterLocalNotificationsPlugin!
-        .show(1145140, title, content, notificationDetails, payload: 'item x');
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: ios,
+    );
+    await flutterLocalNotificationsPlugin!.show(
+      1145140,
+      title,
+      content,
+      notificationDetails,
+      payload: 'item x',
+    );
   }
 
   void sendUnimportantNotification(String title, String content) async {
     if (!(App.isAndroid || App.isIOS)) return;
     AndroidNotificationDetails androidNotificationDetails =
         const AndroidNotificationDetails(
-      'punchIN',
-      '打卡',
-      channelDescription: '打卡',
-      importance: Importance.low,
-      priority: Priority.low,
-    );
+          'punchIN',
+          '打卡',
+          channelDescription: '打卡',
+          importance: Importance.low,
+          priority: Priority.low,
+        );
 
     DarwinNotificationDetails ios = const DarwinNotificationDetails(
-        presentAlert: false, presentSound: false, presentBadge: false);
+      presentAlert: false,
+      presentSound: false,
+      presentBadge: false,
+    );
 
-    NotificationDetails notificationDetails =
-        NotificationDetails(android: androidNotificationDetails, iOS: ios);
-    await flutterLocalNotificationsPlugin!
-        .show(51515568, title, content, notificationDetails, payload: 'item y');
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: ios,
+    );
+    await flutterLocalNotificationsPlugin!.show(
+      51515568,
+      title,
+      content,
+      notificationDetails,
+      payload: 'item y',
+    );
   }
 }

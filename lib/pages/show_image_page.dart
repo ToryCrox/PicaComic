@@ -13,18 +13,17 @@ class ShowImagePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("图片".tl),
-      ),
+      appBar: AppBar(title: Text("图片".tl)),
       body: PhotoView(
         minScale: PhotoViewComputedScale.contained * 0.9,
-        imageProvider: CachedNetworkImageProvider(url, cacheManager: picaImageManager),
+        imageProvider: CachedNetworkImageProvider(
+          url,
+          cacheManager: picaImageManager,
+        ),
         loadingBuilder: (context, event) {
           return Container(
             decoration: const BoxDecoration(color: Colors.black),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           );
         },
       ),
@@ -49,26 +48,28 @@ class ShowImagePageWithHero extends StatelessWidget {
             message: "保存".tl,
             child: IconButton(
               icon: const Icon(Icons.download),
-              onPressed: () async{
+              onPressed: () async {
                 var file = await picaImageManager.getFileFromCache(url);
-                if(file != null){
+                if (file != null) {
                   saveImage(file.file);
                 }
-              }
-          ))
+              },
+            ),
+          ),
         ],
       ),
       body: Hero(
         tag: tag,
         child: PhotoView(
           minScale: PhotoViewComputedScale.contained * 0.9,
-          imageProvider: CachedNetworkImageProvider(url, cacheManager: picaImageManager),
+          imageProvider: CachedNetworkImageProvider(
+            url,
+            cacheManager: picaImageManager,
+          ),
           loadingBuilder: (context, event) {
             return Container(
               decoration: const BoxDecoration(color: Colors.black),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             );
           },
         ),
@@ -76,4 +77,3 @@ class ShowImagePageWithHero extends StatelessWidget {
     );
   }
 }
-

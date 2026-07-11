@@ -62,7 +62,15 @@ final class HistoryType {
 
   String get name {
     if (value >= 0 && value <= 6) {
-      return ["picacg", "ehentai", "jm", "hitomi", "htmanga", "nhentai", "kemono"][value];
+      return [
+        "picacg",
+        "ehentai",
+        "jm",
+        "hitomi",
+        "htmanga",
+        "nhentai",
+        "kemono",
+      ][value];
     } else {
       return ComicSource.fromIntKey(value)?.name ?? "Unknown";
     }
@@ -118,50 +126,59 @@ base class History extends LinkedListEntry<History> {
     }
   }
 
-  History(this.type, this.time, this.title, this.subtitle, this.cover, this.ep,
-      this.page, this.target,
-      [Set<int>? readEpisode, this.maxPage])
-      : readEpisode = readEpisode ?? <int>{};
+  History(
+    this.type,
+    this.time,
+    this.title,
+    this.subtitle,
+    this.cover,
+    this.ep,
+    this.page,
+    this.target, [
+    Set<int>? readEpisode,
+    this.maxPage,
+  ]) : readEpisode = readEpisode ?? <int>{};
 
-  History.fromModel(
-      {required HistoryMixin model,
-      required this.ep,
-      required this.page,
-      Set<int>? readEpisode,
-      DateTime? time})
-      : type = model.historyType,
-        title = model.title,
-        subtitle = model.subTitle ?? '',
-        cover = model.cover,
-        target = model.target,
-        readEpisode = readEpisode ?? <int>{},
-        time = time ?? DateTime.now();
+  History.fromModel({
+    required HistoryMixin model,
+    required this.ep,
+    required this.page,
+    Set<int>? readEpisode,
+    DateTime? time,
+  }) : type = model.historyType,
+       title = model.title,
+       subtitle = model.subTitle ?? '',
+       cover = model.cover,
+       target = model.target,
+       readEpisode = readEpisode ?? <int>{},
+       time = time ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
-        "type": type.value,
-        "time": time.millisecondsSinceEpoch,
-        "title": title,
-        "subtitle": subtitle,
-        "cover": cover,
-        "ep": ep,
-        "page": page,
-        "target": target,
-        "readEpisode": readEpisode.toList(),
-        "max_page": maxPage
-      };
+    "type": type.value,
+    "time": time.millisecondsSinceEpoch,
+    "title": title,
+    "subtitle": subtitle,
+    "cover": cover,
+    "ep": ep,
+    "page": page,
+    "target": target,
+    "readEpisode": readEpisode.toList(),
+    "max_page": maxPage,
+  };
 
   History.fromMap(Map<String, dynamic> map)
-      : type = HistoryType(map["type"]),
-        time = DateTime.fromMillisecondsSinceEpoch(map["time"]),
-        title = map["title"],
-        subtitle = map["subtitle"],
-        cover = map["cover"],
-        ep = map["ep"],
-        page = map["page"],
-        target = map["target"],
-        readEpisode = Set<int>.from(
-            (map["readEpisode"] as List<dynamic>?)?.toSet() ?? const <int>{}),
-        maxPage = map["max_page"];
+    : type = HistoryType(map["type"]),
+      time = DateTime.fromMillisecondsSinceEpoch(map["time"]),
+      title = map["title"],
+      subtitle = map["subtitle"],
+      cover = map["cover"],
+      ep = map["ep"],
+      page = map["page"],
+      target = map["target"],
+      readEpisode = Set<int>.from(
+        (map["readEpisode"] as List<dynamic>?)?.toSet() ?? const <int>{},
+      ),
+      maxPage = map["max_page"];
 
   @override
   String toString() {
@@ -169,19 +186,21 @@ base class History extends LinkedListEntry<History> {
   }
 
   History.fromRow(Map<String, dynamic> map)
-      : type = HistoryType(map[kHistoryType]),
-        time = DateTime.fromMillisecondsSinceEpoch(map[kHistoryTime]),
-        title = map[kHistoryTitle],
-        subtitle = map[kHistorySubtitle],
-        cover = map[kHistoryCover],
-        ep = map[kHistoryEp],
-        page = map[kHistoryPage],
-        target = map[kHistoryTarget],
-        readEpisode = Set<int>.from((map[kHistoryReadEpisode] as String)
+    : type = HistoryType(map[kHistoryType]),
+      time = DateTime.fromMillisecondsSinceEpoch(map[kHistoryTime]),
+      title = map[kHistoryTitle],
+      subtitle = map[kHistorySubtitle],
+      cover = map[kHistoryCover],
+      ep = map[kHistoryEp],
+      page = map[kHistoryPage],
+      target = map[kHistoryTarget],
+      readEpisode = Set<int>.from(
+        (map[kHistoryReadEpisode] as String)
             .split(',')
             .where((element) => element != "")
-            .map((e) => int.parse(e))),
-        maxPage = map[kHistoryMaxPage];
+            .map((e) => int.parse(e)),
+      ),
+      maxPage = map[kHistoryMaxPage];
 
   static Future<History> findOrCreate(
     HistoryMixin model, {
@@ -199,7 +218,9 @@ base class History extends LinkedListEntry<History> {
   }
 
   static Future<History> createIfNull(
-      History? history, HistoryMixin model) async {
+    History? history,
+    HistoryMixin model,
+  ) async {
     if (history != null) {
       return history;
     }
@@ -228,7 +249,7 @@ class HistoryManager {
     }
     return _initCompleter.future;
   }
-  
+
   // 数据库版本号
   static const int _databaseVersion = 1;
 
@@ -247,15 +268,19 @@ class HistoryManager {
       Log.i("HistoryManager.tryUpdateDb db file not exist");
       return;
     }
-    
+
     // 使用 sqflite_common_ffi 替代 sqlite3
     var db = await databaseFactoryFfi.openDatabase(file.path);
-    
+
     // 查询历史记录
-    var newHistory0 = await db.query(kTableHistory, orderBy: '$kHistoryTime DESC');
-    var newHistory =
-        newHistory0.map((element) => History.fromRow(element)).toList();
-        
+    var newHistory0 = await db.query(
+      kTableHistory,
+      orderBy: '$kHistoryTime DESC',
+    );
+    var newHistory = newHistory0
+        .map((element) => History.fromRow(element))
+        .toList();
+
     if (file.existsSync()) {
       var skips = 0;
       for (var history in newHistory) {
@@ -266,15 +291,26 @@ class HistoryManager {
           skips++;
         }
       }
-      Log.i("HistoryManager merge history, skipped $skips, added ${newHistory.length - skips}");
+      Log.i(
+        "HistoryManager merge history, skipped $skips, added ${newHistory.length - skips}",
+      );
 
       //import favorite images
       skips = 0;
-      
+
       // 查询收藏的图片
       var newImages0 = await db.query('image_favorites');
-      var newImages = newImages0.map((e) => ImageFavorite(e.optString("id"), e.optString("cover"), e.optString("title"), e.optInt("ep"),
-              e.optInt("page"), jsonDecode(e.optString("other"))))
+      var newImages = newImages0
+          .map(
+            (e) => ImageFavorite(
+              e.optString("id"),
+              e.optString("cover"),
+              e.optString("title"),
+              e.optInt("ep"),
+              e.optInt("page"),
+              jsonDecode(e.optString("other")),
+            ),
+          )
           .toList();
 
       for (var image in newImages) {
@@ -282,12 +318,16 @@ class HistoryManager {
           skips++;
         } else {
           ImageFavoriteManager.add(image);
-          Log.i("HistoryManager merge favorite image ep ${image.ep} page ${image.page} @ ${image.id}");
+          Log.i(
+            "HistoryManager merge favorite image ep ${image.ep} page ${image.page} @ ${image.id}",
+          );
         }
       }
-      Log.i("HistoryManager merge favorite images, skipped $skips, added ${newImages.length - skips}");
+      Log.i(
+        "HistoryManager merge favorite images, skipped $skips, added ${newImages.length - skips}",
+      );
     }
-    
+
     // 关闭数据库连接
     await db.close();
     file.deleteSync();
@@ -307,7 +347,7 @@ class HistoryManager {
     // 初始化 sqflite_common_ffi
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    
+
     final databasePath = '${App.dataPath}/history.db';
     Log.i("HistoryManager Database path: $databasePath");
 
@@ -322,9 +362,9 @@ class HistoryManager {
 
     _initialized = true;
     _initCompleter.complete(_db);
-    
+
     // 不再启动时全量加载历史记录到内存，实现按需加载
-    
+
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
     if (file.existsSync()) {
@@ -372,9 +412,7 @@ class HistoryManager {
       history.add(History.fromMap((h as Map<String, dynamic>)));
     }
     // do not clear previous history
-    for (var element in history) {
-      
-    }
+    for (var element in history) {}
     vacuum();
   }
 
@@ -390,37 +428,31 @@ class HistoryManager {
 
     await _ensureInitialized();
     final db = _db!;
-    
+
     final res = await db.query(
       kTableHistory,
       where: '$kHistoryTarget = ?',
       whereArgs: [newItem.target],
     );
-    
+
     if (res.isEmpty) {
-      await db.insert(
-        kTableHistory,
-        {
-          kHistoryTarget: newItem.target,
-          kHistoryTitle: newItem.title,
-          kHistorySubtitle: newItem.subtitle,
-          kHistoryCover: newItem.cover,
-          kHistoryTime: newItem.time.millisecondsSinceEpoch,
-          kHistoryType: newItem.type.value,
-          kHistoryEp: newItem.ep,
-          kHistoryPage: newItem.page,
-          kHistoryReadEpisode: newItem.readEpisode.join(','),
-          kHistoryMaxPage: newItem.maxPage,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert(kTableHistory, {
+        kHistoryTarget: newItem.target,
+        kHistoryTitle: newItem.title,
+        kHistorySubtitle: newItem.subtitle,
+        kHistoryCover: newItem.cover,
+        kHistoryTime: newItem.time.millisecondsSinceEpoch,
+        kHistoryType: newItem.type.value,
+        kHistoryEp: newItem.ep,
+        kHistoryPage: newItem.page,
+        kHistoryReadEpisode: newItem.readEpisode.join(','),
+        kHistoryMaxPage: newItem.maxPage,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     } else {
       newItem.time = DateTime.now();
       await db.update(
         kTableHistory,
-        {
-          kHistoryTime: newItem.time.millisecondsSinceEpoch,
-        },
+        {kHistoryTime: newItem.time.millisecondsSinceEpoch},
         where: '$kHistoryTarget = ?',
         whereArgs: [newItem.target],
       );
@@ -429,11 +461,13 @@ class HistoryManager {
   }
 
   ///退出阅读器时调用此函数, 修改阅读位置
-  Future<void> saveReadHistory(History history,
-      [bool updateMePage = true]) async {
+  Future<void> saveReadHistory(
+    History history, [
+    bool updateMePage = true,
+  ]) async {
     await _ensureInitialized();
     final db = _db!;
-    
+
     history.time = DateTime.now();
     await db.update(
       kTableHistory,
@@ -484,7 +518,8 @@ class HistoryManager {
   /// 异步查找历史，支持立刻返回（因为要保证旧API的兼容性）。
   /// 在使用信号系统的上层应用优先考虑直接读取 `historyCache[target]?.value` 或者 [findInCache]。
   Future<History?> find(String target) async {
-    if(historyCache.containsKey(target) && historyCache[target]!.value != null) {
+    if (historyCache.containsKey(target) &&
+        historyCache[target]!.value != null) {
       return historyCache[target]!.value;
     }
     await _ensureInitialized();
@@ -496,7 +531,8 @@ class HistoryManager {
   }
 
   Future<History?> findSync(String target) async {
-    if (historyCache.containsKey(target) && historyCache[target]!.value != null){
+    if (historyCache.containsKey(target) &&
+        historyCache[target]!.value != null) {
       return SynchronousFuture(historyCache[target]!.value);
     }
 
@@ -515,9 +551,9 @@ class HistoryManager {
 
   void _enqueueQuery(String target) {
     if (_pendingTargets.contains(target)) return;
-    
+
     _pendingTargets.add(target);
-    
+
     if (!_isBatchQueryPending) {
       _isBatchQueryPending = true;
       Future.microtask(_processBatchQuery);
@@ -537,7 +573,7 @@ class HistoryManager {
     try {
       await _ensureInitialized();
       final db = _db!;
-      
+
       // sqlite 的 IN 查询构造
       final placeholders = List.filled(queryTargets.length, '?').join(', ');
       final res = await db.query(
@@ -549,22 +585,22 @@ class HistoryManager {
       // 先确保都有空的 Signal，防止有目标没有被查询到导致的错乱
       for (var target in queryTargets) {
         if (!historyCache.containsKey(target)) {
-           historyCache[target] = signal(null);
+          historyCache[target] = signal(null);
         }
       }
-      
+
       // 根据查询真实情况填充
       for (var element in res) {
         final target = element[kHistoryTarget] as String;
         if (historyCache[target]!.value == null) {
-           historyCache[target]!.value = History.fromRow(element);
+          historyCache[target]!.value = History.fromRow(element);
         }
       }
     } catch (e) {
       Log.e('Failed to process batch query: $e');
     }
   }
-  
+
   Future<History?> _findDirect(String target) async {
     // 不等待初始化，因为我们已经在调用函数中确保了初始化
     await _ensureInitialized();
@@ -583,10 +619,7 @@ class HistoryManager {
   Future<List<History>> getAll() async {
     await _ensureInitialized();
     final db = _db!;
-    final res = await db.query(
-      kTableHistory,
-      orderBy: '$kHistoryTime DESC',
-    );
+    final res = await db.query(kTableHistory, orderBy: '$kHistoryTime DESC');
     return res.map((element) => History.fromRow(element)).toList();
   }
 
@@ -598,17 +631,21 @@ class HistoryManager {
   Future<List<int>> getWeekData(int days) async {
     await _ensureInitialized();
     final db = _db!;
-    final startTime = DateTime.now().add(Duration(days: 1 - days)).millisecondsSinceEpoch;
+    final startTime = DateTime.now()
+        .add(Duration(days: 1 - days))
+        .millisecondsSinceEpoch;
     final res = await db.query(
       kTableHistory,
       where: '$kHistoryTime > ?',
       whereArgs: [startTime],
       orderBy: '$kHistoryTime ASC',
     );
-    
+
     var data = List<int>.filled(days, 0);
     for (var element in res) {
-      var time = DateTime.fromMillisecondsSinceEpoch(element[kHistoryTime] as int);
+      var time = DateTime.fromMillisecondsSinceEpoch(
+        element[kHistoryTime] as int,
+      );
       data[DateTime.now().difference(time).inDays]++;
     }
     return data.reversed.toList();

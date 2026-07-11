@@ -42,7 +42,7 @@ Future<void> init() async {
     await appdata.readData();
     // Apply log level setting
     try {
-      final codes = ['auto','trace','debug','info','warning','error'];
+      final codes = ['auto', 'trace', 'debug', 'info', 'warning', 'error'];
       var code = appdata.settings.length > 90 ? appdata.settings[90] : 'auto';
       Level level = switch (code) {
         'trace' => Level.trace,
@@ -64,20 +64,17 @@ Future<void> init() async {
     if (App.isAndroid) {
       final appLinks = AppLinks();
       appLinks.allUriLinkStream.listen((uri) async {
-        while(App.mainNavigatorKey == null) {
+        while (App.mainNavigatorKey == null) {
           await Future.delayed(const Duration(milliseconds: 100));
         }
         handleAppLinks(uri);
       });
     }
     if (App.isMobile) {
-      Workmanager().initialize(
-        onStart,
-      );
+      Workmanager().initialize(onStart);
     }
     await checkDownloadPath();
     await _checkOldData();
-
 
     await ComicSource.init();
 
@@ -93,7 +90,7 @@ Future<void> init() async {
       AppTranslation.init(),
     ]);
     CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
-    
+
     // 启动日志查看器（仅在桌面平台）
     //await LogViewerIntegration.init();
   } catch (e, s) {
@@ -119,27 +116,32 @@ Future<void> _checkOldData() async {
         PersistCookieJar(storage: FileStorage("${App.dataPath}/cookies")),
         PersistCookieJar(storage: FileStorage("${App.dataPath}/eh_cookies")),
         PersistCookieJar(
-            storage: FileStorage("${App.dataPath}/comic_source/cookies/"))
+          storage: FileStorage("${App.dataPath}/comic_source/cookies/"),
+        ),
       ];
       var cookies = <io.Cookie>[];
-      for (var cookie in (await cookieJars[0]
-          .loadForRequest(Uri.parse("https://nhentai.net")))) {
+      for (var cookie in (await cookieJars[0].loadForRequest(
+        Uri.parse("https://nhentai.net"),
+      ))) {
         cookie.domain ??= ".nhentai.net";
         cookies.add(cookie);
       }
-      for (var cookie in (await cookieJars[1]
-          .loadForRequest(Uri.parse("https://e-hentai.org")))) {
+      for (var cookie in (await cookieJars[1].loadForRequest(
+        Uri.parse("https://e-hentai.org"),
+      ))) {
         cookie.domain ??= ".e-hentai.org";
         cookies.add(cookie);
       }
-      for (var cookie in (await cookieJars[1]
-          .loadForRequest(Uri.parse("https://exhentai.org")))) {
+      for (var cookie in (await cookieJars[1].loadForRequest(
+        Uri.parse("https://exhentai.org"),
+      ))) {
         cookie.domain ??= ".exhentai.org";
         cookies.add(cookie);
       }
       try {
-        for (var file in io.Directory("${App.dataPath}/comic_source/cookies/")
-            .listSync()) {
+        for (var file in io.Directory(
+          "${App.dataPath}/comic_source/cookies/",
+        ).listSync()) {
           var domain = file.path.split("/").last;
           if (domain == '.domains' || domain == '.index') {
             continue;
@@ -147,8 +149,9 @@ Future<void> _checkOldData() async {
           if (domain.startsWith('.')) {
             domain = domain.substring(1);
           }
-          for (var cookie in (await cookieJars[2]
-              .loadForRequest(Uri.parse("https://$domain")))) {
+          for (var cookie in (await cookieJars[2].loadForRequest(
+            Uri.parse("https://$domain"),
+          ))) {
             cookie.domain ??= ".$domain";
             cookies.add(cookie);
           }
@@ -161,8 +164,9 @@ Future<void> _checkOldData() async {
         io.Directory("${App.dataPath}/eh_cookies").deleteSync(recursive: true);
       }
       if (io.Directory("${App.dataPath}/comic_source/cookies").existsSync()) {
-        io.Directory("${App.dataPath}/comic_source/cookies")
-            .deleteSync(recursive: true);
+        io.Directory(
+          "${App.dataPath}/comic_source/cookies",
+        ).deleteSync(recursive: true);
       }
     }
 
@@ -170,12 +174,14 @@ Future<void> _checkOldData() async {
       io.File("${App.dataPath}/cache.json").deleteIgnoreError();
     }
     if (io.Directory("${App.cachePath}/imageCache").existsSync()) {
-      io.Directory("${App.cachePath}/imageCache")
-          .deleteIgnoreError(recursive: true);
+      io.Directory(
+        "${App.cachePath}/imageCache",
+      ).deleteIgnoreError(recursive: true);
     }
     if (io.Directory("${App.cachePath}/cachedNetwork").existsSync()) {
-      io.Directory("${App.cachePath}/cachedNetwork")
-          .deleteIgnoreError(recursive: true);
+      io.Directory(
+        "${App.cachePath}/cachedNetwork",
+      ).deleteIgnoreError(recursive: true);
     }
     await _checkAccountData();
   } catch (e, s) {
@@ -208,7 +214,7 @@ Future<void> _checkAccountData() async {
     await picacg.saveData();
     await s.remove('picacgAccount');
   }
-  if(s.getString("jmName") != null) {
+  if (s.getString("jmName") != null) {
     var account = s.getString('jmName');
     var pwd = s.getString('jmPwd');
     jm.data['account'] = [account, pwd];
@@ -216,13 +222,13 @@ Future<void> _checkAccountData() async {
     await s.remove("jmName");
     await jm.saveData();
   }
-  if(s.getString("ehAccount") != null) {
+  if (s.getString("ehAccount") != null) {
     ehentai.data['account'] = 'ok';
     ehentai.data['name'] = s.getString("ehAccount")!;
     await s.remove("ehAccount");
     await ehentai.saveData();
   }
-  if(s.getString('htName') != null) {
+  if (s.getString('htName') != null) {
     var account = s.getString('htName');
     var pwd = s.getString('htPwd');
     htManga.data['account'] = [account, pwd];
@@ -231,7 +237,7 @@ Future<void> _checkAccountData() async {
     await htManga.saveData();
   }
   NhentaiNetwork().init();
-  if(NhentaiNetwork().logged) {
+  if (NhentaiNetwork().logged) {
     nhentai.data['account'] = 'ok';
     await nhentai.saveData();
   }

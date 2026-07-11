@@ -19,12 +19,13 @@ import 'package:worker_manager/worker_manager.dart';
 ///
 /// 必须是顶层函数，否则无法通过 @pragma('vm:entry-point') 注入 isolate。
 @pragma('vm:entry-point')
-Map<int, int> computeSimilaritiesInIsolate(
-    List<TagSimilarityInput> inputs) {
+Map<int, int> computeSimilaritiesInIsolate(List<TagSimilarityInput> inputs) {
   final result = <int, int>{};
   for (final input in inputs) {
-    result[input.tagId] =
-        _levenshteinSimilarity(input.tagName, input.suggestedTags);
+    result[input.tagId] = _levenshteinSimilarity(
+      input.tagName,
+      input.suggestedTags,
+    );
   }
   return result;
 }
@@ -103,10 +104,10 @@ class TagSimilarityInput {
 /// 闭包在 State 实例方法内创建时会捕获 this，导致整个 Widget 对象图
 /// 被尝试发送到 isolate，从而报 "object is unsendable" 错误。
 Future<Map<int, int>> Function() _buildSimilarityTask(
-    List<TagSimilarityInput> inputs) {
+  List<TagSimilarityInput> inputs,
+) {
   return () async => computeSimilaritiesInIsolate(inputs);
 }
-
 
 /// 标签分配对话框
 class TagAssignmentDialog extends StatefulWidget {
@@ -147,8 +148,10 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
   @override
   void initState() {
     super.initState();
-    _tabController =
-        TabController(length: TagCategory.values.length + 1, vsync: this);
+    _tabController = TabController(
+      length: TagCategory.values.length + 1,
+      vsync: this,
+    );
     _loadTags();
   }
 
@@ -186,11 +189,13 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     final similarityMap = <int, int>{};
     if (widget.suggestedTags != null && widget.suggestedTags!.isNotEmpty) {
       final inputs = tags
-          .map((tag) => TagSimilarityInput(
-                tagId: tag.id,
-                tagName: tag.name,
-                suggestedTags: widget.suggestedTags!,
-              ))
+          .map(
+            (tag) => TagSimilarityInput(
+              tagId: tag.id,
+              tagName: tag.name,
+              suggestedTags: widget.suggestedTags!,
+            ),
+          )
           .toList();
       similarityMap.addAll(
         await workerManager.execute<Map<int, int>>(
@@ -265,8 +270,10 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
     try {
       final currentCategory = _currentCategory ?? TagCategory.none;
-      final tagId = await downloadManager.createTag(_searchController.text,
-          category: currentCategory.value);
+      final tagId = await downloadManager.createTag(
+        _searchController.text,
+        category: currentCategory.value,
+      );
       final newTag = DownloadTag(
         id: tagId,
         name: _searchController.text,
@@ -297,11 +304,16 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       final addTags = selectedTagIds.difference(_originalTagIds).toList();
       final removeTags = _originalTagIds.difference(selectedTagIds).toList();
       Log.d(
-          'selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds');
+        'selectedTagIds: $selectedTagIds, _originalTagIds: $_originalTagIds',
+      );
       Log.d("添加标签: $addTags, 删除标签: $removeTags");
 
       // 批量更新标签（内部会调用 _notifyTagsChanged() 通过流通知所有监听者刷新）
-      await downloadManager.batchUpdateTags(widget.comicIds, addTags, removeTags);
+      await downloadManager.batchUpdateTags(
+        widget.comicIds,
+        addTags,
+        removeTags,
+      );
 
       if (mounted) {
         showToast(message: "标签更新成功".tl);
@@ -330,8 +342,10 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     // 按搜索关键词筛选
     if (_searchQuery.isNotEmpty) {
       tags = tags
-          .where((tag) =>
-              tag.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .where(
+            (tag) =>
+                tag.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+          )
           .toList();
     }
 
@@ -345,9 +359,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       return Center(
         child: Text(
           "暂无标签".tl,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.outline,
-          ),
+          style: TextStyle(color: Theme.of(context).colorScheme.outline),
         ),
       );
     }
@@ -507,7 +519,8 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : Text("确认".tl),
         ),
       ],

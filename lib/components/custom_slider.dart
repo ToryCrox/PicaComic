@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 /// copied from flutter source
 class _SliderDefaultsM3 extends SliderThemeData {
-  _SliderDefaultsM3(this.context)
-      : super(trackHeight: 4.0);
+  _SliderDefaultsM3(this.context) : super(trackHeight: 4.0);
 
   final BuildContext context;
   late final ColorScheme _colors = Theme.of(context).colorScheme;
@@ -24,52 +23,66 @@ class _SliderDefaultsM3 extends SliderThemeData {
   Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
 
   @override
-  Color? get disabledSecondaryActiveTrackColor => _colors.onSurface.withOpacity(0.12);
+  Color? get disabledSecondaryActiveTrackColor =>
+      _colors.onSurface.withOpacity(0.12);
 
   @override
   Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.38);
 
   @override
-  Color? get inactiveTickMarkColor => _colors.onSurfaceVariant.withOpacity(0.38);
+  Color? get inactiveTickMarkColor =>
+      _colors.onSurfaceVariant.withOpacity(0.38);
 
   @override
   Color? get disabledActiveTickMarkColor => _colors.onSurface.withOpacity(0.38);
 
   @override
-  Color? get disabledInactiveTickMarkColor => _colors.onSurface.withOpacity(0.38);
+  Color? get disabledInactiveTickMarkColor =>
+      _colors.onSurface.withOpacity(0.38);
 
   @override
   Color? get thumbColor => _colors.primary;
 
   @override
-  Color? get disabledThumbColor => Color.alphaBlend(_colors.onSurface.withOpacity(0.38), _colors.surface);
+  Color? get disabledThumbColor =>
+      Color.alphaBlend(_colors.onSurface.withOpacity(0.38), _colors.surface);
 
   @override
-  Color? get overlayColor => WidgetStateColor.resolveWith((Set<WidgetState> states) {
-    if (states.contains(WidgetState.hovered)) {
-      return _colors.primary.withOpacity(0.08);
-    }
-    if (states.contains(WidgetState.focused)) {
-      return _colors.primary.withOpacity(0.12);
-    }
-    if (states.contains(WidgetState.dragged)) {
-      return _colors.primary.withOpacity(0.12);
-    }
+  Color? get overlayColor =>
+      WidgetStateColor.resolveWith((Set<WidgetState> states) {
+        if (states.contains(WidgetState.hovered)) {
+          return _colors.primary.withOpacity(0.08);
+        }
+        if (states.contains(WidgetState.focused)) {
+          return _colors.primary.withOpacity(0.12);
+        }
+        if (states.contains(WidgetState.dragged)) {
+          return _colors.primary.withOpacity(0.12);
+        }
 
-    return Colors.transparent;
-  });
-
-  @override
-  TextStyle? get valueIndicatorTextStyle => Theme.of(context).textTheme.labelMedium!.copyWith(
-    color: _colors.onPrimary,
-  );
+        return Colors.transparent;
+      });
 
   @override
-  SliderComponentShape? get valueIndicatorShape => const DropSliderValueIndicatorShape();
+  TextStyle? get valueIndicatorTextStyle => Theme.of(
+    context,
+  ).textTheme.labelMedium!.copyWith(color: _colors.onPrimary);
+
+  @override
+  SliderComponentShape? get valueIndicatorShape =>
+      const DropSliderValueIndicatorShape();
 }
 
 class CustomSlider extends StatefulWidget {
-  const CustomSlider({required this.min, required this.max, required this.value, required this.divisions, required this.onChanged, this.reversed = false, super.key});
+  const CustomSlider({
+    required this.min,
+    required this.max,
+    required this.value,
+    required this.divisions,
+    required this.onChanged,
+    this.reversed = false,
+    super.key,
+  });
 
   final double min;
 
@@ -117,23 +130,23 @@ class _CustomSliderState extends State<CustomSlider> {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onTapDown: (details){
+            onTapDown: (details) {
               var dx = details.localPosition.dx;
-              if(widget.reversed){
+              if (widget.reversed) {
                 dx = constrains.maxWidth - dx;
               }
               var gap = constrains.maxWidth / widget.divisions;
-              var gapValue = (widget.max - widget.min)  / widget.divisions;
+              var gapValue = (widget.max - widget.min) / widget.divisions;
               widget.onChanged.call((dx / gap).round() * gapValue + widget.min);
             },
-            onVerticalDragUpdate: (details){
+            onVerticalDragUpdate: (details) {
               var dx = details.localPosition.dx;
-              if(dx > constrains.maxWidth || dx < 0)  return;
-              if(widget.reversed){
+              if (dx > constrains.maxWidth || dx < 0) return;
+              if (widget.reversed) {
                 dx = constrains.maxWidth - dx;
               }
               var gap = constrains.maxWidth / widget.divisions;
-              var gapValue = (widget.max - widget.min)  / widget.divisions;
+              var gapValue = (widget.max - widget.min) / widget.divisions;
               widget.onChanged.call((dx / gap).round() * gapValue + widget.min);
             },
             child: SizedBox(
@@ -150,27 +163,31 @@ class _CustomSliderState extends State<CustomSlider> {
                             width: double.infinity,
                             height: 6,
                             decoration: BoxDecoration(
-                                color: theme.inactiveTrackColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(10))
+                              color: theme.inactiveTrackColor,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(10),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      if(constrains.maxWidth / widget.divisions > 10)
+                      if (constrains.maxWidth / widget.divisions > 10)
                         Positioned.fill(
                           child: Row(
-                            children: (){
+                            children: () {
                               var res = <Widget>[];
-                              for(int i = 0; i<widget.divisions-1; i++){
+                              for (int i = 0; i < widget.divisions - 1; i++) {
                                 res.add(const Spacer());
-                                res.add(Container(
-                                  width: 4,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface.withRed(10),
-                                    shape: BoxShape.circle,
+                                res.add(
+                                  Container(
+                                    width: 4,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surface.withRed(10),
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
-                                ));
+                                );
                               }
                               res.add(const Spacer());
                               return res;
@@ -184,20 +201,35 @@ class _CustomSliderState extends State<CustomSlider> {
                         right: widget.reversed ? 0 : null,
                         child: Center(
                           child: Container(
-                            width: constrains.maxWidth * ((value - widget.min) / (widget.max - widget.min)),
+                            width:
+                                constrains.maxWidth *
+                                ((value - widget.min) /
+                                    (widget.max - widget.min)),
                             height: 8,
                             decoration: BoxDecoration(
-                                color: theme.activeTrackColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(10))
+                              color: theme.activeTrackColor,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(10),
+                              ),
                             ),
                           ),
-                        )
+                        ),
                       ),
                       Positioned(
                         top: 0,
                         bottom: 0,
-                        left: widget.reversed ? null : constrains.maxWidth * ((value - widget.min) / (widget.max - widget.min))-11,
-                        right: !widget.reversed ? null : constrains.maxWidth * ((value - widget.min) / (widget.max - widget.min))-11,
+                        left: widget.reversed
+                            ? null
+                            : constrains.maxWidth *
+                                      ((value - widget.min) /
+                                          (widget.max - widget.min)) -
+                                  11,
+                        right: !widget.reversed
+                            ? null
+                            : constrains.maxWidth *
+                                      ((value - widget.min) /
+                                          (widget.max - widget.min)) -
+                                  11,
                         child: Center(
                           child: Container(
                             width: 22,
@@ -208,7 +240,7 @@ class _CustomSliderState extends State<CustomSlider> {
                             ),
                           ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),

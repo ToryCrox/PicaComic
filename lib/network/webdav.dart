@@ -43,8 +43,8 @@ class Webdav {
     }
     _haveWaitingTask = false;
     _isOperating = true;
-    appdata.settings[46] =
-        (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+    appdata.settings[46] = (DateTime.now().millisecondsSinceEpoch ~/ 1000)
+        .toString();
     appdata.updateSettings(false);
     config ??= appdata.settings[45];
     var configs = config.split(';');
@@ -80,8 +80,10 @@ class Webdav {
           }
         }
       }
-      await client.writeFromFile(await exportDataToFile(false, "${App.cachePath}/userdata.picadata"),
-          "${configs[3]}${appdata.settings[46]}.picadata");
+      await client.writeFromFile(
+        await exportDataToFile(false, "${App.cachePath}/userdata.picadata"),
+        "${configs[3]}${appdata.settings[46]}.picadata",
+      );
     } catch (e, s) {
       Log.e("Sync Failed to upload data to webdav server.\n$e\n$s");
       _isOperating = false;
@@ -129,8 +131,9 @@ class Webdav {
           return true;
         }
 
-        final fileName =
-            maxVersion != null ? "$maxVersion.picadata" : "picadata";
+        final fileName = maxVersion != null
+            ? "$maxVersion.picadata"
+            : "picadata";
 
         var cachePath = (await getApplicationCacheDirectory()).path;
         await client.read2File("${configs[3]}$fileName", "$cachePath/picadata");

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 
 class FileImageProvider extends ImageProvider<FileImageProvider> {
-
   /// Image provider for downloaded comic
   const FileImageProvider(this.id, this.ep, this.index);
 
@@ -21,7 +20,10 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
   }
 
   @override
-  ImageStreamCompleter loadImage(FileImageProvider key, ImageDecoderCallback decode) {
+  ImageStreamCompleter loadImage(
+    FileImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
     return MultiFrameImageStreamCompleter(
       codec: _loadAsync(key, decode: decode),
       scale: 1.0,
@@ -30,9 +32,9 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
   }
 
   Future<Codec> _loadAsync(
-      FileImageProvider key, {
-        required ImageDecoderCallback decode,
-      }) async {
+    FileImageProvider key, {
+    required ImageDecoderCallback decode,
+  }) async {
     var file = await downloadManager.getImageAsync(id, ep, index);
     final int lengthInBytes = await file.length();
     if (lengthInBytes == 0) {
@@ -48,10 +50,10 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is FileImageProvider
-        && other.id == id
-        && other.ep == ep
-        && other.index == index;
+    return other is FileImageProvider &&
+        other.id == id &&
+        other.ep == ep &&
+        other.index == index;
   }
 
   @override

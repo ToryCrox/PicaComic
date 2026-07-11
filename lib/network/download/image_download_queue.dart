@@ -6,22 +6,22 @@ import 'package:pica_comic/foundation/log.dart';
 enum ImageDownloadTaskState {
   /// 等待下载
   waiting,
-  
+
   /// 下载中
   downloading,
-  
+
   /// 已完成
   completed,
-  
+
   /// 失败
   failed,
-  
+
   /// 已取消
   canceled,
 }
 
 /// 图片下载队列项
-/// 
+///
 /// 表示一个待下载的图片任务
 class ImageDownloadQueueItem {
   /// 图片URL
@@ -92,11 +92,12 @@ class ImageDownloadQueueItem {
 }
 
 /// 图片下载队列
-/// 
+///
 /// 管理单个漫画的所有图片下载任务，控制并发数量，跟踪下载进度
 class ImageDownloadQueue {
   /// 等待下载的图片队列
-  final Queue<ImageDownloadQueueItem> _waitingQueue = Queue<ImageDownloadQueueItem>();
+  final Queue<ImageDownloadQueueItem> _waitingQueue =
+      Queue<ImageDownloadQueueItem>();
 
   /// 正在下载的图片映射表（key: ep-index）
   final Map<String, ImageDownloadQueueItem> _downloadingItems = {};
@@ -115,7 +116,7 @@ class ImageDownloadQueue {
 
   /// 是否正在运行
   bool _isRunning = false;
-  
+
   /// 完成信号（用于 await start() 等待所有任务完成）
   Completer<void>? _completer;
 
@@ -152,7 +153,6 @@ class ImageDownloadQueue {
     this.onEpisodeCompleted,
   });
 
-
   /// 获取当前下载中的数量
   int get downloadingCount => _downloadingItems.length;
 
@@ -169,25 +169,24 @@ class ImageDownloadQueue {
   int get retryingCount => _retryingItems.length;
 
   /// 获取总任务数量
-  int get totalCount => 
-      _waitingQueue.length + 
-      _downloadingItems.length + 
+  int get totalCount =>
+      _waitingQueue.length +
+      _downloadingItems.length +
       _retryingItems.length +
-      _completedItems.length + 
+      _completedItems.length +
       _failedItems.length;
 
   /// 是否正在运行
   bool get isRunning => _isRunning;
 
   /// 是否全部完成
-  bool get isAllCompleted =>
-      totalCount > 0 && completedCount == totalCount;
+  bool get isAllCompleted => totalCount > 0 && completedCount == totalCount;
 
   /// 是否处于流式模式（动态添加任务）
   bool _streamMode = false;
 
   /// 设置是否为流式模式
-  /// 
+  ///
   /// 如果为 true，队列为空时不会自动结束，而是等待新任务
   /// 如果设置为 false 且队列为空，会触发完成回调
   void setStreamMode(bool enable) {
@@ -212,17 +211,16 @@ class ImageDownloadQueue {
     }
 
     _waitingQueue.addLast(item);
-    
+
     // 统计章节图片总数
-    _episodeTotalCounts[item.episodeIndex] = 
+    _episodeTotalCounts[item.episodeIndex] =
         (_episodeTotalCounts[item.episodeIndex] ?? 0) + 1;
-        
+
     // 如果正在运行，尝试调度
     if (_isRunning) {
       _scheduleNext();
     }
   }
-
 
   /// 批量添加图片
   void addImages(List<ImageDownloadQueueItem> items) {
@@ -232,7 +230,7 @@ class ImageDownloadQueue {
   }
 
   /// 开始下载
-  /// 
+  ///
   /// 这个方法会阻塞直到所有任务完成（成功或失败）
   Future<void> start() async {
     if (_isRunning) {
@@ -242,12 +240,14 @@ class ImageDownloadQueue {
 
     _isRunning = true;
     _completer = Completer<void>();
-    
-    Log.i('ImageDownloadQueue: Starting queue. Total: $totalCount, Waiting: ${_waitingQueue.length}');
+
+    Log.i(
+      'ImageDownloadQueue: Starting queue. Total: $totalCount, Waiting: ${_waitingQueue.length}',
+    );
 
     // 触发任务调度
     _scheduleNext();
-    
+
     // 等待所有任务完成
     await _completer!.future;
   }
@@ -260,8 +260,10 @@ class ImageDownloadQueue {
     }
 
     _isRunning = false;
-    Log.i('ImageDownloadQueue: Paused. Downloaded: $completedCount, Failed: $failedCount, Downloading: $downloadingCount');
-    
+    Log.i(
+      'ImageDownloadQueue: Paused. Downloaded: $completedCount, Failed: $failedCount, Downloading: $downloadingCount',
+    );
+
     // 解除对 start() 的阻塞
     if (_completer != null && !_completer!.isCompleted) {
       _completer!.complete();
@@ -327,7 +329,8 @@ class ImageDownloadQueue {
     }
 
     // 继续调度直到达到并发上限或没有等待的任务
-    while (_downloadingItems.length < maxConcurrentDownloads && _waitingQueue.isNotEmpty) {
+    while (_downloadingItems.length < maxConcurrentDownloads &&
+        _waitingQueue.isNotEmpty) {
       final item = _waitingQueue.removeFirst();
       _downloadItem(item);
     }
@@ -345,12 +348,14 @@ class ImageDownloadQueue {
         Log.i('ImageDownloadQueue: All tasks completed successfully');
         _isRunning = false;
         onAllCompleted?.call();
-        _completer?.complete();  // 发送完成信号
+        _completer?.complete(); // 发送完成信号
       } else {
-        Log.w('ImageDownloadQueue: All tasks finished but ${_failedItems.length} failed');
+        Log.w(
+          'ImageDownloadQueue: All tasks finished but ${_failedItems.length} failed',
+        );
         _isRunning = false;
         onFailed?.call(_failedItems.values.toList());
-        _completer?.complete();  // 即使有失败也发送完成信号
+        _completer?.complete(); // 即使有失败也发送完成信号
       }
     }
   }
@@ -377,7 +382,9 @@ class ImageDownloadQueue {
       _downloadingItems.remove(key);
       _completedItems[key] = item;
 
-      Log.d('ImageDownloadQueue: Downloaded $key ($completedCount/$totalCount), title: ${item.savePath}');
+      Log.d(
+        'ImageDownloadQueue: Downloaded $key ($completedCount/$totalCount), title: ${item.savePath}',
+      );
 
       // 通知进度更新
       onProgressUpdate?.call(completedCount, totalCount);
@@ -390,8 +397,11 @@ class ImageDownloadQueue {
 
       if (item.retryCount < _maxItemRetries) {
         // 可以重试：延迟后重新加入等待队列
-        final delay = _itemRetryInitialDelayMs * (1 << (item.retryCount - 1)); // 指数退避
-        Log.w('ImageDownloadQueue: Failed to download $key (attempt ${item.retryCount}/$_maxItemRetries), retrying in ${delay}ms: $e');
+        final delay =
+            _itemRetryInitialDelayMs * (1 << (item.retryCount - 1)); // 指数退避
+        Log.w(
+          'ImageDownloadQueue: Failed to download $key (attempt ${item.retryCount}/$_maxItemRetries), retrying in ${delay}ms: $e',
+        );
 
         _downloadingItems.remove(key);
         item.state = ImageDownloadTaskState.waiting;
@@ -409,7 +419,9 @@ class ImageDownloadQueue {
         });
       } else {
         // 达到最大重试次数，标记为最终失败
-        Log.e('ImageDownloadQueue: Failed to download $key after $_maxItemRetries attempts: $e');
+        Log.e(
+          'ImageDownloadQueue: Failed to download $key after $_maxItemRetries attempts: $e',
+        );
 
         item.state = ImageDownloadTaskState.failed;
         item.error = e;
@@ -430,17 +442,19 @@ class ImageDownloadQueue {
   void _checkEpisodeCompleted(int episodeIndex) {
     // 如果已经触发过，跳过
     if (_completedEpisodes.contains(episodeIndex)) return;
-    
+
     // 更新已完成数量
-    _episodeCompletedCounts[episodeIndex] = 
+    _episodeCompletedCounts[episodeIndex] =
         (_episodeCompletedCounts[episodeIndex] ?? 0) + 1;
-    
+
     final total = _episodeTotalCounts[episodeIndex] ?? 0;
     final completed = _episodeCompletedCounts[episodeIndex] ?? 0;
-    
+
     if (completed >= total && total > 0) {
       _completedEpisodes.add(episodeIndex);
-      Log.i('ImageDownloadQueue: Episode $episodeIndex completed ($completed/$total)');
+      Log.i(
+        'ImageDownloadQueue: Episode $episodeIndex completed ($completed/$total)',
+      );
       onEpisodeCompleted?.call(episodeIndex);
     }
   }
@@ -450,14 +464,13 @@ class ImageDownloadQueue {
     return Set<int>.from(_completedEpisodes);
   }
 
-
   /// 获取队列状态摘要
   String getStatusSummary() {
     return 'Total: $totalCount, Completed: $completedCount, Downloading: $downloadingCount, Waiting: $waitingCount, Retrying: $retryingCount, Failed: $failedCount';
   }
 
   /// 获取每个章节的进度
-  /// 
+  ///
   /// 返回 Map，key 是章节索引，value 是 `(downloaded, total)` 元组
   Map<int, ({int downloaded, int total})> getEpisodeProgress() {
     final result = <int, ({int downloaded, int total})>{};
@@ -471,7 +484,7 @@ class ImageDownloadQueue {
   }
 
   /// 取消指定章节的所有下载任务
-  /// 
+  ///
   /// 从等待队列中移除该章节的任务，并标记正在下载的任务为已取消
   void cancelEpisode(int episodeIndex) {
     Log.i('ImageDownloadQueue: Cancelling episode $episodeIndex');
@@ -507,7 +520,9 @@ class ImageDownloadQueue {
     _episodeCompletedCounts.remove(episodeIndex);
     _completedEpisodes.remove(episodeIndex);
 
-    Log.i('ImageDownloadQueue: Episode $episodeIndex cancelled. Remaining: $totalCount');
+    Log.i(
+      'ImageDownloadQueue: Episode $episodeIndex cancelled. Remaining: $totalCount',
+    );
   }
 
   /// 清理资源
@@ -536,4 +551,3 @@ class ImageDownloadQueue {
     }
   }
 }
-

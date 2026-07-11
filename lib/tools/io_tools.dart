@@ -42,8 +42,11 @@ Future<double> getFolderSize(Directory path) async {
   return total;
 }
 
-Future<bool> exportComic(String id, String name,
-    [List<String>? epNames]) async {
+Future<bool> exportComic(
+  String id,
+  String name, [
+  List<String>? epNames,
+]) async {
   try {
     name = sanitizeFileName(name);
     var data = ExportComicData(
@@ -59,17 +62,21 @@ Future<bool> exportComic(String id, String name,
     }
 
     if (App.isMobile) {
-      var params =
-          SaveFileDialogParams(sourceFilePath: '${data.path}$pathSep$name.zip');
+      var params = SaveFileDialogParams(
+        sourceFilePath: '${data.path}$pathSep$name.zip',
+      );
       await FlutterFileDialog.saveFile(params: params);
     } else {
-      final FileSaveLocation? result =
-          await getSaveLocation(suggestedName: '$name.zip');
+      final FileSaveLocation? result = await getSaveLocation(
+        suggestedName: '$name.zip',
+      );
 
       if (result != null) {
         const String mimeType = 'application/zip';
-        final XFile textFile =
-            XFile('${data.path}$pathSep$name.zip', mimeType: mimeType);
+        final XFile textFile = XFile(
+          '${data.path}$pathSep$name.zip',
+          mimeType: mimeType,
+        );
         await textFile.saveTo(result.path);
       }
     }
@@ -90,27 +97,33 @@ Future<bool> exportComics(List<DownloadedItem> comics) async {
       var name = sanitizeFileName(comic.name);
       var path = downloadManager.path;
       var epNames = comic.eps;
-      exportDatas.add(ExportComicData(
-        id,
-        path!,
-        name,
-        epNames,
-        downloadManager.getDirectory(id),
-      ));
+      exportDatas.add(
+        ExportComicData(
+          id,
+          path!,
+          name,
+          epNames,
+          downloadManager.getDirectory(id),
+        ),
+      );
     }
     await Isolate.run(() => runningExportComics(exportDatas));
     if (App.isMobile) {
       var params = SaveFileDialogParams(
-          sourceFilePath: '${downloadManager.path}/comics.zip');
+        sourceFilePath: '${downloadManager.path}/comics.zip',
+      );
       await FlutterFileDialog.saveFile(params: params);
     } else {
-      final FileSaveLocation? result =
-          await getSaveLocation(suggestedName: 'comics.zip');
+      final FileSaveLocation? result = await getSaveLocation(
+        suggestedName: 'comics.zip',
+      );
 
       if (result != null) {
         const String mimeType = 'application/zip';
-        final XFile textFile =
-            XFile('${downloadManager.path}/comics.zip', mimeType: mimeType);
+        final XFile textFile = XFile(
+          '${downloadManager.path}/comics.zip',
+          mimeType: mimeType,
+        );
         await textFile.saveTo(result.path);
       }
     }
@@ -132,7 +145,9 @@ Future<bool> exportPdf(String pdfPath) async {
     } else {
       final FileSaveLocation? result = await getSaveLocation(
         suggestedName: File(pdfPath).name,
-        acceptedTypeGroups: [const XTypeGroup(label: 'pdf', extensions: ['pdf'])],
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'pdf', extensions: ['pdf']),
+        ],
       );
 
       if (result != null) {
@@ -172,7 +187,8 @@ Future<bool> runningExportComic(ExportComicData data) async {
         if (entry is Directory) {
           var index = int.parse(entry.name) - 1;
           currentDirName = sanitizeFileName(
-              data.epNames?.elementAtOrNull(index) ?? "Chapter ${index + 1}");
+            data.epNames?.elementAtOrNull(index) ?? "Chapter ${index + 1}",
+          );
           walk(entry.path);
         } else {
           var filePathInZip = sanitizeFileName(data.name);
@@ -211,7 +227,8 @@ Future<bool> runningExportComics(List<ExportComicData> datas) async {
           if (entry is Directory) {
             var index = int.parse(entry.name) - 1;
             currentDirName = sanitizeFileName(
-                data.epNames?.elementAtOrNull(index) ?? "Chapter ${index + 1}");
+              data.epNames?.elementAtOrNull(index) ?? "Chapter ${index + 1}",
+            );
             walk(entry.path);
           } else {
             var filePathInZip = sanitizeFileName(data.name);
@@ -242,7 +259,8 @@ Future<void> copyDirectory(Directory source, Directory destination) async {
   try {
     List<FileSystemEntity> contents = source.listSync();
     for (FileSystemEntity content in contents) {
-      String newPath = destination.path +
+      String newPath =
+          destination.path +
           Platform.pathSeparator +
           content.path.split(Platform.pathSeparator).last;
 
@@ -268,11 +286,13 @@ Future<void> moveDirectory(Directory source, Directory destination) async {
     List<FileSystemEntity> contents = source.listSync();
     for (FileSystemEntity content in contents) {
       if (content is File) {
-        await content
-            .rename(destination.path + Platform.pathSeparator + content.name);
+        await content.rename(
+          destination.path + Platform.pathSeparator + content.name,
+        );
       } else if (content is Directory) {
-        Directory newDirectory =
-            Directory(destination.path + Platform.pathSeparator + content.name);
+        Directory newDirectory = Directory(
+          destination.path + Platform.pathSeparator + content.name,
+        );
         newDirectory.createSync(recursive: true);
         await moveDirectory(content, newDirectory);
       }
@@ -296,8 +316,12 @@ Future<void> checkDownloadPath() async {
   }
 }
 
-Future<String?> _exportData(String path, String appdataString,
-    String? downloadPath, String outPath) async {
+Future<String?> _exportData(
+  String path,
+  String appdataString,
+  String? downloadPath,
+  String outPath,
+) async {
   var encode = ZipFile.open(outPath);
   try {
     var filePath = "$path${pathSep}appdata";
@@ -317,7 +341,9 @@ Future<String?> _exportData(String path, String appdataString,
       history.createSync();
     }
     encode.addFile(
-        localFavorite.name, localFavorite.path.replaceAll("\\", "/"));
+      localFavorite.name,
+      localFavorite.path.replaceAll("\\", "/"),
+    );
     encode.addFile(history.name, history.path);
     encode.addFile('cookies.db', "$path/cookies.db");
     await for (var entry in Directory("$path/comic_source").list()) {
@@ -327,8 +353,10 @@ Future<String?> _exportData(String path, String appdataString,
     }
     if (downloadPath != null) {
       downloadPath = downloadPath.replaceAll('\\', '/');
-      var sourceFolder =
-          downloadPath.substring(0, downloadPath.lastIndexOf('/'));
+      var sourceFolder = downloadPath.substring(
+        0,
+        downloadPath.lastIndexOf('/'),
+      );
       void walk(String path) {
         for (var entry in Directory(path).listSync()) {
           if (entry is Directory) {
@@ -360,9 +388,10 @@ Future<String> exportDataToFile(bool includeDownload, String outPath) async {
     var appdataString = const JsonEncoder().convert(appdata.toJson());
     var downloadPath = includeDownload ? downloadManager.path : null;
     var res = await compute<List<String?>, String?>(
-        (message) =>
-            _exportData(message[0]!, message[1]!, message[2], message[3]!),
-        [path, appdataString, downloadPath, outPath]);
+      (message) =>
+          _exportData(message[0]!, message[1]!, message[2], message[3]!),
+      [path, appdataString, downloadPath, outPath],
+    );
 
     if (res != null) {
       throw Exception(res);
@@ -378,8 +407,9 @@ Future<bool> runExportData(bool includeDownload) async {
   try {
     var outPath = '${App.cachePath}/userdata.picadata';
     if (App.isDesktop) {
-      final FileSaveLocation? result =
-          await getSaveLocation(suggestedName: 'userData.picadata');
+      final FileSaveLocation? result = await getSaveLocation(
+        suggestedName: 'userData.picadata',
+      );
       if (result == null) {
         return true;
       }
@@ -419,11 +449,10 @@ Future<bool> importData([String? filePath]) async {
       var params = const OpenFileDialogParams();
       filePath = await FlutterFileDialog.pickFile(params: params);
     } else {
-      const XTypeGroup typeGroup = XTypeGroup(
-        label: 'data',
+      const XTypeGroup typeGroup = XTypeGroup(label: 'data');
+      final XFile? file = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
-      final XFile? file =
-          await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
       filePath = file?.path;
     }
     if (filePath == null) {
@@ -435,60 +464,66 @@ Future<bool> importData([String? filePath]) async {
   downloadManager.dispose();
   String data = '';
   try {
-    data = await compute<List<String>, String>((data) async {
-      var path = data[0];
-      ZipFile.openAndExtract(data[1], "$path/dataTemp");
-      var downloadPath = Directory(data[2]);
-      List<FileSystemEntity> contents = Directory("$path/dataTemp").listSync();
-      for (FileSystemEntity item in contents) {
-        if (item is Directory) {
-          if (item.name != "comic_source" && item.name != "download") {
-            item.renameSync('$path/dataTemp/download');
+    data = await compute<List<String>, String>(
+      (data) async {
+        var path = data[0];
+        ZipFile.openAndExtract(data[1], "$path/dataTemp");
+        var downloadPath = Directory(data[2]);
+        List<FileSystemEntity> contents = Directory(
+          "$path/dataTemp",
+        ).listSync();
+        for (FileSystemEntity item in contents) {
+          if (item is Directory) {
+            if (item.name != "comic_source" && item.name != "download") {
+              item.renameSync('$path/dataTemp/download');
+            }
           }
         }
-      }
-      final json = File("$path/dataTemp/appdata").readAsStringSync();
-      int fileVersion = int.parse(
+        final json = File("$path/dataTemp/appdata").readAsStringSync();
+        int fileVersion = int.parse(
           ((const JsonDecoder().convert(json))["settings"] as List)
                   .elementAtOrNull(46) ??
-              "1");
-      if (fileVersion <= int.parse(data[3]) && data[4] == "1") {
+              "1",
+        );
+        if (fileVersion <= int.parse(data[3]) && data[4] == "1") {
+          return json;
+        }
+        var localFavorite = File('$path/dataTemp/localFavorite');
+        if (localFavorite.existsSync()) {
+          localFavorite.copySync('$path/localFavorite');
+        } else {
+          var localFavorite2 = File('$path/dataTemp/local_favorite.db');
+          localFavorite2.copySync('$path/local_favorite_temp.db');
+        }
+        var history = File('$path/dataTemp/history.db');
+        if (history.existsSync()) {
+          history.copySync('$path/history_temp.db');
+        }
+        var comicSource = Directory('$path/dataTemp/comic_source');
+        if (comicSource.existsSync()) {
+          Directory("$path/comic_source").deleteSync(recursive: true);
+          comicSource.renameSync('$path/comic_source');
+        }
+        var cookies = File('$path/dataTemp/cookies.db');
+        if (cookies.existsSync()) {
+          cookies.copySync('$path/cookies.db');
+        }
+        var downloadData = Directory("$path/dataTemp/download");
+        if (downloadData.existsSync()) {
+          downloadPath.deleteSync(recursive: true);
+          downloadPath.createSync();
+          await moveDirectory(downloadData, downloadPath);
+        }
         return json;
-      }
-      var localFavorite = File('$path/dataTemp/localFavorite');
-      if (localFavorite.existsSync()) {
-        localFavorite.copySync('$path/localFavorite');
-      } else {
-        var localFavorite2 = File('$path/dataTemp/local_favorite.db');
-        localFavorite2.copySync('$path/local_favorite_temp.db');
-      }
-      var history = File('$path/dataTemp/history.db');
-      if (history.existsSync()) {
-        history.copySync('$path/history_temp.db');
-      }
-      var comicSource = Directory('$path/dataTemp/comic_source');
-      if (comicSource.existsSync()) {
-        Directory("$path/comic_source").deleteSync(recursive: true);
-        comicSource.renameSync('$path/comic_source');
-      }
-      var cookies = File('$path/dataTemp/cookies.db');
-      if (cookies.existsSync()) {
-        cookies.copySync('$path/cookies.db');
-      }
-      var downloadData = Directory("$path/dataTemp/download");
-      if (downloadData.existsSync()) {
-        downloadPath.deleteSync(recursive: true);
-        downloadPath.createSync();
-        await moveDirectory(downloadData, downloadPath);
-      }
-      return json;
-    }, [
-      path,
-      filePath,
-      downloadManager.path!,
-      appdata.settings[46],
-      (enableCheck ? "1" : "0")
-    ]);
+      },
+      [
+        path,
+        filePath,
+        downloadManager.path!,
+        appdata.settings[46],
+        (enableCheck ? "1" : "0"),
+      ],
+    );
   } catch (e, s) {
     Log.e("importData $e\n$s");
     return false;
@@ -499,12 +534,15 @@ Future<bool> importData([String? filePath]) async {
     Directory("$path/dataTemp").deleteSync(recursive: true);
   }
   var json = const JsonDecoder().convert(data);
-  int fileVersion =
-      int.parse((json["settings"] as List).elementAtOrNull(46) ?? "1");
+  int fileVersion = int.parse(
+    (json["settings"] as List).elementAtOrNull(46) ?? "1",
+  );
   int appVersion = int.parse(appdata.settings[46]);
   if (fileVersion <= appVersion && enableCheck) {
-    Log.i("Appdata The data file version is $fileVersion, while the app data version is "
-        "$appVersion\nStop importing data");
+    Log.i(
+      "Appdata The data file version is $fileVersion, while the app data version is "
+      "$appVersion\nStop importing data",
+    );
   }
   var dataReadRes = appdata.readDataFromJson(json);
   if (!dataReadRes) {
@@ -522,8 +560,9 @@ void saveLog(String log) async {
   var file = File("$path${pathSep}logs.txt");
   file.writeAsStringSync(log);
   if (App.isMobile) {
-    var params =
-        SaveFileDialogParams(sourceFilePath: "$path${pathSep}logs.txt");
+    var params = SaveFileDialogParams(
+      sourceFilePath: "$path${pathSep}logs.txt",
+    );
     await FlutterFileDialog.saveFile(params: params);
   } else {
     final String? directoryPath = await getDirectoryPath();
@@ -544,17 +583,22 @@ Future<void> exportStringDataAsFile(String data, String fileName) async {
     var params = SaveFileDialogParams(sourceFilePath: file.path);
     await FlutterFileDialog.saveFile(params: params);
   } else {
-    final FileSaveLocation? result =
-        await getSaveLocation(suggestedName: fileName);
+    final FileSaveLocation? result = await getSaveLocation(
+      suggestedName: fileName,
+    );
     if (result == null) {
       return;
     }
 
-    final Uint8List fileData =
-        Uint8List.fromList(const Utf8Encoder().convert(data));
+    final Uint8List fileData = Uint8List.fromList(
+      const Utf8Encoder().convert(data),
+    );
     const String mimeType = 'text/plain';
-    final XFile textFile =
-        XFile.fromData(fileData, mimeType: mimeType, name: fileName);
+    final XFile textFile = XFile.fromData(
+      fileData,
+      mimeType: mimeType,
+      name: fileName,
+    );
     await textFile.saveTo(result.path);
   }
 }
@@ -565,12 +609,10 @@ Future<String?> getDataFromUserSelectedFile(List<String> extensions) async {
     var params = const OpenFileDialogParams();
     filePath = await FlutterFileDialog.pickFile(params: params);
   } else {
-    XTypeGroup typeGroup = XTypeGroup(
-      label: 'data',
-      extensions: extensions,
+    XTypeGroup typeGroup = XTypeGroup(label: 'data', extensions: extensions);
+    final XFile? file = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[typeGroup],
     );
-    final XFile? file =
-        await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
     filePath = file?.path;
   }
   if (filePath == null) {

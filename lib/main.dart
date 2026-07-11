@@ -35,40 +35,43 @@ void main(List<String> args) {
     return;
   }
 
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await init();
-    registerAllComicPageAdapters();
-    await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
-    FlutterError.onError = (details) {
-      Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
-    };
-    notFirstUse = appdata.firstUse[3] == "1";
-    setNetworkProxy();
-    runApp(const ProviderScope(child: MyApp()));
-    if (App.isDesktop) {
-      await windowManager.ensureInitialized();
-      windowManager.waitUntilReadyToShow().then((_) async {
-        await windowManager.setTitleBarStyle(
-          TitleBarStyle.hidden,
-          windowButtonVisibility: App.isMacOS,
-        );
-        if (App.isLinux) {
-          await windowManager.setBackgroundColor(Colors.transparent);
-        }
-        await windowManager.setMinimumSize(const Size(500, 600));
-        if (!App.isLinux) {
-          // https://github.com/leanflutter/window_manager/issues/460
-          var placement = await WindowPlacement.loadFromFile();
-          await placement.applyToWindow();
-          await windowManager.show();
-          WindowPlacement.loop();
-        }
-      });
-    }
-  }, (error, stack) {
-    Log.e("Unhandled Exception $error\n$stack");
-  });
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await init();
+      registerAllComicPageAdapters();
+      await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
+      FlutterError.onError = (details) {
+        Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
+      };
+      notFirstUse = appdata.firstUse[3] == "1";
+      setNetworkProxy();
+      runApp(const ProviderScope(child: MyApp()));
+      if (App.isDesktop) {
+        await windowManager.ensureInitialized();
+        windowManager.waitUntilReadyToShow().then((_) async {
+          await windowManager.setTitleBarStyle(
+            TitleBarStyle.hidden,
+            windowButtonVisibility: App.isMacOS,
+          );
+          if (App.isLinux) {
+            await windowManager.setBackgroundColor(Colors.transparent);
+          }
+          await windowManager.setMinimumSize(const Size(500, 600));
+          if (!App.isLinux) {
+            // https://github.com/leanflutter/window_manager/issues/460
+            var placement = await WindowPlacement.loadFromFile();
+            await placement.applyToWindow();
+            await windowManager.show();
+            WindowPlacement.loop();
+          }
+        });
+      }
+    },
+    (error, stack) {
+      Log.e("Unhandled Exception $error\n$stack");
+    },
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -90,11 +93,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void hideContent() {
     if (hideContentOverlay != null) return;
     hideContentOverlay = OverlayEntry(
-        builder: (context) => Container(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.width,
-              color: Theme.of(context).colorScheme.surface,
-            ));
+      builder: (context) => Container(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.width,
+        color: Theme.of(context).colorScheme.surface,
+      ),
+    );
     OverlayWidget.addOverlay(hideContentOverlay!);
   }
 
@@ -166,7 +170,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   (ColorScheme, ColorScheme) _generateColorSchemes(
-      ColorScheme? light, ColorScheme? dark) {
+    ColorScheme? light,
+    ColorScheme? dark,
+  ) {
     Color? color;
     if (int.parse(appdata.settings[27]) != 0) {
       color = colors[int.parse(appdata.settings[27]) - 1];
@@ -194,84 +200,85 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
     return PopScope(
       canPop: false,
-      child: DynamicColorBuilder(builder: (light, dark) {
-        var (lightColor, darkColor) = _generateColorSchemes(light, dark);
-        return MaterialApp(
-          title: 'Pica Comic',
-          debugShowCheckedModeBanner: false,
-          navigatorKey: App.navigatorKey,
-          theme: ThemeData(
-            colorScheme: lightColor,
-            useMaterial3: true,
-            fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
-                ? appdata.appSettings.font
-                : null,
-          ),
-          darkTheme: ThemeData(
-            colorScheme: darkColor,
-            useMaterial3: true,
-            fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
-                ? appdata.appSettings.font
-                : null,
-            brightness: Brightness.dark,
-          ),
-          themeMode: appdata.appSettings.darkMode == 2
-              ? ThemeMode.dark
-              : appdata.appSettings.darkMode == 1
-              ? ThemeMode.light
-              : ThemeMode.system,
-          onGenerateRoute: (settings) => AppPageRoute(
-            builder: (context) => notFirstUse
-                ? (appdata.settings[13] == "1"
-                ? const AuthPage()
-                : const MainPage())
-                : const WelcomePage(),
-          ),
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('zh', 'CN'),
-            Locale('zh', 'TW'),
-            Locale('en', 'US')
-          ],
-          scrollBehavior: fixScrollBehavior,
-          builder: (context, widget) {
-            ErrorWidget.builder = (details) {
-              Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
-              return Material(
-                child: Center(
-                  child: Text(details.exception.toString()),
-                ),
-              );
-            };
-            if (widget != null) {
-              widget = OverlayWidget(widget);
-              if (App.isDesktop) {
-                widget = Shortcuts(
-                  shortcuts: {
-                    LogicalKeySet(LogicalKeyboardKey.escape):
-                    VoidCallbackIntent(
-                          () {
+      child: DynamicColorBuilder(
+        builder: (light, dark) {
+          var (lightColor, darkColor) = _generateColorSchemes(light, dark);
+          return MaterialApp(
+            title: 'Pica Comic',
+            debugShowCheckedModeBanner: false,
+            navigatorKey: App.navigatorKey,
+            theme: ThemeData(
+              colorScheme: lightColor,
+              useMaterial3: true,
+              fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
+                  ? appdata.appSettings.font
+                  : null,
+            ),
+            darkTheme: ThemeData(
+              colorScheme: darkColor,
+              useMaterial3: true,
+              fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
+                  ? appdata.appSettings.font
+                  : null,
+              brightness: Brightness.dark,
+            ),
+            themeMode: appdata.appSettings.darkMode == 2
+                ? ThemeMode.dark
+                : appdata.appSettings.darkMode == 1
+                ? ThemeMode.light
+                : ThemeMode.system,
+            onGenerateRoute: (settings) => AppPageRoute(
+              builder: (context) => notFirstUse
+                  ? (appdata.settings[13] == "1"
+                        ? const AuthPage()
+                        : const MainPage())
+                  : const WelcomePage(),
+            ),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CN'),
+              Locale('zh', 'TW'),
+              Locale('en', 'US'),
+            ],
+            scrollBehavior: fixScrollBehavior,
+            builder: (context, widget) {
+              ErrorWidget.builder = (details) {
+                Log.e(
+                  "Unhandled Exception ${details.exception}\n${details.stack}",
+                );
+                return Material(
+                  child: Center(child: Text(details.exception.toString())),
+                );
+              };
+              if (widget != null) {
+                widget = OverlayWidget(widget);
+                if (App.isDesktop) {
+                  widget = Shortcuts(
+                    shortcuts: {
+                      LogicalKeySet(
+                        LogicalKeyboardKey.escape,
+                      ): VoidCallbackIntent(() {
                         if (App.canPop) {
                           App.globalBack();
                         } else {
                           App.mainNavigatorKey?.currentContext?.pop();
                         }
-                      },
-                    ),
-                  },
-                  child: WindowFrame(widget),
-                );
+                      }),
+                    },
+                    child: WindowFrame(widget),
+                  );
+                }
+                return _SystemUiProvider(widget);
               }
-              return _SystemUiProvider(widget);
-            }
-            throw ('widget is null');
-          },
-        );
-      }),
+              throw ('widget is null');
+            },
+          );
+        },
+      ),
     );
   }
 }

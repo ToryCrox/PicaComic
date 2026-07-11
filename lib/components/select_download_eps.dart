@@ -3,9 +3,13 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 
 class SelectDownloadChapter extends StatefulWidget {
-  const SelectDownloadChapter(this.eps, this.finishSelect, this.downloadedEps,
-      {Key? key, this.onEpisodeDelete})
-      : super(key: key);
+  const SelectDownloadChapter(
+    this.eps,
+    this.finishSelect,
+    this.downloadedEps, {
+    Key? key,
+    this.onEpisodeDelete,
+  }) : super(key: key);
   final List<String> eps;
   final void Function(List<int>) finishSelect;
   final List<int> downloadedEps;
@@ -27,10 +31,7 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
-            child: Text(
-              "下载漫画".tl,
-              style: const TextStyle(fontSize: 22),
-            ),
+            child: Text("下载漫画".tl, style: const TextStyle(fontSize: 22)),
           ),
           Expanded(
             child: GridView.builder(
@@ -46,15 +47,19 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
                     onTap: () {
                       if (widget.downloadedEps.contains(i)) {
                         if (widget.onEpisodeDelete != null) {
-                          showConfirmDialog(context, "删除".tl, "确认删除已下载的章节?".tl,
-                              () async {
-                            await widget.onEpisodeDelete!(i);
-                            if (mounted) {
-                              setState(() {
-                                widget.downloadedEps.remove(i);
-                              });
-                            }
-                          });
+                          showConfirmDialog(
+                            context,
+                            "删除".tl,
+                            "确认删除已下载的章节?".tl,
+                            () async {
+                              await widget.onEpisodeDelete!(i);
+                              if (mounted) {
+                                setState(() {
+                                  widget.downloadedEps.remove(i);
+                                });
+                              }
+                            },
+                          );
                         }
                       } else {
                         setState(() {
@@ -68,21 +73,21 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
                     },
                     child: AnimatedContainer(
                       decoration: BoxDecoration(
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(16)),
-                        color: (selected.contains(i) ||
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(16),
+                        ),
+                        color:
+                            (selected.contains(i) ||
                                 widget.downloadedEps.contains(i))
                             ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
+                            : Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                       ),
                       duration: const Duration(milliseconds: 200),
                       child: Row(
                         children: [
-                          const SizedBox(
-                            width: 16,
-                          ),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Text(
                               widget.eps[i],
@@ -92,9 +97,7 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
                           if (selected.contains(i)) const Icon(Icons.done),
                           if (widget.downloadedEps.contains(i))
                             const Icon(Icons.download_done),
-                          const SizedBox(
-                            width: 16,
-                          ),
+                          const SizedBox(width: 16),
                         ],
                       ),
                     ),
@@ -108,41 +111,35 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
             height: 50,
             child: Row(
               children: [
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton.tonal(
-                      onPressed: () {
-                        var res = <int>[];
-                        for (int i = 0; i < widget.eps.length; i++) {
-                          if (!widget.downloadedEps.contains(i)) {
-                            res.add(i);
-                          }
+                    onPressed: () {
+                      var res = <int>[];
+                      for (int i = 0; i < widget.eps.length; i++) {
+                        if (!widget.downloadedEps.contains(i)) {
+                          res.add(i);
                         }
-                        widget.finishSelect(res);
-                      },
-                      child: Text("下载全部".tl)),
+                      }
+                      widget.finishSelect(res);
+                    },
+                    child: Text("下载全部".tl),
+                  ),
                 ),
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton.tonal(
-                      onPressed: () {
-                        widget.finishSelect(selected);
-                      },
-                      child: Text("下载选择".tl)),
+                    onPressed: () {
+                      widget.finishSelect(selected);
+                    },
+                    child: Text("下载选择".tl),
+                  ),
                 ),
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
               ],
             ),
           ),
-          SizedBox(
-            height: MediaQuery.of(context).padding.bottom + 4,
-          )
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
         ],
       ),
     );

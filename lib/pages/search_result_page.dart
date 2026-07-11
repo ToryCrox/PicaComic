@@ -40,7 +40,11 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
 
   @override
   Future<Res<List<BaseComic>>> getComics(int i) {
-    return ComicSource.find(comicType)!.searchPageData!.loadPage!(keyword, i, options);
+    return ComicSource.find(comicType)!.searchPageData!.loadPage!(
+      keyword,
+      i,
+      options,
+    );
   }
 }
 
@@ -63,7 +67,8 @@ class SearchResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var comicSource =
-        ComicSource.find(comicType) ?? (throw "source ${comicType.name} not found");
+        ComicSource.find(comicType) ??
+        (throw "source ${comicType.name} not found");
     var options = this.options;
     if (comicSource.searchPageData?.searchOptions != null) {
       var searchOptions = comicSource.searchPageData!.searchOptions!;
@@ -156,9 +161,7 @@ class _SearchResultPageState extends State<_SearchResultPage> {
             right: 0,
             bottom: 0,
             child: Material(
-              child: _Suggestions(
-                controller: suggestionsController,
-              ),
+              child: _Suggestions(controller: suggestionsController),
             ),
           );
         },
@@ -191,9 +194,7 @@ class _SearchResultPageState extends State<_SearchResultPage> {
             icon: const Icon(Icons.dataset_outlined),
             onPressed: changeSource,
           ),
-          const SizedBox(
-            width: 4,
-          ),
+          const SizedBox(width: 4),
           Button.icon(
             icon: const Icon(Icons.tune),
             onPressed: showSearchOptions,
@@ -275,14 +276,8 @@ class _SearchResultPageState extends State<_SearchResultPage> {
         0,
       ),
       items: [
-        PopupMenuItem(
-          value: 0,
-          child: Text("切换源".tl),
-        ),
-        PopupMenuItem(
-          value: 1,
-          child: Text("搜索选项".tl),
-        ),
+        PopupMenuItem(value: 0, child: Text("切换源".tl)),
+        PopupMenuItem(value: 1, child: Text("搜索选项".tl)),
       ],
     ).then((value) {
       if (value == 0) {
@@ -300,54 +295,57 @@ class _SearchResultPageState extends State<_SearchResultPage> {
       useSafeArea: false,
       context: context,
       builder: (context) {
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "切换源".tl,
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var source in sources)
-                  RadioListTile<ComicType>(
-                    title: Text(source.name),
-                    value: source.key,
-                    groupValue: selectedType,
-                    onChanged: (value) {
-                      setState(() {
-                        selectedType = value!;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: "切换源".tl,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var source in sources)
+                    RadioListTile<ComicType>(
+                      title: Text(source.name),
+                      value: source.key,
+                      groupValue: selectedType,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedType = value!;
+                        });
+                      },
+                    ),
+                ],
+              ),
+              actions: [
+                Button.filled(
+                  child: Text("确认".tl),
+                  onPressed: () {
+                    context.pop();
+                    var searchData = ComicSource.find(
+                      selectedType,
+                    )!.searchPageData!;
+                    var newOptions = (searchData.searchOptions ?? [])
+                        .map((e) => e.defaultValue)
+                        .toList();
+                    if (searchData.overrideSearchResultBuilder != null) {
+                      this.context.off(() {
+                        return SearchResultPage(
+                          keyword: widget.keyword,
+                          options: newOptions,
+                          comicType: selectedType,
+                        );
                       });
-                    },
-                  )
+                    } else {
+                      this.setState(() {
+                        comicType = selectedType;
+                        options = newOptions;
+                      });
+                    }
+                  },
+                ),
               ],
-            ),
-            actions: [
-              Button.filled(
-                child: Text("确认".tl),
-                onPressed: () {
-                  context.pop();
-                  var searchData =
-                      ComicSource.find(selectedType)!.searchPageData!;
-                  var newOptions = (searchData.searchOptions ?? [])
-                      .map((e) => e.defaultValue)
-                      .toList();
-                  if (searchData.overrideSearchResultBuilder != null) {
-                    this.context.off(() {
-                      return SearchResultPage(
-                        keyword: widget.keyword,
-                        options: newOptions,
-                        comicType: selectedType,
-                      );
-                    });
-                  } else {
-                    this.setState(() {
-                      comicType = selectedType;
-                      options = newOptions;
-                    });
-                  }
-                },
-              )
-            ],
-          );
-        });
+            );
+          },
+        );
       },
     );
   }
@@ -370,8 +368,11 @@ class _SearchResultPageState extends State<_SearchResultPage> {
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(
-      {required this.child, required this.maxHeight, required this.minHeight});
+  _SliverAppBarDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
 
   final double minHeight;
   final double maxHeight;
@@ -379,10 +380,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(
-      child: child,
-    );
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
   }
 
   @override
@@ -503,34 +505,27 @@ class _SuggestionsState extends State<_Suggestions> {
 
     Widget buildItem(Pair<String, TranslationType> value) {
       var subTitle = TagsTranslation.translationTagWithNamespace(
-          value.left, value.right.name);
+        value.left,
+        value.right.name,
+      );
       return ListTile(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Text(
-                value.left,
-                maxLines: 2,
-              ),
-            ),
-            if (!showMethod)
-              const SizedBox(
-                width: 12,
-              ),
+            Expanded(child: Text(value.left, maxLines: 2)),
+            if (!showMethod) const SizedBox(width: 12),
             if (!showMethod && showTranslation)
               Text(
                 subTitle,
                 style: TextStyle(
-                    fontSize: 14, color: Theme.of(context).colorScheme.outline),
-              )
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
           ],
         ),
         subtitle: (showMethod && showTranslation) ? Text(subTitle) : null,
-        trailing: Text(
-          value.right.name,
-          style: const TextStyle(fontSize: 13),
-        ),
+        trailing: Text(value.right.name, style: const TextStyle(fontSize: 13)),
         onTap: () => onSelected(value.left, value.right),
       );
     }
@@ -541,9 +536,7 @@ class _SuggestionsState extends State<_Suggestions> {
           height: 32,
           child: Row(
             children: [
-              const SizedBox(
-                width: 32,
-              ),
+              const SizedBox(width: 32),
               Text("建议".tl),
               const Spacer(),
               InkWell(
@@ -554,15 +547,10 @@ class _SuggestionsState extends State<_Suggestions> {
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.close, size: 20),
                 ),
               ),
-              const SizedBox(
-                width: 36,
-              ),
+              const SizedBox(width: 36),
             ],
           ),
         ),
@@ -573,7 +561,7 @@ class _SuggestionsState extends State<_Suggestions> {
             itemBuilder: (context, index) =>
                 buildItem(widget.controller.suggestions[index]),
           ),
-        )
+        ),
       ],
     );
   }
@@ -597,13 +585,20 @@ class _SuggestionsState extends State<_Suggestions> {
     var controller = widget.controller.controller;
     var words = controller.text.split(" ");
     if (words.length >= 2 &&
-        check("${words[words.length - 2]} ${words[words.length - 1]}", text,
-            text.translateTagsToCN)) {
+        check(
+          "${words[words.length - 2]} ${words[words.length - 1]}",
+          text,
+          text.translateTagsToCN,
+        )) {
       controller.text = controller.text.replaceLast(
-          "${words[words.length - 2]} ${words[words.length - 1]}", "");
+        "${words[words.length - 2]} ${words[words.length - 1]}",
+        "",
+      );
     } else {
-      controller.text =
-          controller.text.replaceLast(words[words.length - 1], "");
+      controller.text = controller.text.replaceLast(
+        words[words.length - 1],
+        "",
+      );
     }
     if (type != null) {
       controller.text += "${type.name}:$text ";
@@ -659,7 +654,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
             context.pop();
             widget.onChanged(options);
           },
-        )
+        ),
       ],
     );
   }
@@ -676,37 +671,39 @@ class _SearchOptionsState extends State<_SearchOptions> {
       final searchOptions = data.searchOptions ?? <SearchOptions>[];
       for (int i = 0; i < searchOptions.length; i++) {
         final option = searchOptions[i];
-        children.add(ListTile(
-          title: Text(option.label),
-        ));
-        children.add(Wrap(
-          runSpacing: 8,
-          spacing: 8,
-          children: option.options.entries.map((e) {
-            return InkWell(
-              onTap: () {
-                setState(() {
-                  options[i] = e.key;
-                });
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  color: options[i] == e.key
-                      ? context.colorScheme.primaryContainer
-                      : context.colorScheme.primaryContainer.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+        children.add(ListTile(title: Text(option.label)));
+        children.add(
+          Wrap(
+            runSpacing: 8,
+            spacing: 8,
+            children: option.options.entries.map((e) {
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    options[i] = e.key;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    color: options[i] == e.key
+                        ? context.colorScheme.primaryContainer
+                        : context.colorScheme.primaryContainer.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Text(e.value.tl),
+                  ),
                 ),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(e.value.tl),
-                ),
-              ),
-            );
-          }).toList(),
-        ).paddingHorizontal(16));
+              );
+            }).toList(),
+          ).paddingHorizontal(16),
+        );
       }
     }
     return Column(

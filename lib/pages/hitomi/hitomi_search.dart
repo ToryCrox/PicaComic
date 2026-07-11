@@ -11,8 +11,11 @@ import '../../foundation/app.dart';
 import '../../network/res.dart';
 
 class SearchPageComicList extends StatefulWidget {
-  const SearchPageComicList(
-      {super.key, required this.keyword, required this.head});
+  const SearchPageComicList({
+    super.key,
+    required this.keyword,
+    required this.head,
+  });
 
   final String keyword;
 
@@ -92,8 +95,11 @@ class _HitomiSearchPageState extends State<HitomiSearchPage> {
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(
-      {required this.child, required this.maxHeight, required this.minHeight});
+  _SliverAppBarDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
 
   final double minHeight;
   final double maxHeight;
@@ -101,10 +107,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(
-      child: child,
-    );
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
   }
 
   @override
@@ -121,9 +128,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class HitomiComicTileDynamicLoading extends StatefulWidget {
-  const HitomiComicTileDynamicLoading(this.id,
-      {Key? key, this.addonMenuOptions})
-      : super(key: key);
+  const HitomiComicTileDynamicLoading(
+    this.id, {
+    Key? key,
+    this.addonMenuOptions,
+  }) : super(key: key);
   final int id;
 
   final List<ComicTileMenuOption>? addonMenuOptions;

@@ -19,20 +19,25 @@ class DownloadedJmComic extends DownloadedItem {
   @override
   DownloadColorTag? color;
 
-  DownloadedJmComic(this.comic, this.size, this.downloadedChapters, {this.color});
+  DownloadedJmComic(
+    this.comic,
+    this.size,
+    this.downloadedChapters, {
+    this.color,
+  });
 
   Map<String, dynamic> toMap() => {
-        "comic": comic.toJson(),
-        "size": size,
-        "downloadedChapters": downloadedChapters,
-        "color": color?.name,
-      };
+    "comic": comic.toJson(),
+    "size": size,
+    "downloadedChapters": downloadedChapters,
+    "color": color?.name,
+  };
 
   DownloadedJmComic.fromMap(Map<String, dynamic> map)
-      : comic = JmComicInfo.fromMap(map["comic"]),
-        size = map["size"],
-        color = DownloadColorTag.fromString(map["color"]),
-        downloadedChapters = [] {
+    : comic = JmComicInfo.fromMap(map["comic"]),
+      size = map["size"],
+      color = DownloadColorTag.fromString(map["color"]),
+      downloadedChapters = [] {
     if (map["downloadedChapters"] == null) {
       //旧版本中的数据不包含这一项
       for (int i = 0; i < comic.series.length; i++) {
@@ -54,8 +59,10 @@ class DownloadedJmComic extends DownloadedItem {
 
   @override
   List<String> get eps => comic.epNames.isEmpty
-      ? (List<String>.generate(comic.series.isEmpty ? 1 : comic.series.length,
-          (index) => "第${index + 1}章"))
+      ? (List<String>.generate(
+          comic.series.isEmpty ? 1 : comic.series.length,
+          (index) => "第${index + 1}章",
+        ))
       : comic.epNames;
 
   @override
@@ -81,9 +88,15 @@ class DownloadedJmComic extends DownloadedItem {
 }
 
 class JmDownloadingTask extends DownloadingTask {
-  JmDownloadingTask(this.comic, this._downloadEps, super.whenFinish,
-      super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.jm});
+  JmDownloadingTask(
+    this.comic,
+    this._downloadEps,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.jm,
+  });
 
   JmComicInfo comic;
 
@@ -149,7 +162,7 @@ class JmDownloadingTask extends DownloadingTask {
     // 3. 逐个章节获取并入队
     for (var i in sortedEps) {
       final key = i + 1;
-      
+
       // 检查 series 中是否有该章节（理论上应该有，除非数据不一致）
       if (!comic.series.containsKey(key)) continue;
 
@@ -172,10 +185,10 @@ class JmDownloadingTask extends DownloadingTask {
         // var downloadTo = haveEps ? "$path/$ep" : path;
         // JM 的 haveEps 也是 true (based on type != ... list)
         // 只要不是 Hentai/Hitomi/HtManga/Nhentai
-        
+
         var downloadTo = "$path/$key";
         var basename = j.toString();
-        
+
         var item = ImageDownloadQueueItem(
           url: urls[j],
           episodeIndex: key,
@@ -183,7 +196,7 @@ class JmDownloadingTask extends DownloadingTask {
           savePath: downloadTo,
           fileBaseName: basename,
         );
-        
+
         queue.addImage(item);
       }
     }
@@ -200,16 +213,18 @@ class JmDownloadingTask extends DownloadingTask {
   }
 
   /// 覆写此方法以使用线程安全的方式获取 epsId
-  /// 
+  ///
   /// 从 [item.episodeIndex] 直接获取章节 ID，而不是依赖共享状态 [downloadingEp]
   /// 这在并发下载时能确保每张图片都使用正确的章节 ID 进行反混淆处理
   @override
-  Stream<DownloadProgress> downloadImageWithContext(ImageDownloadQueueItem item) {
+  Stream<DownloadProgress> downloadImageWithContext(
+    ImageDownloadQueueItem item,
+  ) {
     final bookId = _getBookIdFromLink(item.url);
     // item.episodeIndex 就是 links 的 key，即章节编号
     // comic.series 是 {章节编号: 章节ID} 的映射
     final epsId = comic.series[item.episodeIndex] ?? comic.series.values.first;
-    
+
     return ImageManager().getJmImage(
       item.url,
       {},
@@ -235,27 +250,29 @@ class JmDownloadingTask extends DownloadingTask {
 
   @override
   Map<String, dynamic> toMap() => {
-        "comic": comic.toJson(),
-        "_downloadEps": _downloadEps,
-        ...super.toBaseMap()
-      };
+    "comic": comic.toJson(),
+    "_downloadEps": _downloadEps,
+    ...super.toBaseMap(),
+  };
 
   JmDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = JmComicInfo.fromMap(map["comic"]),
-        _downloadEps = List<int>.from(map["_downloadEps"]),
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = JmComicInfo.fromMap(map["comic"]),
+      _downloadEps = List<int>.from(map["_downloadEps"]),
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   String getEpisodeName(int episodeIndex) {
     // episodeIndex 是 links 的 key（对于禁漫，与 comic.series 的 key 一致，从1开始）
     // comic.epNames 的索引是从0开始
     final index = episodeIndex - 1;
-    if (comic.epNames.isNotEmpty && index >= 0 && index < comic.epNames.length) {
+    if (comic.epNames.isNotEmpty &&
+        index >= 0 &&
+        index < comic.epNames.length) {
       return comic.epNames[index];
     }
     return "第$episodeIndex章";
@@ -279,11 +296,16 @@ class JmDownloadingTask extends DownloadingTask {
     var downloadEps = (_downloadEps + previous).toSet().toList();
     downloadEps.sort();
     return DownloadedJmComic(
-        comic, await getFolderSize(Directory(path)), downloadEps);
+      comic,
+      await getFolderSize(Directory(path)),
+      downloadEps,
+    );
   }
 
   @override
-  FutureOr<DownloadedItem?> toDownloadedItemPartial(List<int> completedEpisodes) async {
+  FutureOr<DownloadedItem?> toDownloadedItemPartial(
+    List<int> completedEpisodes,
+  ) async {
     var previous = <int>[];
     if (await downloadManager.isExists(id)) {
       var existingComic =
@@ -292,12 +314,15 @@ class JmDownloadingTask extends DownloadingTask {
     }
     // completedEpisodes 是 links Map 的 key（章节编号，从1开始）
     // downloadedEps 存储的是从0开始的索引
-    var downloadedEps = (completedEpisodes.map((e) => e - 1).toList() + previous)
-        .toSet()
-        .toList();
+    var downloadedEps =
+        (completedEpisodes.map((e) => e - 1).toList() + previous)
+            .toSet()
+            .toList();
     downloadedEps.sort();
     return DownloadedJmComic(
-        comic, await getFolderSize(Directory(path)), downloadedEps);
+      comic,
+      await getFolderSize(Directory(path)),
+      downloadedEps,
+    );
   }
 }
-

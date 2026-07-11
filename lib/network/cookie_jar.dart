@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:io';
 
@@ -44,11 +43,12 @@ class CookieJarSql {
         await dir.create(recursive: true);
       }
 
-      _db = await databaseFactoryFfi.openDatabase(path,
-          options: OpenDatabaseOptions(
-            version: 1,
-            onCreate: (db, version) async {
-              await db.execute('''
+      _db = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
                 CREATE TABLE IF NOT EXISTS $kTableCookies (
                   $kCookieName TEXT NOT NULL,
                   $kCookieValue TEXT NOT NULL,
@@ -60,8 +60,9 @@ class CookieJarSql {
                   PRIMARY KEY ($kCookieName, $kCookieDomain, $kCookiePath)
                 );
               ''');
-            },
-          ));
+          },
+        ),
+      );
 
       _initialized = true;
       _initCompleter.complete(_db);
@@ -79,32 +80,31 @@ class CookieJarSql {
 
   Future<void> saveFromResponse(Uri uri, List<Cookie> cookies) async {
     for (var cookie in cookies) {
-      Log.d(() => "CookieJarSql: save cookie ${cookie.name}, ${cookie.value}, domain: ${cookie.domain}");
+      Log.d(
+        () =>
+            "CookieJarSql: save cookie ${cookie.name}, ${cookie.value}, domain: ${cookie.domain}",
+      );
       await _saveCookie(uri, cookie);
     }
   }
 
   Future<void> _saveCookie(Uri uri, Cookie cookie) async {
     final db = await _getDatabase();
-    
-    await db.insert(
-      kTableCookies,
-      {
-        kCookieName: cookie.name,
-        kCookieValue: cookie.value,
-        kCookieDomain: cookie.domain ?? uri.host,
-        kCookiePath: cookie.path ?? "/",
-        kCookieExpires: cookie.expires?.millisecondsSinceEpoch,
-        kCookieSecure: cookie.secure ? 1 : 0,
-        kCookieHttpOnly: cookie.httpOnly ? 1 : 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+
+    await db.insert(kTableCookies, {
+      kCookieName: cookie.name,
+      kCookieValue: cookie.value,
+      kCookieDomain: cookie.domain ?? uri.host,
+      kCookiePath: cookie.path ?? "/",
+      kCookieExpires: cookie.expires?.millisecondsSinceEpoch,
+      kCookieSecure: cookie.secure ? 1 : 0,
+      kCookieHttpOnly: cookie.httpOnly ? 1 : 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Cookie>> _loadWithDomain(String domain) async {
     final db = await _getDatabase();
-    
+
     final rows = await db.query(
       kTableCookies,
       where: '$kCookieDomain = ?',
@@ -112,10 +112,7 @@ class CookieJarSql {
     );
 
     return rows.map((row) {
-      return Cookie(
-        row[kCookieName] as String,
-        row[kCookieValue] as String,
-      )
+      return Cookie(row[kCookieName] as String, row[kCookieValue] as String)
         ..domain = row[kCookieDomain] as String
         ..path = row[kCookiePath] as String?
         ..expires = row[kCookieExpires] == null
@@ -143,21 +140,30 @@ class CookieJarSql {
     for (var domain in acceptedDomains) {
       cookies.addAll(await _loadWithDomain(domain));
     }
-    Log.d(() => "CookieJarSql: load cookies for request $uri, acceptedDomains: $acceptedDomains, cookies: $cookies");
+    Log.d(
+      () =>
+          "CookieJarSql: load cookies for request $uri, acceptedDomains: $acceptedDomains, cookies: $cookies",
+    );
 
     // check expires
     var now = DateTime.now();
-    var expiredCookies = cookies.where((cookie) =>
-        cookie.expires != null && cookie.expires!.isBefore(now)).toList();
-        
+    var expiredCookies = cookies
+        .where(
+          (cookie) => cookie.expires != null && cookie.expires!.isBefore(now),
+        )
+        .toList();
+
     // 删除过期的 cookies
     for (var cookie in expiredCookies) {
       await _deleteCookie(cookie.name, cookie.domain!, cookie.path ?? "/");
     }
 
     return cookies
-        .where((element) =>
-            !expiredCookies.contains(element) && _checkPathMatch(uri, element.path))
+        .where(
+          (element) =>
+              !expiredCookies.contains(element) &&
+              _checkPathMatch(uri, element.path),
+        )
         .toList();
   }
 
@@ -181,7 +187,10 @@ class CookieJarSql {
     return uri.path.startsWith(cookiePath);
   }
 
-  Future<void> saveFromResponseCookieHeader(Uri uri, List<String> cookieHeader) async {
+  Future<void> saveFromResponseCookieHeader(
+    Uri uri,
+    List<String> cookieHeader,
+  ) async {
     var cookies = cookieHeader
         .map((header) => Cookie.fromSetCookieValue(header))
         .toList();
@@ -226,7 +235,7 @@ class CookieJarSql {
   Future<void> deleteUri(Uri uri) async {
     var acceptedDomains = _getAcceptedDomains(uri.host);
     final db = await _getDatabase();
-    
+
     for (var domain in acceptedDomains) {
       await db.delete(
         kTableCookies,
@@ -265,7 +274,10 @@ class CookieManagerSql extends Interceptor {
   CookieManagerSql(this.cookieJar);
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     var cookies = await cookieJar.loadForRequestCookieHeader(options.uri);
     if (cookies.isNotEmpty) {
       options.headers["cookie"] = cookies;
@@ -276,7 +288,9 @@ class CookieManagerSql extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     cookieJar.saveFromResponseCookieHeader(
-        response.requestOptions.uri, response.headers["set-cookie"] ?? []);
+      response.requestOptions.uri,
+      response.headers["set-cookie"] ?? [],
+    );
     handler.next(response);
   }
 

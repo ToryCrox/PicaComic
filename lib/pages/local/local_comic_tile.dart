@@ -94,8 +94,9 @@ class _LocalComicTileState extends State<LocalComicTile> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () async {
-          final historyMap =
-              LocalHistoryManager().findInCache(widget.model.path)?.toMap();
+          final historyMap = LocalHistoryManager()
+              .findInCache(widget.model.path)
+              ?.toMap();
           await widget.onTap(historyMap);
           _loadData();
         },
@@ -169,38 +170,41 @@ class _LocalComicTileState extends State<LocalComicTile> {
       right: 4,
       child: Material(
         color: Colors.transparent,
-        child: Watch.builder(builder: (context) {
-          final favorite =
-              downloadManager.findLocalFavoriteInCache(widget.model.path);
-          return InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () async {
-              if (favorite != null) {
-                await downloadManager.deleteLocalFavorite(widget.model.path);
-              } else {
-                await downloadManager.addLocalFavorite(widget.model.path);
-              }
-              widget.onReload();
-            },
-            onLongPress: () {
-              if (favorite != null) {
-                _showWeightDialog(favorite.sortOrder.toDouble());
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                shape: BoxShape.circle,
+        child: Watch.builder(
+          builder: (context) {
+            final favorite = downloadManager.findLocalFavoriteInCache(
+              widget.model.path,
+            );
+            return InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () async {
+                if (favorite != null) {
+                  await downloadManager.deleteLocalFavorite(widget.model.path);
+                } else {
+                  await downloadManager.addLocalFavorite(widget.model.path);
+                }
+                widget.onReload();
+              },
+              onLongPress: () {
+                if (favorite != null) {
+                  _showWeightDialog(favorite.sortOrder.toDouble());
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  favorite != null ? Icons.bookmark : Icons.bookmark_border,
+                  color: favorite != null ? Colors.orange : Colors.white,
+                  size: 20,
+                ),
               ),
-              child: Icon(
-                favorite != null ? Icons.bookmark : Icons.bookmark_border,
-                color: favorite != null ? Colors.orange : Colors.white,
-                size: 20,
-              ),
-            ),
-          );
-        }),
+            );
+          },
+        ),
       ),
     );
   }
@@ -210,44 +214,46 @@ class _LocalComicTileState extends State<LocalComicTile> {
     return Positioned(
       right: 4,
       bottom: 4,
-      child: Watch.builder(builder: (context) {
-        final history = LocalHistoryManager().findInCache(widget.model.path);
+      child: Watch.builder(
+        builder: (context) {
+          final history = LocalHistoryManager().findInCache(widget.model.path);
 
-        Widget child;
-        if (history != null && history.time > 0) {
-          final time = DateTime.fromMillisecondsSinceEpoch(history.time);
-          child = Text(
-            time.toCompareString,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w500,
-            ),
-          );
-        } else {
-          child = Icon(
-            Icons.menu_book,
-            size: 18,
-            color: colorScheme.onPrimaryContainer,
-          );
-        }
-
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: _read,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(16),
+          Widget child;
+          if (history != null && history.time > 0) {
+            final time = DateTime.fromMillisecondsSinceEpoch(history.time);
+            child = Text(
+              time.toCompareString,
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w500,
               ),
-              child: child,
+            );
+          } else {
+            child = Icon(
+              Icons.menu_book,
+              size: 18,
+              color: colorScheme.onPrimaryContainer,
+            );
+          }
+
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _read,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: child,
+              ),
             ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 
@@ -280,24 +286,26 @@ class _LocalComicTileState extends State<LocalComicTile> {
 
   // 构建进度条
   Widget _buildProgressBar(ColorScheme colorScheme) {
-    return Watch.builder(builder: (context) {
-      final history = LocalHistoryManager().findInCache(widget.model.path);
-      if (history == null) return const SizedBox(height: 3);
+    return Watch.builder(
+      builder: (context) {
+        final history = LocalHistoryManager().findInCache(widget.model.path);
+        if (history == null) return const SizedBox(height: 3);
 
-      final pageIndex = history.pageIndex;
-      final totalPages = history.totalPages;
-      double value = 0.0;
-      if (totalPages > 0) {
-        value = (pageIndex / totalPages).clamp(0.0, 1.0);
-      }
+        final pageIndex = history.pageIndex;
+        final totalPages = history.totalPages;
+        double value = 0.0;
+        if (totalPages > 0) {
+          value = (pageIndex / totalPages).clamp(0.0, 1.0);
+        }
 
-      return LinearProgressIndicator(
-        value: value,
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-        minHeight: 3,
-      );
-    });
+        return LinearProgressIndicator(
+          value: value,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+          minHeight: 3,
+        );
+      },
+    );
   }
 
   // 构建标题
@@ -318,15 +326,17 @@ class _LocalComicTileState extends State<LocalComicTile> {
     final history = LocalHistoryManager().findInCache(widget.model.path);
     final initIndex = history?.pageIndex ?? 1;
     final isReversed = history?.isReversed == 1;
-    App.globalTo(() => ComicReadingPage.localComic(
-          widget.model.path,
-          widget.model.title,
-          allDirPaths: widget.allDirPaths.isEmpty
-              ? [widget.model.path]
-              : widget.allDirPaths,
-          initialPage: initIndex,
-          isReversed: isReversed,
-        )).then((v) => _loadData());
+    App.globalTo(
+      () => ComicReadingPage.localComic(
+        widget.model.path,
+        widget.model.title,
+        allDirPaths: widget.allDirPaths.isEmpty
+            ? [widget.model.path]
+            : widget.allDirPaths,
+        initialPage: initIndex,
+        isReversed: isReversed,
+      ),
+    ).then((v) => _loadData());
   }
 
   void _showWeightDialog(double currentWeight) {
@@ -336,7 +346,9 @@ class _LocalComicTileState extends State<LocalComicTile> {
         initialValue: currentWeight,
         onChanged: (val) async {
           await downloadManager.updateLocalFavoriteSortOrder(
-              widget.model.path, val.toInt());
+            widget.model.path,
+            val.toInt(),
+          );
           widget.onReload();
         },
       ),
@@ -385,7 +397,9 @@ class _WeightDialogState extends State<_WeightDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text("取消")),
+          onPressed: () => Navigator.pop(context),
+          child: const Text("取消"),
+        ),
         TextButton(
           onPressed: () {
             widget.onChanged(_value);

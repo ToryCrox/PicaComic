@@ -6,11 +6,9 @@ void hideAllMessages() {
 
 void showToast({required String message, Widget? icon, Widget? trailing}) {
   var newEntry = OverlayEntry(
-      builder: (context) => _ToastOverlay(
-            message: message,
-            icon: icon,
-            trailing: trailing,
-          ));
+    builder: (context) =>
+        _ToastOverlay(message: message, icon: icon, trailing: trailing),
+  );
 
   _OverlayWidgetState.addOverlay(newEntry);
 
@@ -48,10 +46,12 @@ class _ToastOverlay extends StatelessWidget {
                 Text(
                   message,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 3,
                 ),
-                if (trailing != null) trailing!.paddingLeft(8)
+                if (trailing != null) trailing!.paddingLeft(8),
               ],
             ),
           ),
@@ -111,19 +111,23 @@ class _OverlayWidgetState extends State<OverlayWidget> {
 
 void showDialogMessage(BuildContext context, String title, String message) {
   showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                  onPressed: () => App.back(context), child: Text("了解".tl))
-            ],
-          ));
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => App.back(context), child: Text("了解".tl)),
+      ],
+    ),
+  );
 }
 
-void showConfirmDialog(BuildContext context, String title, String content,
-    void Function() onConfirm) {
+void showConfirmDialog(
+  BuildContext context,
+  String title,
+  String content,
+  void Function() onConfirm,
+) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -132,11 +136,12 @@ void showConfirmDialog(BuildContext context, String title, String content,
       actions: [
         TextButton(onPressed: () => App.back(context), child: Text("取消".tl)),
         TextButton(
-            onPressed: () {
-              App.back(context);
-              onConfirm();
-            },
-            child: Text("确认".tl)),
+          onPressed: () {
+            App.back(context);
+            onConfirm();
+          },
+          child: Text("确认".tl),
+        ),
       ],
     ),
   );
@@ -160,49 +165,48 @@ class LoadingDialogController {
   }
 }
 
-LoadingDialogController showLoadingDialog(BuildContext context,
-    {void Function()? onCancel,
-    bool barrierDismissible = true,
-    bool allowCancel = true,
-    String? message,
-    String cancelButtonText = "Cancel"}) {
+LoadingDialogController showLoadingDialog(
+  BuildContext context, {
+  void Function()? onCancel,
+  bool barrierDismissible = true,
+  bool allowCancel = true,
+  String? message,
+  String cancelButtonText = "Cancel",
+}) {
   var controller = LoadingDialogController();
 
   var loadingDialogRoute = DialogRoute(
-      context: context,
-      barrierDismissible: barrierDismissible,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Container(
-            width: 100,
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: CircularProgressIndicator(),
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (BuildContext context) {
+      return Dialog(
+        child: Container(
+          width: 100,
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(),
+              ),
+              const SizedBox(width: 16),
+              Text(message ?? 'Loading', style: const TextStyle(fontSize: 16)),
+              const Spacer(),
+              if (allowCancel)
+                TextButton(
+                  onPressed: () {
+                    controller.close();
+                    onCancel?.call();
+                  },
+                  child: Text(cancelButtonText.tl),
                 ),
-                const SizedBox(
-                  width: 16,
-                ),
-                Text(
-                  message ?? 'Loading',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const Spacer(),
-                if (allowCancel)
-                  TextButton(
-                      onPressed: () {
-                        controller.close();
-                        onCancel?.call();
-                      },
-                      child: Text(cancelButtonText.tl))
-              ],
-            ),
+            ],
           ),
-        );
-      });
+        ),
+      );
+    },
+  );
 
   var navigator = Navigator.of(context);
 
@@ -234,10 +238,7 @@ class ContentDialog extends StatelessWidget {
     var content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Appbar(
-          title: Text(title),
-          backgroundColor: Colors.transparent,
-        ),
+        Appbar(title: Text(title), backgroundColor: Colors.transparent),
         this.content,
         const SizedBox(height: 16),
         Row(

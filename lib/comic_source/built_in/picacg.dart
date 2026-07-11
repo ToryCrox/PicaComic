@@ -38,9 +38,7 @@ final picacg = ComicSource.named(
   categoryData: CategoryData(
     title: "Picacg",
     key: "picacg",
-    categories: [
-      const FixedCategoryPart("分类", _categories, "category"),
-    ],
+    categories: [const FixedCategoryPart("分类", _categories, "category")],
     enableRankingPage: true,
     buttons: [
       CategoryButtonData(
@@ -99,55 +97,55 @@ final picacg = ComicSource.named(
   },
   comicTileBuilderOverride: (context, comic, options) {
     comic as ComicItemBrief;
-    return _PicComicTile(
-      comic,
-      addonMenuOptions: options,
-    );
+    return _PicComicTile(comic, addonMenuOptions: options);
   },
   explorePages: [
     ExplorePageData.named(
       title: "picacg",
       type: ExplorePageType.singlePageWithMultiPart,
       loadMultiPart: () async {
-        var [res0, res1] = await Future.wait(
-          [network.getRandomComics(), network.getLatest(1)],
-        );
+        var [res0, res1] = await Future.wait([
+          network.getRandomComics(),
+          network.getLatest(1),
+        ]);
         if (res0.error) {
           return Res.fromErrorRes(res0);
         }
         if (res1.error) {
           return Res.fromErrorRes(res1);
         }
-        DiskCache.writeModelList('pica_radom_comic', res0.data.map((e) => e.toJson()).toList());
-        DiskCache.writeModelList('pica_radom_latest', res1.data.map((e) => e.toJson()).toList());
+        DiskCache.writeModelList(
+          'pica_radom_comic',
+          res0.data.map((e) => e.toJson()).toList(),
+        );
+        DiskCache.writeModelList(
+          'pica_radom_latest',
+          res1.data.map((e) => e.toJson()).toList(),
+        );
         return Res([
           ExplorePagePart("随机".tl, res0.data, "category:random"),
           ExplorePagePart("最新".tl, res1.data, "category:latest"),
         ]);
       },
       loadMultiPartCache: () async {
-          var [res0, res1] = await Future.wait(
-            [
-              DiskCache.readModelList(
-                  'pica_radom_comic', ComicItemBrief.fromJson),
-              DiskCache.readModelList(
-                  'pica_radom_latest', ComicItemBrief.fromJson),
-            ],
-          );
-          if (res0.isNotEmpty || res1.isNotEmpty) {
-            return [
-              ExplorePagePart("随机".tl, res0, "category:random"),
-              ExplorePagePart("最新".tl, res1, "category:latest"),
-            ];
-          } else {
-            return [];
-          }
+        var [res0, res1] = await Future.wait([
+          DiskCache.readModelList('pica_radom_comic', ComicItemBrief.fromJson),
+          DiskCache.readModelList('pica_radom_latest', ComicItemBrief.fromJson),
+        ]);
+        if (res0.isNotEmpty || res1.isNotEmpty) {
+          return [
+            ExplorePagePart("随机".tl, res0, "category:random"),
+            ExplorePagePart("最新".tl, res1, "category:latest"),
+          ];
+        } else {
+          return [];
         }
+      },
     ),
   ],
   categoryComicsData: CategoryComicsData.named(
     load: (category, param, options, page) async {
-      if(category == "random") {
+      if (category == "random") {
         return PicacgNetwork().getRandomComics();
       } else if (category == "latest") {
         return PicacgNetwork().getLatest(page);
@@ -171,11 +169,7 @@ final picacg = ComicSource.named(
       ),
     ],
     rankingData: RankingData.named(
-      options: {
-        "H24": "24小时",
-        "D7": "7天",
-        "D30": "30天",
-      },
+      options: {"H24": "24小时", "D7": "7天", "D30": "30天"},
       load: (options, page) {
         return PicacgNetwork().getLeaderboard(options);
       },
@@ -183,7 +177,12 @@ final picacg = ComicSource.named(
   ),
   searchPageData: SearchPageData.named(
     loadPage: (keyword, page, options) {
-      return PicacgNetwork().search(keyword, options[0], page, addToHistory: true);
+      return PicacgNetwork().search(
+        keyword,
+        options[0],
+        page,
+        addToHistory: true,
+      );
     },
     searchOptions: [
       SearchOptions.named(
@@ -204,7 +203,7 @@ class _PicComicTile extends ComicTile {
   final ComicItemBrief comic;
 
   const _PicComicTile(this.comic, {Key? key, this.addonMenuOptions})
-      : super(key: key);
+    : super(key: key);
 
   @override
   String get description => '${comic.likes} likes';
@@ -214,54 +213,54 @@ class _PicComicTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: comic.path,
-        sourceKey: ComicType.picacg.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: comic.path,
+    sourceKey: ComicType.picacg.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(
-          App.globalContext!,
-          onCancel: () => cancel = true,
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await network.getEps(comic.id);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await HistoryManager().find(comic.id);
+      if (history == null) {
+        history = History(
+          HistoryType.picacg,
+          DateTime.now(),
+          comic.title,
+          comic.author,
+          comic.cover,
+          0,
+          0,
+          comic.id,
         );
-        var res = await network.getEps(comic.id);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await HistoryManager().find(comic.id);
-          if (history == null) {
-            history = History(
-              HistoryType.picacg,
-              DateTime.now(),
-              comic.title,
-              comic.author,
-              comic.cover,
-              0,
-              0,
-              comic.id,
-            );
-            await HistoryManager().addHistory(history);
-          }
-          App.globalTo(
-            () => ComicReadingPage.picacg(
-              comic.id,
-              history!.ep,
-              res.data,
-              comic.title,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+        await HistoryManager().addHistory(history);
+      }
+      App.globalTo(
+        () => ComicReadingPage.picacg(
+          comic.id,
+          history!.ep,
+          res.data,
+          comic.title,
+          initialPage: history.page,
+        ),
+      );
+    }
+  };
 
   @override
   void onTap_() {
@@ -336,5 +335,5 @@ const _categories = [
   "禁書目錄",
   "歐美",
   "Cosplay",
-  "重口地帶"
+  "重口地帶",
 ];

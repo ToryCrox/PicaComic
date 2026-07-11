@@ -46,15 +46,16 @@ class CustomShrinkWrappingViewport extends CustomViewport {
     Key? center,
     double? cacheExtent,
     List<Widget> slivers = const <Widget>[],
-  })  : _anchor = anchor,
-        super(
-            key: key,
-            axisDirection: axisDirection,
-            crossAxisDirection: crossAxisDirection,
-            offset: offset,
-            center: center,
-            cacheExtent: cacheExtent,
-            slivers: slivers);
+  }) : _anchor = anchor,
+       super(
+         key: key,
+         axisDirection: axisDirection,
+         crossAxisDirection: crossAxisDirection,
+         offset: offset,
+         center: center,
+         cacheExtent: cacheExtent,
+         slivers: slivers,
+       );
 
   // [Viewport] enforces constraints on [Viewport.anchor], so we need our own
   // version.
@@ -67,7 +68,8 @@ class CustomShrinkWrappingViewport extends CustomViewport {
   CustomRenderShrinkWrappingViewport createRenderObject(BuildContext context) {
     return CustomRenderShrinkWrappingViewport(
       axisDirection: axisDirection,
-      crossAxisDirection: crossAxisDirection ??
+      crossAxisDirection:
+          crossAxisDirection ??
           Viewport.getDefaultCrossAxisDirection(context, axisDirection),
       offset: offset,
       anchor: anchor,
@@ -77,10 +79,13 @@ class CustomShrinkWrappingViewport extends CustomViewport {
 
   @override
   void updateRenderObject(
-      BuildContext context, CustomRenderShrinkWrappingViewport renderObject) {
+    BuildContext context,
+    CustomRenderShrinkWrappingViewport renderObject,
+  ) {
     renderObject
       ..axisDirection = axisDirection
-      ..crossAxisDirection = crossAxisDirection ??
+      ..crossAxisDirection =
+          crossAxisDirection ??
           Viewport.getDefaultCrossAxisDirection(context, axisDirection)
       ..anchor = anchor
       ..offset = offset
@@ -129,15 +134,15 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
     List<RenderSliver>? children,
     RenderSliver? center,
     double? cacheExtent,
-  })  : _anchor = anchor,
-        super(
-          axisDirection: axisDirection,
-          crossAxisDirection: crossAxisDirection,
-          offset: offset,
-          center: center,
-          cacheExtent: cacheExtent,
-          children: children,
-        );
+  }) : _anchor = anchor,
+       super(
+         axisDirection: axisDirection,
+         crossAxisDirection: crossAxisDirection,
+         offset: offset,
+         center: center,
+         cacheExtent: cacheExtent,
+         children: children,
+       );
 
   double _anchor;
 
@@ -226,8 +231,11 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
     double correction;
     double effectiveExtent;
     do {
-      correction = _attemptLayout(mainAxisExtent, crossAxisExtent,
-          offset.pixels + centerOffsetAdjustment);
+      correction = _attemptLayout(
+        mainAxisExtent,
+        crossAxisExtent,
+        offset.pixels + centerOffsetAdjustment,
+      );
       if (correction != 0.0) {
         offset.correctBy(correction);
       } else {
@@ -246,10 +254,13 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
         final maxScrollOffset = math.max(math.min(0.0, top), bottom);
         final minScrollOffset = math.min(top, maxScrollOffset);
 
-        final bool didAcceptViewportDimension =
-            offset.applyViewportDimension(effectiveExtent);
-        final bool didAcceptContentDimension =
-            offset.applyContentDimensions(minScrollOffset, maxScrollOffset);
+        final bool didAcceptViewportDimension = offset.applyViewportDimension(
+          effectiveExtent,
+        );
+        final bool didAcceptContentDimension = offset.applyContentDimensions(
+          minScrollOffset,
+          maxScrollOffset,
+        );
         if (didAcceptViewportDimension && didAcceptContentDimension) {
           break;
         }
@@ -257,18 +268,25 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
     } while (true);
     switch (axis) {
       case Axis.vertical:
-        size =
-            constraints.constrainDimensions(crossAxisExtent, effectiveExtent);
+        size = constraints.constrainDimensions(
+          crossAxisExtent,
+          effectiveExtent,
+        );
         break;
       case Axis.horizontal:
-        size =
-            constraints.constrainDimensions(effectiveExtent, crossAxisExtent);
+        size = constraints.constrainDimensions(
+          effectiveExtent,
+          crossAxisExtent,
+        );
         break;
     }
   }
 
   double _attemptLayout(
-      double mainAxisExtent, double crossAxisExtent, double correctedOffset) {
+    double mainAxisExtent,
+    double crossAxisExtent,
+    double correctedOffset,
+  ) {
     assert(!mainAxisExtent.isNaN);
     assert(mainAxisExtent >= 0.0);
     assert(crossAxisExtent.isFinite);
@@ -283,10 +301,12 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
     // to the zero scroll offset (the line between the forward slivers and the
     // reverse slivers).
     final centerOffset = mainAxisExtent * anchor - correctedOffset;
-    final reverseDirectionRemainingPaintExtent =
-        centerOffset.clamp(0.0, mainAxisExtent);
-    final forwardDirectionRemainingPaintExtent =
-        (mainAxisExtent - centerOffset).clamp(0.0, mainAxisExtent);
+    final reverseDirectionRemainingPaintExtent = centerOffset.clamp(
+      0.0,
+      mainAxisExtent,
+    );
+    final forwardDirectionRemainingPaintExtent = (mainAxisExtent - centerOffset)
+        .clamp(0.0, mainAxisExtent);
 
     switch (cacheExtentStyle) {
       case CacheExtentStyle.pixel:
@@ -299,8 +319,10 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
 
     final fullCacheExtent = mainAxisExtent + 2 * _calculatedCacheExtent!;
     final centerCacheOffset = centerOffset + _calculatedCacheExtent!;
-    final reverseDirectionRemainingCacheExtent =
-        centerCacheOffset.clamp(0.0, fullCacheExtent);
+    final reverseDirectionRemainingCacheExtent = centerCacheOffset.clamp(
+      0.0,
+      fullCacheExtent,
+    );
     final forwardDirectionRemainingCacheExtent =
         (fullCacheExtent - centerCacheOffset).clamp(0.0, fullCacheExtent);
 
@@ -319,8 +341,10 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
         growthDirection: GrowthDirection.reverse,
         advance: childBefore,
         remainingCacheExtent: reverseDirectionRemainingCacheExtent,
-        cacheOrigin: (mainAxisExtent - centerOffset)
-            .clamp(-_calculatedCacheExtent!, 0.0),
+        cacheOrigin: (mainAxisExtent - centerOffset).clamp(
+          -_calculatedCacheExtent!,
+          0.0,
+        ),
       );
       if (result != 0.0) return -result;
     }
@@ -329,8 +353,9 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
     return layoutChildSequence(
       child: center,
       scrollOffset: math.max(0.0, -centerOffset),
-      overlap:
-          leadingNegativeChild == null ? math.min(0.0, -centerOffset) : 0.0,
+      overlap: leadingNegativeChild == null
+          ? math.min(0.0, -centerOffset)
+          : 0.0,
       layoutOffset: centerOffset >= mainAxisExtent
           ? centerOffset
           : reverseDirectionRemainingPaintExtent,
@@ -349,7 +374,9 @@ class CustomRenderShrinkWrappingViewport extends CustomRenderViewport {
 
   @override
   void updateOutOfBandData(
-      GrowthDirection growthDirection, SliverGeometry childLayoutGeometry) {
+    GrowthDirection growthDirection,
+    SliverGeometry childLayoutGeometry,
+  ) {
     switch (growthDirection) {
       case GrowthDirection.forward:
         _maxScrollExtent += childLayoutGeometry.scrollExtent;
@@ -419,11 +446,14 @@ abstract class CustomViewport extends MultiChildRenderObjectWidget {
     this.cacheExtentStyle = CacheExtentStyle.pixel,
     this.clipBehavior = Clip.hardEdge,
     List<Widget> slivers = const <Widget>[],
-  })  : assert(center == null ||
-            slivers.where((Widget child) => child.key == center).length == 1),
-        assert(cacheExtentStyle != CacheExtentStyle.viewport ||
-            cacheExtent != null),
-        super(key: key, children: slivers);
+  }) : assert(
+         center == null ||
+             slivers.where((Widget child) => child.key == center).length == 1,
+       ),
+       assert(
+         cacheExtentStyle != CacheExtentStyle.viewport || cacheExtent != null,
+       ),
+       super(key: key, children: slivers);
 
   /// The direction in which the [offset]'s [ViewportOffset.pixels] increases.
   ///
@@ -492,27 +522,33 @@ abstract class CustomViewport extends MultiChildRenderObjectWidget {
   /// This depends on the [Directionality] if the `axisDirection` is vertical;
   /// otherwise, the default cross axis direction is downwards.
   static AxisDirection getDefaultCrossAxisDirection(
-      BuildContext context, AxisDirection axisDirection) {
+    BuildContext context,
+    AxisDirection axisDirection,
+  ) {
     switch (axisDirection) {
       case AxisDirection.up:
-        assert(debugCheckHasDirectionality(
-          context,
-          why:
-              'to determine the cross-axis direction when the viewport has an \'up\' axisDirection',
-          alternative:
-              'Alternatively, consider specifying the \'crossAxisDirection\' argument on the Viewport.',
-        ));
+        assert(
+          debugCheckHasDirectionality(
+            context,
+            why:
+                'to determine the cross-axis direction when the viewport has an \'up\' axisDirection',
+            alternative:
+                'Alternatively, consider specifying the \'crossAxisDirection\' argument on the Viewport.',
+          ),
+        );
         return textDirectionToAxisDirection(Directionality.of(context));
       case AxisDirection.right:
         return AxisDirection.down;
       case AxisDirection.down:
-        assert(debugCheckHasDirectionality(
-          context,
-          why:
-              'to determine the cross-axis direction when the viewport has a \'down\' axisDirection',
-          alternative:
-              'Alternatively, consider specifying the \'crossAxisDirection\' argument on the Viewport.',
-        ));
+        assert(
+          debugCheckHasDirectionality(
+            context,
+            why:
+                'to determine the cross-axis direction when the viewport has a \'down\' axisDirection',
+            alternative:
+                'Alternatively, consider specifying the \'crossAxisDirection\' argument on the Viewport.',
+          ),
+        );
         return textDirectionToAxisDirection(Directionality.of(context));
       case AxisDirection.left:
         return AxisDirection.down;
@@ -529,20 +565,33 @@ abstract class CustomViewport extends MultiChildRenderObjectWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(EnumProperty<AxisDirection>('axisDirection', axisDirection));
-    properties.add(EnumProperty<AxisDirection>(
-        'crossAxisDirection', crossAxisDirection,
-        defaultValue: null));
+    properties.add(
+      EnumProperty<AxisDirection>(
+        'crossAxisDirection',
+        crossAxisDirection,
+        defaultValue: null,
+      ),
+    );
     properties.add(DoubleProperty('anchor', anchor));
     properties.add(DiagnosticsProperty<ViewportOffset>('offset', offset));
     if (center != null) {
       properties.add(DiagnosticsProperty<Key>('center', center));
     } else if (children.isNotEmpty && children.first.key != null) {
-      properties.add(DiagnosticsProperty<Key>('center', children.first.key,
-          tooltip: 'implicit'));
+      properties.add(
+        DiagnosticsProperty<Key>(
+          'center',
+          children.first.key,
+          tooltip: 'implicit',
+        ),
+      );
     }
     properties.add(DiagnosticsProperty<double>('cacheExtent', cacheExtent));
-    properties.add(DiagnosticsProperty<CacheExtentStyle>(
-        'cacheExtentStyle', cacheExtentStyle));
+    properties.add(
+      DiagnosticsProperty<CacheExtentStyle>(
+        'cacheExtentStyle',
+        cacheExtentStyle,
+      ),
+    );
   }
 }
 
@@ -571,9 +620,13 @@ class _ViewportElement extends MultiChildRenderObjectElement {
 
   void _updateCenter() {
     if (widget.center != null) {
-      renderObject.center = children
-          .singleWhere((Element element) => element.widget.key == widget.center)
-          .renderObject as RenderSliver?;
+      renderObject.center =
+          children
+                  .singleWhere(
+                    (Element element) => element.widget.key == widget.center,
+                  )
+                  .renderObject
+              as RenderSliver?;
     } else if (children.isNotEmpty) {
       renderObject.center = children.first.renderObject as RenderSliver?;
     } else {
@@ -583,10 +636,12 @@ class _ViewportElement extends MultiChildRenderObjectElement {
 
   @override
   void debugVisitOnstageChildren(ElementVisitor visitor) {
-    children.where((Element e) {
-      final RenderSliver renderSliver = e.renderObject! as RenderSliver;
-      return renderSliver.geometry!.visible;
-    }).forEach(visitor);
+    children
+        .where((Element e) {
+          final RenderSliver renderSliver = e.renderObject! as RenderSliver;
+          return renderSliver.geometry!.visible;
+        })
+        .forEach(visitor);
   }
 }
 
@@ -657,18 +712,19 @@ abstract class CustomRenderViewport
     double? cacheExtent,
     CacheExtentStyle cacheExtentStyle = CacheExtentStyle.pixel,
     Clip clipBehavior = Clip.hardEdge,
-  })  : assert(anchor >= 0.0 && anchor <= 1.0),
-        assert(cacheExtentStyle != CacheExtentStyle.viewport ||
-            cacheExtent != null),
-        _center = center,
-        super(
-          axisDirection: axisDirection,
-          crossAxisDirection: crossAxisDirection,
-          offset: offset,
-          cacheExtent: cacheExtent,
-          cacheExtentStyle: cacheExtentStyle,
-          clipBehavior: clipBehavior,
-        ) {
+  }) : assert(anchor >= 0.0 && anchor <= 1.0),
+       assert(
+         cacheExtentStyle != CacheExtentStyle.viewport || cacheExtent != null,
+       ),
+       _center = center,
+       super(
+         axisDirection: axisDirection,
+         crossAxisDirection: crossAxisDirection,
+         offset: offset,
+         cacheExtent: cacheExtent,
+         cacheExtentStyle: cacheExtentStyle,
+         clipBehavior: clipBehavior,
+       ) {
     addAll(children);
     if (center == null && firstChild != null) _center = firstChild;
   }
@@ -691,8 +747,9 @@ abstract class CustomRenderViewport
   ///
   /// * [RenderViewportBase.describeSemanticsConfiguration], which adds this
   ///   tag to its [SemanticsConfiguration].
-  static const SemanticsTag useTwoPaneSemantics =
-      SemanticsTag('RenderViewport.twoPane');
+  static const SemanticsTag useTwoPaneSemantics = SemanticsTag(
+    'RenderViewport.twoPane',
+  );
 
   /// When a top-level [SemanticsNode] below a [RenderAbstractViewport] is
   /// tagged with [excludeFromScrolling] it will not be part of the scrolling
@@ -707,8 +764,9 @@ abstract class CustomRenderViewport
   /// bar) can tag its [SemanticsNode] with [excludeFromScrolling] to indicate
   /// that it should no longer be considered for semantic actions related to
   /// scrolling.
-  static const SemanticsTag excludeFromScrolling =
-      SemanticsTag('RenderViewport.excludeFromScrolling');
+  static const SemanticsTag excludeFromScrolling = SemanticsTag(
+    'RenderViewport.excludeFromScrolling',
+  );
 
   @override
   void setupParentData(RenderObject child) {
@@ -760,26 +818,29 @@ abstract class CustomRenderViewport
               throw FlutterError.fromParts(<DiagnosticsNode>[
                 ErrorSummary('Vertical viewport was given unbounded height.'),
                 ErrorDescription(
-                    'Viewports expand in the scrolling direction to fill their container. '
-                    'In this case, a vertical viewport was given an unlimited amount of '
-                    'vertical space in which to expand. This situation typically happens '
-                    'when a scrollable widget is nested inside another scrollable widget.'),
+                  'Viewports expand in the scrolling direction to fill their container. '
+                  'In this case, a vertical viewport was given an unlimited amount of '
+                  'vertical space in which to expand. This situation typically happens '
+                  'when a scrollable widget is nested inside another scrollable widget.',
+                ),
                 ErrorHint(
-                    'If this widget is always nested in a scrollable widget there '
-                    'is no need to use a viewport because there will always be enough '
-                    'vertical space for the children. In this case, consider using a '
-                    'Column instead. Otherwise, consider using the "shrinkWrap" property '
-                    '(or a ShrinkWrappingViewport) to size the height of the viewport '
-                    'to the sum of the heights of its children.')
+                  'If this widget is always nested in a scrollable widget there '
+                  'is no need to use a viewport because there will always be enough '
+                  'vertical space for the children. In this case, consider using a '
+                  'Column instead. Otherwise, consider using the "shrinkWrap" property '
+                  '(or a ShrinkWrappingViewport) to size the height of the viewport '
+                  'to the sum of the heights of its children.',
+                ),
               ]);
             }
             if (!constraints.hasBoundedWidth) {
               throw FlutterError(
-                  'Vertical viewport was given unbounded width.\n'
-                  'Viewports expand in the cross axis to fill their container and '
-                  'constrain their children to match their extent in the cross axis. '
-                  'In this case, a vertical viewport was given an unlimited amount of '
-                  'horizontal space in which to expand.');
+                'Vertical viewport was given unbounded width.\n'
+                'Viewports expand in the cross axis to fill their container and '
+                'constrain their children to match their extent in the cross axis. '
+                'In this case, a vertical viewport was given an unlimited amount of '
+                'horizontal space in which to expand.',
+              );
             }
             break;
           case Axis.horizontal:
@@ -787,26 +848,29 @@ abstract class CustomRenderViewport
               throw FlutterError.fromParts(<DiagnosticsNode>[
                 ErrorSummary('Horizontal viewport was given unbounded width.'),
                 ErrorDescription(
-                    'Viewports expand in the scrolling direction to fill their container. '
-                    'In this case, a horizontal viewport was given an unlimited amount of '
-                    'horizontal space in which to expand. This situation typically happens '
-                    'when a scrollable widget is nested inside another scrollable widget.'),
+                  'Viewports expand in the scrolling direction to fill their container. '
+                  'In this case, a horizontal viewport was given an unlimited amount of '
+                  'horizontal space in which to expand. This situation typically happens '
+                  'when a scrollable widget is nested inside another scrollable widget.',
+                ),
                 ErrorHint(
-                    'If this widget is always nested in a scrollable widget there '
-                    'is no need to use a viewport because there will always be enough '
-                    'horizontal space for the children. In this case, consider using a '
-                    'Row instead. Otherwise, consider using the "shrinkWrap" property '
-                    '(or a ShrinkWrappingViewport) to size the width of the viewport '
-                    'to the sum of the widths of its children.')
+                  'If this widget is always nested in a scrollable widget there '
+                  'is no need to use a viewport because there will always be enough '
+                  'horizontal space for the children. In this case, consider using a '
+                  'Row instead. Otherwise, consider using the "shrinkWrap" property '
+                  '(or a ShrinkWrappingViewport) to size the width of the viewport '
+                  'to the sum of the widths of its children.',
+                ),
               ]);
             }
             if (!constraints.hasBoundedHeight) {
               throw FlutterError(
-                  'Horizontal viewport was given unbounded height.\n'
-                  'Viewports expand in the cross axis to fill their container and '
-                  'constrain their children to match their extent in the cross axis. '
-                  'In this case, a horizontal viewport was given an unlimited amount of '
-                  'vertical space in which to expand.');
+                'Horizontal viewport was given unbounded height.\n'
+                'Viewports expand in the cross axis to fill their container and '
+                'constrain their children to match their extent in the cross axis. '
+                'In this case, a horizontal viewport was given an unlimited amount of '
+                'vertical space in which to expand.',
+              );
             }
             break;
         }
@@ -828,7 +892,9 @@ abstract class CustomRenderViewport
 
   @override
   void updateOutOfBandData(
-      GrowthDirection growthDirection, SliverGeometry childLayoutGeometry) {
+    GrowthDirection growthDirection,
+    SliverGeometry childLayoutGeometry,
+  ) {
     switch (growthDirection) {
       case GrowthDirection.forward:
         _maxScrollExtent += childLayoutGeometry.scrollExtent;
@@ -841,8 +907,11 @@ abstract class CustomRenderViewport
   }
 
   @override
-  void updateChildLayoutOffset(RenderSliver child, double layoutOffset,
-      GrowthDirection growthDirection) {
+  void updateChildLayoutOffset(
+    RenderSliver child,
+    double layoutOffset,
+    GrowthDirection growthDirection,
+  ) {
     final CustomSliverPhysicalContainerParentData childParentData =
         child.parentData! as CustomSliverPhysicalContainerParentData;
     childParentData.layoutOffset = layoutOffset;
@@ -854,7 +923,10 @@ abstract class CustomRenderViewport
     final CustomSliverPhysicalContainerParentData childParentData =
         child.parentData! as CustomSliverPhysicalContainerParentData;
     return computeAbsolutePaintOffset(
-        child, childParentData.layoutOffset!, childParentData.growthDirection!);
+      child,
+      childParentData.layoutOffset!,
+      childParentData.growthDirection!,
+    );
   }
 
   @override
@@ -913,11 +985,15 @@ abstract class CustomRenderViewport
 
   @override
   double computeChildMainAxisPosition(
-      RenderSliver child, double parentMainAxisPosition) {
+    RenderSliver child,
+    double parentMainAxisPosition,
+  ) {
     final CustomSliverPhysicalContainerParentData childParentData =
         child.parentData! as CustomSliverPhysicalContainerParentData;
     switch (applyGrowthDirectionToAxisDirection(
-        child.constraints.axisDirection, child.constraints.growthDirection)) {
+      child.constraints.axisDirection,
+      child.constraints.growthDirection,
+    )) {
       case AxisDirection.down:
       case AxisDirection.right:
         return parentMainAxisPosition - childParentData.layoutOffset!;

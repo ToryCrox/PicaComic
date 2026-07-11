@@ -25,15 +25,15 @@ class DownloadedGallery extends DownloadedItem {
 
   @override
   Map<String, dynamic> toJson() => {
-        "gallery": gallery.toJson(),
-        "size": size,
-        "color": color?.name,
-      };
+    "gallery": gallery.toJson(),
+    "size": size,
+    "color": color?.name,
+  };
 
   DownloadedGallery.fromJson(Map<String, dynamic> map)
-      : gallery = Gallery.fromJson(map["gallery"]),
-        size = map["size"],
-        color = DownloadColorTag.fromString(map["color"]);
+    : gallery = Gallery.fromJson(map["gallery"]),
+      size = map["size"],
+      color = DownloadColorTag.fromString(map["color"]);
 
   @override
   DownloadType get type => DownloadType.ehentai;
@@ -69,8 +69,9 @@ class DownloadedGallery extends DownloadedItem {
 
   List<String> _getTags() {
     var res = <String>[];
-    gallery.tags
-        .forEach((key, value) => value.forEach((element) => res.add(element)));
+    gallery.tags.forEach(
+      (key, value) => value.forEach((element) => res.add(element)),
+    );
     return res;
   }
 
@@ -97,10 +98,10 @@ class EhDownloadingTask extends DownloadingTask {
 
   @override
   Map<String, String> get headers => {
-        "Cookie": EhNetwork().cookiesStr,
-        "User-Agent": webUA,
-        "Referer": EhNetwork().ehBaseUrl,
-      };
+    "Cookie": EhNetwork().cookiesStr,
+    "User-Agent": webUA,
+    "Referer": EhNetwork().ehBaseUrl,
+  };
 
   @override
   String get cover =>
@@ -113,7 +114,9 @@ class EhDownloadingTask extends DownloadingTask {
   Future<Map<int, List<String>>> getLinks() async {
     return {
       0: List.generate(
-          (int.parse(gallery.maxPage)), (index) => (index + 1).toString())
+        (int.parse(gallery.maxPage)),
+        (index) => (index + 1).toString(),
+      ),
     };
   }
 
@@ -138,21 +141,21 @@ class EhDownloadingTask extends DownloadingTask {
       }
       galleryJson['auth'] = auth;
     }
-    
+
     return {
       "gallery": galleryJson,
       "downloadType": downloadType,
       "_downloadLink": _downloadLink,
       "_currentBytes": _currentBytes,
       "_totalBytes": _totalBytes,
-      ...super.toBaseMap()
+      ...super.toBaseMap(),
     };
   }
 
   @override
   Future<void> onStart() async {
     await super.onStart();
-    
+
     // 彻底重置所有认证相关的状态，确保从保存数据恢复时不会使用过期的认证
     if (gallery.auth != null) {
       gallery.auth!.remove("showKey");
@@ -163,11 +166,11 @@ class EhDownloadingTask extends DownloadingTask {
         gallery.auth!.remove("showKey");
       }
     }
-    
+
     // 清除图片缓存，强制重新获取新的图片链接
     await CacheManager().deleteKeyword("exhentai.org");
     await CacheManager().deleteKeyword("e-hentai.org");
-    
+
     Log.d(() => 'EhDownloadingTask: 已重置认证状态 id=$id');
   }
 
@@ -219,7 +222,9 @@ class EhDownloadingTask extends DownloadingTask {
         }
         if (_downloadLink == null) {
           var res = await EhNetwork().getArchiveDownloadLink(
-              gallery.auth!["archiveDownload"]!, downloadType);
+            gallery.auth!["archiveDownload"]!,
+            downloadType,
+          );
           if (_stop) {
             return;
           }
@@ -228,8 +233,11 @@ class EhDownloadingTask extends DownloadingTask {
           }
           _downloadLink = res.data;
         }
-        _downloader =
-            _IsolateDownloader(_downloadLink!, path, (current, total, speed) {
+        _downloader = _IsolateDownloader(_downloadLink!, path, (
+          current,
+          total,
+          speed,
+        ) {
           _currentBytes = current;
           _totalBytes = total;
           _currentSpeed = speed;
@@ -277,17 +285,17 @@ class EhDownloadingTask extends DownloadingTask {
   }
 
   EhDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : gallery = Gallery.fromJson(map["gallery"]),
-        downloadType = map["downloadType"],
-        _currentBytes = map["_currentBytes"],
-        _totalBytes = map["_totalBytes"],
-        _downloadLink = map["_downloadLink"],
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : gallery = Gallery.fromJson(map["gallery"]),
+      downloadType = map["downloadType"],
+      _currentBytes = map["_currentBytes"],
+      _totalBytes = map["_totalBytes"],
+      _downloadLink = map["_downloadLink"],
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
@@ -326,14 +334,19 @@ class _IsolateDownloader {
   void start() async {
     port = ReceivePort();
     isolate = await Isolate.spawn<_DownloadData>(
-        run, _DownloadData(port.sendPort, url, savePath, await getProxy()));
+      run,
+      _DownloadData(port.sendPort, url, savePath, await getProxy()),
+    );
     var total = 0;
     port.listen((message) {
       if (message is SendPort) {
         sendPort = message;
       } else if (message is DownloadingStatus) {
-        updateInfo(message.downloadedBytes, message.totalBytes + 1,
-            message.bytesPerSecond);
+        updateInfo(
+          message.downloadedBytes,
+          message.totalBytes + 1,
+          message.bytesPerSecond,
+        );
         total = message.totalBytes;
       } else if (message == "finish") {
         isolate?.kill(priority: Isolate.immediate);

@@ -23,8 +23,10 @@ class ComicsPageLogic<T> extends StateController {
 
   bool showFloatingButton = true;
 
-  void get(Future<Res<List<T>>> Function(int) getComics,
-      [Future<List<T>> Function()? getComicsCache]) async {
+  void get(
+    Future<Res<List<T>>> Function(int) getComics, [
+    Future<List<T>> Function()? getComicsCache,
+  ]) async {
     if (loadingData) return;
     loadingData = true;
     Future.microtask(() => update());
@@ -175,67 +177,49 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
     }
 
     Widget body = StateBuilder<ComicsPageLogic<T>>(
-        init: ComicsPageLogic<T>(),
-        tag: tag,
-        builder: (logic) {
-          if (logic.dividedComics?[logic.current] == null &&
-              logic.message == null &&
-              appdata.settings[25] != "0") {
-            logic.loading = true;
-          }
-          if (logic.loading) {
-            logic.get(getComics, getComicsCache);
-            return Column(
-              children: [
-                if (title != null) const Appbar(title: Text("")),
-                removeSliver(header) ?? const SizedBox(),
-                const Expanded(
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              ],
-            );
-          } else if (logic.message != null) {
-            return Column(
-              children: [
-                removeSliver(header) ?? const SizedBox(),
-                Expanded(
-                    child: NetworkError(
+      init: ComicsPageLogic<T>(),
+      tag: tag,
+      builder: (logic) {
+        if (logic.dividedComics?[logic.current] == null &&
+            logic.message == null &&
+            appdata.settings[25] != "0") {
+          logic.loading = true;
+        }
+        if (logic.loading) {
+          logic.get(getComics, getComicsCache);
+          return Column(
+            children: [
+              if (title != null) const Appbar(title: Text("")),
+              removeSliver(header) ?? const SizedBox(),
+              const Expanded(child: Center(child: CircularProgressIndicator())),
+            ],
+          );
+        } else if (logic.message != null) {
+          return Column(
+            children: [
+              removeSliver(header) ?? const SizedBox(),
+              Expanded(
+                child: NetworkError(
                   message: logic.message ?? "Network Error",
                   retry: logic.refresh,
                   withAppbar: title != null,
-                ))
-              ],
-            );
-          } else {
-            if (appdata.settings[25] == "0") {
-              List<T> comics = [];
-              if (appdata.appSettings.fullyHideBlockedWorks) {
-                for (var comic in logic.comics!) {
-                  if (isBlocked(comic) == null) {
-                    comics.add(comic);
-                  }
+                ),
+              ),
+            ],
+          );
+        } else {
+          if (appdata.settings[25] == "0") {
+            List<T> comics = [];
+            if (appdata.appSettings.fullyHideBlockedWorks) {
+              for (var comic in logic.comics!) {
+                if (isBlocked(comic) == null) {
+                  comics.add(comic);
                 }
-              } else {
-                comics = logic.comics!;
               }
-              if (comics.isEmpty) {
-                return SmoothCustomScrollView(
-                  slivers: [
-                    if (title != null)
-                      SliverAppbar(
-                        title: Text(title!),
-                        actions: tailing != null ? [tailing!] : null,
-                      ),
-                    if (header != null) header!,
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: buildEmptyView(context),
-                    ),
-                  ],
-                );
-              }
+            } else {
+              comics = logic.comics!;
+            }
+            if (comics.isEmpty) {
               return SmoothCustomScrollView(
                 slivers: [
                   if (title != null)
@@ -244,57 +228,53 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
                       actions: tailing != null ? [tailing!] : null,
                     ),
                   if (header != null) header!,
-                  SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                        childCount: comics.length, (context, i) {
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: buildEmptyView(context),
+                  ),
+                ],
+              );
+            }
+            return SmoothCustomScrollView(
+              slivers: [
+                if (title != null)
+                  SliverAppbar(
+                    title: Text(title!),
+                    actions: tailing != null ? [tailing!] : null,
+                  ),
+                if (header != null) header!,
+                SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: comics.length,
+                    (context, i) {
                       if (i == comics.length - 1) {
                         logic.loadNextPage(getComics);
                       }
                       return buildItem(context, comics[i]);
-                    }),
-                    gridDelegate: SliverGridDelegateWithComics(),
+                    },
                   ),
-                  if (logic.current < (logic.maxPage ?? 114514) &&
-                      logic.loadingData)
-                    const SliverToBoxAdapter(
-                      child: ListLoadingIndicator(),
-                    )
-                  else
-                    const SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 80,
-                      ),
-                    )
-                ],
-              );
-            } else {
-              List<T> comics = [];
-              if (appdata.appSettings.fullyHideBlockedWorks) {
-                for (var comic in logic.dividedComics![logic.current]!) {
-                  if (isBlocked(comic) == null) {
-                    comics.add(comic);
-                  }
+                  gridDelegate: SliverGridDelegateWithComics(),
+                ),
+                if (logic.current < (logic.maxPage ?? 114514) &&
+                    logic.loadingData)
+                  const SliverToBoxAdapter(child: ListLoadingIndicator())
+                else
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
+            );
+          } else {
+            List<T> comics = [];
+            if (appdata.appSettings.fullyHideBlockedWorks) {
+              for (var comic in logic.dividedComics![logic.current]!) {
+                if (isBlocked(comic) == null) {
+                  comics.add(comic);
                 }
-              } else {
-                comics = logic.dividedComics![logic.current]!;
               }
-              if (comics.isEmpty) {
-                return SmoothCustomScrollView(
-                  slivers: [
-                    if (title != null)
-                      SliverAppbar(
-                        title: Text(title!),
-                        actions: tailing != null ? [tailing!] : null,
-                      ),
-                    if (header != null) header!,
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: buildEmptyView(context),
-                    ),
-                  ],
-                );
-              }
-              Widget body = SmoothCustomScrollView(
+            } else {
+              comics = logic.dividedComics![logic.current]!;
+            }
+            if (comics.isEmpty) {
+              return SmoothCustomScrollView(
                 slivers: [
                   if (title != null)
                     SliverAppbar(
@@ -302,76 +282,91 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
                       actions: tailing != null ? [tailing!] : null,
                     ),
                   if (header != null) header!,
-                  if (showPageIndicator &&
-                      appdata.settings[64] == "0" &&
-                      logic.maxPage != 1)
-                    buildPageSelector(context, logic),
-                  SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                        childCount: comics.length, (context, i) {
-                      return buildItem(context, comics[i]);
-                    }),
-                    gridDelegate: SliverGridDelegateWithComics(),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: buildEmptyView(context),
                   ),
-                  if (showPageIndicator &&
-                      appdata.settings[64] == "0" &&
-                      logic.maxPage != 1)
-                    buildPageSelector(context, logic),
-                  SliverPadding(
-                      padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(context).padding.bottom))
                 ],
               );
+            }
+            Widget body = SmoothCustomScrollView(
+              slivers: [
+                if (title != null)
+                  SliverAppbar(
+                    title: Text(title!),
+                    actions: tailing != null ? [tailing!] : null,
+                  ),
+                if (header != null) header!,
+                if (showPageIndicator &&
+                    appdata.settings[64] == "0" &&
+                    logic.maxPage != 1)
+                  buildPageSelector(context, logic),
+                SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: comics.length,
+                    (context, i) {
+                      return buildItem(context, comics[i]);
+                    },
+                  ),
+                  gridDelegate: SliverGridDelegateWithComics(),
+                ),
+                if (showPageIndicator &&
+                    appdata.settings[64] == "0" &&
+                    logic.maxPage != 1)
+                  buildPageSelector(context, logic),
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom,
+                  ),
+                ),
+              ],
+            );
 
-              body = NotificationListener<ScrollUpdateNotification>(
-                onNotification: (notifications) {
-                  if (notifications.scrollDelta != null) {
-                    if (notifications.scrollDelta! > 0 &&
-                        logic.showFloatingButton) {
-                      logic.showFloatingButton = false;
-                      logic.update();
-                    } else if ((notifications.scrollDelta! < 0 ||
-                            notifications.metrics.pixels ==
-                                notifications.metrics.minScrollExtent ||
-                            notifications.metrics.pixels ==
-                                notifications.metrics.maxScrollExtent) &&
-                        !logic.showFloatingButton) {
-                      logic.showFloatingButton = true;
-                      logic.update();
-                    }
+            body = NotificationListener<ScrollUpdateNotification>(
+              onNotification: (notifications) {
+                if (notifications.scrollDelta != null) {
+                  if (notifications.scrollDelta! > 0 &&
+                      logic.showFloatingButton) {
+                    logic.showFloatingButton = false;
+                    logic.update();
+                  } else if ((notifications.scrollDelta! < 0 ||
+                          notifications.metrics.pixels ==
+                              notifications.metrics.minScrollExtent ||
+                          notifications.metrics.pixels ==
+                              notifications.metrics.maxScrollExtent) &&
+                      !logic.showFloatingButton) {
+                    logic.showFloatingButton = true;
+                    logic.update();
                   }
-                  return false;
-                },
-                child: body,
-              );
+                }
+                return false;
+              },
+              child: body,
+            );
 
-              if (showPageIndicator && appdata.settings[64] == "1") {
-                return Stack(
-                  children: [
-                    Positioned.fill(
-                      child: body,
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 12,
-                      top: 0,
-                      bottom: 0,
-                      child: buildPageSelectorRight(context, logic),
-                    )
-                  ],
-                );
-              } else {
-                return body;
-              }
+            if (showPageIndicator && appdata.settings[64] == "1") {
+              return Stack(
+                children: [
+                  Positioned.fill(child: body),
+                  Positioned(
+                    left: 0,
+                    right: 12,
+                    top: 0,
+                    bottom: 0,
+                    child: buildPageSelectorRight(context, logic),
+                  ),
+                ],
+              );
+            } else {
+              return body;
             }
           }
-        });
+        }
+      },
+    );
 
     if (header != null && UiMode.m1(context)) {
-      body = SafeArea(
-        bottom: false,
-        child: body,
-      );
+      body = SafeArea(bottom: false, child: body);
     }
 
     if (withRefreshFloatingButton) {
@@ -385,9 +380,7 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
         body: body,
       );
     } else {
-      return Material(
-        child: body,
-      );
+      return Material(child: body);
     }
   }
 
@@ -402,15 +395,16 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
             height: 42,
             child: Row(
               children: [
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 FilledButton.tonal(
-                    onPressed: () => prevPage(logic), child: Text("上一页".tl)),
+                  onPressed: () => prevPage(logic),
+                  child: Text("上一页".tl),
+                ),
                 const Spacer(),
                 ActionChip(
                   label: Text(
-                      "${"页面".tl}: ${logic.current}/${logic.maxPage?.toString() ?? "?"}"),
+                    "${"页面".tl}: ${logic.current}/${logic.maxPage?.toString() ?? "?"}",
+                  ),
                   onPressed: () async {
                     selectPage(logic);
                   },
@@ -419,10 +413,10 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
                 ),
                 const Spacer(),
                 FilledButton.tonal(
-                    onPressed: () => nextPage(logic), child: Text("下一页".tl)),
-                const SizedBox(
-                  width: 16,
+                  onPressed: () => nextPage(logic),
+                  child: Text("下一页".tl),
                 ),
+                const SizedBox(width: 16),
               ],
             ),
           ),
@@ -433,74 +427,71 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
 
   Widget buildPageSelectorRight(BuildContext context, ComicsPageLogic logic) {
     return Align(
-        alignment: Alignment.centerRight,
-        child: AnimatedSlide(
-          offset: logic.showFloatingButton
-              ? const Offset(0, 0)
-              : const Offset(1.5, 0),
-          duration: const Duration(milliseconds: 200),
-          child: Material(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(16),
-            elevation: 3,
-            child: SizedBox(
-              height: 156,
-              width: 58,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16)),
-                      onTap: () {
-                        prevPage(logic);
-                      },
-                      child: const SizedBox.expand(
-                        child: Center(
-                          child: Icon(Icons.keyboard_arrow_left),
-                        ),
-                      ),
+      alignment: Alignment.centerRight,
+      child: AnimatedSlide(
+        offset: logic.showFloatingButton
+            ? const Offset(0, 0)
+            : const Offset(1.5, 0),
+        duration: const Duration(milliseconds: 200),
+        child: Material(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 3,
+          child: SizedBox(
+            height: 156,
+            width: 58,
+            child: Column(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                    onTap: () {
+                      prevPage(logic);
+                    },
+                    child: const SizedBox.expand(
+                      child: Center(child: Icon(Icons.keyboard_arrow_left)),
                     ),
                   ),
-                  const Divider(
-                    height: 1,
-                  ),
-                  Expanded(
-                      child: InkWell(
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: InkWell(
                     onTap: () {
                       selectPage(logic);
                     },
                     child: SizedBox.expand(
                       child: Center(
                         child: Text(
-                            "${logic.current}/${logic.maxPage?.toString() ?? "?"}"),
-                      ),
-                    ),
-                  )),
-                  const Divider(
-                    height: 1,
-                  ),
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(16),
-                          bottomRight: Radius.circular(16)),
-                      onTap: () {
-                        nextPage(logic);
-                      },
-                      child: const SizedBox.expand(
-                        child: Center(
-                          child: Icon(Icons.keyboard_arrow_right),
+                          "${logic.current}/${logic.maxPage?.toString() ?? "?"}",
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    onTap: () {
+                      nextPage(logic);
+                    },
+                    child: const SizedBox.expand(
+                      child: Center(child: Icon(Icons.keyboard_arrow_right)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ));
+        ),
+      ),
+    );
   }
 
   void nextPage(ComicsPageLogic logic) {
@@ -524,43 +515,42 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   void selectPage(ComicsPageLogic logic) async {
     String res = "";
     await showDialog(
-        context: App.globalContext!,
-        builder: (dialogContext) {
-          var controller = TextEditingController();
-          return SimpleDialog(
-            title: const Text("切换页面"),
-            children: [
-              const SizedBox(
-                width: 300,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-                child: TextField(
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: "页码".tl,
-                    suffixText:
-                        "${"输入范围: ".tl}1-${logic.maxPage?.toString() ?? "?"}",
-                  ),
-                  controller: controller,
-                  onSubmitted: (s) {
-                    res = s;
-                    App.globalBack();
-                  },
+      context: App.globalContext!,
+      builder: (dialogContext) {
+        var controller = TextEditingController();
+        return SimpleDialog(
+          title: const Text("切换页面"),
+          children: [
+            const SizedBox(width: 300),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+              child: TextField(
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: "页码".tl,
+                  suffixText:
+                      "${"输入范围: ".tl}1-${logic.maxPage?.toString() ?? "?"}",
                 ),
+                controller: controller,
+                onSubmitted: (s) {
+                  res = s;
+                  App.globalBack();
+                },
               ),
-              Center(
-                child: FilledButton(
-                  child: Text("提交".tl),
-                  onPressed: () {
-                    res = controller.text;
-                    App.globalBack();
-                  },
-                ),
-              )
-            ],
-          );
-        });
+            ),
+            Center(
+              child: FilledButton(
+                child: Text("提交".tl),
+                onPressed: () {
+                  res = controller.text;
+                  App.globalBack();
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
     if (res.isNum) {
       int i = int.parse(res);
       if (logic.maxPage == null || (i > 0 && i <= logic.maxPage!)) {
@@ -589,8 +579,12 @@ abstract class ComicsPage<T extends BaseComic> extends StatelessWidget {
   }
 
   Widget buildItem(BuildContext context, T item) {
-    return buildComicTile(context, item, comicType,
-        addonMenuOptions: addonMenuOptions);
+    return buildComicTile(
+      context,
+      item,
+      comicType,
+      addonMenuOptions: addonMenuOptions,
+    );
   }
 }
 
@@ -651,15 +645,12 @@ class _SliverGridComics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverGrid(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index == comics.length - 1) {
-            onLastItemBuild?.call();
-          }
-          return buildComicTile(context, comics[index], comicType);
-        },
-        childCount: comics.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index == comics.length - 1) {
+          onLastItemBuild?.call();
+        }
+        return buildComicTile(context, comics[index], comicType);
+      }, childCount: comics.length),
       gridDelegate: SliverGridDelegateWithComics(),
     );
   }

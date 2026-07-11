@@ -58,7 +58,8 @@ void main(List<String> args) async {
   print('扫描完成!');
   print('─' * 50);
   print(
-      '总漫画数: ${coversToConvert.length + alreadyWebp.length + noCover.length}');
+    '总漫画数: ${coversToConvert.length + alreadyWebp.length + noCover.length}',
+  );
   print('已是 webp 格式: ${alreadyWebp.length}');
   print('需要转换: ${coversToConvert.length}');
   print('无封面: ${noCover.length}');

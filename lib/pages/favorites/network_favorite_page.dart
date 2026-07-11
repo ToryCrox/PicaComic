@@ -43,22 +43,18 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   List<ComicTileMenuOption>? get addonMenuOptions {
     return [
       if (data.addOrDelFavorite != null)
-        ComicTileMenuOption(
-          "取消收藏".tl,
-          Icons.playlist_remove_outlined,
-          (id) {
-            if (id == null) return;
-            var dialog = showLoadingDialog(App.globalContext!);
-            data.addOrDelFavorite!(id, "0", false).then((res) {
-              dialog.close();
-              if (res.error) {
-                showToast(message: res.errorMessage!);
-              } else {
-                refresh();
-              }
-            });
-          },
-        )
+        ComicTileMenuOption("取消收藏".tl, Icons.playlist_remove_outlined, (id) {
+          if (id == null) return;
+          var dialog = showLoadingDialog(App.globalContext!);
+          data.addOrDelFavorite!(id, "0", false).then((res) {
+            dialog.close();
+            if (res.error) {
+              showToast(message: res.errorMessage!);
+            } else {
+              refresh();
+            }
+          });
+        }),
     ];
   }
 }
@@ -102,11 +98,9 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       loadPage();
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
-      return NetworkError(message: _errorMessage!, withAppbar: false,);
+      return NetworkError(message: _errorMessage!, withAppbar: false);
     } else {
       var length = folders!.length;
       if (widget.data.allFavoritesId != null) length++;
@@ -115,14 +109,17 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       return SmoothCustomScrollView(
         slivers: [
           SliverGridViewWithFixedItemHeight(
-            delegate:
-                SliverChildBuilderDelegate(childCount: length, (context, i) {
+            delegate: SliverChildBuilderDelegate(childCount: length, (
+              context,
+              i,
+            ) {
               if (widget.data.allFavoritesId != null) {
                 if (i == 0) {
                   return _FolderTile(
-                      name: "全部".tl,
-                      onTap: () =>
-                          openFolder(widget.data.allFavoritesId!, "全部".tl));
+                    name: "全部".tl,
+                    onTap: () =>
+                        openFolder(widget.data.allFavoritesId!, "全部".tl),
+                  );
                 } else {
                   i--;
                   return _FolderTile(
@@ -163,27 +160,26 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text("创建收藏夹".tl),
-                        const Icon(
-                          Icons.add,
-                          size: 18,
-                        ),
+                        const Icon(Icons.add, size: 18),
                       ],
                     ),
                     onPressed: () {
                       showDialog(
-                          context: context,
-                          builder: (context) {
-                            return _CreateFolderDialog(
-                                widget.data,
-                                () => setState(() {
-                                      _loading = true;
-                                    }));
-                          });
+                        context: context,
+                        builder: (context) {
+                          return _CreateFolderDialog(
+                            widget.data,
+                            () => setState(() {
+                              _loading = true;
+                            }),
+                          );
+                        },
+                      );
                     },
                   ),
                 ),
               ),
-            )
+            ),
         ],
       );
     }
@@ -191,11 +187,12 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 }
 
 class _FolderTile extends StatelessWidget {
-  const _FolderTile(
-      {required this.name,
-      required this.onTap,
-      this.deleteFolder,
-      this.updateState});
+  const _FolderTile({
+    required this.name,
+    required this.onTap,
+    this.deleteFolder,
+    this.updateState,
+  });
 
   final String name;
 
@@ -215,24 +212,22 @@ class _FolderTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
           child: Row(
             children: [
-              const SizedBox(
-                width: 16,
-              ),
+              const SizedBox(width: 16),
               Icon(
                 Icons.folder,
                 size: 35,
                 color: Theme.of(context).colorScheme.secondary,
               ),
-              const SizedBox(
-                width: 16,
-              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     name,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w500),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
@@ -243,10 +238,7 @@ class _FolderTile extends StatelessWidget {
                 )
               else
                 const Icon(Icons.arrow_right),
-              if (deleteFolder == null)
-                const SizedBox(
-                  width: 8,
-                )
+              if (deleteFolder == null) const SizedBox(width: 8),
             ],
           ),
         ),
@@ -256,32 +248,31 @@ class _FolderTile extends StatelessWidget {
 
   void onDeleteFolder(BuildContext context) {
     showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text("确认删除".tl),
-            content: Text("要删除这个收藏夹吗".tl),
-            actions: [
-              TextButton(
-                  onPressed: () => App.globalBack(), child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () async {
-                    context.pop();
-                    showToast(message: "正在删除收藏夹".tl);
-                    var res = await deleteFolder!();
-                    showToast(
-                        message: res.error ? res.errorMessage! : "删除成功".tl);
-                    if (!res.error) {
-                      updateState?.call();
-                    } else {
-                      showToast(
-                          message: res.error ? res.errorMessage! : "删除失败".tl);
-                    }
-                  },
-                  child: Text("确认".tl)),
-            ],
-          );
-        });
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("确认删除".tl),
+          content: Text("要删除这个收藏夹吗".tl),
+          actions: [
+            TextButton(onPressed: () => App.globalBack(), child: Text("取消".tl)),
+            TextButton(
+              onPressed: () async {
+                context.pop();
+                showToast(message: "正在删除收藏夹".tl);
+                var res = await deleteFolder!();
+                showToast(message: res.error ? res.errorMessage! : "删除成功".tl);
+                if (!res.error) {
+                  updateState?.call();
+                } else {
+                  showToast(message: res.error ? res.errorMessage! : "删除失败".tl);
+                }
+              },
+              child: Text("确认".tl),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -318,40 +309,35 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             ),
           ),
         ),
-        const SizedBox(
-          width: 200,
-          height: 10,
-        ),
+        const SizedBox(width: 200, height: 10),
         if (loading)
-          const SizedBox(
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
-          )
+          const SizedBox(child: Center(child: CircularProgressIndicator()))
         else
           SizedBox(
-              height: 35,
-              child: Center(
-                child: TextButton(
-                    onPressed: () {
+            height: 35,
+            child: Center(
+              child: TextButton(
+                onPressed: () {
+                  setState(() {
+                    loading = true;
+                  });
+                  widget.data.addFolder!(controller.text).then((b) {
+                    if (b.error) {
+                      showToast(message: b.errorMessage!);
                       setState(() {
-                        loading = true;
+                        loading = false;
                       });
-                      widget.data.addFolder!(controller.text).then((b) {
-                        if (b.error) {
-                          showToast(message: b.errorMessage!);
-                          setState(() {
-                            loading = false;
-                          });
-                        } else {
-                          context.pop();
-                          showToast(message: "成功创建".tl);
-                          widget.updateState();
-                        }
-                      });
-                    },
-                    child: Text("提交".tl)),
-              ))
+                    } else {
+                      context.pop();
+                      showToast(message: "成功创建".tl);
+                      widget.updateState();
+                    }
+                  });
+                },
+                child: Text("提交".tl),
+              ),
+            ),
+          ),
       ],
     );
   }

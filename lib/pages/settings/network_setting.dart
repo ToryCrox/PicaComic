@@ -13,15 +13,11 @@ class _NetworkSettingsState extends State<NetworkSettings> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const ListTile(
-          title: Text("Http Proxy"),
-        ),
+        const ListTile(title: Text("Http Proxy")),
         ListTile(
           leading: const Icon(Icons.network_ping),
           title: Text("设置代理".tl),
-          trailing: const Icon(
-            Icons.arrow_right,
-          ),
+          trailing: const Icon(Icons.arrow_right),
           onTap: () {
             setProxy(context);
           },
@@ -30,36 +26,34 @@ class _NetworkSettingsState extends State<NetworkSettings> {
           title: Row(
             children: [
               const Text("Hosts"),
-              const SizedBox(
-                width: 2,
-              ),
+              const SizedBox(width: 2),
               InkWell(
                 borderRadius: const BorderRadius.all(Radius.circular(18)),
                 onTap: () => showDialogMessage(
                   context,
                   "警告".tl,
-                  "${"此功能已不再受支持".tl}\n${"请勿反馈相关问题".tl}"
+                  "${"此功能已不再受支持".tl}\n${"请勿反馈相关问题".tl}",
                 ),
                 child: const Icon(
                   Icons.warning_amber_rounded,
                   color: Colors.red,
                   size: 18,
                 ),
-              )
-            ]
-          )
+              ),
+            ],
+          ),
         ),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("启用".tl),
           trailing: Switch(
             value: appdata.settings[58] == "1",
-            onChanged: (value){
+            onChanged: (value) {
               setState(() {
                 appdata.settings[58] = value ? "1" : "0";
               });
               appdata.updateSettings();
-              if(value){
+              if (value) {
                 HttpProxyServer.reload();
               }
             },
@@ -69,7 +63,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
           leading: const Icon(Icons.rule),
           title: Text("规则".tl),
           trailing: const Icon(Icons.arrow_right),
-          onTap: (){
+          onTap: () {
             App.globalTo(() => const EditRuleView());
           },
         ),
@@ -81,7 +75,11 @@ class _NetworkSettingsState extends State<NetworkSettings> {
         //     launchUrlString("https://github.com/user/repo/blob/master/help.md");
         //   },
         // ),
-        Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }
@@ -115,23 +113,23 @@ class _EditRuleViewState extends State<EditRuleView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("rule.json"),
-      ),
+      appBar: AppBar(title: const Text("rule.json")),
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(8, 0, 8, MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+            8,
+            0,
+            8,
+            MediaQuery.of(context).padding.bottom,
+          ),
           child: TextField(
             keyboardType: TextInputType.multiline,
             maxLines: null,
-            decoration: const InputDecoration(
-                border: InputBorder.none
-            ),
+            decoration: const InputDecoration(border: InputBorder.none),
             controller: controller,
           ),
-        )
-      )
+        ),
+      ),
     );
   }
 }
-

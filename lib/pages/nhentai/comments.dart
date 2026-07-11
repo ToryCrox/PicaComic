@@ -23,81 +23,87 @@ class _NhentaiCommentsPageState extends State<NhentaiCommentsPage> {
   Widget build(BuildContext context) {
     if (loading) {
       get();
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     } else if (message != null) {
       return NetworkError(
         message: message!,
-        retry: () => setState(
-          () {
-            loading = true;
-            message = null;
-            comments = null;
-          },
-        ),
+        retry: () => setState(() {
+          loading = true;
+          message = null;
+          comments = null;
+        }),
         withAppbar: false,
       );
     } else {
       return Column(
         children: [
           Expanded(
-              child: CustomScrollView(
-            slivers: [
-              SliverList(
+            child: CustomScrollView(
+              slivers: [
+                SliverList(
                   delegate: SliverChildBuilderDelegate(
-                      childCount: comments!.length, (context, index) {
-                return CommentTile(
-                  avatarUrl: comments![index].avatar,
-                  name: comments![index].userName,
-                  content: comments![index].content,
-                );
-              })),
-              SliverPadding(
+                    childCount: comments!.length,
+                    (context, index) {
+                      return CommentTile(
+                        avatarUrl: comments![index].avatar,
+                        name: comments![index].userName,
+                        content: comments![index].content,
+                      );
+                    },
+                  ),
+                ),
+                SliverPadding(
                   padding: EdgeInsets.only(
-                      top: MediaQuery.of(context).padding.bottom))
-            ],
-          )),
+                    top: MediaQuery.of(context).padding.bottom,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Container(
             decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceTint.withAlpha(0),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16))),
+              color: Theme.of(context).colorScheme.surfaceTint.withAlpha(0),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
               child: Container(
                 decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
-                        .withAlpha(160),
-                    borderRadius: const BorderRadius.all(Radius.circular(30))),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withAlpha(160),
+                  borderRadius: const BorderRadius.all(Radius.circular(30)),
+                ),
                 child: Row(
                   children: [
                     Expanded(
-                        child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                      child: TextField(
-                        enabled: false,
-                        controller: controller,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          isCollapsed: true,
-                          hintText: "评论".tl,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                        child: TextField(
+                          enabled: false,
+                          controller: controller,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            hintText: "评论".tl,
+                          ),
+                          minLines: 1,
+                          maxLines: 5,
                         ),
-                        minLines: 1,
-                        maxLines: 5,
                       ),
-                    )),
+                    ),
                     IconButton(
-                        onPressed: () {
-                          //TODO
-                          showToast(message: "未完成");
-                        },
-                        icon: Icon(
-                          Icons.send,
-                          color: Theme.of(context).colorScheme.secondary,
-                        ))
+                      onPressed: () {
+                        //TODO
+                        showToast(message: "未完成");
+                      },
+                      icon: Icon(
+                        Icons.send,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
                   ],
                 ),
               ),

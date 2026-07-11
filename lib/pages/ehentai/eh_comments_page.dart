@@ -40,7 +40,11 @@ class CommentsPageLogic extends StateController {
 }
 
 class _EhCommentWidget extends StatefulWidget {
-  const _EhCommentWidget({required this.comment, required this.uploader, required this.auth});
+  const _EhCommentWidget({
+    required this.comment,
+    required this.uploader,
+    required this.auth,
+  });
 
   final Comment comment;
 
@@ -62,14 +66,14 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
   bool isVoteDown = false;
 
   void voteUp() async {
-    if(isVoteUp || isVoteDown){
+    if (isVoteUp || isVoteDown) {
       return;
     }
     setState(() {
       isVoteUp = true;
     });
     var res = await EhNetwork().voteComment(widget.auth, comment.id, true);
-    if(res.success){
+    if (res.success) {
       var isCancel = comment.voteUP == true;
       comment.voteUP = isCancel ? null : true;
       comment.score = res.data;
@@ -85,14 +89,14 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
   }
 
   void voteDown() async {
-    if(isVoteUp || isVoteDown){
+    if (isVoteUp || isVoteDown) {
       return;
     }
     setState(() {
       isVoteDown = true;
     });
     var res = await EhNetwork().voteComment(widget.auth, comment.id, false);
-    if(res.success){
+    if (res.success) {
       var isCancel = comment.voteUP == false;
       comment.voteUP = isCancel ? null : false;
       comment.score = res.data;
@@ -111,11 +115,11 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
   Widget build(BuildContext context) {
     var upColor = context.colorScheme.outline;
     bool darkMode = context.colorScheme.brightness == Brightness.dark;
-    if(comment.voteUP == true) {
+    if (comment.voteUP == true) {
       upColor = darkMode ? Colors.red.shade200 : Colors.red.shade600;
     }
     var downColor = context.colorScheme.outline;
-    if(comment.voteUP == false) {
+    if (comment.voteUP == false) {
       downColor = darkMode ? Colors.blue.shade200 : Colors.blue.shade600;
     }
 
@@ -137,22 +141,20 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
                 Text(
                   "${isUploader ? "(上传者)" : ""}${comment.name}",
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   TimeExtension.parseEhTime(comment.time).toCompareString,
                   style: const TextStyle(fontSize: 12),
-                )
+                ),
               ],
             ),
-            const SizedBox(
-              height: 4,
-            ),
+            const SizedBox(height: 4),
             _EhComment(comment.content),
-            const SizedBox(
-              height: 4,
-            ),
+            const SizedBox(height: 4),
             if (comment.id != "0")
               Align(
                 alignment: Alignment.centerRight,
@@ -160,7 +162,8 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant),
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -172,13 +175,9 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
                         color: upColor,
                         onPressed: voteUp,
                       ),
-                      const SizedBox(
-                        width: 4,
-                      ),
+                      const SizedBox(width: 4),
                       Text(comment.score.toString()),
-                      const SizedBox(
-                        width: 4,
-                      ),
+                      const SizedBox(width: 4),
                       Button.icon(
                         isLoading: isVoteDown,
                         icon: const Icon(Icons.arrow_downward),
@@ -189,7 +188,7 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
                     ],
                   ),
                 ),
-              )
+              ),
           ],
         ),
       ),
@@ -213,9 +212,7 @@ class CommentsPage extends StatelessWidget {
       builder: (logic) {
         if (logic.isLoading) {
           logic.get(url);
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         } else if (logic.message != null) {
           return NetworkError(
             message: logic.message!,
@@ -226,26 +223,29 @@ class CommentsPage extends StatelessWidget {
           return Column(
             children: [
               Expanded(
-                  child: CustomScrollView(
-                slivers: [
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                        childCount: logic.comments.length, (context, index) {
-                      var comment = logic.comments[index];
-                      return _EhCommentWidget(
-                        comment: comment,
-                        uploader: uploader,
-                        auth: auth,
-                      );
-                    }),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.only(
-                      top: MediaQuery.of(App.globalContext!).padding.bottom,
+                child: CustomScrollView(
+                  slivers: [
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        childCount: logic.comments.length,
+                        (context, index) {
+                          var comment = logic.comments[index];
+                          return _EhCommentWidget(
+                            comment: comment,
+                            uploader: uploader,
+                            auth: auth,
+                          );
+                        },
+                      ),
                     ),
-                  )
-                ],
-              )),
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        top: MediaQuery.of(App.globalContext!).padding.bottom,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               buildBottom(context, logic),
             ],
           );
@@ -259,33 +259,36 @@ class CommentsPage extends StatelessWidget {
   Widget buildBottom(BuildContext context, CommentsPageLogic logic) {
     return Container(
       decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
         child: Material(
           child: Container(
             decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
-                    .withAlpha(160),
-                borderRadius: const BorderRadius.all(Radius.circular(30))),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withAlpha(160),
+              borderRadius: const BorderRadius.all(Radius.circular(30)),
+            ),
             child: Row(
               children: [
                 Expanded(
-                    child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                  child: TextField(
-                    controller: logic.controller,
-                    decoration: InputDecoration(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                    child: TextField(
+                      controller: logic.controller,
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         isCollapsed: true,
-                        hintText: "评论".tl),
-                    minLines: 1,
-                    maxLines: 5,
+                        hintText: "评论".tl,
+                      ),
+                      minLines: 1,
+                      maxLines: 5,
+                    ),
                   ),
-                )),
+                ),
                 logic.sending
                     ? const Padding(
                         padding: EdgeInsets.all(8.5),
@@ -304,19 +307,23 @@ class CommentsPage extends StatelessWidget {
                           }
                           logic.sending = true;
                           logic.update();
-                          var b = await EhNetwork()
-                              .comment(logic.controller.text, url);
+                          var b = await EhNetwork().comment(
+                            logic.controller.text,
+                            url,
+                          );
                           if (b.success) {
                             logic.controller.text = "";
                             logic.sending = false;
-                            logic.comments.add(Comment(
-                              '',
-                              ehentai.data['name'] ?? '',
-                              content,
-                              DateTime.now().toIso8601String(),
-                              0,
-                              null,
-                            ));
+                            logic.comments.add(
+                              Comment(
+                                '',
+                                ehentai.data['name'] ?? '',
+                                content,
+                                DateTime.now().toIso8601String(),
+                                0,
+                                null,
+                              ),
+                            );
                             logic.update();
                           } else {
                             showToast(message: b.errorMessage!);
@@ -327,7 +334,8 @@ class CommentsPage extends StatelessWidget {
                         icon: Icon(
                           Icons.send,
                           color: Theme.of(context).colorScheme.secondary,
-                        ))
+                        ),
+                      ),
               ],
             ),
           ),
@@ -337,16 +345,13 @@ class CommentsPage extends StatelessWidget {
   }
 }
 
-void showComments(BuildContext context, String url, String uploader, Map<String, String> auth) {
-  showSideBar(
-    context,
-    CommentsPage(
-      url,
-      uploader,
-      auth,
-    ),
-    title: "评论".tl,
-  );
+void showComments(
+  BuildContext context,
+  String url,
+  String uploader,
+  Map<String, String> auth,
+) {
+  showSideBar(context, CommentsPage(url, uploader, auth), title: "评论".tl);
 }
 
 class _EhComment extends StatelessWidget {
@@ -356,10 +361,7 @@ class _EhComment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectionArea(
-        child: Column(
-      children: _parse(html).toList(),
-    ));
+    return SelectionArea(child: Column(children: _parse(html).toList()));
   }
 
   void onLink(String link) {
@@ -376,10 +378,7 @@ class _EhComment extends StatelessWidget {
     html = html.replaceAll("<br>", "\n");
     var lines = html.split("\n");
     for (var line in lines) {
-      yield SizedBox(
-        width: double.infinity,
-        child: _buildLine(line),
-      );
+      yield SizedBox(width: double.infinity, child: _buildLine(line));
     }
   }
 
@@ -416,8 +415,11 @@ class _EhComment extends StatelessWidget {
 
     List<TextSpan> spans = [];
 
-    void parse(dom.Node node, TextStyle style,
-        [TapGestureRecognizer? recognizer]) {
+    void parse(
+      dom.Node node,
+      TextStyle style, [
+      TapGestureRecognizer? recognizer,
+    ]) {
       if (node is dom.Element) {
         if (node.localName == 'a') {
           recognizer = TapGestureRecognizer()
@@ -428,15 +430,15 @@ class _EhComment extends StatelessWidget {
           widgets.add(Text.rich(TextSpan(children: spans)));
           spans = [];
           Widget widget = Image(
-          image: CachedNetworkImageProvider(node.attributes['src']!, cacheManager: picaImageManager),
+            image: CachedNetworkImageProvider(
+              node.attributes['src']!,
+              cacheManager: picaImageManager,
+            ),
           );
           if (recognizer != null) {
             widget = MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: recognizer.onTap,
-                child: widget,
-              ),
+              child: GestureDetector(onTap: recognizer.onTap, child: widget),
             );
           }
           widgets.add(widget);
@@ -456,16 +458,18 @@ class _EhComment extends StatelessWidget {
               spans.add(TextSpan(text: buffer, style: style));
               buffer = '';
             }
-            spans.add(TextSpan(
-              text: part,
-              style: style.copyWith(
-                color: RichTextStyle.defaultStyle.link!.color,
+            spans.add(
+              TextSpan(
+                text: part,
+                style: style.copyWith(
+                  color: RichTextStyle.defaultStyle.link!.color,
+                ),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () {
+                    onLink(part);
+                  },
               ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  onLink(part);
-                },
-            ));
+            );
           } else {
             buffer += '$part ';
           }
@@ -504,18 +508,18 @@ class RichTextStyle {
   final TextStyle? em;
   final Color? contentColor;
 
-  const RichTextStyle._(
-      {required this.h1,
-      required this.h2,
-      required this.h3,
-      required this.h4,
-      required this.h5,
-      required this.h6,
-      required this.paragraph,
-      required this.link,
-      required this.strong,
-      required this.em})
-      : contentColor = null;
+  const RichTextStyle._({
+    required this.h1,
+    required this.h2,
+    required this.h3,
+    required this.h4,
+    required this.h5,
+    required this.h6,
+    required this.paragraph,
+    required this.link,
+    required this.strong,
+    required this.em,
+  }) : contentColor = null;
 
   static const RichTextStyle defaultStyle = RichTextStyle._(
     h1: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
@@ -525,11 +529,12 @@ class RichTextStyle {
     h5: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
     h6: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
     paragraph: TextStyle(
-        fontSize: 16,
-        wordSpacing: 1,
-        letterSpacing: 0.2,
-        height: 1.2,
-        color: Color.fromARGB(255, 0, 0, 0)),
+      fontSize: 16,
+      wordSpacing: 1,
+      letterSpacing: 0.2,
+      height: 1.2,
+      color: Color.fromARGB(255, 0, 0, 0),
+    ),
     link: TextStyle(color: Color.fromARGB(255, 0, 140, 255)),
     strong: TextStyle(fontWeight: FontWeight.bold),
     em: TextStyle(fontStyle: FontStyle.italic),

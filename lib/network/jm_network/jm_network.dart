@@ -29,9 +29,12 @@ import 'jm_models.dart';
 
 extension _CachedNetwork on CachedNetwork {
   Future<CachedNetworkRes<String>> getJm(
-      String url, BaseOptions options, int time,
-      {CacheExpiredTime expiredTime = CacheExpiredTime.short,
-      CookieJar? cookieJar}) async {
+    String url,
+    BaseOptions options,
+    int time, {
+    CacheExpiredTime expiredTime = CacheExpiredTime.short,
+    CookieJar? cookieJar,
+  }) async {
     await setNetworkProxy();
     final key = url;
     var cache = await CacheManager().findCache(key);
@@ -60,14 +63,21 @@ extension _CachedNetwork on CachedNetwork {
       throw Exception("Data parsing error");
     }
     var decodedData = JmNetwork.convertData(
-        data,
-        "$time${JmNetwork.kJmSecret}"
+      data,
+      "$time${JmNetwork.kJmSecret}",
     );
     if (expiredTime != CacheExpiredTime.no) {
-      await CacheManager().writeCache(key, res.data!, Duration(milliseconds: expiredTime.time));
+      await CacheManager().writeCache(
+        key,
+        res.data!,
+        Duration(milliseconds: expiredTime.time),
+      );
     }
     return CachedNetworkRes(
-        decodedData, res.statusCode, res.realUri.toString());
+      decodedData,
+      res.statusCode,
+      res.realUri.toString(),
+    );
   }
 }
 
@@ -94,7 +104,32 @@ class JmNetwork {
     "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
   ];
 
-  static const domainSecret = [100, 105, 111, 115, 102, 106, 99, 107, 119, 112, 113, 112, 100, 102, 106, 107, 118, 110, 113, 81, 106, 115, 105, 107];
+  static const domainSecret = [
+    100,
+    105,
+    111,
+    115,
+    102,
+    106,
+    99,
+    107,
+    119,
+    112,
+    113,
+    112,
+    100,
+    102,
+    106,
+    107,
+    118,
+    110,
+    113,
+    81,
+    106,
+    115,
+    105,
+    107,
+  ];
 
   static const kJmSecret = '185Hcomic3PAPP7R';
 
@@ -102,7 +137,7 @@ class JmNetwork {
     "https://cdn-msp3.jmapiproxy1.cc",
     "https://cdn-msp.jmapiproxy3.cc",
     "https://cdn-msp2.jmapiproxy2.cc",
-    "https://cdn-msp3.jmapiproxy3.cc"
+    "https://cdn-msp3.jmapiproxy3.cc",
   ];
 
   bool _performingLogin = false;
@@ -139,13 +174,13 @@ class JmNetwork {
 
   Future<Res<dynamic>> getAppVersionCode() async {
     var dio = logDio(
-        BaseOptions(
-          headers: {
-            ...getBaseHeaders(),
-            "Accept-Encoding": "gzip",
-            "user-agent": ua,
-          },
-        )
+      BaseOptions(
+        headers: {
+          ...getBaseHeaders(),
+          "Accept-Encoding": "gzip",
+          "user-agent": ua,
+        },
+      ),
     );
     try {
       var res = await dio.get("$baseUrl/static/jmapp3apk/version.json");
@@ -169,19 +204,13 @@ class JmNetwork {
 
   Future<List<String>> tryFetchAndDecrypt(String url) async {
     var dio = Dio(
-        BaseOptions(
-          headers: {
-            ...getBaseHeaders(),
-            "user-agent": ua,
-          },
-        )
+      BaseOptions(headers: {...getBaseHeaders(), "user-agent": ua}),
     );
     try {
       var res = await dio.get(url);
-      var jsonData = json.decode(convertData(
-          res.data,
-          String.fromCharCodes(domainSecret)
-      )) as Map<String, dynamic>;
+      var jsonData =
+          json.decode(convertData(res.data, String.fromCharCodes(domainSecret)))
+              as Map<String, dynamic>;
       var domains = List<String>.from(jsonData['Server']);
       domains = domains.sublist(0, 4);
       return domains;
@@ -195,7 +224,7 @@ class JmNetwork {
   }
 
   Future<Res<dynamic>> getApiDomains() async {
-    for(String url in domainUrls) {
+    for (String url in domainUrls) {
       var domains = await tryFetchAndDecrypt(url);
       if (domains.isNotEmpty) {
         return Res(domains);
@@ -217,10 +246,7 @@ class JmNetwork {
     for (var domain in domains) {
       () async {
         try {
-          var res = await dio.post(
-            "https://$domain/login",
-            data: "&",
-          );
+          var res = await dio.post("https://$domain/login", data: "&");
 
           if (res.statusCode == 401 && !passed) {
             passed = true;
@@ -231,17 +257,19 @@ class JmNetwork {
             Log.e("Network $e");
           }
         }
-      } ();
+      }();
     }
 
     return completer.future;
   }
 
   ///get请求, 返回Json数据中的data
-  Future<Res<dynamic>> get(String url,
-      {Map<String, String>? header,
-      CacheExpiredTime expiredTime = CacheExpiredTime.long,
-      bool isRetry = false}) async {
+  Future<Res<dynamic>> get(
+    String url, {
+    Map<String, String>? header,
+    CacheExpiredTime expiredTime = CacheExpiredTime.long,
+    bool isRetry = false,
+  }) async {
     while (_performingLogin) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -251,8 +279,13 @@ class JmNetwork {
     var options = getApiOptions(time);
     options.validateStatus = (i) => i == 200 || i == 401;
     try {
-      var res = await dio.getJm(url, options, time,
-          cookieJar: cookieJar, expiredTime: CacheExpiredTime.no);
+      var res = await dio.getJm(
+        url,
+        options,
+        time,
+        cookieJar: cookieJar,
+        expiredTime: CacheExpiredTime.no,
+      );
       if (res.statusCode == 401) {
         var message =
             const JsonDecoder().convert(res.data)["errorMsg"] ?? "Error";
@@ -295,19 +328,27 @@ class JmNetwork {
       int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       var dio = logDio(getApiOptions(time, post: true));
       dio.interceptors.add(CookieManager(cookieJar));
-      var res = await dio.post(url,
-          options: Options(validateStatus: (i) => i == 200 || i == 401),
-          data: data);
+      var res = await dio.post(
+        url,
+        options: Options(validateStatus: (i) => i == 200 || i == 401),
+        data: data,
+      );
       if (res.statusCode == 401) {
-        return Res(null,
-            errorMessage: const JsonDecoder().convert(
-                    const Utf8Decoder().convert(res.data))["errorMsg"] ??
-                "Unknown Error".toString());
+        return Res(
+          null,
+          errorMessage:
+              const JsonDecoder().convert(
+                const Utf8Decoder().convert(res.data),
+              )["errorMsg"] ??
+              "Unknown Error".toString(),
+        );
       }
       var resData = convertData(
-          (const JsonDecoder()
-              .convert(const Utf8Decoder().convert(res.data)))["data"],
-          "$time$kJmSecret");
+        (const JsonDecoder().convert(
+          const Utf8Decoder().convert(res.data),
+        ))["data"],
+        "$time$kJmSecret",
+      );
       return Res<dynamic>(const JsonDecoder().convert(resData));
     } on DioException catch (e) {
       if (kDebugMode) {
@@ -329,9 +370,7 @@ class JmNetwork {
 
   Future<void> updateImgUrl(int index) async {
     try {
-      var res = await get(
-          "$baseUrl/setting?app_img_shunt=$index"
-      );
+      var res = await get("$baseUrl/setting?app_img_shunt=$index");
       var url = res.data["img_host"];
       appdata.settings[86] = url;
       appdata.updateSettings();
@@ -350,8 +389,10 @@ class JmNetwork {
 
   ///获取主页
   Future<Res<HomePageData>> getHomePage() async {
-    var res = await get("$baseUrl/promote?$baseData&page=0",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/promote?$baseData&page=0",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -364,16 +405,31 @@ class JmNetwork {
             var categories = <ComicCategoryInfo>[];
             if (comic["category"]["id"] != null &&
                 comic["category"]["title"] != null) {
-              categories.add(ComicCategoryInfo(
-                  comic["category"]["id"], comic["category"]["title"]));
+              categories.add(
+                ComicCategoryInfo(
+                  comic["category"]["id"],
+                  comic["category"]["title"],
+                ),
+              );
             }
             if (comic["category_sub"]["id"] != null &&
                 comic["category_sub"]["title"] != null) {
-              categories.add(ComicCategoryInfo(
-                  comic["category_sub"]["id"], comic["category_sub"]["title"]));
+              categories.add(
+                ComicCategoryInfo(
+                  comic["category_sub"]["id"],
+                  comic["category_sub"]["title"],
+                ),
+              );
             }
-            comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-                comic["description"] ?? "", categories));
+            comics.add(
+              JmComicBrief(
+                comic["id"],
+                comic["author"],
+                comic["name"],
+                comic["description"] ?? "",
+                categories,
+              ),
+            );
           } catch (e) {
             continue;
           }
@@ -383,8 +439,9 @@ class JmNetwork {
         if (type == "category_id") {
           id = item["slug"];
         }
-        data.items
-            .add(HomePageItem(item["title"], id, comics, type != "promote"));
+        data.items.add(
+          HomePageItem(item["title"], id, comics, type != "promote"),
+        );
       }
       return Res(data);
     } catch (e, s) {
@@ -397,8 +454,10 @@ class JmNetwork {
   }
 
   Future<Res<PromoteList>> getPromoteList(String id) async {
-    var res = await get("$baseUrl/promote_list?$baseData&id=$id&page=0",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/promote_list?$baseData&id=$id&page=0",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -409,17 +468,32 @@ class JmNetwork {
         var categories = <ComicCategoryInfo>[];
         if (comic["category"]["id"] != null &&
             comic["category"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category"]["id"], comic["category"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category"]["id"],
+              comic["category"]["title"],
+            ),
+          );
         }
         if (comic["category_sub"]["id"] != null &&
             comic["category_sub"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category_sub"]["id"], comic["category_sub"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category_sub"]["id"],
+              comic["category_sub"]["title"],
+            ),
+          );
         }
         try {
-          list.comics.add(JmComicBrief(comic["id"], comic["author"],
-              comic["name"], comic["description"] ?? "", categories));
+          list.comics.add(
+            JmComicBrief(
+              comic["id"],
+              comic["author"],
+              comic["name"],
+              comic["description"] ?? "",
+              categories,
+            ),
+          );
         } catch (e) {
           //忽略
         }
@@ -441,8 +515,9 @@ class JmNetwork {
       return;
     }
     var res = await get(
-        "$baseUrl/promote_list?$baseData&id=${list.id}&page=${list.page}",
-        expiredTime: CacheExpiredTime.no);
+      "$baseUrl/promote_list?$baseData&id=${list.id}&page=${list.page}",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return;
     }
@@ -451,17 +526,32 @@ class JmNetwork {
         var categories = <ComicCategoryInfo>[];
         if (comic["category"]["id"] != null &&
             comic["category"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category"]["id"], comic["category"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category"]["id"],
+              comic["category"]["title"],
+            ),
+          );
         }
         if (comic["category_sub"]["id"] != null &&
             comic["category_sub"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category_sub"]["id"], comic["category_sub"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category_sub"]["id"],
+              comic["category_sub"]["title"],
+            ),
+          );
         }
         try {
-          list.comics.add(JmComicBrief(comic["id"], comic["author"],
-              comic["name"], comic["description"] ?? "", categories));
+          list.comics.add(
+            JmComicBrief(
+              comic["id"],
+              comic["author"],
+              comic["name"],
+              comic["description"] ?? "",
+              categories,
+            ),
+          );
         } catch (e) {
           //忽视
         }
@@ -479,8 +569,10 @@ class JmNetwork {
   }
 
   Future<Res<List<JmComicBrief>>> getLatest(int page) async {
-    var res = await get("$baseUrl/latest?$baseData&page=$page",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/latest?$baseData&page=$page",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -491,16 +583,31 @@ class JmNetwork {
           var categories = <ComicCategoryInfo>[];
           if (comic["category"]["id"] != null &&
               comic["category"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category"]["id"], comic["category"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category"]["id"],
+                comic["category"]["title"],
+              ),
+            );
           }
           if (comic["category_sub"]["id"] != null &&
               comic["category_sub"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category_sub"]["id"], comic["category_sub"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category_sub"]["id"],
+                comic["category_sub"]["title"],
+              ),
+            );
           }
-          comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-              comic["description"] ?? "", categories));
+          comics.add(
+            JmComicBrief(
+              comic["id"],
+              comic["author"],
+              comic["name"],
+              comic["description"] ?? "",
+              categories,
+            ),
+          );
         } catch (e) {
           continue;
         }
@@ -517,8 +624,10 @@ class JmNetwork {
 
   ///获取热搜词
   Future<Res<bool>> getHotTags() async {
-    var res = await get("$baseUrl/hot_tags?$baseData",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/hot_tags?$baseData",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -530,7 +639,10 @@ class JmNetwork {
   }
 
   Future<Res<List<JmComicBrief>>> searchNew(
-      String keyword, int page, ComicsOrder order) async {
+    String keyword,
+    int page,
+    ComicsOrder order,
+  ) async {
     appdata.searchHistory.remove(keyword);
     appdata.searchHistory.add(keyword);
     keyword = keyword.trim();
@@ -541,11 +653,14 @@ class JmNetwork {
     Res res;
     if (page != 1) {
       res = await get(
-          "$baseUrl/search?&search_query=$keyword&o=$order&page=$page",
-          expiredTime: CacheExpiredTime.no);
+        "$baseUrl/search?&search_query=$keyword&o=$order&page=$page",
+        expiredTime: CacheExpiredTime.no,
+      );
     } else {
-      res = await get("$baseUrl/search?&search_query=$keyword&o=$order",
-          expiredTime: CacheExpiredTime.no);
+      res = await get(
+        "$baseUrl/search?&search_query=$keyword&o=$order",
+        expiredTime: CacheExpiredTime.no,
+      );
     }
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
@@ -557,16 +672,31 @@ class JmNetwork {
           var categories = <ComicCategoryInfo>[];
           if (comic["category"]["id"] != null &&
               comic["category"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category"]["id"], comic["category"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category"]["id"],
+                comic["category"]["title"],
+              ),
+            );
           }
           if (comic["category_sub"]["id"] != null &&
               comic["category_sub"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category_sub"]["id"], comic["category_sub"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category_sub"]["id"],
+                comic["category_sub"]["title"],
+              ),
+            );
           }
-          comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-              comic["description"] ?? "", categories));
+          comics.add(
+            JmComicBrief(
+              comic["id"],
+              comic["author"],
+              comic["name"],
+              comic["description"] ?? "",
+              categories,
+            ),
+          );
         } catch (e) {
           continue;
         }
@@ -578,15 +708,20 @@ class JmNetwork {
           //跳过
         }
       });
-      return Res(comics,
-          subData: comics.isEmpty
-              ? 0
-              : (TypeUtil.parseInt(res.data["total"]) / res.data["content"].length)
-                  .ceil());
+      return Res(
+        comics,
+        subData: comics.isEmpty
+            ? 0
+            : (TypeUtil.parseInt(res.data["total"]) /
+                      res.data["content"].length)
+                  .ceil(),
+      );
     } catch (e, s) {
       Log.e("Data Analysis $e\n$s");
-      Future.delayed(const Duration(microseconds: 500),
-          () => StateController.find<PreSearchController>().update());
+      Future.delayed(
+        const Duration(microseconds: 500),
+        () => StateController.find<PreSearchController>().update(),
+      );
       return Res(null, errorMessage: e.toString());
     }
   }
@@ -614,10 +749,14 @@ class JmNetwork {
   }
 
   Future<Res<List<JmComicBrief>>> getCategoryComics(
-      String category, ComicsOrder order, int page) async {
+    String category,
+    ComicsOrder order,
+    int page,
+  ) async {
     var res = await get(
-        "$baseUrl/categories/filter?$baseData&o=$order&c=${Uri.encodeComponent(category)}&page=$page",
-        expiredTime: CacheExpiredTime.no);
+      "$baseUrl/categories/filter?$baseData&o=$order&c=${Uri.encodeComponent(category)}&page=$page",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -628,16 +767,31 @@ class JmNetwork {
           var categories = <ComicCategoryInfo>[];
           if (comic["category"]["id"] != null &&
               comic["category"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category"]["id"], comic["category"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category"]["id"],
+                comic["category"]["title"],
+              ),
+            );
           }
           if (comic["category_sub"]["id"] != null &&
               comic["category_sub"]["title"] != null) {
-            categories.add(ComicCategoryInfo(
-                comic["category_sub"]["id"], comic["category_sub"]["title"]));
+            categories.add(
+              ComicCategoryInfo(
+                comic["category_sub"]["id"],
+                comic["category_sub"]["title"],
+              ),
+            );
           }
-          comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-              comic["description"] ?? "", categories));
+          comics.add(
+            JmComicBrief(
+              comic["id"],
+              comic["author"],
+              comic["name"],
+              comic["description"] ?? "",
+              categories,
+            ),
+          );
         } catch (e) {
           continue;
         }
@@ -659,8 +813,10 @@ class JmNetwork {
   }
 
   Future<Res<JmComicInfo>> getComicInfo(String id) async {
-    var res = await get("$baseUrl/album?id=$id",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/album?id=$id",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       if (res.errorMessage!.contains("Empty data")) {
         throw Exception("漫畫不存在: id = $id");
@@ -698,10 +854,18 @@ class JmNetwork {
       }
       var related = <JmComicBrief>[];
       for (var c in res.data["related_list"] ?? []) {
-        related.add(JmComicBrief(c["id"], c["author"] ?? "Unknown",
-            c["name"] ?? "Unknown", c["description"] ?? "None", []));
+        related.add(
+          JmComicBrief(
+            c["id"],
+            c["author"] ?? "Unknown",
+            c["name"] ?? "Unknown",
+            c["description"] ?? "None",
+            [],
+          ),
+        );
       }
-      return Res(JmComicInfo(
+      return Res(
+        JmComicInfo(
           res.data["name"] ?? "未知",
           id,
           author,
@@ -716,7 +880,9 @@ class JmNetwork {
           res.data["liked"] ?? false,
           res.data["is_favorite"] ?? false,
           int.parse(res.data["comment_total"] ?? "0"),
-          epNames));
+          epNames,
+        ),
+      );
     } catch (e, s) {
       Log.e("Data Analysis $e\n$s");
       return Res(null, errorMessage: e.toString());
@@ -724,7 +890,6 @@ class JmNetwork {
   }
 
   Future<Res<bool>> login(String account, String pwd) async {
-
     if (appdata.settings[15] == "1") {
       var i = await selectDomain();
       if (i != null) {
@@ -734,8 +899,10 @@ class JmNetwork {
     }
     _performingLogin = true;
     try {
-      var res = await post("$baseUrl/login",
-          "username=${Uri.encodeComponent(account)}&password=${Uri.encodeComponent(pwd)}");
+      var res = await post(
+        "$baseUrl/login",
+        "username=${Uri.encodeComponent(account)}&password=${Uri.encodeComponent(pwd)}",
+      );
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
       }
@@ -774,7 +941,9 @@ class JmNetwork {
   ///创建收藏夹
   Future<Res<bool>> createFolder(String name) async {
     var res = await post(
-        "$baseUrl/favorite_folder", "type=add&folder_name=$name&$baseData");
+      "$baseUrl/favorite_folder",
+      "type=add&folder_name=$name&$baseData",
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     } else {
@@ -783,12 +952,16 @@ class JmNetwork {
   }
 
   Future<Res<List<JmComicBrief>>> getFolderComicsPage(
-      String id, int page) async {
-    ComicsOrder order =
-        appdata.settings[42] == "0" ? ComicsOrder.latest : ComicsOrder.update;
+    String id,
+    int page,
+  ) async {
+    ComicsOrder order = appdata.settings[42] == "0"
+        ? ComicsOrder.latest
+        : ComicsOrder.update;
     var res = await get(
-        "$baseUrl/favorite?$baseData&page=$page&folder_id=$id&o=$order",
-        expiredTime: CacheExpiredTime.no);
+      "$baseUrl/favorite?$baseData&page=$page&folder_id=$id&o=$order",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -798,16 +971,31 @@ class JmNetwork {
         var categories = <ComicCategoryInfo>[];
         if (comic["category"]["id"] != null &&
             comic["category"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category"]["id"], comic["category"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category"]["id"],
+              comic["category"]["title"],
+            ),
+          );
         }
         if (comic["category_sub"]["id"] != null &&
             comic["category_sub"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category_sub"]["id"], comic["category_sub"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category_sub"]["id"],
+              comic["category_sub"]["title"],
+            ),
+          );
         }
-        comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-            comic["description"] ?? "", categories));
+        comics.add(
+          JmComicBrief(
+            comic["id"],
+            comic["author"],
+            comic["name"],
+            comic["description"] ?? "",
+            categories,
+          ),
+        );
       }
       int pages;
       if (comics.isNotEmpty) {
@@ -827,8 +1015,10 @@ class JmNetwork {
 
   ///获取收藏夹
   Future<Res<Map<String, String>>> getFolders() async {
-    var res = await get("$baseUrl/favorite?$baseData",
-        expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/favorite?$baseData",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -846,8 +1036,10 @@ class JmNetwork {
 
   ///移动漫画至指定的收藏夹
   Future<Res<bool>> moveToFolder(String comicId, String folderId) async {
-    var res = await post("$baseUrl/favorite_folder",
-        "type=move&folder_id=$folderId&aid=$comicId&$baseData");
+    var res = await post(
+      "$baseUrl/favorite_folder",
+      "type=move&folder_id=$folderId&aid=$comicId&$baseData",
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     } else {
@@ -907,20 +1099,26 @@ class JmNetwork {
   /// 此函数未使用, 因为似乎所有漫画的scramble都一样
   Future<String?> getScramble(String id) async {
     var dio = Dio(
-        getApiOptions(DateTime.now().millisecondsSinceEpoch ~/ 1000, byte: false))
-      ..interceptors.add(LogInterceptor());
+      getApiOptions(DateTime.now().millisecondsSinceEpoch ~/ 1000, byte: false),
+    )..interceptors.add(LogInterceptor());
     dio.interceptors.add(CookieManager(cookieJar));
     var res = await dio.get(
-        "$baseUrl/chapter_view_template?id=$id&mode=vertical&page=0&app_ima_shunt=NaN&express=off");
+      "$baseUrl/chapter_view_template?id=$id&mode=vertical&page=0&app_ima_shunt=NaN&express=off",
+    );
     var exp = RegExp(r"(?<=var scramble_id = )\w+");
     return exp.firstMatch(res.data)!.group(0);
   }
 
   /// 获取评论, 获取章节评论需要mode = all
-  Future<Res<List<Comment>>> getComment(String id, int page,
-      [String mode = "manhua"]) async {
-    var res = await get("$baseUrl/forum?mode=$mode&aid=$id&page=$page",
-        expiredTime: CacheExpiredTime.no);
+  Future<Res<List<Comment>>> getComment(
+    String id,
+    int page, [
+    String mode = "manhua",
+  ]) async {
+    var res = await get(
+      "$baseUrl/forum?mode=$mode&aid=$id&page=$page",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -934,11 +1132,27 @@ class JmNetwork {
       for (var c in res.data["list"]) {
         var reply = <Comment>[];
         for (var r in c["replys"] ?? []) {
-          reply.add(Comment(r["CID"], getJmAvatarUrl(r["photo"]), r["username"],
-              r["addtime"], parseContent(r["content"]), []));
+          reply.add(
+            Comment(
+              r["CID"],
+              getJmAvatarUrl(r["photo"]),
+              r["username"],
+              r["addtime"],
+              parseContent(r["content"]),
+              [],
+            ),
+          );
         }
-        comments.add(Comment(c["CID"], getJmAvatarUrl(c["photo"]),
-            c["username"], c["addtime"], parseContent(c["content"]), reply));
+        comments.add(
+          Comment(
+            c["CID"],
+            getJmAvatarUrl(c["photo"]),
+            c["username"],
+            c["addtime"],
+            parseContent(c["content"]),
+            reply,
+          ),
+        );
       }
       return Res(
         comments,
@@ -954,7 +1168,9 @@ class JmNetwork {
 
   Future<Res<bool>> deleteFolder(String id) async {
     var res = await post(
-        "$baseUrl/favorite_folder", "type=del&folder_id=$id&$baseData");
+      "$baseUrl/favorite_folder",
+      "type=del&folder_id=$id&$baseData",
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     } else {
@@ -969,8 +1185,10 @@ class JmNetwork {
   ///
   /// 返回Map, 键为ID, 值为名称
   Future<Res<Map<String, String>>> getWeekRecommendation() async {
-    var res =
-        await get("$baseUrl/week?$baseData", expiredTime: CacheExpiredTime.no);
+    var res = await get(
+      "$baseUrl/week?$baseData",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage!);
     }
@@ -990,7 +1208,9 @@ class JmNetwork {
   ///
   /// 不需要传递page变量, 因为只有一页
   Future<Res<List<JmComicBrief>>> getWeekRecommendationComics(
-      String id, WeekRecommendationType type) async {
+    String id,
+    WeekRecommendationType type,
+  ) async {
     var res = await get("$baseUrl/week/filter?$baseData&id=$id&page=0$type");
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage!);
@@ -1001,16 +1221,31 @@ class JmNetwork {
         var categories = <ComicCategoryInfo>[];
         if (comic["category"]["id"] != null &&
             comic["category"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category"]["id"], comic["category"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category"]["id"],
+              comic["category"]["title"],
+            ),
+          );
         }
         if (comic["category_sub"]["id"] != null &&
             comic["category_sub"]["title"] != null) {
-          categories.add(ComicCategoryInfo(
-              comic["category_sub"]["id"], comic["category_sub"]["title"]));
+          categories.add(
+            ComicCategoryInfo(
+              comic["category_sub"]["id"],
+              comic["category_sub"]["title"],
+            ),
+          );
         }
-        comics.add(JmComicBrief(comic["id"], comic["author"], comic["name"],
-            comic["description"] ?? "", categories));
+        comics.add(
+          JmComicBrief(
+            comic["id"],
+            comic["author"],
+            comic["name"],
+            comic["description"] ?? "",
+            categories,
+          ),
+        );
       }
       return Res(comics);
     } catch (e, s) {
@@ -1023,8 +1258,10 @@ class JmNetwork {
   }
 
   Future<Res<dynamic>> comment(String aid, String content) async {
-    var res = await post("$baseUrl/comment",
-        "comment=${Uri.encodeComponent(content)}&status=undefined&aid=$aid&$baseData");
+    var res = await post(
+      "$baseUrl/comment",
+      "comment=${Uri.encodeComponent(content)}&status=undefined&aid=$aid&$baseData",
+    );
     if (res.error) {
       return res;
     } else {
@@ -1034,8 +1271,7 @@ class JmNetwork {
 
   Future<Res<bool>> dailyChk() async {
     try {
-      var res = await get(
-          "$baseUrl/daily?user_id=${jm.data['id']}");
+      var res = await get("$baseUrl/daily?user_id=${jm.data['id']}");
       var dailyId = res.data['daily_id'];
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
@@ -1043,15 +1279,15 @@ class JmNetwork {
         return const Res(null, errorMessage: "daily_id not found");
       }
       res = await post(
-          "$baseUrl/daily_chk",
-          "user_id=${jm.data['id']}&daily_id=$dailyId&"
+        "$baseUrl/daily_chk",
+        "user_id=${jm.data['id']}&daily_id=$dailyId&",
       );
       String msg = res.data['msg'];
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
-      } else if (msg.startsWith("今天")
-              || msg.contains("Jcoin")
-              || msg.contains("EXP")) {
+      } else if (msg.startsWith("今天") ||
+          msg.contains("Jcoin") ||
+          msg.contains("EXP")) {
         return Res(true, subData: msg);
       } else {
         return Res(null, errorMessage: msg);

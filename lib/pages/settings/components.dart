@@ -1,12 +1,13 @@
 part of pica_settings;
 
 class SwitchSetting extends StatefulWidget {
-  const SwitchSetting(
-      {required this.title,
-      this.subTitle,
-      required this.icon,
-      required this.settingsIndex,
-      super.key});
+  const SwitchSetting({
+    required this.title,
+    this.subTitle,
+    required this.icon,
+    required this.settingsIndex,
+    super.key,
+  });
 
   final String title;
 
@@ -47,18 +48,17 @@ class SettingsTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(text),
-    );
+    return ListTile(title: Text(text));
   }
 }
 
 class NewPageSetting extends StatelessWidget {
-  const NewPageSetting(
-      {required this.title,
-      required this.onTap,
-      required this.icon,
-      super.key});
+  const NewPageSetting({
+    required this.title,
+    required this.onTap,
+    required this.icon,
+    super.key,
+  });
 
   final String title;
 
@@ -230,7 +230,7 @@ class _SelectTileState extends State<_SelectTile> {
               widget.onChange?.call(i);
             },
             child: Text(widget.options[i]),
-          )
+          ),
       ],
     );
   }

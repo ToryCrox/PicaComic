@@ -21,30 +21,25 @@ class NetworkError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: 60,
-          ),
-          const SizedBox(
-            height: 4,
-          ),
+          const Icon(Icons.error_outline, size: 60),
+          const SizedBox(height: 4),
           Text(
             cfe == null ? message : "需要进行Cloudflare验证".tl,
             textAlign: TextAlign.center,
             maxLines: 3,
           ),
-          if (retry != null)
-            const SizedBox(
-              height: 4,
-            ),
+          if (retry != null) const SizedBox(height: 4),
           if (retry != null)
             if (cfe != null)
               FilledButton(
-                onPressed: () => passCloudflare(CloudflareException.fromString(message)!, retry!),
+                onPressed: () => passCloudflare(
+                  CloudflareException.fromString(message)!,
+                  retry!,
+                ),
                 child: Text('继续'.tl),
               )
             else
-              FilledButton(onPressed: retry, child: Text('重试'.tl))
+              FilledButton(onPressed: retry, child: Text('重试'.tl)),
         ],
       ),
     );
@@ -52,15 +47,11 @@ class NetworkError extends StatelessWidget {
       body = Column(
         children: [
           const Appbar(title: Text("")),
-          Expanded(
-            child: body,
-          )
+          Expanded(child: body),
         ],
       );
     }
-    return Material(
-      child: body,
-    );
+    return Material(child: body);
   }
 }
 
@@ -72,9 +63,7 @@ class ListLoadingIndicator extends StatelessWidget {
     return const SizedBox(
       width: double.infinity,
       height: 80,
-      child: Center(
-        child: FiveDotLoadingAnimation(),
-      ),
+      child: Center(child: FiveDotLoadingAnimation()),
     );
   }
 }
@@ -126,15 +115,9 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            error!,
-            maxLines: 3,
-          ),
+          Text(error!, maxLines: 3),
           const SizedBox(height: 12),
-          Button.text(
-            onPressed: retry,
-            child: const Text("Retry"),
-          )
+          Button.text(onPressed: retry, child: const Text("Retry")),
         ],
       ),
     ).paddingHorizontal(16);
@@ -290,7 +273,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
               reset();
             },
             child: const Text("Retry"),
-          )
+          ),
         ],
       ),
     ).paddingHorizontal(16);
@@ -354,7 +337,7 @@ class _FiveDotLoadingAnimationState extends State<FiveDotLoadingAnimation>
     Colors.green,
     Colors.blue,
     Colors.yellow,
-    Colors.purple
+    Colors.purple,
   ];
 
   static const _padding = 12.0;
@@ -366,16 +349,15 @@ class _FiveDotLoadingAnimationState extends State<FiveDotLoadingAnimation>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return SizedBox(
-            width: _dotSize * 5 + _padding * 6,
-            height: _height,
-            child: Stack(
-              children: List.generate(5, (index) => buildDot(index)),
-            ),
-          );
-        });
+      animation: _controller,
+      builder: (context, child) {
+        return SizedBox(
+          width: _dotSize * 5 + _padding * 6,
+          height: _height,
+          child: Stack(children: List.generate(5, (index) => buildDot(index))),
+        );
+      },
+    );
   }
 
   Widget buildDot(int index) {
@@ -383,7 +365,8 @@ class _FiveDotLoadingAnimationState extends State<FiveDotLoadingAnimation>
     var startValue = index * 0.8;
     return Positioned(
       left: index * _dotSize + (index + 1) * _padding,
-      bottom: (math.sin(math.pi / 2 * (value - startValue).clamp(0, 2))) *
+      bottom:
+          (math.sin(math.pi / 2 * (value - startValue).clamp(0, 2))) *
           (_height - _dotSize),
       child: Container(
         width: _dotSize,

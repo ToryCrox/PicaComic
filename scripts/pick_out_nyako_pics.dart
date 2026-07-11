@@ -239,7 +239,9 @@ void showUsage() {
   print('  --yes         跳过确认，自动执行\n');
   print('示例:');
   print('  dart run scripts/pick_out_nyako_pics.dart "E:\\漫画\\comic_folder"');
-  print('  dart run scripts/pick_out_nyako_pics.dart "E:\\漫画\\comic_folder" --yes\n');
+  print(
+    '  dart run scripts/pick_out_nyako_pics.dart "E:\\漫画\\comic_folder" --yes\n',
+  );
 }
 
 /// 主函数

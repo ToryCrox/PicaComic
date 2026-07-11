@@ -78,10 +78,7 @@ final kemono = ComicSource.named(
           KemonoCreatorSort.updated,
         );
         // 客户端分页
-        final paginated = KemonoNetwork().paginateCreators(
-          sorted,
-          page - 1,
-        );
+        final paginated = KemonoNetwork().paginateCreators(sorted, page - 1);
         // 估算总页数
         final maxPage = (res.data.length / KemonoNetwork.pageSize).ceil();
         return Res(paginated, subData: maxPage);
@@ -94,7 +91,7 @@ final kemono = ComicSource.named(
     loadPage: (keyword, page, options) async {
       // 判断搜索类型，默认搜索作者
       final searchType = options.isNotEmpty ? options[0] : 'creators';
-      
+
       if (searchType == 'creators') {
         // 搜索作者 (本地搜索)
         final res = await KemonoNetwork().getCreators();
@@ -117,10 +114,7 @@ final kemono = ComicSource.named(
     },
     searchOptions: [
       SearchOptions(
-        LinkedHashMap.of({
-          'creators': '作者',
-          'posts': '图集',
-        }),
+        LinkedHashMap.of({'creators': '作者', 'posts': '图集'}),
         '搜索类型',
       ),
     ],
@@ -134,51 +128,55 @@ final kemono = ComicSource.named(
       return const Res(null, errorMessage: 'Invalid ID format');
     }
     final [service, userId, postId] = parts;
-    
+
     final res = await KemonoNetwork().getPostDetail(service, userId, postId);
     if (res.error) {
       return Res.fromErrorRes(res);
     }
-    
+
     final post = res.data;
-    
+
     // 构建标签信息
     final tags = <String, List<String>>{
       '作者': [post.userName],
       '平台': [post.service],
     };
-    
+
     if (post.published != null) {
       final dt = post.published!;
-      tags['发布时间'] = ['${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'];
+      tags['发布时间'] = [
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
+      ];
     }
-    
+
     // 图片数量
     final imageCount = post.imageUrls.length;
     if (imageCount > 0) {
       tags['图片'] = ['$imageCount 张'];
     }
-    
+
     // 附件数量
     final archiveCount = post.archiveAttachments.length;
     if (archiveCount > 0) {
       tags['附件'] = ['$archiveCount 个'];
     }
-    
-    return Res(ComicInfoData(
-      post.title,
-      post.userName,
-      post.cover,
-      stripHtml(post.content),
-      tags,
-      null, // 单章节,不需要章节列表
-      post.thumbnailUrls,
-      null,
-      0,
-      null,
-      ComicType.kemono.name,
-      id,
-    ));
+
+    return Res(
+      ComicInfoData(
+        post.title,
+        post.userName,
+        post.cover,
+        stripHtml(post.content),
+        tags,
+        null, // 单章节,不需要章节列表
+        post.thumbnailUrls,
+        null,
+        0,
+        null,
+        ComicType.kemono.name,
+        id,
+      ),
+    );
   },
 
   // 加载漫画页面 (图片列表)
@@ -188,35 +186,31 @@ final kemono = ComicSource.named(
       return const Res(null, errorMessage: 'Invalid ID format');
     }
     final [service, userId, postId] = parts;
-    
+
     final res = await KemonoNetwork().getPostDetail(service, userId, postId);
     if (res.error) {
       return Res.fromErrorRes(res);
     }
-    
+
     return Res(res.data.imageUrls);
   },
 
   // 图片加载配置
   getImageLoadingConfig: (url, comicId, epId) => ImageConfig(
     url: url,
-    headers: {
-      "User-Agent": webUA,
-      "Referer": "https://kemono.su/",
-    },
+    headers: {"User-Agent": webUA, "Referer": "https://kemono.su/"},
   ),
 
   // 缩略图加载配置
   getThumbnailLoadingConfig: (url) => ImageConfig(
     url: url,
-    headers: {
-      "User-Agent": webUA,
-      "Referer": "https://kemono.su/",
-    },
+    headers: {"User-Agent": webUA, "Referer": "https://kemono.su/"},
   ),
 
   // ID匹配正则 (用于从URL识别ID)
-  idMatcher: RegExp(r'^(patreon|fanbox|fantia|gumroad|subscribestar|dlsite)/user/\d+/post/\d+$'),
+  idMatcher: RegExp(
+    r'^(patreon|fanbox|fantia|gumroad|subscribestar|dlsite)/user/\d+/post/\d+$',
+  ),
 
   // 自定义ComicTile
   comicTileBuilderOverride: (context, comic, options) {
@@ -233,12 +227,10 @@ final kemono = ComicSource.named(
   initData: (source) async {
     await KemonoNetwork().init();
   },
-  
+
   // 自定义详情页
   comicPageBuilder: (context, id, cover) => KemonoComicPage(id, cover),
 );
-
-
 
 /// Kemono 图集 Tile
 class _KemonoPostTile extends ComicTile {
@@ -265,23 +257,19 @@ class _KemonoPostTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: post.cover,
-        sourceKey: ComicType.kemono.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: post.cover,
+    sourceKey: ComicType.kemono.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {
     final id = '${post.service}/${post.userId}/${post.id}';
     App.mainNavigatorKey!.currentContext!.to(
-      () => ComicPage(
-        comicType: ComicType.kemono,
-        id: id,
-        cover: post.cover,
-      ),
+      () => ComicPage(comicType: ComicType.kemono, id: id, cover: post.cover),
     );
   }
 
@@ -296,13 +284,13 @@ class _KemonoPostTile extends ComicTile {
 
   @override
   FavoriteItem? get favoriteItem => FavoriteItem(
-        target: comicID,
-        name: title,
-        coverPath: post.cover,
-        author: post.userName,
-        type: FavoriteType('kemono'.hashCode),
-        tags: [post.service],
-      );
+    target: comicID,
+    name: title,
+    coverPath: post.cover,
+    author: post.userName,
+    type: FavoriteType('kemono'.hashCode),
+    tags: [post.service],
+  );
 }
 
 /// Kemono 作者 Tile
@@ -334,20 +322,18 @@ class _KemonoCreatorTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: creator.cover,
-        sourceKey: ComicType.kemono.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-      );
+    url: creator.cover,
+    sourceKey: ComicType.kemono.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    width: double.infinity,
+    height: double.infinity,
+  );
 
   @override
   void onTap_() {
     // 进入作者页面,显示该作者的所有图集
-    App.mainNavigatorKey!.currentContext!.to(
-      () => _KemonoCreatorPage(creator),
-    );
+    App.mainNavigatorKey!.currentContext!.to(() => _KemonoCreatorPage(creator));
   }
 
   @override
@@ -374,12 +360,8 @@ class _KemonoCreatorPageState extends State<_KemonoCreatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.creator.title),
-      ),
-      body: _KemonoCreatorList(
-        creator: widget.creator,
-      ),
+      appBar: AppBar(title: Text(widget.creator.title)),
+      body: _KemonoCreatorList(creator: widget.creator),
     );
   }
 }

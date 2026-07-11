@@ -25,10 +25,7 @@ class KemonoFile {
   /// 文件路径 (相对路径,需要拼接CDN域名)
   final String path;
 
-  const KemonoFile({
-    required this.name,
-    required this.path,
-  });
+  const KemonoFile({required this.name, required this.path});
 
   /// 从 JSON Map 创建 KemonoFile
   factory KemonoFile.fromJson(Map<dynamic, dynamic> json) {
@@ -104,9 +101,12 @@ class KemonoPostBrief extends BaseComic {
   factory KemonoPostBrief.fromJson(Map<dynamic, dynamic> json) {
     final fileJson = json['file'];
     KemonoFile? file;
-    if (fileJson is Map && fileJson['path'] != null && (fileJson['path'] as String).isNotEmpty) {
+    if (fileJson is Map &&
+        fileJson['path'] != null &&
+        (fileJson['path'] as String).isNotEmpty) {
       file = KemonoFile.fromJson(fileJson);
-    } else if (json['attachments'] is List && (json['attachments'] as List).isNotEmpty) {
+    } else if (json['attachments'] is List &&
+        (json['attachments'] as List).isNotEmpty) {
       // Discord data uses attachments instead of file
       final attachments = json['attachments'] as List;
       if (attachments.first is Map && attachments.first['path'] != null) {
@@ -128,21 +128,25 @@ class KemonoPostBrief extends BaseComic {
 
     String userId = json.optString('user');
     String userName = json['user_name']?.toString() ?? '';
-    
+
     // Discord data uses 'author' object
     if (json['author'] is Map) {
       final author = json['author'] as Map;
       if (userId.isEmpty) userId = author['id']?.toString() ?? '';
       if (userName.isEmpty) userName = author['username']?.toString() ?? '';
     }
-    
+
     if (userId.isEmpty) userId = json['user']?.toString() ?? '';
     if (userName.isEmpty) userName = userId;
 
     return KemonoPostBrief(
       id: json.optString('id'),
       title: title,
-      service: json.optString('service').isNotEmpty ? json.optString('service') : (json.optString('server').isNotEmpty ? json.optString('server') : ''),
+      service: json.optString('service').isNotEmpty
+          ? json.optString('service')
+          : (json.optString('server').isNotEmpty
+                ? json.optString('server')
+                : ''),
       userId: userId,
       userName: userName,
       file: file,
@@ -217,14 +221,18 @@ class KemonoPost with HistoryMixin {
   factory KemonoPost.fromJson(Map<dynamic, dynamic> json) {
     final fileJson = json['file'];
     KemonoFile? file;
-    if (fileJson is Map && fileJson['path'] != null && (fileJson['path'] as String).isNotEmpty) {
+    if (fileJson is Map &&
+        fileJson['path'] != null &&
+        (fileJson['path'] as String).isNotEmpty) {
       file = KemonoFile.fromJson(fileJson);
     }
 
     final attachmentsList = json.optDynamicList('attachments');
     final attachments = <KemonoFile>[];
     for (var item in attachmentsList) {
-      if (item is Map && item['path'] != null && (item['path'] as String).isNotEmpty) {
+      if (item is Map &&
+          item['path'] != null &&
+          (item['path'] as String).isNotEmpty) {
         attachments.add(KemonoFile.fromJson(item));
       }
     }
@@ -266,14 +274,18 @@ class KemonoPost with HistoryMixin {
       if (userId.isEmpty) userId = author['id']?.toString() ?? '';
       if (userName.isEmpty) userName = author['username']?.toString() ?? '';
     }
-    
+
     // 如果 userName 仍为空，回退使用 userId
     if (userName.isEmpty) userName = userId;
 
     return KemonoPost(
       id: json.optString('id'),
       title: title,
-      service: json.optString('service').isNotEmpty ? json.optString('service') : (json.optString('server').isNotEmpty ? json.optString('server') : ''),
+      service: json.optString('service').isNotEmpty
+          ? json.optString('service')
+          : (json.optString('server').isNotEmpty
+                ? json.optString('server')
+                : ''),
       userId: userId,
       userName: userName,
       file: file,
@@ -288,19 +300,19 @@ class KemonoPost with HistoryMixin {
   /// 获取所有图片URL列表 (用于阅读器)
   List<String> get imageUrls {
     final urls = <String>[];
-    
+
     // 添加主文件
     if (file != null && file!.isImage) {
       urls.add(file!.fullUrl);
     }
-    
+
     // 添加附件中的图片
     for (var attachment in attachments) {
       if (attachment.isImage) {
         urls.add(attachment.fullUrl);
       }
     }
-    
+
     return urls;
   }
 
@@ -379,7 +391,9 @@ class KemonoCreator extends BaseComic {
     final updatedValue = json['updated'];
     if (updatedValue is num) {
       // Unix 时间戳 (秒)
-      updated = DateTime.fromMillisecondsSinceEpoch(updatedValue.toInt() * 1000);
+      updated = DateTime.fromMillisecondsSinceEpoch(
+        updatedValue.toInt() * 1000,
+      );
     } else if (updatedValue is String && updatedValue.isNotEmpty) {
       updated = DateTime.tryParse(updatedValue);
     }
@@ -387,7 +401,9 @@ class KemonoCreator extends BaseComic {
     DateTime? indexed;
     final indexedValue = json['indexed'];
     if (indexedValue is num) {
-      indexed = DateTime.fromMillisecondsSinceEpoch(indexedValue.toInt() * 1000);
+      indexed = DateTime.fromMillisecondsSinceEpoch(
+        indexedValue.toInt() * 1000,
+      );
     } else if (indexedValue is String && indexedValue.isNotEmpty) {
       indexed = DateTime.tryParse(indexedValue);
     }
@@ -423,10 +439,13 @@ class KemonoCreator extends BaseComic {
 enum KemonoCreatorSort {
   /// 最近更新
   updated,
+
   /// 收藏数量
   favorited,
+
   /// 收录时间
   indexed,
+
   /// 名称
   name,
 }

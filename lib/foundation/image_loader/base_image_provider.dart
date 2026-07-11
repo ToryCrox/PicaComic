@@ -46,7 +46,7 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
 
       while (data == null && !stop) {
         try {
-          if(_cache.containsKey(key.key) && enableCache){
+          if (_cache.containsKey(key.key) && enableCache) {
             data = _cache[key.key];
           } else {
             data = await load(chunkEvents);
@@ -55,7 +55,7 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
             _cacheSize += data.length;
           }
         } catch (e) {
-          if(e.toString().contains("Maximum image loading limit reached")) {
+          if (e.toString().contains("Maximum image loading limit reached")) {
             rethrow;
           }
           if (e.toString().contains("Your IP address")) {
@@ -77,11 +77,11 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
         }
       }
 
-      if(stop) {
+      if (stop) {
         throw Exception("Image loading is stopped");
       }
 
-      if(data!.isEmpty) {
+      if (data!.isEmpty) {
         throw Exception("Empty image data, $this");
       }
 
@@ -94,7 +94,9 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
         if (data.length < 2 * 1024) {
           // data is too short, it's likely that the data is text, not image
           try {
-            var text = const Utf8Codec(allowMalformed: false).decoder.convert(data);
+            var text = const Utf8Codec(
+              allowMalformed: false,
+            ).decoder.convert(data);
             error = Exception("Expected image data, but got text: $text");
           } catch (e) {
             // ignore
@@ -118,20 +120,20 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
 
   static var _cacheSizeLimit = 50 * 1024 * 1024;
 
-  static void _checkCacheSize(){
-    while (_cacheSize > _cacheSizeLimit){
+  static void _checkCacheSize() {
+    while (_cacheSize > _cacheSizeLimit) {
       var firstKey = _cache.keys.first;
       _cacheSize -= _cache[firstKey]!.length;
       _cache.remove(firstKey);
     }
   }
 
-  static void clearCache(){
+  static void clearCache() {
     _cache.clear();
     _cacheSize = 0;
   }
 
-  static void setCacheSizeLimit(int size){
+  static void setCacheSizeLimit(int size) {
     _cacheSizeLimit = size;
     _checkCacheSize();
   }

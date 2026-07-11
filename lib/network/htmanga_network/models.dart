@@ -12,18 +12,21 @@ class HtHomePageData {
   /// 主页
   const HtHomePageData(this.comics, this.links);
 
-  HtHomePageData.fromJson(Map<String, dynamic> json):
-      comics = json.optList("comics", (e) => TypeUtil.parseMapList(e)).map((e) => e.map((e) => HtComicBrief.fromJson(e)).toList()).toList(),
+  HtHomePageData.fromJson(Map<String, dynamic> json)
+    : comics = json
+          .optList("comics", (e) => TypeUtil.parseMapList(e))
+          .map((e) => e.map((e) => HtComicBrief.fromJson(e)).toList())
+          .toList(),
       links = Map<String, String>.from(json["links"]);
 
   Map<String, dynamic> toJson() => {
     "comics": comics.map((e) => e.map((e) => e.toJson()).toList()).toList(),
-    "links": links
+    "links": links,
   };
 }
 
 @immutable
-class HtComicBrief extends BaseComic{
+class HtComicBrief extends BaseComic {
   final String name;
   final String time;
   final String image;
@@ -33,8 +36,14 @@ class HtComicBrief extends BaseComic{
   final String? favoriteId;
 
   /// 漫画简略信息
-  const HtComicBrief(this.name, this.time, this.image, this.id, this.pages,
-      {this.favoriteId});
+  const HtComicBrief(
+    this.name,
+    this.time,
+    this.image,
+    this.id,
+    this.pages, {
+    this.favoriteId,
+  });
 
   @override
   String get cover => image;
@@ -51,8 +60,8 @@ class HtComicBrief extends BaseComic{
   @override
   String get title => name;
 
-  HtComicBrief.fromJson(Map<String, dynamic> json):
-      name = json.optString("name"),
+  HtComicBrief.fromJson(Map<String, dynamic> json)
+    : name = json.optString("name"),
       time = json.optString("time"),
       image = json.optString("image"),
       pages = json.optInt("pages"),
@@ -65,7 +74,7 @@ class HtComicBrief extends BaseComic{
     "image": image,
     "pages": pages,
     "id": id,
-    "favoriteId": favoriteId
+    "favoriteId": favoriteId,
   };
 }
 
@@ -83,8 +92,19 @@ class HtComicInfo with HistoryMixin {
   final int uploadNum;
   final List<String> thumbnails;
 
-  const HtComicInfo(this.id, this.coverPath, this.name, this.category, this.pages, this.tags,
-      this.description, this.uploader, this.avatar, this.uploadNum, this.thumbnails);
+  const HtComicInfo(
+    this.id,
+    this.coverPath,
+    this.name,
+    this.category,
+    this.pages,
+    this.tags,
+    this.description,
+    this.uploader,
+    this.avatar,
+    this.uploadNum,
+    this.thumbnails,
+  );
 
   HtComicBrief toBrief() => HtComicBrief(name, "", coverPath, id, pages);
 
@@ -99,11 +119,11 @@ class HtComicInfo with HistoryMixin {
     "uploader": uploader,
     "avatar": avatar,
     "uploadNum": uploadNum,
-    "thumbnails": thumbnails
+    "thumbnails": thumbnails,
   };
 
-  HtComicInfo.fromJson(Map<String, dynamic> json):
-      id = json["id"],
+  HtComicInfo.fromJson(Map<String, dynamic> json)
+    : id = json["id"],
       coverPath = json["coverPath"],
       name = json["name"],
       category = json["category"],

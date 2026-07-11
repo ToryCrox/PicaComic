@@ -1,7 +1,10 @@
 part of "components.dart";
 
 void showDesktopMenu(
-    BuildContext context, Offset location, List<DesktopMenuEntry> entries) {
+  BuildContext context,
+  Offset location,
+  List<DesktopMenuEntry> entries,
+) {
   Navigator.of(context).push(DesktopMenuRoute(entries, location));
 }
 
@@ -22,8 +25,11 @@ class DesktopMenuRoute<T> extends PopupRoute<T> {
   String? get barrierLabel => "menu";
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     const width = 196.0;
     final size = MediaQuery.of(context).size;
     var left = location.dx;
@@ -44,15 +50,16 @@ class DesktopMenuRoute<T> extends PopupRoute<T> {
             width: width,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             decoration: BoxDecoration(
-                color: App.colors(context).surface,
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]),
+              color: App.colors(context).surface,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Material(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -60,7 +67,7 @@ class DesktopMenuRoute<T> extends PopupRoute<T> {
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -76,17 +83,9 @@ class DesktopMenuRoute<T> extends PopupRoute<T> {
         height: 32,
         child: Row(
           children: [
-            const SizedBox(
-              width: 4,
-            ),
-            if (entry.icon != null)
-              Icon(
-                entry.icon,
-                size: 18,
-              ),
-            const SizedBox(
-              width: 4,
-            ),
+            const SizedBox(width: 4),
+            if (entry.icon != null) Icon(entry.icon, size: 18),
+            const SizedBox(width: 4),
             Text(entry.text),
           ],
         ),
@@ -98,11 +97,16 @@ class DesktopMenuRoute<T> extends PopupRoute<T> {
   Duration get transitionDuration => const Duration(milliseconds: 200);
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return FadeTransition(
-      opacity: animation.drive(Tween<double>(begin: 0, end: 1)
-          .chain(CurveTween(curve: Curves.ease))),
+      opacity: animation.drive(
+        Tween<double>(begin: 0, end: 1).chain(CurveTween(curve: Curves.ease)),
+      ),
       child: child,
     );
   }

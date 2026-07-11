@@ -13,23 +13,24 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
     return Column(
       children: [
         FutureBuilder<List<String>>(
-            future: LocalFavoritesManager().folderNames,
-            builder: (context, snapshot) {
-              final folderNames = snapshot.data ?? [];
-              return ListTile(
-                leading: const Icon(Icons.book),
-                title: Text("快速收藏".tl),
-                subtitle: Text("长按收藏按钮执行快速收藏".tl),
-                trailing: Select(
-                  initialValue: folderNames.indexOf(appdata.settings[51]),
-                  onChange: (i) {
-                    appdata.settings[51] = folderNames[i];
-                    appdata.updateSettings();
-                  },
-                  values: folderNames,
-                ),
-              );
-            }),
+          future: LocalFavoritesManager().folderNames,
+          builder: (context, snapshot) {
+            final folderNames = snapshot.data ?? [];
+            return ListTile(
+              leading: const Icon(Icons.book),
+              title: Text("快速收藏".tl),
+              subtitle: Text("长按收藏按钮执行快速收藏".tl),
+              trailing: Select(
+                initialValue: folderNames.indexOf(appdata.settings[51]),
+                onChange: (i) {
+                  appdata.settings[51] = folderNames[i];
+                  appdata.updateSettings();
+                },
+                values: folderNames,
+              ),
+            );
+          },
+        ),
         SelectSettingWithAppdata(
           icon: const Icon(Icons.bookmark_add),
           title: "新收藏添加至".tl,
@@ -52,8 +53,15 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           leading: const Icon(Icons.sync),
           title: Text("下拉更新拉取页数".tl),
           trailing: Select(
-            initialValue: ["1", "2", "3", "4", "5", "10", "99"]
-                .indexOf(appdata.settings[71]),
+            initialValue: [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "10",
+              "99",
+            ].indexOf(appdata.settings[71]),
             values: const ["1", "2", "3", "4", "5", "10", "99"],
             onChange: (i) {
               appdata.settings[71] = ["1", "2", "3", "4", "5", "10", "99"][i];
@@ -63,8 +71,10 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           ),
         ),
         Padding(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }

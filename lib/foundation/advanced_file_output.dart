@@ -72,26 +72,27 @@ class MAdvancedFileOutput extends LogOutput {
     int? maxTotalSizeKB,
     Comparator<File>? fileSorter,
     Level? level,
-  })  : _path = path,
-        _level = level,
-        _overrideExisting = overrideExisting,
-        _encoding = encoding,
-        _maxDelay = maxDelay,
-        _maxFileSizeKB = maxFileSizeKB,
-        _maxBufferSize = maxBufferSize,
-        _fileNameFormatter = fileNameFormatter ?? _defaultFileNameFormat,
-        _writeImmediately = writeImmediately ??
-            [
-              Level.error,
-              Level.fatal,
-              Level.warning,
-              // ignore: deprecated_member_use_from_same_package
-              Level.wtf,
-            ],
-        _maxRotatedFilesCount = maxRotatedFilesCount,
-        _maxTotalSizeKB = maxTotalSizeKB,
-        _fileSorter = fileSorter ?? _defaultFileSorter,
-        _file = maxFileSizeKB > 0 ? File('$path/$latestFileName') : File(path);
+  }) : _path = path,
+       _level = level,
+       _overrideExisting = overrideExisting,
+       _encoding = encoding,
+       _maxDelay = maxDelay,
+       _maxFileSizeKB = maxFileSizeKB,
+       _maxBufferSize = maxBufferSize,
+       _fileNameFormatter = fileNameFormatter ?? _defaultFileNameFormat,
+       _writeImmediately =
+           writeImmediately ??
+           [
+             Level.error,
+             Level.fatal,
+             Level.warning,
+             // ignore: deprecated_member_use_from_same_package
+             Level.wtf,
+           ],
+       _maxRotatedFilesCount = maxRotatedFilesCount,
+       _maxTotalSizeKB = maxTotalSizeKB,
+       _fileSorter = fileSorter ?? _defaultFileSorter,
+       _file = maxFileSizeKB > 0 ? File('$path/$latestFileName') : File(path);
 
   /// Logs directory path by default, particular log file path if [_maxFileSizeKB] is 0.
   final String _path;

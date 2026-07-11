@@ -25,8 +25,10 @@ Future<void> main() async {
   List<File> filesToDelete = [];
 
   // 递归遍历所有目录
-  await for (var entity
-      in targetDirectory.list(recursive: true, followLinks: false)) {
+  await for (var entity in targetDirectory.list(
+    recursive: true,
+    followLinks: false,
+  )) {
     if (entity is File && entity.path.endsWith('W2xEX_Q85.webp')) {
       filesToDelete.add(entity);
     }

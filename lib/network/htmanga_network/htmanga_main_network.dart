@@ -30,19 +30,22 @@ class HtmangaNetwork {
   }
 
   ///基本的Get请求
-  Future<Res<String>> get(String url,
-      {bool cache = true, Map<String, String>? headers}) async {
+  Future<Res<String>> get(
+    String url, {
+    bool cache = true,
+    Map<String, String>? headers,
+  }) async {
     var dio = CachedNetwork();
     try {
       var res = await dio.get(
-          url,
-          BaseOptions(headers: {
-            "User-Agent": webUA,
-            if (headers != null) ...headers
-          }),
-          cookieJar: SingleInstanceCookieJar.instance,
-          expiredTime: cache ? CacheExpiredTime.short : CacheExpiredTime.no);
-      if(res.url.contains("users-login")){
+        url,
+        BaseOptions(
+          headers: {"User-Agent": webUA, if (headers != null) ...headers},
+        ),
+        cookieJar: SingleInstanceCookieJar.instance,
+        expiredTime: cache ? CacheExpiredTime.short : CacheExpiredTime.no,
+      );
+      if (res.url.contains("users-login")) {
         return Res(null, errorMessage: "未登录或登录到期".tl);
       }
       return Res(res.data);
@@ -61,10 +64,14 @@ class HtmangaNetwork {
 
   ///基本的Post请求
   Future<Res<String>> post(String url, String data) async {
-    var dio = logDio(BaseOptions(headers: {
-      "User-Agent": webUA,
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-    }));
+    var dio = logDio(
+      BaseOptions(
+        headers: {
+          "User-Agent": webUA,
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+      ),
+    );
     dio.interceptors.add(CookieManagerSql(SingleInstanceCookieJar.instance!));
     try {
       var res = await dio.post(url, data: data);
@@ -83,9 +90,15 @@ class HtmangaNetwork {
   }
 
   ///登录
-  Future<Res<bool>> login(String account, String pwd, [bool saveData = true]) async {
-    var res = await post("$baseUrl/users-check_login.html",
-        "login_name=${Uri.encodeComponent(account)}&login_pass=${Uri.encodeComponent(pwd)}");
+  Future<Res<bool>> login(
+    String account,
+    String pwd, [
+    bool saveData = true,
+  ]) async {
+    var res = await post(
+      "$baseUrl/users-check_login.html",
+      "login_name=${Uri.encodeComponent(account)}&login_pass=${Uri.encodeComponent(pwd)}",
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -129,8 +142,9 @@ class HtmangaNetwork {
         for (var c in cs) {
           var link = c.querySelector("div.pic_box > a")!.attributes["href"]!;
           var id = RegExp(r"(?<=-aid-)[0-9]+").firstMatch(link)![0]!;
-          var image =
-              c.querySelector("div.pic_box > a > img")!.attributes["src"]!;
+          var image = c
+              .querySelector("div.pic_box > a > img")!
+              .attributes["src"]!;
           image = "https:$image";
           var name = c.querySelector("div.info > div.title > a")!.text;
           var infoCol = c.querySelector("div.info > div.info_col")!.text;
@@ -160,7 +174,11 @@ class HtmangaNetwork {
   }
 
   /// 获取给定漫画列表页面的漫画
-  Future<Res<List<HtComicBrief>>> getComicList(String url, int page, {bool searchPage = false}) async {
+  Future<Res<List<HtComicBrief>>> getComicList(
+    String url,
+    int page, {
+    bool searchPage = false,
+  }) async {
     if (page != 1) {
       if (url.contains("search")) {
         url = "$url&p=$page";
@@ -183,21 +201,25 @@ class HtmangaNetwork {
     try {
       var document = parse(res.data);
       var comics = <HtComicBrief>[];
-      for (var comic in document
-          .querySelectorAll("div.grid div.gallary_wrap > ul.cc > li")) {
+      for (var comic in document.querySelectorAll(
+        "div.grid div.gallary_wrap > ul.cc > li",
+      )) {
         try {
-          var link =
-              comic.querySelector("div.pic_box > a")!.attributes["href"]!;
+          var link = comic
+              .querySelector("div.pic_box > a")!
+              .attributes["href"]!;
           var id = RegExp(r"(?<=-aid-)[0-9]+").firstMatch(link)![0]!;
-          var image =
-              comic.querySelector("div.pic_box > a > img")!.attributes["src"]!;
+          var image = comic
+              .querySelector("div.pic_box > a > img")!
+              .attributes["src"]!;
           image = "https:$image";
           var name = comic
               .querySelector("div.info > div.title > a")!
               .attributes["title"]
               ?.replaceAll("<em>", "")
               .replaceAll("</em>", "");
-          name = name ??
+          name =
+              name ??
               comic
                   .querySelector("div.info > div.title > a")!
                   .text
@@ -221,11 +243,15 @@ class HtmangaNetwork {
       }
       int pages;
       try {
-        if(searchPage){
-          var result = int.parse(document.querySelectorAll("p.result > b")[0].text.nums);
-          var comicsOnePage = document.querySelectorAll("div.grid div.gallary_wrap > ul.cc > li").length;
+        if (searchPage) {
+          var result = int.parse(
+            document.querySelectorAll("p.result > b")[0].text.nums,
+          );
+          var comicsOnePage = document
+              .querySelectorAll("div.grid div.gallary_wrap > ul.cc > li")
+              .length;
           pages = result ~/ comicsOnePage + 1;
-        }else{
+        } else {
           var pagesLink = document.querySelectorAll("div.f_left.paginator > a");
           pages = int.parse(pagesLink.last.text);
         }
@@ -245,18 +271,23 @@ class HtmangaNetwork {
       appdata.searchHistory.add(keyword);
       appdata.writeHistory();
     }
-    Future.delayed(const Duration(milliseconds: 300),
-            () => StateController.find<PreSearchController>().update())
-        .onError((error, stackTrace) => null);
+    Future.delayed(
+      const Duration(milliseconds: 300),
+      () => StateController.find<PreSearchController>().update(),
+    ).onError((error, stackTrace) => null);
     return getComicList(
-        "$baseUrl/search/?q=${Uri.encodeComponent(keyword)}&f=_all&s=create_time_DESC&syn=yes",
-        page, searchPage: true);
+      "$baseUrl/search/?q=${Uri.encodeComponent(keyword)}&f=_all&s=create_time_DESC&syn=yes",
+      page,
+      searchPage: true,
+    );
   }
 
   /// 获取漫画详情, subData为第一页的缩略图
   Future<Res<HtComicInfo>> getComicInfo(String id) async {
-    var res =
-        await get("$baseUrl/photos-index-page-1-aid-$id.html", cache: false);
+    var res = await get(
+      "$baseUrl/photos-index-page-1-aid-$id.html",
+      cache: false,
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -265,14 +296,16 @@ class HtmangaNetwork {
       var name = document.querySelector("div.userwrap > h2")!.text;
       var coverPath = document
           .querySelector(
-              "div.userwrap > div.asTB > div.asTBcell.uwthumb > img")!
+            "div.userwrap > div.asTB > div.asTBcell.uwthumb > img",
+          )!
           .attributes["src"]!;
       coverPath = "https:$coverPath";
       coverPath = coverPath.replaceRange(6, 8, "");
       var labels = document.querySelectorAll("div.asTBcell.uwconn > label");
       var category = labels[0].text.split("：")[1];
       var pages = int.parse(
-          RegExp(r"\d+").firstMatch(labels[1].text.split("：")[1])![0]!);
+        RegExp(r"\d+").firstMatch(labels[1].text.split("：")[1])![0]!,
+      );
       var tagsDom = document.querySelectorAll("a.tagshow");
       var tags = <String, String>{};
       for (var tag in tagsDom) {
@@ -280,20 +313,36 @@ class HtmangaNetwork {
         tags[tag.text] = link;
       }
       var description = document.querySelector("div.asTBcell.uwconn > p")!.text;
-      var uploader =
-          document.querySelector("div.asTBcell.uwuinfo > a > p")!.text;
+      var uploader = document
+          .querySelector("div.asTBcell.uwuinfo > a > p")!
+          .text;
       var avatar = document
           .querySelector("div.asTBcell.uwuinfo > a > img")!
           .attributes["src"]!;
       avatar = "$baseUrl/$avatar";
       var uploadNum = int.parse(
-          document.querySelector("div.asTBcell.uwuinfo > p > font")!.text);
+        document.querySelector("div.asTBcell.uwuinfo > p > font")!.text,
+      );
       var photosDom = document.querySelectorAll("div.pic_box.tb > a > img");
-      var photos = List<String>.generate(photosDom.length,
-          (index) => "https:${photosDom[index].attributes["src"]!}");
+      var photos = List<String>.generate(
+        photosDom.length,
+        (index) => "https:${photosDom[index].attributes["src"]!}",
+      );
       return Res(
-          HtComicInfo(id, coverPath, name, category, pages, tags, description,
-              uploader, avatar, uploadNum, photos));
+        HtComicInfo(
+          id,
+          coverPath,
+          name,
+          category,
+          pages,
+          tags,
+          description,
+          uploader,
+          avatar,
+          uploadNum,
+          photos,
+        ),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: e.toString());
@@ -308,8 +357,10 @@ class HtmangaNetwork {
     try {
       var document = parse(res.data);
       var photosDom = document.querySelectorAll("div.pic_box.tb > a > img");
-      var photos = List<String>.generate(photosDom.length,
-          (index) => "https:${photosDom[index].attributes["src"]!}");
+      var photos = List<String>.generate(
+        photosDom.length,
+        (index) => "https:${photosDom[index].attributes["src"]!}",
+      );
       return Res(photos);
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
@@ -339,9 +390,7 @@ class HtmangaNetwork {
   ///
   /// 返回Map, 值为收藏夹名，键为ID
   Future<Res<Map<String, String>>> getFolders() async {
-    var res = await get(
-        "$baseUrl/users-addfav-id-210814.html",
-        cache: false);
+    var res = await get("$baseUrl/users-addfav-id-210814.html", cache: false);
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -360,19 +409,21 @@ class HtmangaNetwork {
   }
 
   Future<bool> createFolder(String name) async => !(await post(
-          "$baseUrl/users-favc_save-id.html",
-          "favc_name=${Uri.encodeComponent(name)}"))
-      .error;
+    "$baseUrl/users-favc_save-id.html",
+    "favc_name=${Uri.encodeComponent(name)}",
+  )).error;
 
   Future<bool> deleteFolder(String id) async => !(await get(
-          "$baseUrl/users-favclass_del-id-$id.html"
-          "?ajax=true&_t=${Random.secure().nextDouble()}",
-          cache: false))
-      .error;
+    "$baseUrl/users-favclass_del-id-$id.html"
+    "?ajax=true&_t=${Random.secure().nextDouble()}",
+    cache: false,
+  )).error;
 
   Future<Res<bool>> addFavorite(String comicId, String folderId) async {
     var res = await post(
-        "$baseUrl/users-save_fav-id-$comicId.html", "favc_id=$folderId");
+      "$baseUrl/users-save_fav-id-$comicId.html",
+      "favc_id=$folderId",
+    );
     if (res.error) {
       return Res(null, errorMessage: res.errorMessage);
     }
@@ -393,7 +444,9 @@ class HtmangaNetwork {
 
   ///获取收藏夹中的漫画
   Future<Res<List<HtComicBrief>>> getFavoriteFolderComics(
-      String folderId, int page) async {
+    String folderId,
+    int page,
+  ) async {
     var res = await get(
       "$baseUrl/users-users_fav-page-$page-c-$folderId.html",
       cache: false,
@@ -413,21 +466,24 @@ class HtmangaNetwork {
             .querySelector("div.box_cel.u_listcon > p.l_catg > span")!
             .text
             .replaceAll("創建時間：", "");
-        var name =
-            comic.querySelector("div.box_cel.u_listcon > p.l_title > a")!.text;
+        var name = comic
+            .querySelector("div.box_cel.u_listcon > p.l_title > a")!
+            .text;
         var link = comic
             .querySelector("div.box_cel.u_listcon > p.l_title > a")!
             .attributes["href"]!;
         var id = RegExp(r"(?<=-aid-)[0-9]+").firstMatch(link)![0]!;
-        var info =
-            comic.querySelector("div.box_cel.u_listcon > p.l_detla")!.text;
+        var info = comic
+            .querySelector("div.box_cel.u_listcon > p.l_detla")!
+            .text;
         var pages = int.parse(RegExp(r"(?<=頁數：)[0-9]+").firstMatch(info)![0]!);
         var delUrl = comic
             .querySelector("div.box_cel.u_listcon > p.alopt > a")!
             .attributes["onclick"]!;
         var favoriteId = RegExp(r"(?<=del-id-)[0-9]+").firstMatch(delUrl)![0];
         comics.add(
-            HtComicBrief(name, time, cover, id, pages, favoriteId: favoriteId));
+          HtComicBrief(name, time, cover, id, pages, favoriteId: favoriteId),
+        );
       }
       int pages;
       try {

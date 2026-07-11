@@ -241,11 +241,11 @@ class Appdata {
   }
 
   Map<String, dynamic> toJson() => {
-        "settings": settings,
-        "firstUse": firstUse,
-        "blockingKeywords": blockingKeyword,
-        "favoriteTags": favoriteTags.toList(),
-      };
+    "settings": settings,
+    "firstUse": firstUse,
+    "blockingKeywords": blockingKeyword,
+    "favoriteTags": favoriteTags.toList(),
+  };
 
   bool readDataFromJson(Map<String, dynamic> json) {
     try {
@@ -266,10 +266,11 @@ class Appdata {
       }
       // merge data
       blockingKeyword = Set<String>.from(
-              ((json["blockingKeywords"] ?? []) + blockingKeyword) as List)
-          .toList();
-      favoriteTags =
-          Set.from((json["favoriteTags"] ?? []) + List.from(favoriteTags));
+        ((json["blockingKeywords"] ?? []) + blockingKeyword) as List,
+      ).toList();
+      favoriteTags = Set.from(
+        (json["favoriteTags"] ?? []) + List.from(favoriteTags),
+      );
       writeData(false);
       return true;
     } catch (e, s) {
@@ -360,8 +361,10 @@ class _Settings {
     while (appdata.settings[82].length <= index) {
       appdata.settings[82] += '1'; // 默认启用
     }
-    appdata.settings[82] =
-        appdata.settings[82].setValueAt(enabled ? '1' : '0', index);
+    appdata.settings[82] = appdata.settings[82].setValueAt(
+      enabled ? '1' : '0',
+      index,
+    );
   }
 
   List<String> get jmApiDomains => appdata.settings[85].split(',');
@@ -371,9 +374,7 @@ class _Settings {
   }
 
   String get jmImgUrlIndex =>
-      int.parse(appdata.settings[37]) < 4
-        ? appdata.settings[37]
-        : "0";
+      int.parse(appdata.settings[37]) < 4 ? appdata.settings[37] : "0";
 
   List<String> get explorePages => appdata.settings[77].split(',');
 

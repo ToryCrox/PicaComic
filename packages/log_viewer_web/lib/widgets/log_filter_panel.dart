@@ -7,7 +7,7 @@ class LogFilterPanel extends StatelessWidget {
   final ValueChanged<Set<LogLevel>> onLevelsChanged;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
-  
+
   const LogFilterPanel({
     super.key,
     required this.selectedLevels,
@@ -15,7 +15,7 @@ class LogFilterPanel extends StatelessWidget {
     required this.searchQuery,
     required this.onSearchChanged,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -66,5 +66,3 @@ class LogFilterPanel extends StatelessWidget {
     );
   }
 }
-
-

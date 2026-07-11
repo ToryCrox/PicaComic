@@ -44,20 +44,13 @@ class _EpsViewState extends ConsumerState<EpsView> {
             height: 60,
             child: Row(
               children: [
-                const SizedBox(
-                  width: 16,
-                ),
+                const SizedBox(width: 16),
                 Icon(
                   Icons.format_list_numbered,
                   color: Theme.of(context).colorScheme.secondary,
                 ),
-                const SizedBox(
-                  width: 8,
-                ),
-                Text(
-                  "章节".tl,
-                  style: const TextStyle(fontSize: 18),
-                ),
+                const SizedBox(width: 8),
+                Text("章节".tl, style: const TextStyle(fontSize: 18)),
                 const Spacer(),
                 if (type == ReadingType.jm)
                   IconButton(
@@ -67,9 +60,11 @@ class _EpsViewState extends ConsumerState<EpsView> {
                     ),
                     onPressed: () {
                       showComments(
-                          context,
-                          data.eps!.keys.elementAt(state.currentEpisode - 1),
-                          (logic.readingData as JmReadingData).commentsLength ?? 9999);
+                        context,
+                        data.eps!.keys.elementAt(state.currentEpisode - 1),
+                        (logic.readingData as JmReadingData).commentsLength ??
+                            9999,
+                      );
                     },
                   ),
                 IconButton(
@@ -101,77 +96,76 @@ class _EpsViewState extends ConsumerState<EpsView> {
             ),
           ),
           Expanded(
-              child: ScrollablePositionedList.builder(
-            initialScrollIndex: state.currentEpisode - 1,
-            itemCount: data.eps!.length,
-            itemBuilder: (context, index) {
-              if (value) {
-                index = data.eps!.length - index - 1;
-              }
-              String title = data.eps!.values.elementAt(index);
+            child: ScrollablePositionedList.builder(
+              initialScrollIndex: state.currentEpisode - 1,
+              itemCount: data.eps!.length,
+              itemBuilder: (context, index) {
+                if (value) {
+                  index = data.eps!.length - index - 1;
+                }
+                String title = data.eps!.values.elementAt(index);
 
-              return InkWell(
-                onTap: () {
-                  Navigator.pop(App.globalContext!);
-                  logic.jumpToChapter(index + 1);
-                },
-                child: SizedBox(
-                  height: 60,
-                  child: Row(
-                    children: [
-                      const SizedBox(
-                        width: 16,
-                      ),
-                      Expanded(
-                        child: Text(
-                          title,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ),
-                      if (data.downloadedEps.contains(index))
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .secondaryContainer,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(5)),
-                          ),
-                          margin: const EdgeInsets.all(5),
-                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(App.globalContext!);
+                    logic.jumpToChapter(index + 1);
+                  },
+                  child: SizedBox(
+                    height: 60,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 16),
+                        Expanded(
                           child: Text(
-                            "已下载".tl,
-                            style: const TextStyle(fontSize: 14),
+                            title,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
                         ),
-                      if (state.currentEpisode == index + 1)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .secondaryContainer,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(5)),
+                        if (data.downloadedEps.contains(index))
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(5),
+                              ),
+                            ),
+                            margin: const EdgeInsets.all(5),
+                            padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                            child: Text(
+                              "已下载".tl,
+                              style: const TextStyle(fontSize: 14),
+                            ),
                           ),
-                          margin: const EdgeInsets.all(5),
-                          padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
-                          child: Text(
-                            "当前".tl,
-                            style: const TextStyle(fontSize: 14),
+                        if (state.currentEpisode == index + 1)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(5),
+                              ),
+                            ),
+                            margin: const EdgeInsets.all(5),
+                            padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                            child: Text(
+                              "当前".tl,
+                              style: const TextStyle(fontSize: 14),
+                            ),
                           ),
-                        )
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-            scrollController: ScrollController(),
-            itemScrollController: controller,
-          )),
-          SizedBox(
-            height: MediaQuery.of(context).padding.bottom,
-          )
+                );
+              },
+              scrollController: ScrollController(),
+              itemScrollController: controller,
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );

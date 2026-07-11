@@ -212,10 +212,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   Widget _buildDownloadScrollView(List<Widget> slivers) {
     if (!App.isDesktop) {
-      return CustomScrollView(
-        controller: _scrollController,
-        slivers: slivers,
-      );
+      return CustomScrollView(controller: _scrollController, slivers: slivers);
     }
 
     return SilkyScroll(
@@ -237,8 +234,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       onPressed: () async {
         final state = ref.read(downloadPageStateProvider(pageId));
         final comics = await ref.read(filteredComicsProvider(pageId).future);
-        final selectedComics =
-            comics.where((e) => state.selectedIds.contains(e.id)).toList();
+        final selectedComics = comics
+            .where((e) => state.selectedIds.contains(e.id))
+            .toList();
 
         if (!context.mounted) return;
 
@@ -283,7 +281,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final pageState = ref.watch(downloadPageStateProvider(_pageId));
 
     // Check if filtering
-    bool isFiltering = pageState.isSearching ||
+    bool isFiltering =
+        pageState.isSearching ||
         pageState.keyword.isNotEmpty ||
         pageState.downloadTypeFilter != null ||
         pageState.excludeLocal ||
@@ -333,9 +332,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         child: Row(
           children: [
             if (leading != null) leading,
-            Expanded(
-              child: _buildTitle(context, pageState),
-            ),
+            Expanded(child: _buildTitle(context, pageState)),
             if (pageState.isSelecting)
               ..._buildSelectionActions(
                 context,
@@ -353,8 +350,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     if (pageState.isSearching && !pageState.isSelecting) {
       return TextField(
         controller: _searchController,
-        decoration:
-            InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: "搜索".tl,
+        ),
         onChanged: (v) => updateKeyword(ref, _pageId, v),
       );
     } else {
@@ -370,10 +369,14 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       if (pageState.selectedTagIds.isNotEmpty) {
         final tags = ref.watch(downloadTagsProvider).value ?? [];
         final tagNames = pageState.selectedTagIds
-            .map((id) => tags
-                .firstWhere((t) => t.id == id,
-                    orElse: () => TagInfo(id: id, name: "", comicCount: 0))
-                .name)
+            .map(
+              (id) => tags
+                  .firstWhere(
+                    (t) => t.id == id,
+                    orElse: () => TagInfo(id: id, name: "", comicCount: 0),
+                  )
+                  .name,
+            )
             .where((name) => name.isNotEmpty)
             .join(', ');
         if (tagNames.isNotEmpty) {
@@ -397,8 +400,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         }
       }
       if (pageState.tagCategoryFilter != null) {
-        final categoryName =
-            TagCategory.fromValue(pageState.tagCategoryFilter!).label;
+        final categoryName = TagCategory.fromValue(
+          pageState.tagCategoryFilter!,
+        ).label;
         if (suffix.isNotEmpty) {
           suffix = '$suffix / $categoryName';
         } else {
@@ -439,7 +443,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   }
 
   List<Widget> _buildActions(
-      BuildContext context, DownloadPageState pageState) {
+    BuildContext context,
+    DownloadPageState pageState,
+  ) {
     return [
       // 标签管理
       Tooltip(
@@ -484,10 +490,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         child: IconButton(
           icon: const Icon(Icons.download_for_offline),
           onPressed: () {
-            showPopUpWidget(
-              App.globalContext!,
-              const DownloadingPage(),
-            );
+            showPopUpWidget(App.globalContext!, const DownloadingPage());
           },
         ),
       ),
@@ -504,7 +507,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           icon: const Icon(Icons.filter_list),
           onPressed: () {
             showDownloadTypeFilterMenu(
-                buttonContext: context, ref: ref, pageId: _pageId);
+              buttonContext: context,
+              ref: ref,
+              pageId: _pageId,
+            );
           },
         ),
       ),
@@ -520,15 +526,16 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           icon: const Icon(Icons.more_vert),
           onPressed: () {
             final RenderBox button = context.findRenderObject() as RenderBox;
-            final RenderBox overlay = Navigator.of(context)
-                .overlay!
-                .context
-                .findRenderObject() as RenderBox;
+            final RenderBox overlay =
+                Navigator.of(context).overlay!.context.findRenderObject()
+                    as RenderBox;
             final RelativeRect position = RelativeRect.fromRect(
               Rect.fromPoints(
                 button.localToGlobal(Offset.zero, ancestor: overlay),
-                button.localToGlobal(button.size.bottomRight(Offset.zero),
-                    ancestor: overlay),
+                button.localToGlobal(
+                  button.size.bottomRight(Offset.zero),
+                  ancestor: overlay,
+                ),
               ),
               Offset.zero & overlay.size,
             );
@@ -544,12 +551,15 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                 PopupMenuItem(
                   child: Row(
                     children: [
-                      Icon(pageState.isDragDisabled
-                          ? Icons.mouse_outlined
-                          : Icons.mouse),
+                      Icon(
+                        pageState.isDragDisabled
+                            ? Icons.mouse_outlined
+                            : Icons.mouse,
+                      ),
                       const SizedBox(width: 8),
                       Text(
-                          pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl),
+                        pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl,
+                      ),
                     ],
                   ),
                   onTap: () => toggleDragDisabled(ref, _pageId),
@@ -620,44 +630,55 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   void _showSelectingMenu(BuildContext context) {
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(MediaQuery.of(context).size.width - 60,
-          50, MediaQuery.of(context).size.width - 60, 50),
+      position: RelativeRect.fromLTRB(
+        MediaQuery.of(context).size.width - 60,
+        50,
+        MediaQuery.of(context).size.width - 60,
+        50,
+      ),
       items: [
         PopupMenuItem(
           child: Text("全选".tl),
           onTap: () async {
-            final comics =
-                await ref.read(filteredComicsProvider(_pageId).future);
+            final comics = await ref.read(
+              filteredComicsProvider(_pageId).future,
+            );
             selectAll(ref, _pageId, comics.map((e) => e.id).toList());
           },
         ),
         PopupMenuItem(
-          child: Text("删除"
-              .tl), // Added based on user feedback, though missing in legacy file, it's essential.
+          child: Text(
+            "删除".tl,
+          ), // Added based on user feedback, though missing in legacy file, it's essential.
           onTap: () {
             final state = ref.read(downloadPageStateProvider(_pageId));
             if (state.selectedIds.isEmpty) return;
             Future.delayed(const Duration(milliseconds: 200), () {
               showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                        title: Text("确认删除".tl),
-                        content: Text(
-                            "${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?"),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text("取消".tl)),
-                          TextButton(
-                              onPressed: () async {
-                                Navigator.pop(context);
-                                await downloadManager
-                                    .delete(state.selectedIds.toList());
-                                exitSelecting(ref, _pageId);
-                              },
-                              child: Text("确认".tl)),
-                        ],
-                      ));
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text("确认删除".tl),
+                  content: Text(
+                    "${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text("取消".tl),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await downloadManager.delete(
+                          state.selectedIds.toList(),
+                        );
+                        exitSelecting(ref, _pageId);
+                      },
+                      child: Text("确认".tl),
+                    ),
+                  ],
+                ),
+              );
             });
           },
         ),
@@ -667,18 +688,17 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             const Duration(milliseconds: 200),
             () async {
               final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics =
-                  await ref.read(filteredComicsProvider(_pageId).future);
+              final comics = await ref.read(
+                filteredComicsProvider(_pageId).future,
+              );
               final selectedComics = comics
                   .where((e) => state.selectedIds.contains(e.id))
                   .toList();
 
-              final result =
-                  await downloadManager.redownloadComics(selectedComics);
-              showDownloadBatchResultToast(
-                result,
-                actionName: "已加入重新下载队列".tl,
+              final result = await downloadManager.redownloadComics(
+                selectedComics,
               );
+              showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
               if (result.successCount > 0) {
                 exitSelecting(ref, _pageId);
                 ref.invalidate(allDownloadedComicsProvider);
@@ -688,28 +708,25 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         ),
         PopupMenuItem(
           child: Text("更新封面".tl),
-          onTap: () => Future.delayed(
-            const Duration(milliseconds: 200),
-            () async {
-              final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics =
-                  await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics
-                  .where((e) => state.selectedIds.contains(e.id))
-                  .toList();
+          onTap: () =>
+              Future.delayed(const Duration(milliseconds: 200), () async {
+                final state = ref.read(downloadPageStateProvider(_pageId));
+                final comics = await ref.read(
+                  filteredComicsProvider(_pageId).future,
+                );
+                final selectedComics = comics
+                    .where((e) => state.selectedIds.contains(e.id))
+                    .toList();
 
-              final result =
-                  await downloadManager.refreshComicCovers(selectedComics);
-              showDownloadBatchResultToast(
-                result,
-                actionName: "已更新封面".tl,
-              );
-              if (result.successCount > 0) {
-                exitSelecting(ref, _pageId);
-                ref.invalidate(allDownloadedComicsProvider);
-              }
-            },
-          ),
+                final result = await downloadManager.refreshComicCovers(
+                  selectedComics,
+                );
+                showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
+                if (result.successCount > 0) {
+                  exitSelecting(ref, _pageId);
+                  ref.invalidate(allDownloadedComicsProvider);
+                }
+              }),
         ),
         PopupMenuItem(
           child: Text("管理标签".tl),
@@ -717,8 +734,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             const Duration(milliseconds: 200),
             () async {
               final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics =
-                  await ref.read(filteredComicsProvider(_pageId).future);
+              final comics = await ref.read(
+                filteredComicsProvider(_pageId).future,
+              );
               final selectedComics = comics
                   .where((e) => state.selectedIds.contains(e.id))
                   .toList();
@@ -726,8 +744,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               final suggestedTags = [
                 ...selectedComics.map((e) => e.name),
                 ...selectedComics.map((e) => e.subTitle),
-                ...selectedComics
-                    .expand((e) => e.tags), // simplified getting tags
+                ...selectedComics.expand(
+                  (e) => e.tags,
+                ), // simplified getting tags
               ];
 
               final result = await showDialog<bool>(
@@ -778,7 +797,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
               if (color != null) {
                 await downloadManager.batchUpdateColor(
-                    state.selectedIds.toList(), color);
+                  state.selectedIds.toList(),
+                  color,
+                );
                 exitSelecting(ref, _pageId);
               }
             });
@@ -786,28 +807,27 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         ),
         PopupMenuItem(
           child: Text("重命名下载目录".tl),
-          onTap: () => Future.delayed(
-            const Duration(milliseconds: 200),
-            () async {
-              final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics =
-                  await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics
-                  .where((e) => state.selectedIds.contains(e.id))
-                  .toList();
+          onTap: () =>
+              Future.delayed(const Duration(milliseconds: 200), () async {
+                final state = ref.read(downloadPageStateProvider(_pageId));
+                final comics = await ref.read(
+                  filteredComicsProvider(_pageId).future,
+                );
+                final selectedComics = comics
+                    .where((e) => state.selectedIds.contains(e.id))
+                    .toList();
 
-              await showDialog(
-                context: App.globalContext!,
-                builder: (context) => RenameDownloadDialog(
-                  comics: selectedComics,
-                  onComplete: () {
-                    exitSelecting(ref, _pageId);
-                    ref.refresh(allDownloadedComicsProvider);
-                  },
-                ),
-              );
-            },
-          ),
+                await showDialog(
+                  context: App.globalContext!,
+                  builder: (context) => RenameDownloadDialog(
+                    comics: selectedComics,
+                    onComplete: () {
+                      exitSelecting(ref, _pageId);
+                      ref.refresh(allDownloadedComicsProvider);
+                    },
+                  ),
+                );
+              }),
         ),
         PopupMenuItem(
           child: Text("查看漫画详情".tl),
@@ -822,28 +842,27 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         ),
         PopupMenuItem(
           child: Text("更新漫画文件大小".tl),
-          onTap: () => Future.delayed(
-            const Duration(milliseconds: 200),
-            () async {
-              final state = ref.read(downloadPageStateProvider(_pageId));
-              final comics =
-                  await ref.read(filteredComicsProvider(_pageId).future);
-              final selectedComics = comics
-                  .where((e) => state.selectedIds.contains(e.id))
-                  .toList();
+          onTap: () =>
+              Future.delayed(const Duration(milliseconds: 200), () async {
+                final state = ref.read(downloadPageStateProvider(_pageId));
+                final comics = await ref.read(
+                  filteredComicsProvider(_pageId).future,
+                );
+                final selectedComics = comics
+                    .where((e) => state.selectedIds.contains(e.id))
+                    .toList();
 
-              await showDialog(
-                context: App.globalContext!,
-                builder: (context) => UpdateSizeDialog(
-                  comics: selectedComics,
-                  onComplete: () {
-                    exitSelecting(ref, _pageId);
-                    ref.refresh(allDownloadedComicsProvider);
-                  },
-                ),
-              );
-            },
-          ),
+                await showDialog(
+                  context: App.globalContext!,
+                  builder: (context) => UpdateSizeDialog(
+                    comics: selectedComics,
+                    onComplete: () {
+                      exitSelecting(ref, _pageId);
+                      ref.refresh(allDownloadedComicsProvider);
+                    },
+                  ),
+                );
+              }),
         ),
       ],
     );
@@ -896,9 +915,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                     final panelTags = pageState.tagCategoryFilter == null
                         ? allTags
                         : allTags
-                            .where((tag) =>
-                                tag.category == pageState.tagCategoryFilter)
-                            .toList();
+                              .where(
+                                (tag) =>
+                                    tag.category == pageState.tagCategoryFilter,
+                              )
+                              .toList();
                     if (!context.mounted) return;
                     showModalBottomSheet(
                       context: context,
@@ -933,7 +954,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         );
       },
       loading: () => const SizedBox(
-          height: 48, child: Center(child: CircularProgressIndicator())),
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (e, s) => const SizedBox(height: 48),
     );
   }
@@ -958,10 +981,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           borderRadius: BorderRadius.circular(8),
           border: isSelected
               ? null
-              : Border.all(
-                  color: category.color,
-                  width: 1,
-                ),
+              : Border.all(color: category.color, width: 1),
         ),
         child: Text(
           tag.name,
@@ -978,8 +998,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(
-      {required this.child, required this.maxHeight, required this.minHeight});
+  _SliverAppBarDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
 
   final double minHeight;
   final double maxHeight;
@@ -987,10 +1010,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(
-      child: child,
-    );
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
   }
 
   @override

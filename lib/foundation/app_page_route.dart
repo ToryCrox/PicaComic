@@ -9,7 +9,7 @@ const int _kMaxDroppedSwipePageForwardAnimationTime = 800;
 const int _kMaxPageBackAnimationTime = 300;
 const double _kMinFlingVelocity = 1.0;
 
-class AppPageRoute<T> extends PageRoute<T> with _AppRouteTransitionMixin{
+class AppPageRoute<T> extends PageRoute<T> with _AppRouteTransitionMixin {
   /// Construct a MaterialPageRoute whose contents are defined by [builder].
   AppPageRoute({
     required this.builder,
@@ -86,13 +86,13 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
 
   @override
   Widget buildPage(
-      BuildContext context,
-      Animation<double> animation,
-      Animation<double> secondaryAnimation,
-      ) {
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     Widget result;
 
-    if(preventRebuild){
+    if (preventRebuild) {
       result = _child ?? (_child = buildContent(context));
     } else {
       result = buildContent(context);
@@ -121,18 +121,22 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
-    if(isRootRoute) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (isRootRoute) {
       return FadeTransition(
-        opacity: Tween<double>(begin: 0, end: 1.0).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.ease
-        )),
+        opacity: Tween<double>(
+          begin: 0,
+          end: 1.0,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.ease)),
         child: FadeTransition(
-          opacity: Tween<double>(begin: 1.0, end: 0).animate(CurvedAnimation(
-              parent: secondaryAnimation,
-              curve: Curves.ease
-          )),
+          opacity: Tween<double>(begin: 1.0, end: 0).animate(
+            CurvedAnimation(parent: secondaryAnimation, curve: Curves.ease),
+          ),
           child: child,
         ),
       );
@@ -153,17 +157,19 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
     }
 
     return SlidePageTransitionBuilder().buildTransitions(
-        this,
-        context,
-        animation,
-        secondaryAnimation,
-        App.enablePopGesture && enableIOSGesture
-            ? IOSBackGestureDetector(
-            gestureWidth: _kBackGestureWidth,
-            enabledCallback: () => _isPopGestureEnabled<T>(this),
-            onStartPopGesture: () => _startPopGesture(this),
-            child: child)
-            : child);
+      this,
+      context,
+      animation,
+      secondaryAnimation,
+      App.enablePopGesture && enableIOSGesture
+          ? IOSBackGestureDetector(
+              gestureWidth: _kBackGestureWidth,
+              enabledCallback: () => _isPopGestureEnabled<T>(this),
+              onStartPopGesture: () => _startPopGesture(this),
+              child: child,
+            )
+          : child,
+    );
   }
 
   IOSBackGestureController _startPopGesture(PageRoute<T> route) {
@@ -193,22 +199,30 @@ class IOSBackGestureController {
     if (animateForward) {
       final droppedPageForwardAnimationTime = min(
         lerpDouble(
-                _kMaxDroppedSwipePageForwardAnimationTime, 0, controller.value)!
-            .floor(),
+          _kMaxDroppedSwipePageForwardAnimationTime,
+          0,
+          controller.value,
+        )!.floor(),
         _kMaxPageBackAnimationTime,
       );
-      controller.animateTo(1.0,
-          duration: Duration(milliseconds: droppedPageForwardAnimationTime),
-          curve: animationCurve);
+      controller.animateTo(
+        1.0,
+        duration: Duration(milliseconds: droppedPageForwardAnimationTime),
+        curve: animationCurve,
+      );
     } else {
       navigator.pop();
       if (controller.isAnimating) {
         final droppedPageBackAnimationTime = lerpDouble(
-                0, _kMaxDroppedSwipePageForwardAnimationTime, controller.value)!
-            .floor();
-        controller.animateBack(0.0,
-            duration: Duration(milliseconds: droppedPageBackAnimationTime),
-            curve: animationCurve);
+          0,
+          _kMaxDroppedSwipePageForwardAnimationTime,
+          controller.value,
+        )!.floor();
+        controller.animateBack(
+          0.0,
+          duration: Duration(milliseconds: droppedPageBackAnimationTime),
+          curve: animationCurve,
+        );
       }
     }
 
@@ -230,12 +244,13 @@ class IOSBackGestureController {
 }
 
 class IOSBackGestureDetector extends StatefulWidget {
-  const IOSBackGestureDetector(
-      {required this.enabledCallback,
-      required this.child,
-      required this.gestureWidth,
-      required this.onStartPopGesture,
-      super.key});
+  const IOSBackGestureDetector({
+    required this.enabledCallback,
+    required this.child,
+    required this.gestureWidth,
+    required this.onStartPopGesture,
+    super.key,
+  });
 
   final double gestureWidth;
 
@@ -316,8 +331,11 @@ class _IOSBackGestureDetectorState extends State<IOSBackGestureDetector> {
   void _handleDragEnd(DragEndDetails details) {
     assert(mounted);
     assert(_backGestureController != null);
-    _backGestureController!.dragEnd(_convertToLogical(
-        details.velocity.pixelsPerSecond.dx / context.size!.width));
+    _backGestureController!.dragEnd(
+      _convertToLogical(
+        details.velocity.pixelsPerSecond.dx / context.size!.width,
+      ),
+    );
     _backGestureController = null;
   }
 
@@ -331,42 +349,38 @@ class _IOSBackGestureDetectorState extends State<IOSBackGestureDetector> {
     assert(mounted);
     assert(_backGestureController != null);
     _backGestureController!.dragUpdate(
-        _convertToLogical(details.primaryDelta! / context.size!.width));
+      _convertToLogical(details.primaryDelta! / context.size!.width),
+    );
   }
 }
 
 class SlidePageTransitionBuilder extends PageTransitionsBuilder {
   @override
   Widget buildTransitions<T>(
-      PageRoute<T> route,
-      BuildContext context,
-      Animation<double> animation,
-      Animation<double> secondaryAnimation,
-      Widget child) {
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: Curves.ease,
-        )),
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: Offset.zero,
-            end: const Offset(-0.4, 0),
-          ).animate(CurvedAnimation(
-            parent: secondaryAnimation,
-            curve: Curves.ease,
-          )),
-          child: PhysicalModel(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.zero,
-            clipBehavior: Clip.hardEdge,
-            elevation: 6,
-            child: Material(child: child,),
-          ),
-        )
+      position: Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.ease)),
+      child: SlideTransition(
+        position: Tween<Offset>(begin: Offset.zero, end: const Offset(-0.4, 0))
+            .animate(
+              CurvedAnimation(parent: secondaryAnimation, curve: Curves.ease),
+            ),
+        child: PhysicalModel(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.zero,
+          clipBehavior: Clip.hardEdge,
+          elevation: 6,
+          child: Material(child: child),
+        ),
+      ),
     );
   }
 }

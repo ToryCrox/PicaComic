@@ -7,7 +7,6 @@ import 'package:logger/logger.dart';
 /// 例如: method: reinitializeTrackerSDK.<anonymous closure>, segment: package:pati/main.dart:352:43
 typedef ExcludeFilter = bool Function(String method, String segment);
 
-
 /// Default implementation of [LogPrinter].
 ///
 /// Output looks like this:
@@ -64,7 +63,7 @@ class LoggerPrettyPrinter extends LogPrinter {
   /// * dart:sdk_internal
   /// * package:logger/src/logger.dart
   static final _browserStackTraceRegex =
-  RegExp(r'^(?:package:)?(dart:\S+|\S+)');
+      RegExp(r'^(?:package:)?(dart:\S+|\S+)');
 
   static DateTime? _startTime;
 
@@ -234,13 +233,15 @@ class LoggerPrettyPrinter extends LogPrinter {
       if ((errorMethodCount == null || errorMethodCount! > 0)) {
         stackTraceStr = formatStackTrace(
           event.stackTrace ?? StackTrace.current,
-          errorMethodCount, event.level,
+          errorMethodCount,
+          event.level,
         );
       }
     } else if (methodCount == null || methodCount! > 0) {
       stackTraceStr = formatStackTrace(
         event.stackTrace ?? StackTrace.current,
-        methodCount, event.level,
+        methodCount,
+        event.level,
       );
     }
 
@@ -260,17 +261,18 @@ class LoggerPrettyPrinter extends LogPrinter {
     );
   }
 
-  String? formatStackTrace(StackTrace? stackTrace, int? methodCount, Level level) {
+  String? formatStackTrace(
+      StackTrace? stackTrace, int? methodCount, Level level) {
     List<String> lines = stackTrace
         .toString()
         .split('\n')
         .where(
           (line) =>
-      !_discardDeviceStacktraceLine(line) &&
-          !_discardWebStacktraceLine(line) &&
-          !_discardBrowserStacktraceLine(line) &&
-          line.isNotEmpty,
-    )
+              !_discardDeviceStacktraceLine(line) &&
+              !_discardWebStacktraceLine(line) &&
+              !_discardBrowserStacktraceLine(line) &&
+              line.isNotEmpty,
+        )
         .toList();
     List<String> formatted = [];
 
@@ -314,9 +316,8 @@ class LoggerPrettyPrinter extends LogPrinter {
       return false;
     }
     final segment = match.group(2)!;
-    if (segment.startsWith('package:logger')
-        || segment.contains('logger_pretty_printer.dart')
-    ) {
+    if (segment.startsWith('package:logger') ||
+        segment.contains('logger_pretty_printer.dart')) {
       return true;
     }
     final method = match.group(1)!;
@@ -347,10 +348,9 @@ class LoggerPrettyPrinter extends LogPrinter {
       return false;
     }
     final segment = match.group(1)!;
-    if (segment.startsWith('package:logger')
-        || segment.startsWith('dart:')
-        || segment.contains('logger_pretty_printer.dart')
-    ) {
+    if (segment.startsWith('package:logger') ||
+        segment.startsWith('dart:') ||
+        segment.contains('logger_pretty_printer.dart')) {
       return true;
     }
     return _isInExcludePaths(segment);
@@ -376,7 +376,6 @@ class LoggerPrettyPrinter extends LogPrinter {
     var timeSinceStart = now.difference(_startTime!).toString();
     return '$h:$min:$sec.$ms (+$timeSinceStart)';
   }
-
 
   String stringifyMessage(dynamic message) {
     final finalMessage = message is Function ? message() : message;
@@ -407,12 +406,12 @@ class LoggerPrettyPrinter extends LogPrinter {
   }
 
   List<String> _formatAndPrint(
-      Level level,
-      String message,
-      String? time,
-      String? error,
-      String? stacktrace,
-      ) {
+    Level level,
+    String message,
+    String? time,
+    String? error,
+    String? stacktrace,
+  ) {
     List<String> buffer = [];
     var verticalLineAtLevel = (_includeBox[level]!) ? ('$verticalLine ') : '';
     var color = _getLevelColor(level);
@@ -435,7 +434,8 @@ class LoggerPrettyPrinter extends LogPrinter {
     }
 
     if (time != null) {
-      buffer.add(color('$verticalLineAtLevel${level.name.toUpperCase()} $time'));
+      buffer
+          .add(color('$verticalLineAtLevel${level.name.toUpperCase()} $time'));
       if (_includeBox[level]!) buffer.add(color(_middleBorder));
     }
 
@@ -479,7 +479,6 @@ class LoggerPrettyPrinter extends LogPrinter {
     }
     return lines;
   }
-
 }
 
 // Handles any object that is causing JsonEncoder() problems
@@ -504,7 +503,6 @@ int charWidth(int code) {
   // 其他情况，返回1
   return 1;
 }
-
 
 // 定义一个函数，输入一个字符串，返回它的总宽度
 int stringWidth(String str) {

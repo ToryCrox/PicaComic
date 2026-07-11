@@ -15,24 +15,24 @@ void saveImage(File file) async {
   var data = await file.readAsBytes();
   var type = detectFileType(data);
   var fileName = file.name;
-  if(!fileName.contains('.')) {
+  if (!fileName.contains('.')) {
     fileName += type.ext;
   }
   if (App.isAndroid || App.isIOS) {
-    await ImageGallerySaver.saveImage(
-      data,
-      quality: 100,
-      name: fileName,
-    );
+    await ImageGallerySaver.saveImage(data, quality: 100, name: fileName);
     showToast(message: "已保存".tl);
   } else if (App.isDesktop) {
     try {
-      final String? path =
-          (await getSaveLocation(suggestedName: fileName))?.path;
+      final String? path = (await getSaveLocation(
+        suggestedName: fileName,
+      ))?.path;
       if (path != null) {
         final mimeType = type.mime;
-        final XFile xFile =
-            XFile.fromData(data, mimeType: mimeType, name: fileName);
+        final XFile xFile = XFile.fromData(
+          data,
+          mimeType: mimeType,
+          name: fileName,
+        );
         await xFile.saveTo(path);
       }
     } catch (e, s) {

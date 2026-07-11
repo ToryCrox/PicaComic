@@ -119,10 +119,7 @@ class ZipFileInfo {
   final String path;
   final int size;
 
-  ZipFileInfo({
-    required this.path,
-    required this.size,
-  });
+  ZipFileInfo({required this.path, required this.size});
 }
 
 /// 递归查找所有 ZIP 文件
@@ -132,10 +129,7 @@ Future<void> _findZipFiles(Directory dir, List<ZipFileInfo> zipFiles) async {
       final fileName = entity.path.toLowerCase();
       if (fileName.endsWith('.zip')) {
         final stat = await entity.stat();
-        zipFiles.add(ZipFileInfo(
-          path: entity.path,
-          size: stat.size,
-        ));
+        zipFiles.add(ZipFileInfo(path: entity.path, size: stat.size));
       }
     } else if (entity is Directory) {
       await _findZipFiles(entity, zipFiles);
@@ -144,7 +138,7 @@ Future<void> _findZipFiles(Directory dir, List<ZipFileInfo> zipFiles) async {
 }
 
 /// 解压 ZIP 文件
-/// 
+///
 /// [zipPath] ZIP 文件路径
 /// [zipName] ZIP 文件名（用于显示）
 /// [onProgress] 进度回调函数，参数为 (当前文件数, 总文件数)
@@ -174,7 +168,7 @@ Future<void> _extractZip(
   int currentFile = 0;
   for (var file in fileList) {
     currentFile++;
-    
+
     // 更新进度
     onProgress(currentFile, totalFiles);
 
@@ -182,7 +176,7 @@ Future<void> _extractZip(
     // 处理路径分隔符，确保跨平台兼容
     var fileName = file.name.replaceAll('\\', '/');
     fileName = path.basename(fileName);
-    
+
     // 如果文件名为空或只有路径分隔符，跳过
     if (fileName.isEmpty || fileName == '/' || fileName == '\\') {
       continue;
@@ -233,4 +227,3 @@ String _formatFileSize(int bytes) {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)}GB';
   }
 }
-

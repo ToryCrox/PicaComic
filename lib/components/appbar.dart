@@ -1,12 +1,13 @@
 part of 'components.dart';
 
 class Appbar extends StatefulWidget implements PreferredSizeWidget {
-  const Appbar(
-      {required this.title,
-      this.leading,
-      this.actions,
-      this.backgroundColor,
-      super.key});
+  const Appbar({
+    required this.title,
+    this.leading,
+    this.actions,
+    this.backgroundColor,
+    super.key,
+  });
 
   final Widget title;
 
@@ -86,9 +87,7 @@ class _AppbarState extends State<Appbar> {
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
-          const SizedBox(
-            width: 16,
-          ),
+          const SizedBox(width: 16),
           Expanded(
             child: DefaultTextStyle(
               style: DefaultTextStyle.of(context).style.copyWith(fontSize: 20),
@@ -98,9 +97,7 @@ class _AppbarState extends State<Appbar> {
             ),
           ),
           ...?widget.actions,
-          const SizedBox(
-            width: 8,
-          )
+          const SizedBox(width: 8),
         ],
       ),
     ).paddingTop(context.padding.top);
@@ -167,17 +164,21 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   final double radius;
 
-  _MySliverAppBarDelegate(
-      {this.leading,
-      required this.title,
-      this.actions,
-      this.color,
-      required this.topPadding,
-      this.radius = 0});
+  _MySliverAppBarDelegate({
+    this.leading,
+    required this.title,
+    this.actions,
+    this.color,
+    required this.topPadding,
+    this.radius = 0,
+  });
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox.expand(
       child: Material(
         color: color,
@@ -196,22 +197,19 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                         ),
                       )
                     : const SizedBox()),
-            const SizedBox(
-              width: 24,
-            ),
+            const SizedBox(width: 24),
             Expanded(
               child: DefaultTextStyle(
-                style:
-                    DefaultTextStyle.of(context).style.copyWith(fontSize: 20),
+                style: DefaultTextStyle.of(
+                  context,
+                ).style.copyWith(fontSize: 20),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 child: title,
               ),
             ),
             ...?actions,
-            const SizedBox(
-              width: 8,
-            )
+            const SizedBox(width: 8),
           ],
         ).paddingTop(topPadding),
       ),
@@ -284,31 +282,31 @@ class _FloatingSearchBarState extends State<FloatingSearchBar> {
         borderRadius: BorderRadius.circular(effectiveHeight / 2),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(children: [
-            Tooltip(
-              message: "返回".tl,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: TextField(
-                  controller: widget.controller,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                  ),
-                  onSubmitted: (s) {
-                    widget.onSearch(s);
-                  },
-                  onChanged: widget.onChanged,
+          child: Row(
+            children: [
+              Tooltip(
+                message: "返回".tl,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.pop(),
                 ),
               ),
-            ),
-            if (widget.trailing != null) widget.trailing!
-          ]),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TextField(
+                    controller: widget.controller,
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    onSubmitted: (s) {
+                      widget.onSearch(s);
+                    },
+                    onChanged: widget.onChanged,
+                  ),
+                ),
+              ),
+              if (widget.trailing != null) widget.trailing!,
+            ],
+          ),
         ),
       ),
     );
@@ -389,10 +387,7 @@ class _FilledTabBarState extends State<FilledTabBar> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: buildTabBar,
-    );
+    return AnimatedBuilder(animation: _controller, builder: buildTabBar);
   }
 
   void _tabLayoutCallback(List<double> offsets, double itemHeight) {
@@ -431,9 +426,7 @@ class _FilledTabBarState extends State<FilledTabBar> {
           ),
         ),
       ),
-      child: widget.tabs.isEmpty
-          ? const SizedBox()
-          : child
+      child: widget.tabs.isEmpty ? const SizedBox() : child,
     );
   }
 
@@ -495,10 +488,8 @@ class _FilledTabBarState extends State<FilledTabBar> {
   }
 }
 
-typedef _TabRenderCallback = void Function(
-  List<double> offsets,
-  double itemHeight,
-);
+typedef _TabRenderCallback =
+    void Function(List<double> offsets, double itemHeight);
 
 class _TabRow extends Row {
   const _TabRow({required this.callback, required super.children});
@@ -508,13 +499,14 @@ class _TabRow extends Row {
   @override
   RenderFlex createRenderObject(BuildContext context) {
     return _RenderTabFlex(
-        direction: Axis.horizontal,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        textDirection: Directionality.of(context),
-        verticalDirection: VerticalDirection.down,
-        callback: callback);
+      direction: Axis.horizontal,
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      textDirection: Directionality.of(context),
+      verticalDirection: VerticalDirection.down,
+      callback: callback,
+    );
   }
 
   @override
@@ -611,8 +603,11 @@ class _IndicatorPainter extends CustomPainter {
     final Rect toRect = indicatorRect(size, to);
     _currentRect = Rect.lerp(fromRect, toRect, (value - from).abs());
     final Paint paint = Paint()..color = color;
-    final RRect rrect =
-        RRect.fromRectAndCorners(_currentRect!, topLeft: Radius.circular(radius), topRight: Radius.circular(radius));
+    final RRect rrect = RRect.fromRectAndCorners(
+      _currentRect!,
+      topLeft: Radius.circular(radius),
+      topRight: Radius.circular(radius),
+    );
     canvas.drawRRect(rrect, paint);
   }
 

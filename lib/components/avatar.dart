@@ -1,17 +1,16 @@
 part of 'components.dart';
 
-
 class Avatar extends StatelessWidget {
-  const Avatar(
-      {Key? key,
-      required this.size,
-      this.avatarUrl,
-      this.frame,
-      this.couldBeShown = false,
-      this.name = "",
-      this.slogan,
-      this.level = 0})
-      : super(key: key);
+  const Avatar({
+    Key? key,
+    required this.size,
+    this.avatarUrl,
+    this.frame,
+    this.couldBeShown = false,
+    this.name = "",
+    this.slogan,
+    this.level = 0,
+  }) : super(key: key);
   final double size;
   final String? avatarUrl;
   final String? frame;
@@ -23,14 +22,14 @@ class Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var avatarUrl = this.avatarUrl;
-    if(avatarUrl != null && !avatarUrl.isURL){
+    if (avatarUrl != null && !avatarUrl.isURL) {
       avatarUrl = null;
     }
     return GestureDetector(
       onTap: () {
         if (couldBeShown) {
           showUserInfo(context, avatarUrl, frame, name, slogan, level);
-        } else if(avatarUrl != null && avatarUrl != "DEFAULT AVATAR URL"){
+        } else if (avatarUrl != null && avatarUrl != "DEFAULT AVATAR URL") {
           App.globalTo(() => ShowImagePageWithHero(avatarUrl!, "avatar"));
         }
       },
@@ -48,27 +47,20 @@ class Avatar extends StatelessWidget {
                 width: size * 0.75,
                 height: size * 0.75,
                 clipBehavior: Clip.antiAlias,
-                decoration:
-                    BoxDecoration(
-                        borderRadius: BorderRadius.circular(size),
-                      color: Theme.of(context).colorScheme.secondaryContainer
-                    ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                ),
                 child: (avatarUrl == null || avatarUrl == "DEFAULT AVATAR URL")
                     ? const Image(
                         image: AssetImage("images/avatar_small.png"),
                         fit: BoxFit.cover,
                       )
-                    : PicaImage(
-                        url: avatarUrl,
-                        fit: BoxFit.cover),
+                    : PicaImage(url: avatarUrl, fit: BoxFit.cover),
               ),
             ),
             if (frame != null && appdata.settings[5] == "1")
-              Positioned(
-                child: PicaImage(
-                  url: frame!,
-                ),
-              ),
+              Positioned(child: PicaImage(url: frame!)),
           ],
         ),
       ),
@@ -76,27 +68,46 @@ class Avatar extends StatelessWidget {
   }
 }
 
-void showUserInfo(BuildContext context, String? avatarUrl, String? frameUrl, String name, String? slogan, int level){
-  showDialog(context: context, builder: (dialogContext){
-    return SimpleDialog(
-      contentPadding: const EdgeInsets.all(20),
-      children: [
-        Align(
-          alignment: Alignment.center,
-          child: Column(
-            children: [
-              Avatar(size: 80, avatarUrl: avatarUrl, frame: frameUrl,),
-              Text(name,style: const TextStyle(fontSize: 16,fontWeight: FontWeight.w600),),
-              Text("Lv${level.toString()}"),
-              const SizedBox(height: 10,width: 0,),
-              SizedBox(width: 400,child: Align(
-                alignment: Alignment.center,
-                child: Text(slogan??""),
-              ),)
-            ],
+void showUserInfo(
+  BuildContext context,
+  String? avatarUrl,
+  String? frameUrl,
+  String name,
+  String? slogan,
+  int level,
+) {
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return SimpleDialog(
+        contentPadding: const EdgeInsets.all(20),
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Avatar(size: 80, avatarUrl: avatarUrl, frame: frameUrl),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text("Lv${level.toString()}"),
+                const SizedBox(height: 10, width: 0),
+                SizedBox(
+                  width: 400,
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text(slogan ?? ""),
+                  ),
+                ),
+              ],
+            ),
           ),
-        )
-      ],
-    );
-  });
+        ],
+      );
+    },
+  );
 }

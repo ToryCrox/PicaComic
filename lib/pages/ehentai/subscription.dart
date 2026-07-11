@@ -18,61 +18,73 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: Appbar(title: Text("EH订阅".tl), actions: [
-        Tooltip(
-          message: "更多".tl,
-          child: IconButton(
-            icon: const Icon(Icons.more_horiz),
-            onPressed: (){
-              Future.microtask(() => showDialog(context: App.globalContext!, builder: (context){
-                return AlertDialog(
-                  title: Text("订阅".tl),
-                  content: Text("请在网页端管理订阅".tl),
-                  actions: [
-                    TextButton(onPressed: ()=>App.globalBack(), child: Text("返回".tl)),
-                  ],
+      appBar: Appbar(
+        title: Text("EH订阅".tl),
+        actions: [
+          Tooltip(
+            message: "更多".tl,
+            child: IconButton(
+              icon: const Icon(Icons.more_horiz),
+              onPressed: () {
+                Future.microtask(
+                  () => showDialog(
+                    context: App.globalContext!,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: Text("订阅".tl),
+                        content: Text("请在网页端管理订阅".tl),
+                        actions: [
+                          TextButton(
+                            onPressed: () => App.globalBack(),
+                            child: Text("返回".tl),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 );
-              }));
-            },
+              },
+            ),
           ),
-        )
-      ],),
+        ],
+      ),
       body: EhSubscriptionComics(),
     );
   }
 }
 
-
-class PageData{
+class PageData {
   Galleries? galleries;
   int page = 1;
   Map<int, List<EhGalleryBrief>> comics = {};
 }
 
-class EhSubscriptionComics extends ComicsPage<EhGalleryBrief>{
+class EhSubscriptionComics extends ComicsPage<EhGalleryBrief> {
   EhSubscriptionComics({super.key});
 
   final data = PageData();
 
   @override
-  Future<Res<List<EhGalleryBrief>>> getComics(int i) async{
-    if(data.galleries == null){
-      Res<Galleries> res = await EhNetwork().getGalleries("${EhNetwork().ehBaseUrl}/watched");
-      if(res.error){
+  Future<Res<List<EhGalleryBrief>>> getComics(int i) async {
+    if (data.galleries == null) {
+      Res<Galleries> res = await EhNetwork().getGalleries(
+        "${EhNetwork().ehBaseUrl}/watched",
+      );
+      if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
-      }else{
+      } else {
         data.galleries = res.data;
         data.comics[1] = [];
         data.comics[1]!.addAll(data.galleries!.galleries);
         data.galleries!.galleries.clear();
       }
     }
-    if(data.comics[i] != null){
+    if (data.comics[i] != null) {
       return Res(data.comics[i]!);
-    }else{
-      while(data.comics[i] == null){
+    } else {
+      while (data.comics[i] == null) {
         data.page++;
-        if(! await EhNetwork().getNextPageGalleries(data.galleries!)){
+        if (!await EhNetwork().getNextPageGalleries(data.galleries!)) {
           return const Res(null, errorMessage: "网络错误");
         }
         data.comics[data.page] = [];

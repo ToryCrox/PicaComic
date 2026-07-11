@@ -21,7 +21,9 @@ class _HttpProxyHandler {
   Socket? serverSocket;
 
   void handle(
-      Socket c, void Function(HttpProxyRequest request) onRequest) async {
+    Socket c,
+    void Function(HttpProxyRequest request) onRequest,
+  ) async {
     try {
       client = c;
       await for (var d in client) {
@@ -29,9 +31,10 @@ class _HttpProxyHandler {
           content += const Utf8Decoder().convert(d);
           if (content.contains("\n")) {
             if (content.split(" ").first != "CONNECT") {
-              client
-                  .write("HTTP/1.1 400 Bad Request\nContent-Type: text/plain\n"
-                  "Content-Length: 29\n\nBad Request: Invalid Request");
+              client.write(
+                "HTTP/1.1 400 Bad Request\nContent-Type: text/plain\n"
+                "Content-Length: 29\n\nBad Request: Invalid Request",
+              );
               client.flush();
               client.close();
               return;
@@ -43,9 +46,12 @@ class _HttpProxyHandler {
                 .firstWhere((element) => element.contains(":"));
             bool stop = false;
             var request = HttpProxyRequest(
-                uri.split(":").first, int.parse(uri.split(":").last), () {
-              stop = true;
-            });
+              uri.split(":").first,
+              int.parse(uri.split(":").last),
+              () {
+                stop = true;
+              },
+            );
             onRequest(request);
             if (stop) {
               client.close();
@@ -76,15 +82,20 @@ class _HttpProxyHandler {
   void forward(String host, int port) async {
     try {
       serverSocket = await Socket.connect(host, port);
-      serverSocket?.listen((event) {
-        client.add(event);
-      }, onDone: () {
-        client.close();
-        serverSocket = null;
-      }, onError: (e) {
-        client.close();
-        serverSocket = null;
-      }, cancelOnError: true);
+      serverSocket?.listen(
+        (event) {
+          client.add(event);
+        },
+        onDone: () {
+          client.close();
+          serverSocket = null;
+        },
+        onError: (e) {
+          client.close();
+          serverSocket = null;
+        },
+        cancelOnError: true,
+      );
       client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
       client.flush();
     } catch (e) {
@@ -105,22 +116,25 @@ class HttpProxyServer {
   ServerSocket? socket;
 
   void run() {
-    runZonedGuarded(() async{
-      socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-      socket?.listen((event) => _HttpProxyHandler().handle(event, handler));
-    }, (error, stack) async{
-      print(error);
-      print(stack);
-    });
+    runZonedGuarded(
+      () async {
+        socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+        socket?.listen((event) => _HttpProxyHandler().handle(event, handler));
+      },
+      (error, stack) async {
+        print(error);
+        print(stack);
+      },
+    );
   }
 
-  void close(){
+  void close() {
     socket?.close();
   }
 
   static Isolate? _server;
 
-  static void startServer() async{
+  static void startServer() async {
     _server?.kill();
     _server = await Isolate.spawn<String>((message) {
       final file = File("$message/rule.json");
@@ -136,13 +150,13 @@ class HttpProxyServer {
     }, App.dataPath);
   }
 
-  static void reload(){
+  static void reload() {
     startServer();
   }
 
-  static void createConfigFile(){
+  static void createConfigFile() {
     var file = File("${App.dataPath}/rule.json");
-    if(!file.existsSync()){
+    if (!file.existsSync()) {
       var rule = {
         "port": 7891,
         "rule": {
@@ -152,13 +166,9 @@ class HttpProxyServer {
           "storage-b.picacomic.com": "104.21.91.145",
           "e-hentai.org": "172.67.0.127",
           "exhentai.org": "178.175.129.254",
-          "s.exhentai.org": "178.175.129.254"
+          "s.exhentai.org": "178.175.129.254",
         },
-        "sni": [
-          "e-hentai.org",
-          "exhentai.org",
-          "s.exhentai.org"
-        ]
+        "sni": ["e-hentai.org", "exhentai.org", "s.exhentai.org"],
       };
       var spaces = ' ' * 4;
       var encoder = JsonEncoder.withIndent(spaces);

@@ -50,12 +50,7 @@ class ComicSourceSettings extends StatefulWidget {
 
 extension _WidgetExt on Widget {
   Widget withDivider() {
-    return Column(
-      children: [
-        this,
-        const Divider(),
-      ],
-    );
+    return Column(children: [this, const Divider()]);
   }
 }
 
@@ -67,21 +62,23 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
     return Column(
       children: [
         const _BuiltInSources(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.picacg.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.picacg.name))
           const PicacgSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.ehentai.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.ehentai.name))
           const EhSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.nhentai.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.nhentai.name))
           const NhSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.jm.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.jm.name))
           const JmSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.hitomi.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.hitomi.name))
           const HitomiSettings(false).withDivider(),
-        if(appdata.appSettings.isComicSourceEnabled(ComicType.htmanga.name))
+        if (appdata.appSettings.isComicSourceEnabled(ComicType.htmanga.name))
           const HtSettings(false),
         Padding(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }
@@ -103,7 +100,8 @@ class _ComicSourceListState extends State<_ComicSourceList> {
   void load() async {
     var dio = logDio();
     var res = await dio.get<String>(
-        "https://raw.githubusercontent.com/wgh136/pica_configs/master/index.json");
+      "https://raw.githubusercontent.com/wgh136/pica_configs/master/index.json",
+    );
     if (res.statusCode != 200) {
       showToast(message: "网络错误".tl);
       return;
@@ -145,7 +143,8 @@ class _ComicSourceListState extends State<_ComicSourceList> {
                     icon: const Icon(Icons.add),
                     onPressed: () async {
                       await widget.onAdd(
-                          "https://raw.githubusercontent.com/wgh136/pica_configs/master/${json![index]["fileName"]}");
+                        "https://raw.githubusercontent.com/wgh136/pica_configs/master/${json![index]["fileName"]}",
+                      );
                       setState(() {});
                     },
                   ),
@@ -175,10 +174,8 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
     return Column(
       children: [
         const Divider(),
-        ListTile(
-          title: Text("内置漫画源".tl),
-        ),
-        for(int index = 0; index < builtInSources.length; index++)
+        ListTile(title: Text("内置漫画源".tl)),
+        for (int index = 0; index < builtInSources.length; index++)
           buildTile(index),
         const Divider(),
       ],
@@ -190,8 +187,7 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
   Widget buildTile(int index) {
     var key = builtInSources[index];
     return ListTile(
-      title: Text(
-          ComicSource.builtIn.firstWhere((e) => e.key == key).name.tl),
+      title: Text(ComicSource.builtIn.firstWhere((e) => e.key == key).name.tl),
       trailing: Switch(
         value: appdata.appSettings.isComicSourceEnabled(key.name),
         onChanged: (v) async {
@@ -199,7 +195,7 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
           isLoading = true;
           appdata.appSettings.setComicSourceEnabled(key.name, v);
           await appdata.updateSettings();
-          if(!v) {
+          if (!v) {
             ComicSource.sources.removeWhere((e) => e.key == key);
             _validatePages();
           } else {
@@ -211,7 +207,8 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
           isLoading = false;
           if (mounted) {
             setState(() {});
-            context.findAncestorStateOfType<_ComicSourceSettingsState>()
+            context
+                .findAncestorStateOfType<_ComicSourceSettingsState>()
                 ?.setState(() {});
           }
         },

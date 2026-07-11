@@ -6,19 +6,19 @@ import 'package:pica_comic/foundation/log.dart';
 enum DownloadErrorType {
   /// 网络错误
   network,
-  
+
   /// 文件系统错误
   fileSystem,
-  
+
   /// 权限错误
   permission,
-  
+
   /// 用户取消
   canceled,
-  
+
   /// 超时
   timeout,
-  
+
   /// 未知错误
   unknown,
 }
@@ -54,8 +54,9 @@ class DownloadError {
   /// 从异常创建错误
   factory DownloadError.fromException(Object error, [StackTrace? stackTrace]) {
     final type = _analyzeError(error);
-    final canRetry = type != DownloadErrorType.canceled && 
-                     type != DownloadErrorType.permission;
+    final canRetry =
+        type != DownloadErrorType.canceled &&
+        type != DownloadErrorType.permission;
 
     return DownloadError(
       type: type,
@@ -73,7 +74,7 @@ class DownloadError {
     if (errorStr.contains('cancel')) {
       return DownloadErrorType.canceled;
     }
-    
+
     if (errorStr.contains('timeout') || errorStr.contains('timed out')) {
       return DownloadErrorType.timeout;
     }
@@ -82,15 +83,15 @@ class DownloadError {
       return DownloadErrorType.permission;
     }
 
-    if (errorStr.contains('network') || 
-        errorStr.contains('socket') || 
+    if (errorStr.contains('network') ||
+        errorStr.contains('socket') ||
         errorStr.contains('connection') ||
         errorStr.contains('http')) {
       return DownloadErrorType.network;
     }
 
-    if (errorStr.contains('file') || 
-        errorStr.contains('directory') || 
+    if (errorStr.contains('file') ||
+        errorStr.contains('directory') ||
         errorStr.contains('path') ||
         errorStr.contains('i/o')) {
       return DownloadErrorType.fileSystem;
@@ -156,7 +157,7 @@ class RetryStrategy {
   final Random _random = Random();
 
   RetryStrategy({RetryStrategyConfig? config})
-      : config = config ?? RetryStrategyConfig.defaultStrategy;
+    : config = config ?? RetryStrategyConfig.defaultStrategy;
 
   /// 根据错误类型获取合适的策略
   factory RetryStrategy.forErrorType(DownloadErrorType errorType) {
@@ -164,15 +165,15 @@ class RetryStrategy {
       case DownloadErrorType.network:
       case DownloadErrorType.timeout:
         return RetryStrategy(config: RetryStrategyConfig.networkStrategy);
-      
+
       case DownloadErrorType.fileSystem:
         return RetryStrategy(config: RetryStrategyConfig.fileSystemStrategy);
-      
+
       case DownloadErrorType.canceled:
       case DownloadErrorType.permission:
         // 这些错误不应重试
         return RetryStrategy(config: const RetryStrategyConfig(maxRetries: 0));
-      
+
       default:
         return RetryStrategy();
     }
@@ -185,8 +186,9 @@ class RetryStrategy {
     }
 
     // 指数退避
-    final delayMs = (config.initialDelayMs * 
-        pow(config.backoffMultiplier, retryCount - 1)).toInt();
+    final delayMs =
+        (config.initialDelayMs * pow(config.backoffMultiplier, retryCount - 1))
+            .toInt();
 
     // 限制最大延迟
     final cappedDelay = min(delayMs, config.maxDelayMs);
@@ -215,7 +217,7 @@ class RetryStrategy {
 /// 错误处理器
 class DownloadErrorHandler {
   /// 处理错误并决定是否重试
-  /// 
+  ///
   /// 返回 true 表示已处理并会重试，false 表示不重试
   Future<bool> handleError({
     required DownloadError error,
@@ -230,14 +232,18 @@ class DownloadErrorHandler {
 
     // 检查是否应该重试
     if (!strategy.shouldRetry(error, retryCount)) {
-      Log.e('DownloadErrorHandler: Max retries reached or error not retryable (type: ${error.type}, retries: $retryCount)');
+      Log.e(
+        'DownloadErrorHandler: Max retries reached or error not retryable (type: ${error.type}, retries: $retryCount)',
+      );
       onFinalFailure?.call(error);
       return false;
     }
 
     // 计算延迟
     final delay = strategy.getNextDelay(retryCount);
-    Log.i('DownloadErrorHandler: Retrying in ${delay.inMilliseconds}ms (attempt ${retryCount + 1}/${strategy.config.maxRetries})');
+    Log.i(
+      'DownloadErrorHandler: Retrying in ${delay.inMilliseconds}ms (attempt ${retryCount + 1}/${strategy.config.maxRetries})',
+    );
 
     // 延迟后重试
     await Future.delayed(delay);
@@ -278,7 +284,7 @@ class DownloadErrorHandler {
     final errorCounts = analyzeErrors(errors);
     final buffer = StringBuffer();
     buffer.writeln('Error Summary:');
-    
+
     for (var entry in errorCounts.entries) {
       buffer.writeln('  ${entry.key}: ${entry.value} occurrence(s)');
     }

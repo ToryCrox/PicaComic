@@ -5,7 +5,7 @@ Map<String, dynamic>? translation;
 
 var keys = <String>[];
 
-void main() async{
+void main() async {
   var file = File("assets/translation.json");
   var data = await file.readAsString();
   translation = jsonDecode(data);
@@ -14,7 +14,7 @@ void main() async{
   translation!.forEach((key, value) {
     var shouldRemove = <String>[];
     for (var element in (value as Map<String, dynamic>).keys) {
-      if(!keys.contains(element)){
+      if (!keys.contains(element)) {
         shouldRemove.add(element);
       }
     }
@@ -25,13 +25,13 @@ void main() async{
   file.writeAsString(const JsonEncoder.withIndent("  ").convert(translation));
 }
 
-String realText(String text){
+String realText(String text) {
   text = text.replaceAll(".tl", "");
-  var char = text[text.length-1];
-  int index = text.length-2;
-  while(true){
-    if(text[index] == char){
-      if(index > 0 && text[index-1] == '\\'){
+  var char = text[text.length - 1];
+  int index = text.length - 2;
+  while (true) {
+    if (text[index] == char) {
+      if (index > 0 && text[index - 1] == '\\') {
         index--;
         continue;
       }
@@ -39,38 +39,38 @@ String realText(String text){
     }
     index--;
   }
-  return text.substring(index+1, text.length-1);
+  return text.substring(index + 1, text.length - 1);
 }
 
-void find(Directory directory){
-  for(var entity in directory.listSync()){
-    if(entity is File){
+void find(Directory directory) {
+  for (var entity in directory.listSync()) {
+    if (entity is File) {
       var code = entity.readAsStringSync();
-      for(var match in RegExp(r'".*?"\.tl').allMatches(code)){
+      for (var match in RegExp(r'".*?"\.tl').allMatches(code)) {
         var text = match.group(0);
         text = realText(text!);
-        if(text.isEmpty)  continue;
+        if (text.isEmpty) continue;
         keys.add(text);
-        if(translation!["zh_TW"][text] == null){
+        if (translation!["zh_TW"][text] == null) {
           translation!["zh_TW"][text] = "";
         }
-        if(translation!["en_US"][text] == null){
+        if (translation!["en_US"][text] == null) {
           translation!["en_US"][text] = "";
         }
       }
-      for(var match in RegExp(r"'.*?'\.tl").allMatches(code)){
+      for (var match in RegExp(r"'.*?'\.tl").allMatches(code)) {
         var text = match.group(0);
         text = realText(text!);
-        if(text.isEmpty)  continue;
+        if (text.isEmpty) continue;
         keys.add(text);
-        if(translation!["zh_TW"][text] == null){
+        if (translation!["zh_TW"][text] == null) {
           translation!["zh_TW"][text] = "";
         }
-        if(translation!["en_US"][text] == null){
+        if (translation!["en_US"][text] == null) {
           translation!["en_US"][text] = "";
         }
       }
-    } else if (entity is Directory){
+    } else if (entity is Directory) {
       find(entity);
     }
   }

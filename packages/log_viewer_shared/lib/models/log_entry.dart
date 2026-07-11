@@ -1,21 +1,21 @@
 import 'log_level.dart';
 
 /// 日志条目模型
-/// 
+///
 /// Server 和 Web 都使用这个模型进行数据交换
 class LogEntry {
   /// 日志级别
   final LogLevel level;
-  
+
   /// 日志消息
   final String message;
-  
+
   /// 时间戳
   final DateTime timestamp;
-  
+
   /// 可选的错误信息
   final String? error;
-  
+
   /// 可选的堆栈跟踪
   final String? stackTrace;
 
@@ -55,5 +55,3 @@ class LogEntry {
     return '[$level] ${timestamp.toIso8601String()}: $message';
   }
 }
-
-

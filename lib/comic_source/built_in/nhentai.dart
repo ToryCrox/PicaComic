@@ -32,10 +32,18 @@ final nhentai = ComicSource.named(
     title: "nhentai",
     key: "nhentai",
     categories: [
-      const FixedCategoryPart("language", ["中文", "日本語", "english"], "category",
-          ["/language/chinese", "/language/japanese", "/language/english"]),
+      const FixedCategoryPart(
+        "language",
+        ["中文", "日本語", "english"],
+        "category",
+        ["/language/chinese", "/language/japanese", "/language/english"],
+      ),
       RandomCategoryPartWithRuntimeData(
-          "Tags", () => nhentaiTags.values.toList(), 50, "search"),
+        "Tags",
+        () => nhentaiTags.values.toList(),
+        50,
+        "search",
+      ),
     ],
     enableRankingPage: false,
     buttons: [
@@ -53,13 +61,16 @@ final nhentai = ComicSource.named(
       var lang = int.tryParse(appdata.settings[69]) ?? 0;
       if (lang != 0) {
         return NhentaiNetwork().search(
-          "$type:$name language:${["chinese", "english", "japanese"][lang-1]}",
+          "$type:$name language:${["chinese", "english", "japanese"][lang - 1]}",
           page,
           NhentaiSort.fromValue(options[0]),
         );
       }
       return NhentaiNetwork().getCategoryComics(
-          "/$type/$name", page, NhentaiSort.fromValue(options[0]));
+        "/$type/$name",
+        page,
+        NhentaiSort.fromValue(options[0]),
+      );
     },
     options: [
       CategoryComicsOptions.named(
@@ -113,11 +124,7 @@ final nhentai = ComicSource.named(
         }
         if (index == 1) {
           return Res(<Object>[
-            ExplorePagePart(
-              "Popular",
-              res.data.popular,
-              null,
-            ),
+            ExplorePagePart("Popular", res.data.popular, null),
             res.data.latest,
           ], subData: 20000);
         } else {
@@ -129,8 +136,11 @@ final nhentai = ComicSource.named(
   idMatcher: RegExp(r"^(\d+|nh\d+|nhentai\d+)$"),
   searchPageData: SearchPageData.named(
     loadPage: (keyword, page, options) {
-      return NhentaiNetwork()
-          .search(keyword, page, NhentaiSort.fromValue(options[0]));
+      return NhentaiNetwork().search(
+        keyword,
+        page,
+        NhentaiSort.fromValue(options[0]),
+      );
     },
     enableLanguageFilter: true,
     enableTagsSuggestions: true,
@@ -144,14 +154,11 @@ final nhentai = ComicSource.named(
           "&sort=popular": "热门 | 所有时间",
         }),
         '排序',
-      )
+      ),
     ],
   ),
   comicPageBuilder: (context, id, cover) {
-    return NhentaiComicPage(
-      id,
-      comicCover: cover,
-    );
+    return NhentaiComicPage(id, comicCover: cover);
   },
 );
 
@@ -165,13 +172,13 @@ class _NhentaiComicTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: comic.cover,
-        sourceKey: ComicType.nhentai.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: comic.cover,
+    sourceKey: ComicType.nhentai.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {
@@ -206,29 +213,29 @@ class _NhentaiComicTile extends ComicTile {
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(
-          App.globalContext!,
-          onCancel: () => cancel = true,
-        );
-        var res = await NhentaiNetwork().getComicInfo(comic.id);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await History.findOrCreate(res.data);
-          App.globalTo(
-            () => ComicReadingPage.nhentai(
-              res.data.id,
-              res.data.title,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await NhentaiNetwork().getComicInfo(comic.id);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await History.findOrCreate(res.data);
+      App.globalTo(
+        () => ComicReadingPage.nhentai(
+          res.data.id,
+          res.data.title,
+          initialPage: history.page,
+        ),
+      );
+    }
+  };
 
   @override
   FavoriteItem? get favoriteItem => FavoriteItem.fromNhentai(comic);

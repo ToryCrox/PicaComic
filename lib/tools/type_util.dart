@@ -196,8 +196,10 @@ class TypeUtil {
 
   /// 解析Color, 支持#ffffff, #ffffffff, 0xffffffff, 0xffffff, 0xff, 0xffffffff, 0xffffff, 0xff
   /// 如果解析失败，则返回透明色
-  static Color parseColor(dynamic value,
-      [Color defaultValue = Colors.transparent]) {
+  static Color parseColor(
+    dynamic value, [
+    Color defaultValue = Colors.transparent,
+  ]) {
     if (value == null) return defaultValue;
     if (value is Color) return value;
     if (value is String) {
@@ -240,7 +242,6 @@ class TypeUtil {
     });
     return newMap;
   }
-
 }
 
 Object? _toEncodableFallback(dynamic object) {

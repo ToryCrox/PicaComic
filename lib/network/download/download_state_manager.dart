@@ -4,25 +4,25 @@ import 'package:flutter/foundation.dart';
 enum DownloadTaskStatus {
   /// 等待开始
   waiting,
-  
+
   /// 下载中
   downloading,
-  
+
   /// 已暂停
   paused,
-  
+
   /// 已完成
   completed,
-  
+
   /// 失败
   failed,
-  
+
   /// 已取消
   canceled,
 }
 
 /// 下载状态
-/// 
+///
 /// 记录单个下载任务的完整状态信息
 class DownloadState {
   /// 任务ID
@@ -74,8 +74,8 @@ class DownloadState {
     this.errorMessage,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   /// 下载进度（0.0 - 1.0）
   double get progress => totalImages > 0 ? downloadedImages / totalImages : 0.0;
@@ -97,7 +97,8 @@ class DownloadState {
 
   /// 是否可以恢复
   bool get canResume =>
-      status == DownloadTaskStatus.paused || status == DownloadTaskStatus.failed;
+      status == DownloadTaskStatus.paused ||
+      status == DownloadTaskStatus.failed;
 
   /// 复制并更新状态
   DownloadState copyWith({
@@ -153,7 +154,7 @@ class DownloadState {
 }
 
 /// 状态管理器
-/// 
+///
 /// 管理所有下载任务的状态，提供状态查询和更新通知
 class DownloadStateManager extends ChangeNotifier {
   /// 状态映射表
@@ -171,11 +172,11 @@ class DownloadStateManager extends ChangeNotifier {
   }
 
   /// 更新状态
-  /// 
+  ///
   /// 如果状态有变化，会通知所有监听器
   void updateState(DownloadState state) {
     final oldState = _states[state.taskId];
-    
+
     // 只在状态真正改变时才更新和通知
     if (oldState != state) {
       _states[state.taskId] = state;
@@ -186,7 +187,7 @@ class DownloadStateManager extends ChangeNotifier {
   /// 批量更新状态
   void updateStates(List<DownloadState> states) {
     bool changed = false;
-    
+
     for (var state in states) {
       final oldState = _states[state.taskId];
       if (oldState != state) {
@@ -210,7 +211,7 @@ class DownloadStateManager extends ChangeNotifier {
   /// 批量移除状态
   void removeStates(List<String> taskIds) {
     bool changed = false;
-    
+
     for (var taskId in taskIds) {
       if (_states.remove(taskId) != null) {
         changed = true;

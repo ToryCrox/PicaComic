@@ -13,13 +13,17 @@ import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/pages/favorites/network_to_local.dart';
 
-typedef GetFavoriteFunc<T extends Object> = Future<Res<List<T>>> Function(
-    int page);
+typedef GetFavoriteFunc<T extends Object> =
+    Future<Res<List<T>>> Function(int page);
 
 typedef ComicToLocalFavoriteFunc<T extends Object> = FavoriteItem Function(T);
 
-Future<List<T>> getFavorites<T extends Object>(BuildContext context,
-    GetFavoriteFunc<T> getFavoriteFunc, Duration? interval, int? total) async {
+Future<List<T>> getFavorites<T extends Object>(
+  BuildContext context,
+  GetFavoriteFunc<T> getFavoriteFunc,
+  Duration? interval,
+  int? total,
+) async {
   var comics = <T>[];
 
   Stream<(int, int?)> load() async* {
@@ -50,64 +54,58 @@ Future<List<T>> getFavorites<T extends Object>(BuildContext context,
   }
 
   await showDialog(
-      barrierDismissible: false,
-      context: context,
-      builder: (context) => SimpleDialog(
-            title: const Text("Loading..."),
-            children: [
-              const SizedBox(
-                width: 400,
-              ),
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
-              StreamBuilder<(int, int?)>(
-                  stream: load(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      Future.microtask(() {
-                        context.pop();
-                        if (kDebugMode) {
-                          print(snapshot.error);
-                          print(snapshot.stackTrace);
-                        }
-                        showToast(message: snapshot.error.toString());
-                      });
-                    }
-                    if (snapshot.hasData &&
-                        snapshot.data?.$1 == snapshot.data?.$2) {
-                      Future.delayed(
-                        const Duration(milliseconds: 200),
-                        context.pop,
-                      );
-                    }
-                    return Center(
-                      child: Text(
-                          "${snapshot.data?.$1}/${snapshot.data?.$2 ?? "?"}"),
-                    );
-                  }),
-              Center(
-                child: TextButton(
-                  child: Text("取消".tl),
-                  onPressed: () {
-                    App.back(context);
-                  },
-                ),
-              )
-            ],
-          ));
+    barrierDismissible: false,
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text("Loading..."),
+      children: [
+        const SizedBox(width: 400),
+        const Center(child: CircularProgressIndicator()),
+        StreamBuilder<(int, int?)>(
+          stream: load(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              Future.microtask(() {
+                context.pop();
+                if (kDebugMode) {
+                  print(snapshot.error);
+                  print(snapshot.stackTrace);
+                }
+                showToast(message: snapshot.error.toString());
+              });
+            }
+            if (snapshot.hasData && snapshot.data?.$1 == snapshot.data?.$2) {
+              Future.delayed(const Duration(milliseconds: 200), context.pop);
+            }
+            return Center(
+              child: Text("${snapshot.data?.$1}/${snapshot.data?.$2 ?? "?"}"),
+            );
+          },
+        ),
+        Center(
+          child: TextButton(
+            child: Text("取消".tl),
+            onPressed: () {
+              App.back(context);
+            },
+          ),
+        ),
+      ],
+    ),
+  );
   return comics;
 }
 
 Future startConvert<T extends Object>(
-    GetFavoriteFunc<T> getFavoriteFunc,
-    Duration? interval,
-    BuildContext context,
-    String folderName,
-    ComicToLocalFavoriteFunc<T> toLocalFavoriteFunc,
-    String key,
-    bool agreeSync,
-    Object syncData) async {
+  GetFavoriteFunc<T> getFavoriteFunc,
+  Duration? interval,
+  BuildContext context,
+  String folderName,
+  ComicToLocalFavoriteFunc<T> toLocalFavoriteFunc,
+  String key,
+  bool agreeSync,
+  Object syncData,
+) async {
   List<T> comics = await getFavorites(context, getFavoriteFunc, interval, null);
   var name = folderName;
   int i = 0;
@@ -120,8 +118,9 @@ Future startConvert<T extends Object>(
   LocalFavoritesManager().createFolder(name);
   // 是否同步网络收藏
   if (agreeSync) {
-    LocalFavoritesManager()
-        .insertFolderSync(FolderSync(name, key, jsonEncode(syncData)));
+    LocalFavoritesManager().insertFolderSync(
+      FolderSync(name, key, jsonEncode(syncData)),
+    );
   }
   int order = 0;
   for (var comic in comics) {
@@ -131,7 +130,9 @@ Future startConvert<T extends Object>(
 }
 
 void startFolderSync<T extends Object>(
-    BuildContext context, FolderSync? folderSync) async {
+  BuildContext context,
+  FolderSync? folderSync,
+) async {
   if (folderSync == null) return;
   final key = folderSync.key;
   final folderName = folderSync.folderName;
@@ -145,10 +146,11 @@ void startFolderSync<T extends Object>(
   final fData = getFavoriteData(key);
   final total = int.parse(appdata.settings[71]);
   List<BaseComic> comics = await getFavorites(
-      context,
-      (page) => loadComicObj.loadComic(fData, page, syncDataObj["folderId"]),
-      null,
-      total);
+    context,
+    (page) => loadComicObj.loadComic(fData, page, syncDataObj["folderId"]),
+    null,
+    total,
+  );
   final range = comics.length;
   String direction =
       '1'; // 顺序是放到最前还是最后, 为了保证顺序和网络收藏一致, 默认最前从新到旧, 不过有些网络收藏(绅士漫画)是从旧到新
@@ -159,23 +161,29 @@ void startFolderSync<T extends Object>(
       .toList(); // 翻转一下, 保证插入顺序最终和网络收藏一致
   for (var comic in comicsWithRange) {
     final temComic = FavoriteItem.fromBaseComic(comic);
-    final index =
-        curAllComics.indexWhere((element) => element.target == temComic.target);
+    final index = curAllComics.indexWhere(
+      (element) => element.target == temComic.target,
+    );
     if (index == -1) {
       if (direction == "0") {
         addValue += 1;
       } else {
         addValue -= 1;
       }
-      LocalFavoritesManager().addComic(folderName, temComic,
-          direction == "0" ? maxValue + addValue : minValue + addValue);
+      LocalFavoritesManager().addComic(
+        folderName,
+        temComic,
+        direction == "0" ? maxValue + addValue : minValue + addValue,
+      );
     }
   }
   showToast(
-      message: "本次更新数: ".tl +
-          addValue.abs().toString() +
-          ", 上次更新时间: ".tl +
-          folderSync.time);
+    message:
+        "本次更新数: ".tl +
+        addValue.abs().toString() +
+        ", 上次更新时间: ".tl +
+        folderSync.time,
+  );
   folderSync.time = getCurTime();
   LocalFavoritesManager().updateFolderSyncTime(folderSync);
 }

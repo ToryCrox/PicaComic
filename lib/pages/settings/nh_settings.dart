@@ -10,7 +10,6 @@ class NhSettings extends StatefulWidget {
 }
 
 class _NhSettingsState extends State<NhSettings> {
-
   String baseUrl = "https://nhentai.net";
 
   void deleteAllCookie() async {
@@ -21,7 +20,8 @@ class _NhSettingsState extends State<NhSettings> {
       return;
     } else {
       var title = "${"确认删除".tl}?";
-      var msg = "${"删除全部".tl}(${cookies.length}) nhentai cookie\n${"删除后需重新登录".tl}\n";
+      var msg =
+          "${"删除全部".tl}(${cookies.length}) nhentai cookie\n${"删除后需重新登录".tl}\n";
       showConfirmDialog(App.globalContext!, title, msg, () async {
         NhentaiNetwork().logged = false;
         await cookieJar.deleteUri(Uri.parse(baseUrl));
@@ -36,15 +36,13 @@ class _NhSettingsState extends State<NhSettings> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ListTile(
-          title: Text("nhentai".tl),
-        ),
+        ListTile(title: Text("nhentai".tl)),
         ListTile(
           leading: const Icon(Icons.delete_forever),
           title: Text("${"删除".tl} cookie"),
           onTap: () => deleteAllCookie(),
           trailing: const Icon(Icons.arrow_right),
-        )
+        ),
       ],
     );
   }

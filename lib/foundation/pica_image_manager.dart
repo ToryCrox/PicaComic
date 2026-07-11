@@ -23,14 +23,16 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
   }
 
   PicaImageManager._()
-      : super(Config(
+    : super(
+        Config(
           key,
           stalePeriod: const Duration(days: 7),
           maxNrOfCacheObjects: 5000,
           fileService: PicaHttpFileService(),
-        ));
+        ),
+      );
 
-    Future<FileInfo?> _fileInfoFromIoFile(String filePath, String url) async {
+  Future<FileInfo?> _fileInfoFromIoFile(String filePath, String url) async {
     final ioFile = io.File(filePath);
     // 转换为 file 包的 File 类型
     const fs = LocalFileSystem();
@@ -75,12 +77,14 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
       // 文件不存在，直接报错
       throw Exception('getImageFile file not found: $url');
     }
-    yield* super.getImageFile(url,
-        key: key,
-        headers: headers,
-        withProgress: withProgress,
-        maxHeight: maxHeight,
-        maxWidth: maxWidth);
+    yield* super.getImageFile(
+      url,
+      key: key,
+      headers: headers,
+      withProgress: withProgress,
+      maxHeight: maxHeight,
+      maxWidth: maxWidth,
+    );
   }
 }
 
@@ -91,8 +95,10 @@ class PicaHttpFileService extends FileService {
   static int _ehgtLoading = 0;
 
   @override
-  Future<FileServiceResponse> get(String url,
-      {Map<String, String>? headers}) async {
+  Future<FileServiceResponse> get(
+    String url, {
+    Map<String, String>? headers,
+  }) async {
     try {
       final sourceKey = headers?['sourceKey'];
       ImageConfig? config;
@@ -131,8 +137,9 @@ class PicaHttpFileService extends FileService {
       }
 
       final requestMethod = config?.method ?? 'GET';
-      final requestHeaders = config?.headers ?? Map<String, String>.from(headers ?? {});
-      
+      final requestHeaders =
+          config?.headers ?? Map<String, String>.from(headers ?? {});
+
       // Merge headers if config.headers is not null
       if (config?.headers != null && headers != null) {
         requestHeaders.addAll(headers);
@@ -144,7 +151,7 @@ class PicaHttpFileService extends FileService {
           !requestHeaders.containsKey('user-agent')) {
         requestHeaders['User-Agent'] = webUA;
       }
-      
+
       // Strip meta fields
       requestHeaders.remove('sourceKey');
       requestHeaders.remove('isThumbnail');
@@ -195,8 +202,9 @@ class PicaDioFileServiceResponse implements FileServiceResponse {
         await for (var data in _response.data!.stream) {
           imageData.addAll(data);
         }
-        final result =
-            (_onResponse as JSInvokable)(Uint8List.fromList(imageData));
+        final result = (_onResponse as JSInvokable)(
+          Uint8List.fromList(imageData),
+        );
         if (result is Uint8List) {
           return result.toList();
         }
@@ -218,7 +226,9 @@ class PicaDioFileServiceResponse implements FileServiceResponse {
 
   @override
   String get fileExtension {
-    final contentType = _response.headers.value(io.HttpHeaders.contentTypeHeader);
+    final contentType = _response.headers.value(
+      io.HttpHeaders.contentTypeHeader,
+    );
     if (contentType != null) {
       if (contentType.contains('image/jpeg')) return '.jpg';
       if (contentType.contains('image/png')) return '.png';
@@ -235,7 +245,8 @@ class PicaDioFileServiceResponse implements FileServiceResponse {
     if (_onResponse != null) return -1;
     try {
       return int.parse(
-          _response.headers.value(io.HttpHeaders.contentLengthHeader) ?? "-1");
+        _response.headers.value(io.HttpHeaders.contentLengthHeader) ?? "-1",
+      );
     } catch (e) {
       return -1;
     }

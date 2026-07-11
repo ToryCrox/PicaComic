@@ -33,27 +33,31 @@ final ehentai = ComicSource.named(
     multiFolder: true,
     loadComic: (i, [folderId]) {
       if (i == 1) {
-        _EhentaiGalleriesLoader.instances['favorite'] =
-            _EhentaiGalleriesLoader(firstPageLoader: () async {
-          Res<Galleries> res;
-          if (folderId == '-1') {
-            res = await EhNetwork().getGalleries(
+        _EhentaiGalleriesLoader.instances['favorite'] = _EhentaiGalleriesLoader(
+          firstPageLoader: () async {
+            Res<Galleries> res;
+            if (folderId == '-1') {
+              res = await EhNetwork().getGalleries(
                 "${EhNetwork().ehBaseUrl}/favorites.php",
-                favoritePage: true);
-          } else {
-            res = await EhNetwork().getGalleries(
+                favoritePage: true,
+              );
+            } else {
+              res = await EhNetwork().getGalleries(
                 "${EhNetwork().ehBaseUrl}/favorites.php?favcat=$folderId",
-                favoritePage: true);
-          }
-          return res;
-        });
+                favoritePage: true,
+              );
+            }
+            return res;
+          },
+        );
       }
       return _EhentaiGalleriesLoader.instances['favorite']!(i);
     },
     loadFolders: ([cid]) async {
       var e = await EhNetwork().getGalleries(
-          "${EhNetwork().ehBaseUrl}/favorites.php",
-          favoritePage: true);
+        "${EhNetwork().ehBaseUrl}/favorites.php",
+        favoritePage: true,
+      );
       if (e.error) {
         return Res.fromErrorRes(e);
       }
@@ -130,12 +134,7 @@ final ehentai = ComicSource.named(
   categoryComicsData: CategoryComicsData.named(
     load: (p0, p1, p3, p4) => throw UnimplementedError(),
     rankingData: RankingData.named(
-      options: {
-        '15': "昨天",
-        '13': "本月",
-        '12': "今年",
-        '11': "全部",
-      },
+      options: {'15': "昨天", '13': "本月", '12': "今年", '11': "全部"},
       load: (options, page) {
         var type = int.tryParse(options) ?? 15;
         return EhNetwork().getLeaderBoardByPage(type, page);
@@ -146,8 +145,10 @@ final ehentai = ComicSource.named(
     allowReLogin: false,
     onLogin: (BuildContext context) async {
       await context.to(() => const EhLoginPage());
-      var cookies = await EhNetwork().cookieJar.loadForRequest(Uri.parse("https://e-hentai.org"));
-      if(!cookies.any((e) => e.name == 'ipb_member_id')) {
+      var cookies = await EhNetwork().cookieJar.loadForRequest(
+        Uri.parse("https://e-hentai.org"),
+      );
+      if (!cookies.any((e) => e.name == 'ipb_member_id')) {
         return;
       }
       var ehentai = ComicSource.find(ComicType.ehentai)!;
@@ -184,15 +185,19 @@ final ehentai = ComicSource.named(
       title: "Eh主页",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
-        firstPageLoader: () => EhNetwork().getGalleries(EhNetwork().ehBaseUrl).then((e){
-          if (e.dataOrNull != null) {
-            DiskCache.writeModel('eh_home', e.data.toJson());
-          }
-          return e;
-        }),
+        firstPageLoader: () =>
+            EhNetwork().getGalleries(EhNetwork().ehBaseUrl).then((e) {
+              if (e.dataOrNull != null) {
+                DiskCache.writeModel('eh_home', e.data.toJson());
+              }
+              return e;
+            }),
       ),
       loadCache: () async {
-        var data = await DiskCache.readModel('eh_home', (e) => Galleries.fromJson(e));
+        var data = await DiskCache.readModel(
+          'eh_home',
+          (e) => Galleries.fromJson(e),
+        );
         return data?.galleries ?? [];
       },
     ),
@@ -200,8 +205,9 @@ final ehentai = ComicSource.named(
       title: "Eh热门",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
-        firstPageLoader: () =>
-            EhNetwork().getGalleries("${EhNetwork().ehBaseUrl}/popular").then((e) {
+        firstPageLoader: () => EhNetwork()
+            .getGalleries("${EhNetwork().ehBaseUrl}/popular")
+            .then((e) {
               if (e.dataOrNull != null) {
                 DiskCache.writeModel('eh_popular', e.data.toJson());
               }
@@ -209,7 +215,10 @@ final ehentai = ComicSource.named(
             }),
       ),
       loadCache: () async {
-        var data = await DiskCache.readModel('eh_popular', (e) => Galleries.fromJson(e));
+        var data = await DiskCache.readModel(
+          'eh_popular',
+          (e) => Galleries.fromJson(e),
+        );
         return data?.galleries ?? [];
       },
     ),
@@ -220,15 +229,15 @@ final ehentai = ComicSource.named(
         _EhentaiGalleriesLoader.clean();
         _EhentaiGalleriesLoader.instances['search:$keyword'] =
             _EhentaiGalleriesLoader(
-          firstPageLoader: () => EhNetwork().search(
-            keyword,
-            fCats: int.tryParse(options.elementAtOrNull(0) ?? ''),
-            startPages: int.tryParse(options.elementAtOrNull(1) ?? ''),
-            endPages: int.tryParse(options.elementAtOrNull(2) ?? ''),
-            minStars: int.tryParse(options.elementAtOrNull(3) ?? ''),
-            expunged: int.tryParse(options.elementAtOrNull(4) ?? ''),
-          ),
-        );
+              firstPageLoader: () => EhNetwork().search(
+                keyword,
+                fCats: int.tryParse(options.elementAtOrNull(0) ?? ''),
+                startPages: int.tryParse(options.elementAtOrNull(1) ?? ''),
+                endPages: int.tryParse(options.elementAtOrNull(2) ?? ''),
+                minStars: int.tryParse(options.elementAtOrNull(3) ?? ''),
+                expunged: int.tryParse(options.elementAtOrNull(4) ?? ''),
+              ),
+            );
       }
       return _EhentaiGalleriesLoader.instances['search:$keyword']!(page);
     },
@@ -267,19 +276,21 @@ class _EhGalleryTile extends ComicTile {
         }
         if (App.locale.languageCode != "zh") {
           res.add(
-              splits[1].length > 32
-                  ? "${splits[1].substring(0,20)}..."
-                  : splits[1]
+            splits[1].length > 32
+                ? "${splits[1].substring(0, 20)}..."
+                : splits[1],
           );
           continue;
         }
         var lowLevelKey = ["character", "artist", "cosplayer", "group"];
         if (lowLevelKey.contains(splits[0])) {
-          res2.add(TagsTranslation.translationTagWithNamespace(
-              splits[1], splits[0]));
+          res2.add(
+            TagsTranslation.translationTagWithNamespace(splits[1], splits[0]),
+          );
         } else {
-          res.add(TagsTranslation.translationTagWithNamespace(
-              splits[1], splits[0]));
+          res.add(
+            TagsTranslation.translationTagWithNamespace(splits[1], splits[0]),
+          );
         }
       } else {
         res.add(tag.translateTagsToCN);
@@ -290,32 +301,29 @@ class _EhGalleryTile extends ComicTile {
 
   @override
   int get maxLines => 2;
-      // MediaQuery.of(App.globalContext!).size.width < 430 ? 1 : 2;
+  // MediaQuery.of(App.globalContext!).size.width < 430 ? 1 : 2;
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(
-          App.globalContext!,
-          onCancel: () => cancel = true,
-        );
-        var res = await EhNetwork().getGalleryInfo(gallery.link);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await History.findOrCreate(res.data);
-          App.globalTo(
-                () => ComicReadingPage.ehentai(
-              res.data,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await EhNetwork().getGalleryInfo(gallery.link);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await History.findOrCreate(res.data);
+      App.globalTo(
+        () => ComicReadingPage.ehentai(res.data, initialPage: history.page),
+      );
+    }
+  };
 
   @override
   List<String>? get tags => _generateTags(gallery.tags);
@@ -325,34 +333,33 @@ class _EhGalleryTile extends ComicTile {
 
   @override
   Widget? get badge => () {
-        String? lang;
-        if (gallery.tags.isNotEmpty &&
-            gallery.tags[0].substring(0, 4) == "lang") {
-          lang = gallery.tags[0].substring(9);
-        } else if (gallery.tags.length > 1 &&
-            gallery.tags.isNotEmpty &&
-            gallery.tags[1].substring(0, 4) == "lang") {
-          lang = gallery.tags[1].substring(9);
-        }
-        if (lang != null) {
-          if (App.locale.languageCode == "zh") {
-            lang = lang.translateTagsToCN;
-          } else {
-            lang = lang[0].toUpperCase() + lang.substring(1);
-          }
-        }
-        return lang != null ? Text(lang) : null;
-      }.call();
+    String? lang;
+    if (gallery.tags.isNotEmpty && gallery.tags[0].substring(0, 4) == "lang") {
+      lang = gallery.tags[0].substring(9);
+    } else if (gallery.tags.length > 1 &&
+        gallery.tags.isNotEmpty &&
+        gallery.tags[1].substring(0, 4) == "lang") {
+      lang = gallery.tags[1].substring(9);
+    }
+    if (lang != null) {
+      if (App.locale.languageCode == "zh") {
+        lang = lang.translateTagsToCN;
+      } else {
+        lang = lang[0].toUpperCase() + lang.substring(1);
+      }
+    }
+    return lang != null ? Text(lang) : null;
+  }.call();
 
   @override
   Widget get image => PicaImage(
-        url: gallery.coverPath,
-        sourceKey: ComicType.ehentai.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: gallery.coverPath,
+    sourceKey: ComicType.ehentai.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {
@@ -385,10 +392,7 @@ class _EhGalleryTile extends ComicTile {
               color: Theme.of(context).colorScheme.secondary,
             ),
           for (int i = 0; i < (5 - s ~/ 2 - s % 2); i++)
-            const Icon(
-              Icons.star_border,
-              size: 20,
-            )
+            const Icon(Icons.star_border, size: 20),
         ],
       ),
     );
@@ -478,18 +482,16 @@ class _SearchOptionsState extends State<_SearchOptions> {
   @override
   Widget build(BuildContext context) {
     var isInDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
-    var width = context.width-16;
-    if(width > 500) {
+    var width = context.width - 16;
+    if (width > 500) {
       width = 500;
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ListTile(
-          title: Text("高级选项".tl),
-        ),
-        if(!isInDialog)
+        ListTile(title: Text("高级选项".tl)),
+        if (!isInDialog)
           LayoutBuilder(
             builder: (context, constrains) => Wrap(
               children: List.generate(categories.length, (index) {
@@ -518,9 +520,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
               }),
             ),
           ).paddingHorizontal(12),
-        const SizedBox(
-          height: 8,
-        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             const SizedBox(width: 8),
@@ -535,7 +535,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
                 },
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp("[0-9]"))
+                  FilteringTextInputFormatter.allow(RegExp("[0-9]")),
                 ],
               ),
             ),
@@ -551,24 +551,18 @@ class _SearchOptionsState extends State<_SearchOptions> {
                 },
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp("[0-9]"))
+                  FilteringTextInputFormatter.allow(RegExp("[0-9]")),
                 ],
               ),
             ),
           ],
         ).paddingHorizontal(12),
-        const SizedBox(
-          height: 12,
-        ),
+        const SizedBox(height: 12),
         Row(
           children: [
-            const SizedBox(
-              width: 8,
-            ),
+            const SizedBox(width: 8),
             Text("浏览已删除的画廊".tl),
-            const SizedBox(
-              width: 8,
-            ),
+            const SizedBox(width: 8),
             Checkbox(
               value: ehExpunged == 1,
               onChanged: (i) {
@@ -582,13 +576,9 @@ class _SearchOptionsState extends State<_SearchOptions> {
         ).paddingHorizontal(12),
         Row(
           children: [
-            const SizedBox(
-              width: 8,
-            ),
+            const SizedBox(width: 8),
             Text("最少星星".tl),
-            const SizedBox(
-              width: 16,
-            ),
+            const SizedBox(width: 16),
             Select(
               initialValue: ehMinStars,
               onChange: (i) {
@@ -600,7 +590,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
             ),
           ],
         ).paddingHorizontal(12),
-        const SizedBox(height: 8)
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -615,7 +605,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
     "Cosplay",
     "Asian Porn",
     "Non-H",
-    "Western"
+    "Western",
   ];
 
   Widget buildCategoryItem(String title, int value, double width) {
@@ -640,11 +630,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
           update();
         },
         child: Center(
-          child: Text(
-            title,
-            maxLines: 1,
-            style: const TextStyle(fontSize: 14),
-          ),
+          child: Text(title, maxLines: 1, style: const TextStyle(fontSize: 14)),
         ),
       ),
     );
@@ -660,7 +646,8 @@ class _EhentaiGalleriesLoader {
       if (i.key.startsWith("search:")) {
         var keyword = i.key.replaceFirst("search:", "");
         if (StateController.findOrNull(
-                tag: "ehentai search page with $keyword") ==
+              tag: "ehentai search page with $keyword",
+            ) ==
             null) {
           shouldRemove.add(i.key);
         }
@@ -689,7 +676,7 @@ class _EhentaiGalleriesLoader {
     page--;
     while (page >= cache.length) {
       var res = await loadNext();
-      if(res.error) {
+      if (res.error) {
         return Res.fromErrorRes(res);
       }
     }

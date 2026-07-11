@@ -28,24 +28,24 @@ class UnboundedCustomScrollView extends CustomScrollView {
     List<Widget> slivers = const <Widget>[],
     int? semanticChildCount,
     DragStartBehavior dragStartBehavior = DragStartBehavior.down,
-    ScrollBehavior? scrollBehavior
-  })  : _shrinkWrap = shrinkWrap,
-        _anchor = anchor,
-        super(
-          key: key,
-          scrollDirection: scrollDirection,
-          reverse: reverse,
-          controller: controller,
-          primary: primary,
-          physics: physics,
-          shrinkWrap: false,
-          center: center,
-          cacheExtent: cacheExtent,
-          semanticChildCount: semanticChildCount,
-          dragStartBehavior: dragStartBehavior,
-          slivers: slivers,
-          scrollBehavior: scrollBehavior,
-        );
+    ScrollBehavior? scrollBehavior,
+  }) : _shrinkWrap = shrinkWrap,
+       _anchor = anchor,
+       super(
+         key: key,
+         scrollDirection: scrollDirection,
+         reverse: reverse,
+         controller: controller,
+         primary: primary,
+         physics: physics,
+         shrinkWrap: false,
+         center: center,
+         cacheExtent: cacheExtent,
+         semanticChildCount: semanticChildCount,
+         dragStartBehavior: dragStartBehavior,
+         slivers: slivers,
+         scrollBehavior: scrollBehavior,
+       );
 
   // [CustomScrollView] enforces constraints on [CustomScrollView.anchor], so
   // we need our own version.

@@ -58,8 +58,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   final String _fileSize = '';
 
   // 排序方式
-  late ComicFileSort _fileSort = ComicFileSort.values
-          .asNameMap()[PrefsHelper.getString('local_comic_sort')] ??
+  late ComicFileSort _fileSort =
+      ComicFileSort.values.asNameMap()[PrefsHelper.getString(
+        'local_comic_sort',
+      )] ??
       ComicFileSort.asc;
 
   bool get isReversed => _fileSort == ComicFileSort.desc;
@@ -67,7 +69,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   StreamSubscription? _imageSizeSubscription;
 
   final _scrollController = ScrollController();
-  late final _observerController = GridObserverController(controller: _scrollController);
+  late final _observerController = GridObserverController(
+    controller: _scrollController,
+  );
 
   @override
   void initState() {
@@ -93,23 +97,23 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         .where(predictImageFile)
         //.sorted(fileNameCompare)
         .sortedByName()
-        .map(
-          (e) => ImageFile(
-            path: e.absolute.path,
-          ),
-        )
+        .map((e) => ImageFile(path: e.absolute.path))
         .toList();
     return images;
   }
 
-  static Future<List<ImageFile>> Function() _buildLoadImagesTask(String dirPath) {
+  static Future<List<ImageFile>> Function() _buildLoadImagesTask(
+    String dirPath,
+  ) {
     return () => loadImagesFilePaths(dirPath);
   }
 
   // 加载图片并更新状态
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    final images = await workerManager.execute<List<ImageFile>>(_buildLoadImagesTask(widget.dirPath));
+    final images = await workerManager.execute<List<ImageFile>>(
+      _buildLoadImagesTask(widget.dirPath),
+    );
     //final images = await loadImagesFilePaths(widget.dirPath);
     final diff = DateTime.now().difference(t1);
     if (diff.inMilliseconds < 300) {
@@ -118,7 +122,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
       await Future.delayed(Duration(milliseconds: delay));
     }
     debugPrint(
-        "LocalThumbsPage: load ${images.length} images, diff: ${diff.inMilliseconds}ms");
+      "LocalThumbsPage: load ${images.length} images, diff: ${diff.inMilliseconds}ms",
+    );
     setState(() {
       _loading = false;
       _imageFiles.clear();
@@ -128,7 +133,6 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
         _imageFiles.addAll(images);
       }
       _imageFileMap = _imageFiles.groupFoldBy((e) => e.path, (p, e) => e);
-
     });
     await Future.delayed(const Duration(milliseconds: 50));
     SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -144,7 +148,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     final allImagePathList = _imageFiles.map((e) => e.path).toList();
     final imageFileMap = _imageFiles.groupFoldBy((e) => e.path, (p, e) => e);
     _imageSizeSubscription = computeImageSizes(allImagePathList).listen((e) {
-      for(var imagePath in e.keys) {
+      for (var imagePath in e.keys) {
         final sizeInfo = e[imagePath]!;
         final imageFile = imageFileMap[imagePath];
         if (imageFile != null) {
@@ -161,15 +165,17 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   final _hasViewImageSizes = <String>{};
 
   // 加载已显示图片的大小信息
-  void _loadHasViewImageSizes(List<int> indexList)  {
+  void _loadHasViewImageSizes(List<int> indexList) {
     final imageFiles = indexList.map((i) => _imageFiles[i].path).toList();
-    final needUpdate = imageFiles.where((i) => !_hasViewImageSizes.contains(i)).toList();
+    final needUpdate = imageFiles
+        .where((i) => !_hasViewImageSizes.contains(i))
+        .toList();
     if (needUpdate.isEmpty) {
       return;
     }
     _hasViewImageSizes.addAll(needUpdate);
     computeImageSizes(needUpdate).listen((e) {
-      for(var imagePath in e.keys) {
+      for (var imagePath in e.keys) {
         final sizeInfo = e[imagePath]!;
         final imageFile = _imageFileMap[imagePath];
         if (imageFile != null) {
@@ -183,16 +189,12 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     });
   }
 
-
   // 点击整理Pixiv图片
   Future<void> _pixivSortTap() async {
     final controller = showLoadingDialog(context, message: "正在整理图片...");
     await compute(
       _organizePixivImages,
-      ImageFileList(
-        list: _imageFiles,
-        dirPath: widget.dirPath,
-      ),
+      ImageFileList(list: _imageFiles, dirPath: widget.dirPath),
     );
     controller.close();
     _loadImages();
@@ -274,7 +276,8 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
           try {
             await item.file.rename(newFilePath);
             debugPrint(
-                'move file:\n    ==: ${item.file.path}\n    =>: $newFilePath');
+              'move file:\n    ==: ${item.file.path}\n    =>: $newFilePath',
+            );
           } catch (e) {
             await item.file.copy(newFilePath);
             debugPrint('move file error: ${item.file.path}, $e');
@@ -290,9 +293,11 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title +
-            (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") +
-            (_fileSize != "" ? " | $_fileSize" : "")),
+        title: Text(
+          _title +
+              (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") +
+              (_fileSize != "" ? " | $_fileSize" : ""),
+        ),
         actions: [
           if (_isSelectedMode)
             TextButton(
@@ -334,9 +339,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 : const Icon(Icons.arrow_downward),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(
-              Icons.more_horiz,
-            ),
+            icon: const Icon(Icons.more_horiz),
             itemBuilder: (BuildContext context) {
               return [
                 PopupMenuItem(
@@ -349,9 +352,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
               ];
             },
           ),
-          const SizedBox(
-            width: 10,
-          ),
+          const SizedBox(width: 10),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -387,7 +388,9 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     return GridViewObserver(
       controller: _observerController,
       onObserve: (model) {
-        final list = model.displayingChildModelList.map((e) => e.index).toList();
+        final list = model.displayingChildModelList
+            .map((e) => e.index)
+            .toList();
         _loadHasViewImageSizes(list);
         // final patchFiles = list.map((i) => _imageFiles[i]).toList();
         // computeImageSizes(imagePaths)
@@ -434,7 +437,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 onSecondaryTapDown: (TapDownDetails details) {
                   showDesktopMenu(
                     App.globalContext!,
-                    Offset(details.globalPosition.dx, details.globalPosition.dy),
+                    Offset(
+                      details.globalPosition.dx,
+                      details.globalPosition.dy,
+                    ),
                     _menuList(imageFile),
                   );
                 },
@@ -469,13 +475,17 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                           child: Text(
                             "${imageFile.size!.width.toInt()}x${imageFile.size!.height.toInt()}",
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                         Text(
                           bytesLengthToReadableSize(imageFile.fileSize),
-                          style:
-                              const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -484,14 +494,15 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
               IgnorePointer(
                 child: Container(
                   decoration: BoxDecoration(
-                      border: Border.all(
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.transparent,
-                    width: 2,
-                  )),
+                    border: Border.all(
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
                 ),
-              )
+              ),
             ],
           );
         },
@@ -504,10 +515,11 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     return [
       if (widget.isEnableDelete)
         DesktopMenuEntry(
-            text: "删除".tl,
-            onClick: () {
-              _deleteImageFileList([imageFile]);
-            }),
+          text: "删除".tl,
+          onClick: () {
+            _deleteImageFileList([imageFile]);
+          },
+        ),
       DesktopMenuEntry(
         text: "选择".tl,
         onClick: () {
@@ -583,10 +595,7 @@ class ImageFileList {
   // 所在目录
   final String dirPath;
 
-  const ImageFileList({
-    required this.list,
-    required this.dirPath,
-  });
+  const ImageFileList({required this.list, required this.dirPath});
 }
 
 class ImageFile {
@@ -597,11 +606,7 @@ class ImageFile {
   // 文件大小
   int fileSize;
 
-  ImageFile({
-    required this.path,
-    this.size,
-    this.fileSize = 0,
-  });
+  ImageFile({required this.path, this.size, this.fileSize = 0});
 }
 
 enum ComicFileSort {

@@ -63,21 +63,28 @@ class JsEngine with _JSEngineApi {
       return;
     }
     try {
-      _dio ??= logDio(BaseOptions(
-          responseType: ResponseType.plain, validateStatus: (status) => true));
+      _dio ??= logDio(
+        BaseOptions(
+          responseType: ResponseType.plain,
+          validateStatus: (status) => true,
+        ),
+      );
       _cookieJar ??= SingleInstanceCookieJar.instance!;
       _dio!.interceptors.add(CookieManagerSql(_cookieJar!));
       _dio!.interceptors.add(CloudflareInterceptor());
       _closed = false;
       _engine = FlutterQjs();
       _engine!.dispatch();
-      var setGlobalFunc =
-          _engine!.evaluate("(key, value) => { this[key] = value; }");
+      var setGlobalFunc = _engine!.evaluate(
+        "(key, value) => { this[key] = value; }",
+      );
       (setGlobalFunc as JSInvokable)(["sendMessage", _messageReceiver]);
       setGlobalFunc.free();
       var jsInit = await rootBundle.load("assets/init.js");
-      _engine!
-          .evaluate(utf8.decode(jsInit.buffer.asUint8List()), name: "<init>");
+      _engine!.evaluate(
+        utf8.decode(jsInit.buffer.asUint8List()),
+        name: "<init>",
+      );
     } catch (e, s) {
       Log.e('JS Engine Init Error:\n$e\n$s');
     }
@@ -120,8 +127,9 @@ class JsEngine with _JSEngineApi {
               String key = message["key"];
               String dataKey = message["data_key"];
               var data = message["data"];
-              var source = ComicSource.sources
-                  .firstWhere((element) => element.key.name == key);
+              var source = ComicSource.sources.firstWhere(
+                (element) => element.key.name == key,
+              );
               source.data[dataKey] = data;
               source.saveData();
             }
@@ -129,8 +137,9 @@ class JsEngine with _JSEngineApi {
             {
               String key = message["key"];
               String dataKey = message["data_key"];
-              var source = ComicSource.sources
-                  .firstWhereOrNull((element) => element.key.name == key);
+              var source = ComicSource.sources.firstWhereOrNull(
+                (element) => element.key.name == key,
+              );
               source?.data.remove(dataKey);
               source?.saveData();
             }
@@ -171,22 +180,26 @@ class JsEngine with _JSEngineApi {
       if (headers["user-agent"] == null && headers["User-Agent"] == null) {
         headers["User-Agent"] = webUA;
       }
-      response = await _dio!.request(req["url"],
-          data: req["data"],
-          options: Options(
-              method: req['http_method'],
-              responseType: req["bytes"] == true
-                  ? ResponseType.bytes
-                  : ResponseType.plain,
-              headers: headers));
+      response = await _dio!.request(
+        req["url"],
+        data: req["data"],
+        options: Options(
+          method: req['http_method'],
+          responseType: req["bytes"] == true
+              ? ResponseType.bytes
+              : ResponseType.plain,
+          headers: headers,
+        ),
+      );
     } catch (e) {
       error = e.toString();
     }
 
     Map<String, String> headers = {};
 
-    response?.headers
-        .forEach((name, values) => headers[name] = values.join(','));
+    response?.headers.forEach(
+      (name, values) => headers[name] = values.join(','),
+    );
 
     dynamic body = response?.data;
     if (body is! Uint8List && body is List<int>) {
@@ -268,29 +281,32 @@ mixin class _JSEngineApi {
     switch (data["function"]) {
       case "set":
         _cookieJar!.saveFromResponse(
-            Uri.parse(data["url"]),
-            (data["cookies"] as List).map((e) {
-              var c = Cookie(e["name"], e["value"]);
-              if (e['domain'] != null) {
-                c.domain = e['domain'];
-              }
-              return c;
-            }).toList());
+          Uri.parse(data["url"]),
+          (data["cookies"] as List).map((e) {
+            var c = Cookie(e["name"], e["value"]);
+            if (e['domain'] != null) {
+              c.domain = e['domain'];
+            }
+            return c;
+          }).toList(),
+        );
         return null;
       case "get":
         var cookies = await _cookieJar!.loadForRequest(Uri.parse(data["url"]));
         return cookies
-            .map((e) => {
-                  "name": e.name,
-                  "value": e.value,
-                  "domain": e.domain,
-                  "path": e.path,
-                  "expires": e.expires,
-                  "max-age": e.maxAge,
-                  "secure": e.secure,
-                  "httpOnly": e.httpOnly,
-                  "session": e.expires == null,
-                })
+            .map(
+              (e) => {
+                "name": e.name,
+                "value": e.value,
+                "domain": e.domain,
+                "path": e.path,
+                "expires": e.expires,
+                "max-age": e.maxAge,
+                "secure": e.secure,
+                "httpOnly": e.httpOnly,
+                "session": e.expires == null,
+              },
+            )
             .toList();
       case "delete":
         await clearCookies([data["url"]]);
@@ -369,8 +385,10 @@ mixin class _JSEngineApi {
           if (!isEncode) {
             var key = data["key"];
             final cipher = PKCS1Encoding(RSAEngine());
-            cipher.init(false,
-                PrivateKeyParameter<RSAPrivateKey>(_parsePrivateKey(key)));
+            cipher.init(
+              false,
+              PrivateKeyParameter<RSAPrivateKey>(_parsePrivateKey(key)),
+            );
             return _processInBlocks(cipher, value);
           }
           return null;
@@ -398,11 +416,16 @@ mixin class _JSEngineApi {
     final q = pkSeq.elements![5] as ASN1Integer;
 
     return RSAPrivateKey(
-        modulus.integer!, privateExponent.integer!, p.integer!, q.integer!);
+      modulus.integer!,
+      privateExponent.integer!,
+      p.integer!,
+      q.integer!,
+    );
   }
 
   Uint8List _processInBlocks(AsymmetricBlockCipher engine, Uint8List input) {
-    final numBlocks = input.length ~/ engine.inputBlockSize +
+    final numBlocks =
+        input.length ~/ engine.inputBlockSize +
         ((input.length % engine.inputBlockSize != 0) ? 1 : 0);
 
     final output = Uint8List(numBlocks * engine.outputBlockSize);
@@ -415,7 +438,12 @@ mixin class _JSEngineApi {
           : input.length - inputOffset;
 
       outputOffset += engine.processBlock(
-          input, inputOffset, chunkSize, output, outputOffset);
+        input,
+        inputOffset,
+        chunkSize,
+        output,
+        outputOffset,
+      );
 
       inputOffset += chunkSize;
     }

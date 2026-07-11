@@ -24,13 +24,11 @@ class AccountsPage extends StatelessWidget {
         return CustomScrollView(
           slivers: [
             SliverList(
-              delegate: SliverChildListDelegate(
-                buildContent(context).toList(),
-              ),
+              delegate: SliverChildListDelegate(buildContent(context).toList()),
             ),
             SliverPadding(
               padding: EdgeInsets.only(bottom: context.padding.bottom),
-            )
+            ),
           ],
         );
       },
@@ -40,27 +38,23 @@ class AccountsPage extends StatelessWidget {
       return PopUpWidgetScaffold(title: "账号管理".tl, body: body);
     } else {
       return Scaffold(
-        appBar: AppBar(
-          title: Text("账号管理".tl),
-        ),
+        appBar: AppBar(title: Text("账号管理".tl)),
         body: body,
       );
     }
   }
 
   Iterable<Widget> buildContent(BuildContext context) sync* {
-    var sources =
-        ComicSource.sources.where((element) => element.account != null);
+    var sources = ComicSource.sources.where(
+      (element) => element.account != null,
+    );
     if (sources.isEmpty) return;
 
     for (var element in sources) {
       final bool logged = element.isLogin;
       yield Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Text(
-          element.name.tl,
-          style: const TextStyle(fontSize: 20),
-        ),
+        child: Text(element.name.tl, style: const TextStyle(fontSize: 20)),
       );
       if (!logged) {
         yield ListTile(
@@ -119,9 +113,7 @@ class AccountsPage extends StatelessWidget {
             trailing: loading
                 ? const SizedBox.square(
                     dimension: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh),
           );
@@ -166,59 +158,54 @@ class _LoginPageState extends State<_LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: Appbar(
-        title: Text("登录".tl),
-      ),
-      body: Column(children: [
-        const Spacer(),
-        TextField(
-          decoration: InputDecoration(
-            labelText: "用户名".tl,
-            border: const OutlineInputBorder(),
-          ),
-          onChanged: (s) {
-            username = s;
-          },
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          decoration: InputDecoration(
-            labelText: "密码".tl,
-            border: const OutlineInputBorder(),
-          ),
-          obscureText: true,
-          onChanged: (s) {
-            password = s;
-          },
-          onSubmitted: (s) => login(),
-        ),
-        const SizedBox(height: 32),
-        Button.filled(
-          isLoading: loading,
-          onPressed: login,
-          child: Text("继续".tl),
-        ),
-        const Spacer(),
-        if (widget.registerWebsite != null)
-          TextButton(
-            onPressed: () => launchUrlString(widget.registerWebsite!),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("注册".tl),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.open_in_new,
-                  size: 16,
-                ),
-              ],
+      appBar: Appbar(title: Text("登录".tl)),
+      body: Column(
+        children: [
+          const Spacer(),
+          TextField(
+            decoration: InputDecoration(
+              labelText: "用户名".tl,
+              border: const OutlineInputBorder(),
             ),
+            onChanged: (s) {
+              username = s;
+            },
           ),
-        if (UiMode.m1(context))
-          SizedBox(
-            height: MediaQuery.of(context).padding.bottom,
+          const SizedBox(height: 16),
+          TextField(
+            decoration: InputDecoration(
+              labelText: "密码".tl,
+              border: const OutlineInputBorder(),
+            ),
+            obscureText: true,
+            onChanged: (s) {
+              password = s;
+            },
+            onSubmitted: (s) => login(),
           ),
-      ]).paddingLeft(32).paddingRight(32).paddingBottom(16),
+          const SizedBox(height: 32),
+          Button.filled(
+            isLoading: loading,
+            onPressed: login,
+            child: Text("继续".tl),
+          ),
+          const Spacer(),
+          if (widget.registerWebsite != null)
+            TextButton(
+              onPressed: () => launchUrlString(widget.registerWebsite!),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("注册".tl),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.open_in_new, size: 16),
+                ],
+              ),
+            ),
+          if (UiMode.m1(context))
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ).paddingLeft(32).paddingRight(32).paddingBottom(16),
     );
   }
 
@@ -238,7 +225,7 @@ class _LoginPageState extends State<_LoginPage> {
         });
       } else {
         showToast(message: "登录成功".tl, icon: const Icon(Icons.check));
-        if(mounted) {
+        if (mounted) {
           context.pop();
         }
       }

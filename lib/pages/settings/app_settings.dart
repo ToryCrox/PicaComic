@@ -11,26 +11,31 @@ void findUpdate(BuildContext context) {
         if (!context.mounted) return;
         if (s != null) {
           showDialog(
-              context: context,
-              builder: (context) {
-                return AlertDialog(
-                  title: Text("有可用更新".tl),
-                  content: Text(s),
-                  actions: [
-                    TextButton(
-                        onPressed: () => App.globalBack(),
-                        child: Text("取消".tl)),
-                    TextButton(
-                        onPressed: () {
-                          getDownloadUrl().then((s) {
-                            launchUrlString(s,
-                                mode: LaunchMode.externalApplication);
-                          });
-                        },
-                        child: Text("下载".tl))
-                  ],
-                );
-              });
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: Text("有可用更新".tl),
+                content: Text(s),
+                actions: [
+                  TextButton(
+                    onPressed: () => App.globalBack(),
+                    child: Text("取消".tl),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      getDownloadUrl().then((s) {
+                        launchUrlString(
+                          s,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      });
+                    },
+                    child: Text("下载".tl),
+                  ),
+                ],
+              );
+            },
+          );
         } else {
           context.showMessage(message: "网络错误".tl);
         }
@@ -43,82 +48,82 @@ void findUpdate(BuildContext context) {
 
 class ProxyController extends StateController {
   bool value = appdata.settings[8] == "0";
-  late var controller =
-      TextEditingController(text: value ? "" : appdata.settings[8]);
+  late var controller = TextEditingController(
+    text: value ? "" : appdata.settings[8],
+  );
 }
 
 void setProxy(BuildContext context) {
   showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StateBuilder(
-            init: ProxyController(),
-            builder: (controller) {
-              return SimpleDialog(
-                title: Text("设置代理".tl),
-                children: [
-                  const SizedBox(
-                    width: 400,
+    context: context,
+    builder: (dialogContext) {
+      return StateBuilder(
+        init: ProxyController(),
+        builder: (controller) {
+          return SimpleDialog(
+            title: Text("设置代理".tl),
+            children: [
+              const SizedBox(width: 400),
+              ListTile(
+                title: Text("使用系统代理".tl),
+                trailing: Switch(
+                  value: controller.value,
+                  onChanged: (value) {
+                    if (value == true) {
+                      controller.controller.text = "";
+                    }
+                    controller.value = !controller.value;
+                    controller.update();
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
+                child: TextField(
+                  readOnly: controller.value,
+                  controller: controller.controller,
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: controller.value
+                        ? "使用系统代理时无法手动设置".tl
+                        : "设置代理, 例如127.0.0.1:7890".tl,
                   ),
-                  ListTile(
-                    title: Text("使用系统代理".tl),
-                    trailing: Switch(
-                      value: controller.value,
-                      onChanged: (value) {
-                        if (value == true) {
-                          controller.controller.text = "";
-                        }
-                        controller.value = !controller.value;
-                        controller.update();
-                      },
-                    ),
+                ),
+              ),
+              if (!controller.value)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 15, 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 20),
+                      Text("  ${"留空表示禁用网络代理".tl}"),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
-                    child: TextField(
-                      readOnly: controller.value,
-                      controller: controller.controller,
-                      decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          hintText: controller.value
-                              ? "使用系统代理时无法手动设置".tl
-                              : "设置代理, 例如127.0.0.1:7890".tl),
-                    ),
-                  ),
-                  if (!controller.value)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 10, 15, 10),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            size: 20,
-                          ),
-                          Text("  ${"留空表示禁用网络代理".tl}")
-                        ],
-                      ),
-                    ),
-                  Center(
-                    child: FilledButton(
-                        onPressed: () {
-                          if (controller.value) {
-                            appdata.settings[8] = "0";
-                            appdata.writeData();
-                            setNetworkProxy();
-                            App.globalBack();
-                          } else {
-                            appdata.settings[8] = controller.controller.text;
-                            appdata.writeData();
-                            setNetworkProxy();
-                            App.globalBack();
-                          }
-                        },
-                        child: Text("确认".tl)),
-                  )
-                ],
-              );
-            });
-      });
+                ),
+              Center(
+                child: FilledButton(
+                  onPressed: () {
+                    if (controller.value) {
+                      appdata.settings[8] = "0";
+                      appdata.writeData();
+                      setNetworkProxy();
+                      App.globalBack();
+                    } else {
+                      appdata.settings[8] = controller.controller.text;
+                      appdata.writeData();
+                      setNetworkProxy();
+                      App.globalBack();
+                    }
+                  },
+                  child: Text("确认".tl),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 void setDownloadFolder() async {
@@ -130,26 +135,33 @@ void setDownloadFolder() async {
   if (App.isAndroid) {
     var directories = await getExternalStorageDirectories();
     var paths = List<String>.generate(
-        directories?.length ?? 0, (index) => directories?[index].path ?? "");
-    var havePermission = await const MethodChannel("pica_comic/settings")
-        .invokeMethod("files_check");
+      directories?.length ?? 0,
+      (index) => directories?[index].path ?? "",
+    );
+    var havePermission = await const MethodChannel(
+      "pica_comic/settings",
+    ).invokeMethod("files_check");
     showDialog(
-        context: App.globalContext!,
-        builder: (context) => SetDownloadFolderDialog(
-              paths: paths,
-              haveManageFilesPermission: havePermission,
-            ));
+      context: App.globalContext!,
+      builder: (context) => SetDownloadFolderDialog(
+        paths: paths,
+        haveManageFilesPermission: havePermission,
+      ),
+    );
   } else {
     showDialog(
-        context: App.globalContext!,
-        builder: (context) => const SetDownloadFolderDialog());
+      context: App.globalContext!,
+      builder: (context) => const SetDownloadFolderDialog(),
+    );
   }
 }
 
 class SetDownloadFolderDialog extends StatefulWidget {
-  const SetDownloadFolderDialog(
-      {this.paths, this.haveManageFilesPermission = false, Key? key})
-      : super(key: key);
+  const SetDownloadFolderDialog({
+    this.paths,
+    this.haveManageFilesPermission = false,
+    Key? key,
+  }) : super(key: key);
   final List<String>? paths;
   final bool haveManageFilesPermission;
 
@@ -179,9 +191,10 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                   child: TextField(
                     controller: controller,
                     decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: "路径".tl,
-                        hintText: "为空表示使用App数据目录".tl),
+                      border: const OutlineInputBorder(),
+                      labelText: "路径".tl,
+                      hintText: "为空表示使用App数据目录".tl,
+                    ),
                   ),
                 ),
                 Padding(
@@ -199,18 +212,13 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.info_outline,
-                        size: 18,
-                      ),
-                      const SizedBox(
-                        width: 4,
-                      ),
+                      const Icon(Icons.info_outline, size: 18),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: SizedBox(
                           child: Text("如需还原之前的下载, 将路径填写为下载数据的位置, 并取消勾选转移数据".tl),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -225,10 +233,13 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                         if (transform) {
                           showToast(message: "正在复制文件".tl);
                           await Future.delayed(
-                              const Duration(milliseconds: 200));
+                            const Duration(milliseconds: 200),
+                          );
                         }
-                        var res = await downloadManager
-                            .updatePath(controller.text, transform: transform);
+                        var res = await downloadManager.updatePath(
+                          controller.text,
+                          transform: transform,
+                        );
                         if (res == "ok") {
                           hideAllMessages();
                           if (context.mounted) {
@@ -247,13 +258,11 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                     child: Text("提交".tl),
                   ),
                 ),
-                const SizedBox(
-                  height: 8,
-                ),
+                const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                   child: Text("${"现在的路径为".tl}: ${downloadManager.path}"),
-                )
+                ),
               ],
             ),
           )
@@ -264,28 +273,31 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                    title: Text("App数据目录".tl),
-                    value: "",
-                    groupValue: current,
-                    onChanged: (value) => setState(() {
-                          current = value!;
-                        })),
+                  title: Text("App数据目录".tl),
+                  value: "",
+                  groupValue: current,
+                  onChanged: (value) => setState(() {
+                    current = value!;
+                  }),
+                ),
                 for (int i = 0; i < widget.paths!.length; i++)
                   RadioListTile<String>(
-                      title: Text(widget.paths![i]),
-                      value: widget.paths![i],
-                      groupValue: current,
-                      onChanged: (value) => setState(() {
-                            current = value!;
-                          })),
+                    title: Text(widget.paths![i]),
+                    value: widget.paths![i],
+                    groupValue: current,
+                    onChanged: (value) => setState(() {
+                      current = value!;
+                    }),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: ListTile(
                     title: Text("允许储存权限".tl),
                     subtitle: Text("需要储存权限以选取任意目录".tl),
                     onTap: () {
-                      const MethodChannel("pica_comic/settings")
-                          .invokeMethod("files");
+                      const MethodChannel(
+                        "pica_comic/settings",
+                      ).invokeMethod("files");
                       App.globalBack();
                     },
                   ),
@@ -305,18 +317,13 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.info_outline,
-                        size: 18,
-                      ),
-                      const SizedBox(
-                        width: 2,
-                      ),
+                      const Icon(Icons.info_outline, size: 18),
+                      const SizedBox(width: 2),
                       Expanded(
                         child: SizedBox(
                           child: Text("如需还原之前的下载, 将路径填写为下载数据的位置, 并取消勾选转移数据".tl),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -332,10 +339,13 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                           if (transform) {
                             showToast(message: "正在复制文件".tl);
                             await Future.delayed(
-                                const Duration(milliseconds: 200));
+                              const Duration(milliseconds: 200),
+                            );
                           }
-                          var res = await downloadManager.updatePath(current,
-                              transform: transform);
+                          var res = await downloadManager.updatePath(
+                            current,
+                            transform: transform,
+                          );
                           if (res == "ok") {
                             App.globalBack();
                             showToast(message: "更新成功".tl);
@@ -353,7 +363,7 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                 ),
               ],
             ),
-          )
+          ),
       ],
     );
   }
@@ -384,14 +394,15 @@ class _SetExplorePagesState extends State<SetExplorePages> {
     Widget removeButton = Padding(
       padding: const EdgeInsets.only(right: 8),
       child: IconButton(
-          onPressed: () {
-            setState(() {
-              var config = appdata.appSettings.explorePages;
-              config.remove(i);
-              appdata.appSettings.explorePages = config;
-            });
-          },
-          icon: const Icon(Icons.delete)),
+        onPressed: () {
+          setState(() {
+            var config = appdata.appSettings.explorePages;
+            config.remove(i);
+            appdata.appSettings.explorePages = config;
+          });
+        },
+        icon: const Icon(Icons.delete),
+      ),
     );
 
     return ListTile(
@@ -399,10 +410,7 @@ class _SetExplorePagesState extends State<SetExplorePages> {
       key: Key(i),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          removeButton,
-          const Icon(Icons.drag_handle),
-        ],
+        children: [removeButton, const Icon(Icons.drag_handle)],
       ),
     );
   }
@@ -440,8 +448,9 @@ class _SetExplorePagesState extends State<SetExplorePages> {
       }
     }
 
-    var tiles =
-        appdata.appSettings.explorePages.map((e) => buildItem(e)).toList();
+    var tiles = appdata.appSettings.explorePages
+        .map((e) => buildItem(e))
+        .toList();
 
     var view = ReorderableBuilder(
       key: reorderWidgetKey,
@@ -453,16 +462,18 @@ class _SetExplorePagesState extends State<SetExplorePages> {
         color: Theme.of(context).colorScheme.surfaceContainer,
         boxShadow: const [
           BoxShadow(
-              color: Colors.black12,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-              spreadRadius: 2)
+            color: Colors.black12,
+            blurRadius: 5,
+            offset: Offset(0, 2),
+            spreadRadius: 2,
+          ),
         ],
       ),
       onReorder: (reorderFunc) {
         setState(() {
-          appdata.appSettings.explorePages =
-              List.from(reorderFunc(appdata.appSettings.explorePages));
+          appdata.appSettings.explorePages = List.from(
+            reorderFunc(appdata.appSettings.explorePages),
+          );
         });
       },
       children: tiles,
@@ -497,7 +508,7 @@ class _SetExplorePagesState extends State<SetExplorePages> {
               );
             },
             icon: const Icon(Icons.add),
-          )
+          ),
       ],
       body: view,
     );
@@ -505,54 +516,57 @@ class _SetExplorePagesState extends State<SetExplorePages> {
 }
 
 Future<void> clearCacheData(BuildContext context) async {
-  final result = await showDialog(context: context, builder: (context){
-    return SimpleDialog(
-      title: Text("清除缓存".tl),
-      children: [
-        ListTile(
-          title: Text("清除图片缓存".tl),
-          onTap: ()  {
-            Navigator.of(context).pop(0);
-          },
-        ),
-        ListTile(
-          title: Text("清除所有缓存".tl),
-          onTap: ()  {
-            Navigator.of(context).pop(1);
-          },
-        ),
-      ],
-    );
-  });
+  final result = await showDialog(
+    context: context,
+    builder: (context) {
+      return SimpleDialog(
+        title: Text("清除缓存".tl),
+        children: [
+          ListTile(
+            title: Text("清除图片缓存".tl),
+            onTap: () {
+              Navigator.of(context).pop(0);
+            },
+          ),
+          ListTile(
+            title: Text("清除所有缓存".tl),
+            onTap: () {
+              Navigator.of(context).pop(1);
+            },
+          ),
+        ],
+      );
+    },
+  );
   Log.d('clearCache select $result');
   if (result == 1) {
     CacheManager().clear();
-  } else if (result == 0){
+  } else if (result == 0) {
     for (final type in ['webp', 'jpg', 'png', 'gif', 'jpeg']) {
       CacheManager().deleteByType(type);
     }
   }
 }
 
-
 void clearUserData(BuildContext context) {
   showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: Text("警告".tl),
-            content: Text("此操作无法撤销, 是否继续?".tl),
-            actions: [
-              TextButton(
-                  onPressed: () => App.globalBack(), child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () async {
-                    await clearAppdata();
-                    App.offAll(() => const WelcomePage());
-                    MyApp.updater?.call();
-                  },
-                  child: Text("继续".tl)),
-            ],
-          ));
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("警告".tl),
+      content: Text("此操作无法撤销, 是否继续?".tl),
+      actions: [
+        TextButton(onPressed: () => App.globalBack(), child: Text("取消".tl)),
+        TextButton(
+          onPressed: () async {
+            await clearAppdata();
+            App.offAll(() => const WelcomePage());
+            MyApp.updater?.call();
+          },
+          child: Text("继续".tl),
+        ),
+      ],
+    ),
+  );
 }
 
 void exportDataSetting(BuildContext context) {
@@ -571,55 +585,60 @@ void exportDataSetting(BuildContext context) {
   }
 
   showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: Text("导出用户数据".tl),
-            content: Text("将导出设置, 账号, 历史记录, 下载内容, 本地收藏等数据".tl),
-            actions: [
-              TextButton(
-                  onPressed: () => App.globalBack(), child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () {
-                    App.globalBack();
-                    export(false);
-                  },
-                  child: Text("导出不含下载的数据".tl)),
-              TextButton(
-                  onPressed: () {
-                    App.globalBack();
-                    export(true);
-                  },
-                  child: Text("导出所有数据".tl))
-            ],
-          ));
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("导出用户数据".tl),
+      content: Text("将导出设置, 账号, 历史记录, 下载内容, 本地收藏等数据".tl),
+      actions: [
+        TextButton(onPressed: () => App.globalBack(), child: Text("取消".tl)),
+        TextButton(
+          onPressed: () {
+            App.globalBack();
+            export(false);
+          },
+          child: Text("导出不含下载的数据".tl),
+        ),
+        TextButton(
+          onPressed: () {
+            App.globalBack();
+            export(true);
+          },
+          child: Text("导出所有数据".tl),
+        ),
+      ],
+    ),
+  );
 }
 
 void importDataSetting(BuildContext context) {
   showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: Text("导入用户数据".tl),
-            content: Text("${"将导入设置, 账号, 历史记录, 下载内容, 本地收藏等数据, 现在的所有数据将会被覆盖".tl}"
-                "\n${"如果导入的数据中包含下载数据, 则当前的下载数据也将被覆盖".tl}"),
-            actions: [
-              TextButton(
-                  onPressed: () => App.globalBack(), child: Text("取消".tl)),
-              TextButton(
-                  onPressed: () {
-                    App.globalBack();
-                    var dialog = showLoadingDialog(context, allowCancel: false);
-                    importData().then((v) {
-                      dialog.close();
-                      if (v) {
-                        showToast(message: "成功导入".tl);
-                      } else {
-                        showToast(message: "导入失败".tl);
-                      }
-                    });
-                  },
-                  child: Text("继续".tl))
-            ],
-          ));
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("导入用户数据".tl),
+      content: Text(
+        "${"将导入设置, 账号, 历史记录, 下载内容, 本地收藏等数据, 现在的所有数据将会被覆盖".tl}"
+        "\n${"如果导入的数据中包含下载数据, 则当前的下载数据也将被覆盖".tl}",
+      ),
+      actions: [
+        TextButton(onPressed: () => App.globalBack(), child: Text("取消".tl)),
+        TextButton(
+          onPressed: () {
+            App.globalBack();
+            var dialog = showLoadingDialog(context, allowCancel: false);
+            importData().then((v) {
+              dialog.close();
+              if (v) {
+                showToast(message: "成功导入".tl);
+              } else {
+                showToast(message: "导入失败".tl);
+              }
+            });
+          },
+          child: Text("继续".tl),
+        ),
+      ],
+    ),
+  );
 }
 
 void syncDataSettings(BuildContext context) {
@@ -640,66 +659,66 @@ void syncDataSettings(BuildContext context) {
       content: Column(
         children: [
           TextField(
-              onChanged: (s) => url = s,
-              controller: TextEditingController(text: url),
-              decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  label: Text("URL"),
-                  hintText: "https://example.com:4433/webdav")),
-          const SizedBox(
-            height: 8,
+            onChanged: (s) => url = s,
+            controller: TextEditingController(text: url),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              label: Text("URL"),
+              hintText: "https://example.com:4433/webdav",
+            ),
           ),
+          const SizedBox(height: 8),
           TextField(
-              onChanged: (s) => username = s,
-              controller: TextEditingController(text: username),
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                label: Text("用户名".tl),
-              )),
-          const SizedBox(
-            height: 8,
+            onChanged: (s) => username = s,
+            controller: TextEditingController(text: username),
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              label: Text("用户名".tl),
+            ),
           ),
+          const SizedBox(height: 8),
           TextField(
-              onChanged: (s) => pwd = s,
-              controller: TextEditingController(text: pwd),
-              obscureText: true,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                label: Text("密码".tl),
-              )),
-          const SizedBox(
-            height: 8,
+            onChanged: (s) => pwd = s,
+            controller: TextEditingController(text: pwd),
+            obscureText: true,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              label: Text("密码".tl),
+            ),
           ),
+          const SizedBox(height: 8),
           TextField(
-              onChanged: (s) => path = s,
-              controller: TextEditingController(text: path),
-              decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  label: Text("储存路径".tl),
-                  hintText: "请确保路径存在".tl)),
-          const SizedBox(
-            height: 8,
+            onChanged: (s) => path = s,
+            controller: TextEditingController(text: path),
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              label: Text("储存路径".tl),
+              hintText: "请确保路径存在".tl,
+            ),
           ),
-          StatefulBuilder(builder: (context, stateSetter) {
-            return Row(
-              children: [
-                Text("立即执行:".tl),
-                Radio<int>(
+          const SizedBox(height: 8),
+          StatefulBuilder(
+            builder: (context, stateSetter) {
+              return Row(
+                children: [
+                  Text("立即执行:".tl),
+                  Radio<int>(
                     value: 0,
                     groupValue: value,
-                    onChanged: (i) => stateSetter(() => value = 0)),
-                Text("上传数据".tl),
-                Radio<int>(
+                    onChanged: (i) => stateSetter(() => value = 0),
+                  ),
+                  Text("上传数据".tl),
+                  Radio<int>(
                     value: 1,
                     groupValue: value,
-                    onChanged: (i) => stateSetter(() => value = 1)),
-                Text("下载数据".tl),
-              ],
-            );
-          }),
-          const SizedBox(
-            height: 8,
+                    onChanged: (i) => stateSetter(() => value = 1),
+                  ),
+                  Text("下载数据".tl),
+                ],
+              );
+            },
           ),
+          const SizedBox(height: 8),
           Center(
             child: FilledButton(
               child: Text("提交".tl),
@@ -710,8 +729,11 @@ void syncDataSettings(BuildContext context) {
                   App.globalBack();
                   return;
                 }
-                var dialog = showLoadingDialog(context,
-                    allowCancel: false, barrierDismissible: false);
+                var dialog = showLoadingDialog(
+                  context,
+                  allowCancel: false,
+                  barrierDismissible: false,
+                );
                 var res = value == 0
                     ? await Webdav.uploadData("$url;$username;$pwd;$path")
                     : await Webdav.downloadData("$url;$username;$pwd;$path");
@@ -732,20 +754,15 @@ void syncDataSettings(BuildContext context) {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  size: 20,
-                ),
-                const SizedBox(
-                  width: 4,
-                ),
+                const Icon(Icons.info_outline, size: 20),
+                const SizedBox(width: 4),
                 if (configs.length == 4)
                   Text("将URL留空以禁用同步".tl)
                 else
-                  Text("已禁用".tl)
+                  Text("已禁用".tl),
               ],
             ),
-          )
+          ),
         ],
       ).paddingHorizontal(12),
     ),
@@ -757,7 +774,9 @@ void setCacheLimit() {
   const minSize = 16;
   bool isValid = true;
   final FocusNode focusNode = FocusNode();
-  final TextEditingController controller = TextEditingController(text: size.toString());
+  final TextEditingController controller = TextEditingController(
+    text: size.toString(),
+  );
   showDialog(
     context: App.globalContext!,
     useSafeArea: false,
@@ -781,7 +800,9 @@ void setCacheLimit() {
                 },
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
-                    borderSide: BorderSide(color: isValid ? Colors.grey : Colors.red),
+                    borderSide: BorderSide(
+                      color: isValid ? Colors.grey : Colors.red,
+                    ),
                   ),
                   suffix: const Text("MB"),
                   errorText: isValid ? null : "${"不能小于".tl} $minSize MB",
@@ -819,64 +840,67 @@ void setFont(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) {
-      return StatefulBuilder(builder: (context, setState) {
-        return SimpleDialog(
-          title: Text("设置字体".tl),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Text("仅在桌面端生效".tl),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: "字体名称".tl,
-                  hintText: "例如: Microsoft YaHei",
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return SimpleDialog(
+            title: Text("设置字体".tl),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Text("仅在桌面端生效".tl),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    labelText: "字体名称".tl,
+                    hintText: "例如: Microsoft YaHei",
+                  ),
+                  onChanged: (s) {
+                    current = s;
+                  },
+                  onEditingComplete: () {
+                    setState(() {});
+                  },
                 ),
-                onChanged: (s) {
-                  current = s;
-                },
-                onEditingComplete: () {
-                  setState(() {});
-                },
               ),
-            ),
-            const SizedBox(height: 8),
-            for (var element in {
-              "系统默认".tl: "",
-              "Roboto": "Roboto",
-              "Microsoft YaHei": "Microsoft YaHei",
-              "SimHei": "SimHei",
-              "MiSans": "MiSans",
-            }.entries)
-              ListTile(
-                title: Text(element.key),
-                onTap: () {
-                  controller.text = element.value;
-                  current = element.value;
-                  setState(() {});
-                },
-                trailing:
-                    current == element.value ? const Icon(Icons.check) : null,
+              const SizedBox(height: 8),
+              for (var element in {
+                "系统默认".tl: "",
+                "Roboto": "Roboto",
+                "Microsoft YaHei": "Microsoft YaHei",
+                "SimHei": "SimHei",
+                "MiSans": "MiSans",
+              }.entries)
+                ListTile(
+                  title: Text(element.key),
+                  onTap: () {
+                    controller.text = element.value;
+                    current = element.value;
+                    setState(() {});
+                  },
+                  trailing: current == element.value
+                      ? const Icon(Icons.check)
+                      : null,
+                ),
+              Center(
+                child: FilledButton(
+                  onPressed: () {
+                    appdata.appSettings.font = current;
+                    MyApp.updater?.call();
+                    App.globalBack();
+                  },
+                  child: Text("确认".tl),
+                ),
               ),
-            Center(
-              child: FilledButton(
-                onPressed: () {
-                  appdata.appSettings.font = current;
-                  MyApp.updater?.call();
-                  App.globalBack();
-                },
-                child: Text("确认".tl),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-        );
-      });
+              const SizedBox(height: 10),
+            ],
+          );
+        },
+      );
     },
   );
 }

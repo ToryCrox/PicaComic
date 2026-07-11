@@ -58,24 +58,32 @@ class DownloadList extends ConsumerWidget {
               skipLoadingOnReload: true,
               data: (userTagsMap) {
                 return _buildGrid(
-                    context, ref, comics, pageState, allTags, userTagsMap);
+                  context,
+                  ref,
+                  comics,
+                  pageState,
+                  allTags,
+                  userTagsMap,
+                );
               },
               loading: () => const SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator())),
-              error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, s) =>
+                  SliverToBoxAdapter(child: Center(child: Text("$e"))),
             );
           },
           loading: () => const SliverToBoxAdapter(
-              child: Center(child: CircularProgressIndicator())),
+            child: Center(child: CircularProgressIndicator()),
+          ),
           error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
         );
       },
       loading: () => const SliverToBoxAdapter(
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (error, stack) => SliverToBoxAdapter(
-        child: Center(child: Text("加载失败: $error")),
-      ),
+      error: (error, stack) =>
+          SliverToBoxAdapter(child: Center(child: Text("加载失败: $error"))),
     );
   }
 
@@ -90,7 +98,15 @@ class DownloadList extends ConsumerWidget {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
         childCount: comics.length,
-        (context, index) => _buildItem(context, ref, comics[index], index, pageState, allTags, userTagsMap),
+        (context, index) => _buildItem(
+          context,
+          ref,
+          comics[index],
+          index,
+          pageState,
+          allTags,
+          userTagsMap,
+        ),
       ),
       gridDelegate: SliverGridDelegateWithComics(),
     );
@@ -134,15 +150,24 @@ class DownloadList extends ConsumerWidget {
           primaryTags: getUserTags(item, userTagsMap),
           tag: getRawTags(item, userTagsMap),
           onTagTap: (tag) => updateKeyword(ref, pageId, tag),
-          onTagSecondaryTap: (tag, details) =>
-              _showTagMenu(context, ref, tag, item, false, details, userTagsMap),
+          onTagSecondaryTap: (tag, details) => _showTagMenu(
+            context,
+            ref,
+            tag,
+            item,
+            false,
+            details,
+            userTagsMap,
+          ),
           onPrimaryTagSecondaryTap: (tag, details) =>
               _showTagMenu(context, ref, tag, item, true, details, userTagsMap),
           onPrimaryTagTap: (tag) async {
-            final tagId = allTags.firstWhere(
-              (element) => element.name == tag,
-              orElse: () => TagInfo(id: -1, name: '', comicCount: 0),
-            ).id;
+            final tagId = allTags
+                .firstWhere(
+                  (element) => element.name == tag,
+                  orElse: () => TagInfo(id: -1, name: '', comicCount: 0),
+                )
+                .id;
             if (tagId != -1) {
               updateTagFilter(ref, pageId, tagId);
             }
@@ -224,45 +249,48 @@ class DownloadList extends ConsumerWidget {
   /// 打开图片列表页面
   void _goLocalComicPage(DownloadedItem comic) async {
     var dirPath = await downloadManager.getFullDirectory(comic.id);
-    App.globalTo(() => LocalThumbsPage(
-          dirPath: dirPath,
-          onItemTap: (index, filePath) async {
-            if (index <= 0) {
-              comic.read();
-              return;
-            }
-            int ep = 0;
-            final file = File(filePath);
-            final absPath = file.absolute.path;
-            if (comic.type == DownloadType.picacg ||
-                comic.type == DownloadType.jm) {
-              final fileParent = file.parent;
-              final fileParentPath = Path.normalize(file.parent.absolute.path);
-              for (final e in comic.downloadedEps) {
-                final epDirPath = Path.normalize("$dirPath/$e");
-                if (epDirPath == fileParentPath) {
-                  ep = e;
-                  sFileRelativeFromPath = fileParent.path;
-                  final imageNames =
-                      (await fileParent.list(recursive: true).toList())
-                          .where(predictImageFile)
-                          .sortedByName()
-                          .map((e) => e.name)
-                          .toList();
-                  index = imageNames.indexOf(Path.basename(absPath));
-                  if (index < 0) {
-                    index = 0;
-                  }
-                  index += 1;
-                  break;
+    App.globalTo(
+      () => LocalThumbsPage(
+        dirPath: dirPath,
+        onItemTap: (index, filePath) async {
+          if (index <= 0) {
+            comic.read();
+            return;
+          }
+          int ep = 0;
+          final file = File(filePath);
+          final absPath = file.absolute.path;
+          if (comic.type == DownloadType.picacg ||
+              comic.type == DownloadType.jm) {
+            final fileParent = file.parent;
+            final fileParentPath = Path.normalize(file.parent.absolute.path);
+            for (final e in comic.downloadedEps) {
+              final epDirPath = Path.normalize("$dirPath/$e");
+              if (epDirPath == fileParentPath) {
+                ep = e;
+                sFileRelativeFromPath = fileParent.path;
+                final imageNames =
+                    (await fileParent.list(recursive: true).toList())
+                        .where(predictImageFile)
+                        .sortedByName()
+                        .map((e) => e.name)
+                        .toList();
+                index = imageNames.indexOf(Path.basename(absPath));
+                if (index < 0) {
+                  index = 0;
                 }
+                index += 1;
+                break;
               }
             }
-            debugPrint(
-                "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath");
-            comic.read(initialPage: index, ep: ep);
-          },
-        ));
+          }
+          debugPrint(
+            "Local thumbs eps: ${comic.downloadedEps}, ep: $ep, index: $index, page: $filePath",
+          );
+          comic.read(initialPage: index, ep: ep);
+        },
+      ),
+    );
   }
 
   void _showTagMenu(
@@ -348,10 +376,12 @@ class DownloadList extends ConsumerWidget {
                 sourceKey = comic.sourceKey;
               }
             }
-            context.to(() => SearchResultPage(
-                  keyword: searchTag,
-                  comicType: ComicType.fromString(sourceKey),
-                ));
+            context.to(
+              () => SearchResultPage(
+                keyword: searchTag,
+                comicType: ComicType.fromString(sourceKey),
+              ),
+            );
           },
         ),
       ],
@@ -373,7 +403,10 @@ class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox.expand(child: child);
   }
 

@@ -53,10 +53,17 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
 
         // 检查是否为图片文件
         final ext = Path.extension(fileName).toLowerCase();
-        if (const {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}.contains(ext)) {
+        if (const {
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.gif',
+          '.webp',
+          '.bmp',
+        }.contains(ext)) {
           final dragItem = DragItem(suggestedName: fileName);
           dragItem.add(Formats.fileUri(Uri.file(entity.path)));
-          
+
           allFiles.add(entity);
           allDragItems.add(dragItem);
           count++;
@@ -99,9 +106,9 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
             if (_isLoading)
               Column(
                 children: [
-                   const LinearProgressIndicator(),
-                   const SizedBox(height: 8),
-                   Text("正在加载图片: ${_allImageFiles.length}".tl),
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 8),
+                  Text("正在加载图片: ${_allImageFiles.length}".tl),
                 ],
               )
             else
@@ -155,7 +162,10 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey,
-                        child: const Icon(Icons.broken_image, color: Colors.white),
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -189,7 +199,10 @@ class _MultiSelectDragDialogState extends State<MultiSelectDragDialog> {
           children: [
             const Icon(Icons.drag_indicator),
             const SizedBox(width: 8),
-            Text("按住并拖拽图片".tl, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              "按住并拖拽图片".tl,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -230,10 +243,12 @@ class _BulkDragWrapper extends StatelessWidget {
             allDragItems.length,
           );
           for (int i = 0; i < allDragItems.length; i++) {
-            items.add(DragConfigurationItem(
-              item: allDragItems[i],
-              image: refCountingImage,
-            ));
+            items.add(
+              DragConfigurationItem(
+                item: allDragItems[i],
+                image: refCountingImage,
+              ),
+            );
           }
           return DragConfiguration(
             items: items,
@@ -249,7 +264,8 @@ class _BulkDragWrapper extends StatelessWidget {
 /// 引用计数镜像包装器，用于解决批量拖拽时共享镜像导致的重复释放问题
 class _RefCountingSnapshot extends raw.TargetedWidgetSnapshot {
   int _count;
-  _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count) : super(snapshot, rect);
+  _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count)
+    : super(snapshot, rect);
 
   @override
   void dispose() {

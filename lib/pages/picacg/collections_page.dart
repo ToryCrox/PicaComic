@@ -37,9 +37,7 @@ class CollectionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("推荐".tl),
-      ),
+      appBar: AppBar(title: Text("推荐".tl)),
       body: StateBuilder<CollectionPageLogic>(
         init: CollectionPageLogic(),
         builder: (logic) {
@@ -54,9 +52,7 @@ class CollectionsPage extends StatelessWidget {
                 logic.change();
               }
             });
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           } else if (logic.status) {
             return CustomScrollView(
               slivers: [
@@ -68,7 +64,7 @@ class CollectionsPage extends StatelessWidget {
                   padding: EdgeInsets.only(
                     top: MediaQuery.of(App.globalContext!).padding.bottom,
                   ),
-                )
+                ),
               ],
             );
           } else {

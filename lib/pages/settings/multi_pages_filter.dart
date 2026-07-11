@@ -1,8 +1,12 @@
 part of pica_settings;
 
 class MultiPagesFilter extends StatefulWidget {
-  const MultiPagesFilter(this.title, this.settingsIndex, this.pages,
-      {super.key});
+  const MultiPagesFilter(
+    this.title,
+    this.settingsIndex,
+    this.pages, {
+    super.key,
+  });
 
   final String title;
 
@@ -43,10 +47,11 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
         color: Theme.of(context).colorScheme.surfaceContainer,
         boxShadow: const [
           BoxShadow(
-              color: Colors.black12,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-              spreadRadius: 2)
+            color: Colors.black12,
+            blurRadius: 5,
+            offset: Offset(0, 2),
+            spreadRadius: 2,
+          ),
         ],
       ),
       onReorder: (reorderFunc) {
@@ -73,7 +78,7 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
       title: widget.title,
       tailing: [
         if (keys.length < widget.pages.length)
-          IconButton(onPressed: showAddDialog, icon: const Icon(Icons.add))
+          IconButton(onPressed: showAddDialog, icon: const Icon(Icons.add)),
       ],
       body: view,
     );
@@ -83,13 +88,14 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
     Widget removeButton = Padding(
       padding: const EdgeInsets.only(right: 8),
       child: IconButton(
-          onPressed: () {
-            setState(() {
-              keys.remove(key);
-            });
-            updateSetting();
-          },
-          icon: const Icon(Icons.delete)),
+        onPressed: () {
+          setState(() {
+            keys.remove(key);
+          });
+          updateSetting();
+        },
+        icon: const Icon(Icons.delete),
+      ),
     );
 
     return ListTile(
@@ -97,10 +103,7 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
       key: Key(key),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          removeButton,
-          const Icon(Icons.drag_handle),
-        ],
+        children: [removeButton, const Icon(Icons.drag_handle)],
       ),
     );
   }
@@ -113,24 +116,27 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
       }
     });
     showDialog(
-        context: context,
-        builder: (context) {
-          return SimpleDialog(
-            title: const Text("Add"),
-            children: canAdd.entries
-                .map((e) => InkWell(
-                      child: ListTile(title: Text(e.value), key: Key(e.key)),
-                      onTap: () {
-                        App.back(context);
-                        setState(() {
-                          keys.add(e.key);
-                        });
-                        updateSetting();
-                      },
-                    ))
-                .toList(),
-          );
-        });
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text("Add"),
+          children: canAdd.entries
+              .map(
+                (e) => InkWell(
+                  child: ListTile(title: Text(e.value), key: Key(e.key)),
+                  onTap: () {
+                    App.back(context);
+                    setState(() {
+                      keys.add(e.key);
+                    });
+                    updateSetting();
+                  },
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 
   void updateSetting() {

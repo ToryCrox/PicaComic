@@ -24,7 +24,9 @@ class AllCategoryPage extends StatelessWidget {
             .where((element) => element != null)
             .map((e) => e!)
             .toList();
-        categories = categories.where((element) => allCategories.contains(element)).toList();
+        categories = categories
+            .where((element) => allCategories.contains(element))
+            .toList();
 
         return Material(
           child: DefaultTabController(
@@ -40,17 +42,14 @@ class AllCategoryPage extends StatelessWidget {
                     } catch (e) {
                       //
                     }
-                    return Tab(
-                      text: title.tl,
-                      key: Key(e),
-                    );
+                    return Tab(text: title.tl, key: Key(e));
                   }).toList(),
                 ),
                 Expanded(
                   child: TabBarView(
-                      children:
-                          categories.map((e) => CategoryPage(e)).toList()),
-                )
+                    children: categories.map((e) => CategoryPage(e)).toList(),
+                  ),
+                ),
               ],
             ),
           ),
@@ -120,44 +119,50 @@ class CategoryPage extends StatelessWidget {
     var children = <Widget>[];
     if (data.enableRankingPage || data.buttons.isNotEmpty) {
       children.add(buildTitle(data.title));
-      children.add(Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
-        child: Wrap(
-          children: [
-            if (data.enableRankingPage)
-              buildTag("排行榜".tl, (p0, p1) {
-                context.to(() => RankingPage(comicType: findComicType()));
-              }),
-            for (var buttonData in data.buttons)
-              buildTag(buttonData.label.tl, (p0, p1) => buttonData.onTap())
-          ],
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
+          child: Wrap(
+            children: [
+              if (data.enableRankingPage)
+                buildTag("排行榜".tl, (p0, p1) {
+                  context.to(() => RankingPage(comicType: findComicType()));
+                }),
+              for (var buttonData in data.buttons)
+                buildTag(buttonData.label.tl, (p0, p1) => buttonData.onTap()),
+            ],
+          ),
         ),
-      ));
+      );
     }
 
     for (var part in data.categories) {
       if (part.enableRandom) {
-        children.add(StatefulBuilder(builder: (context, updater) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              buildTitleWithRefresh(part.title, () => updater(() {})),
-              buildTagsWithParams(
-                part.categories,
-                part.categoryParams,
-                part.title,
-                (key, param) => handleClick(
-                  key,
-                  param,
-                  part.categoryType,
-                  part.title,
-                  category,
-                ),
-              )
-            ],
-          );
-        }));
+        children.add(
+          StatefulBuilder(
+            builder: (context, updater) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  buildTitleWithRefresh(part.title, () => updater(() {})),
+                  buildTagsWithParams(
+                    part.categories,
+                    part.categoryParams,
+                    part.title,
+                    (key, param) => handleClick(
+                      key,
+                      param,
+                      part.categoryType,
+                      part.title,
+                      category,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
       } else {
         children.add(buildTitle(part.title));
         children.add(
@@ -187,8 +192,10 @@ class CategoryPage extends StatelessWidget {
   Widget buildTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
-      child: Text(title.tl,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+      child: Text(
+        title.tl,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+      ),
     );
   }
 
@@ -199,13 +206,10 @@ class CategoryPage extends StatelessWidget {
         children: [
           Text(
             title.tl,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
-          IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh))
+          IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh)),
         ],
       ),
     );
@@ -233,8 +237,12 @@ class CategoryPage extends StatelessWidget {
     );
   }
 
-  Widget buildTag(String tag, ClickTagCallback onClick,
-      [String? namespace, String? param]) {
+  Widget buildTag(
+    String tag,
+    ClickTagCallback onClick, [
+    String? namespace,
+    String? param,
+  ]) {
     String translateTag(String tag) {
       if (enableTranslation) {
         if (namespace != null) {

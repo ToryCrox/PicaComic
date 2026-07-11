@@ -49,10 +49,12 @@ class FavoritesPageController extends StateController {
       current = null;
     }
     if (isNetwork ?? false) {
-      final folders =
-          appdata.settings[68].split(',').map((e) => getFavoriteDataOrNull(e));
-      networkData =
-          folders.firstWhereOrNull((element) => element?.title == current);
+      final folders = appdata.settings[68]
+          .split(',')
+          .map((e) => getFavoriteDataOrNull(e));
+      networkData = folders.firstWhereOrNull(
+        (element) => element?.title == current,
+      );
       if (networkData == null) {
         current = null;
         selectingFolder = true;
@@ -76,13 +78,16 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   FavoritesPage({super.key});
 
   final controller = StateController.putIfNotExists<FavoritesPageController>(
-      FavoritesPageController());
+    FavoritesPageController(),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return StateBuilder<FavoritesPageController>(builder: (controller) {
-      return buildPage(context);
-    });
+    return StateBuilder<FavoritesPageController>(
+      builder: (controller) {
+        return buildPage(context);
+      },
+    );
   }
 
   Widget buildPage(BuildContext context) {
@@ -105,14 +110,11 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                 ? 0
                 : constrains.maxHeight - _kSecondaryTopBarHeight,
             child: buildFoldersList(
-                context, constrains.maxHeight - _kSecondaryTopBarHeight),
+              context,
+              constrains.maxHeight - _kSecondaryTopBarHeight,
+            ),
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: buildTopBar(context),
-          ),
+          Positioned(top: 0, left: 0, right: 0, child: buildTopBar(context)),
         ],
       ),
     );
@@ -121,56 +123,51 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   void multiSelectedMenu() {
     final size = MediaQuery.of(App.globalContext!).size;
     showMenu(
-        context: App.globalContext!,
-        position: RelativeRect.fromLTRB(size.width, 0, 0, size.height),
-        items: [
-          PopupMenuItem(
-            child: Text("删除".tl),
-            onTap: () {
-              for (var comic in controller.selectedComics) {
-                LocalFavoritesManager().deleteComic(controller.current!, comic);
+      context: App.globalContext!,
+      position: RelativeRect.fromLTRB(size.width, 0, 0, size.height),
+      items: [
+        PopupMenuItem(
+          child: Text("删除".tl),
+          onTap: () {
+            for (var comic in controller.selectedComics) {
+              LocalFavoritesManager().deleteComic(controller.current!, comic);
+            }
+            controller.selectedComics.clear();
+            controller.update();
+          },
+        ),
+        PopupMenuItem(
+          child: Text("复制到".tl),
+          onTap: () {
+            Future.delayed(
+              const Duration(milliseconds: 200),
+              () => copyAllTo(controller.current!, controller.selectedComics),
+            );
+          },
+        ),
+        PopupMenuItem(
+          child: Text("下载".tl),
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 200), () {
+              var comics = controller.selectedComics;
+              for (var comic in comics) {
+                downloadManager.addFavoriteDownload(comic);
               }
-              controller.selectedComics.clear();
-              controller.update();
-            },
-          ),
-          PopupMenuItem(
-            child: Text("复制到".tl),
-            onTap: () {
-              Future.delayed(
-                const Duration(milliseconds: 200),
-                () => copyAllTo(controller.current!, controller.selectedComics),
-              );
-            },
-          ),
-          PopupMenuItem(
-            child: Text("下载".tl),
-            onTap: () {
-              Future.delayed(
-                const Duration(milliseconds: 200),
-                () {
-                  var comics = controller.selectedComics;
-                  for (var comic in comics) {
-                    downloadManager.addFavoriteDownload(comic);
-                  }
-                  showToast(message: "已添加下载任务".tl);
-                },
-              );
-            },
-          ),
-          PopupMenuItem(
-            child: Text("更新漫画信息".tl),
-            onTap: () {
-              Future.delayed(
-                const Duration(milliseconds: 200),
-                () {
-                  var comics = controller.selectedComics;
-                  UpdateFavoritesInfoDialog.show(comics, controller.current!);
-                },
-              );
-            },
-          ),
-        ]);
+              showToast(message: "已添加下载任务".tl);
+            });
+          },
+        ),
+        PopupMenuItem(
+          child: Text("更新漫画信息".tl),
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 200), () {
+              var comics = controller.selectedComics;
+              UpdateFavoritesInfoDialog.show(comics, controller.current!);
+            });
+          },
+        ),
+      ],
+    );
   }
 
   Widget buildTopBar(BuildContext context) {
@@ -181,56 +178,55 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
         elevation: 1,
         child: SizedBox(
           height: _kSecondaryTopBarHeight,
-          child: Row(children: [
-            Icon(
-              Icons.rule_folder,
-              color: iconColor,
-            ),
-            const SizedBox(
-              width: 8,
-            ),
-            Text(
-              "已选择 @num 个项目".tlParams(
-                  {"num": controller.selectedComics.length.toString()}),
-              style: const TextStyle(fontSize: 16),
-            ).paddingBottom(3),
-            const Spacer(),
-            Tooltip(
-              message: "全选".tl,
-              child: IconButton(
-                icon: const Icon(Icons.select_all),
-                onPressed: () async {
-                  controller.selectedComics = await LocalFavoritesManager()
-                      .getAllComics(controller.current!);
-                  controller.update();
-                },
+          child: Row(
+            children: [
+              Icon(Icons.rule_folder, color: iconColor),
+              const SizedBox(width: 8),
+              Text(
+                "已选择 @num 个项目".tlParams({
+                  "num": controller.selectedComics.length.toString(),
+                }),
+                style: const TextStyle(fontSize: 16),
+              ).paddingBottom(3),
+              const Spacer(),
+              Tooltip(
+                message: "全选".tl,
+                child: IconButton(
+                  icon: const Icon(Icons.select_all),
+                  onPressed: () async {
+                    controller.selectedComics = await LocalFavoritesManager()
+                        .getAllComics(controller.current!);
+                    controller.update();
+                  },
+                ),
               ),
-            ),
-            Tooltip(
-              message: "取消".tl,
-              child: IconButton(
-                icon: const Icon(Icons.deselect),
-                onPressed: () {
-                  controller.selectedComics.clear();
-                  controller.update();
-                },
+              Tooltip(
+                message: "取消".tl,
+                child: IconButton(
+                  icon: const Icon(Icons.deselect),
+                  onPressed: () {
+                    controller.selectedComics.clear();
+                    controller.update();
+                  },
+                ),
               ),
-            ),
-            Tooltip(
-              message: "菜单".tl,
-              child: IconButton(
-                icon: const Icon(Icons.more_horiz),
-                onPressed: () {
-                  if (controller.selectedComics.length == 1) {
-                    controller.openComicMenuFuncs[controller.selectedComics[0]]
-                        ?.call();
-                  } else {
-                    multiSelectedMenu();
-                  }
-                },
+              Tooltip(
+                message: "菜单".tl,
+                child: IconButton(
+                  icon: const Icon(Icons.more_horiz),
+                  onPressed: () {
+                    if (controller.selectedComics.length == 1) {
+                      controller
+                          .openComicMenuFuncs[controller.selectedComics[0]]
+                          ?.call();
+                    } else {
+                      multiSelectedMenu();
+                    }
+                  },
+                ),
               ),
-            ),
-          ]).paddingHorizontal(16),
+            ],
+          ).paddingHorizontal(16),
         ),
       );
     }
@@ -256,35 +252,26 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
         },
         child: SizedBox(
           height: _kSecondaryTopBarHeight,
-          child: Row(children: [
-            if (controller.isNetwork == null)
-              Icon(
-                Icons.folder_outlined,
-                color: iconColor,
-              )
-            else if (controller.isNetwork!)
-              Icon(
-                Icons.folder_special,
-                color: iconColor,
-              )
-            else
-              Icon(
-                Icons.folder,
-                color: iconColor,
-              ),
-            const SizedBox(
-              width: 8,
-            ),
-            Text(
-              controller.current != null ? controller.current!.tl : "未选择".tl,
-              style: const TextStyle(fontSize: 16),
-            ).paddingBottom(3),
-            const Spacer(),
-            if (controller.selectingFolder)
-              const Icon(Icons.keyboard_arrow_up)
-            else
-              const Icon(Icons.keyboard_arrow_down),
-          ]).paddingHorizontal(16),
+          child: Row(
+            children: [
+              if (controller.isNetwork == null)
+                Icon(Icons.folder_outlined, color: iconColor)
+              else if (controller.isNetwork!)
+                Icon(Icons.folder_special, color: iconColor)
+              else
+                Icon(Icons.folder, color: iconColor),
+              const SizedBox(width: 8),
+              Text(
+                controller.current != null ? controller.current!.tl : "未选择".tl,
+                style: const TextStyle(fontSize: 16),
+              ).paddingBottom(3),
+              const Spacer(),
+              if (controller.selectingFolder)
+                const Icon(Icons.keyboard_arrow_up)
+              else
+                const Icon(Icons.keyboard_arrow_down),
+            ],
+          ).paddingHorizontal(16),
         ),
       ),
     );
@@ -297,11 +284,13 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
         width: double.infinity,
         child: SmoothCustomScrollView(
           slivers: [
-            buildTitle("网络".tl)
-                .sliverPadding(const EdgeInsets.fromLTRB(12, 8, 12, 0)),
+            buildTitle(
+              "网络".tl,
+            ).sliverPadding(const EdgeInsets.fromLTRB(12, 8, 12, 0)),
             buildNetwork().sliverPaddingHorizontal(12),
-            const SliverToBoxAdapter(child: Divider())
-                .sliverPaddingHorizontal(12),
+            const SliverToBoxAdapter(
+              child: Divider(),
+            ).sliverPaddingHorizontal(12),
             buildTitle("本地".tl).sliverPaddingHorizontal(12),
             buildUtils(context),
             buildLocal().sliverPaddingHorizontal(12),
@@ -321,8 +310,9 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   }
 
   Widget buildNetwork() {
-    var folders = appdata.appSettings.networkFavorites
-        .map((e) => getFavoriteDataOrNull(e));
+    var folders = appdata.appSettings.networkFavorites.map(
+      (e) => getFavoriteDataOrNull(e),
+    );
     folders = folders.whereType<FavoriteData>();
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedHeight(
@@ -350,9 +340,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                 color: Theme.of(context).colorScheme.secondary,
               ),
               const SizedBox(width: 8),
-              Text(
-                data?.title != null ? data!.title.tl : "未知".tl,
-              ),
+              Text(data?.title != null ? data!.title.tl : "未知".tl),
             ],
           ),
         );
@@ -407,16 +395,18 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                       height: 18,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8)),
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: FutureBuilder<int>(
                         future: LocalFavoritesManager().count(data),
                         builder: (context, snapshot) {
                           final count = snapshot.data ?? 0;
-                          return Text('$count',
+                          return Text(
+                            '$count',
                             style: const TextStyle(fontSize: 12),
                           );
-                        }
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -440,21 +430,14 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           width: 64,
           child: Column(
             children: [
-              const SizedBox(
-                height: 12,
-              ),
+              const SizedBox(height: 12),
               Icon(
                 icon,
                 size: 24,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(
-                height: 8,
-              ),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12),
-              )
+              const SizedBox(height: 8),
+              Text(title, style: const TextStyle(fontSize: 12)),
             ],
           ),
         ),
@@ -466,15 +449,18 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
         children: [
           buildItem("新建".tl, Icons.create_new_folder_outlined, () {
             showDialog(
-                    context: context,
-                    builder: (context) => const CreateFolderDialog())
-                .then((value) => controller.update());
+              context: context,
+              builder: (context) => const CreateFolderDialog(),
+            ).then((value) => controller.update());
           }),
-          buildItem("搜索".tl, Icons.search,
-              () => App.to(context, () => const LocalSearchPage())),
+          buildItem(
+            "搜索".tl,
+            Icons.search,
+            () => App.to(context, () => const LocalSearchPage()),
+          ),
           buildItem("排序".tl, Icons.reorder, () {
             context.to(() => const _FoldersReorderPage());
-          })
+          }),
         ],
       ).paddingHorizontal(12),
     );
@@ -518,114 +504,128 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               controller.update();
             },
           );
-        }
+        },
       );
     }
   }
 
   void _showMenu(String folder, Offset location) {
     showMenu(
-        context: App.globalContext!,
-        position: RelativeRect.fromLTRB(
-            location.dx, location.dy, location.dx, location.dy),
-        items: [
-          PopupMenuItem(
-            child: Text("删除".tl),
-            onTap: () {
-              App.globalBack();
-              deleteFolder(folder);
-            },
-          ),
-          PopupMenuItem(
-            child: Text("排序".tl),
-            onTap: () {
-              App.globalBack();
-              App.globalTo(() => LocalFavoritesFolder(folder))
-                  .then((value) => controller.update());
-            },
-          ),
-          PopupMenuItem(
-            child: Text("重命名".tl),
-            onTap: () {
-              App.globalBack();
-              rename(folder);
-            },
-          ),
-          PopupMenuItem(
-            child: Text("检查漫画存活".tl),
-            onTap: () {
-              App.globalBack();
-              checkFolder(folder).then((value) {
-                controller.update();
-              });
-            },
-          ),
-          PopupMenuItem(
-            child: Text("导出".tl),
-            onTap: () {
-              App.globalBack();
-              export(folder);
-            },
-          ),
-          PopupMenuItem(
-            child: Text("下载全部".tl),
-            onTap: () {
-              App.globalBack();
-              addDownload(folder);
-            },
-          ),
-          PopupMenuItem(
-            child: Text("更新漫画信息".tl),
-            onTap: () async {
-              App.globalBack();
-              var comics = await LocalFavoritesManager().getAllComics(folder);
-              UpdateFavoritesInfoDialog.show(comics, folder);
-            },
-          ),
-        ]);
+      context: App.globalContext!,
+      position: RelativeRect.fromLTRB(
+        location.dx,
+        location.dy,
+        location.dx,
+        location.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          child: Text("删除".tl),
+          onTap: () {
+            App.globalBack();
+            deleteFolder(folder);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("排序".tl),
+          onTap: () {
+            App.globalBack();
+            App.globalTo(
+              () => LocalFavoritesFolder(folder),
+            ).then((value) => controller.update());
+          },
+        ),
+        PopupMenuItem(
+          child: Text("重命名".tl),
+          onTap: () {
+            App.globalBack();
+            rename(folder);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("检查漫画存活".tl),
+          onTap: () {
+            App.globalBack();
+            checkFolder(folder).then((value) {
+              controller.update();
+            });
+          },
+        ),
+        PopupMenuItem(
+          child: Text("导出".tl),
+          onTap: () {
+            App.globalBack();
+            export(folder);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("下载全部".tl),
+          onTap: () {
+            App.globalBack();
+            addDownload(folder);
+          },
+        ),
+        PopupMenuItem(
+          child: Text("更新漫画信息".tl),
+          onTap: () async {
+            App.globalBack();
+            var comics = await LocalFavoritesManager().getAllComics(folder);
+            UpdateFavoritesInfoDialog.show(comics, folder);
+          },
+        ),
+      ],
+    );
   }
 
   void _showDesktopMenu(String folder, Offset location) {
     showDesktopMenu(App.globalContext!, location, [
       DesktopMenuEntry(
-          text: "删除".tl,
-          onClick: () {
-            deleteFolder(folder);
-          }),
+        text: "删除".tl,
+        onClick: () {
+          deleteFolder(folder);
+        },
+      ),
       DesktopMenuEntry(
-          text: "排序".tl,
-          onClick: () {
-            App.globalTo(() => LocalFavoritesFolder(folder))
-                .then((value) => controller.update());
-          }),
+        text: "排序".tl,
+        onClick: () {
+          App.globalTo(
+            () => LocalFavoritesFolder(folder),
+          ).then((value) => controller.update());
+        },
+      ),
       DesktopMenuEntry(
-          text: "重命名".tl,
-          onClick: () {
-            rename(folder);
-          }),
+        text: "重命名".tl,
+        onClick: () {
+          rename(folder);
+        },
+      ),
       DesktopMenuEntry(
-          text: "检查漫画存活".tl,
-          onClick: () {
-            checkFolder(folder).then((value) {
-              controller.update();
-            });
-          }),
+        text: "检查漫画存活".tl,
+        onClick: () {
+          checkFolder(folder).then((value) {
+            controller.update();
+          });
+        },
+      ),
       DesktopMenuEntry(
-          text: "导出".tl,
-          onClick: () {
-            export(folder);
-          }),
+        text: "导出".tl,
+        onClick: () {
+          export(folder);
+        },
+      ),
       DesktopMenuEntry(
-          text: "下载全部".tl,
-          onClick: () {
-            addDownload(folder);
-          }),
+        text: "下载全部".tl,
+        onClick: () {
+          addDownload(folder);
+        },
+      ),
       DesktopMenuEntry(
-          text: "更新漫画信息".tl,
-          onClick: () async {
-            var comics = await LocalFavoritesManager().getAllComics(folder);
-            UpdateFavoritesInfoDialog.show(comics, folder);
-          }),
+        text: "更新漫画信息".tl,
+        onClick: () async {
+          var comics = await LocalFavoritesManager().getAllComics(folder);
+          UpdateFavoritesInfoDialog.show(comics, folder);
+        },
+      ),
     ]);
   }
 }
@@ -646,8 +646,9 @@ mixin class _LocalFavoritesManager {
 
   void rename(String folder) async {
     await showDialog(
-        context: App.globalContext!,
-        builder: (context) => RenameFolderDialog(folder));
+      context: App.globalContext!,
+      builder: (context) => RenameFolderDialog(folder),
+    );
     StateController.find<FavoritesPageController>().update();
   }
 
@@ -659,8 +660,9 @@ mixin class _LocalFavoritesManager {
     );
     try {
       await exportStringDataAsFile(
-          await LocalFavoritesManager().folderToJsonString(folder),
-          "$folder.json");
+        await LocalFavoritesManager().folderToJsonString(folder),
+        "$folder.json",
+      );
       controller.close();
     } catch (e, s) {
       controller.close();
@@ -678,12 +680,13 @@ mixin class _LocalFavoritesManager {
 }
 
 class ComicsPageView extends StatefulWidget {
-  const ComicsPageView(
-      {required this.folder,
-      required this.onClick,
-      required this.selectedComics,
-      required this.onLongPressed,
-      super.key});
+  const ComicsPageView({
+    required this.folder,
+    required this.onClick,
+    required this.selectedComics,
+    required this.onLongPressed,
+    super.key,
+  });
 
   final String folder;
 
@@ -707,8 +710,9 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
 
   Future<FolderSync?> folderSync() async {
     final allFolderSync = await LocalFavoritesManager().folderSync;
-    final folderSyncArr =
-        allFolderSync.where((element) => element.folderName == folder).toList();
+    final folderSyncArr = allFolderSync
+        .where((element) => element.folderName == folder)
+        .toList();
     if (folderSyncArr.isEmpty) return null;
     return folderSyncArr[0];
   }
@@ -816,14 +820,15 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
                         showFolderInfo: true,
                       );
                       StateController.find<FavoritesPageController>()
-                          .openComicMenuFuncs[comic] = tile.showMenu;
+                              .openComicMenuFuncs[comic] =
+                          tile.showMenu;
 
                       Color? color;
 
                       if (widget.selectedComics.contains(comic)) {
-                        color = Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest;
+                        color = Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest;
                       }
                       return AnimatedContainer(
                         decoration: BoxDecoration(
@@ -831,7 +836,9 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         margin: const EdgeInsets.symmetric(
-                            vertical: 2, horizontal: 4),
+                          vertical: 2,
+                          horizontal: 4,
+                        ),
                         duration: const Duration(milliseconds: 160),
                         child: tile,
                       );
@@ -848,8 +855,10 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
         reverseDuration: const Duration(milliseconds: 150),
         child: showFB ? buildFAB() : const SizedBox(),
         transitionBuilder: (widget, animation) {
-          var tween =
-              Tween<Offset>(begin: const Offset(0, 1), end: const Offset(0, 0));
+          var tween = Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: const Offset(0, 0),
+          );
           return SlideTransition(
             position: tween.animate(animation),
             child: widget,
@@ -860,13 +869,13 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
   }
 
   Widget buildFAB() => Material(
-        color: Colors.transparent,
-        child: FloatingActionButton(
-          key: const Key("FAB"),
-          onPressed: () => onRefresh(context),
-          child: const Icon(Icons.refresh),
-        ),
-      );
+    color: Colors.transparent,
+    child: FloatingActionButton(
+      key: const Key("FAB"),
+      onPressed: () => onRefresh(context),
+      child: const Icon(Icons.refresh),
+    ),
+  );
 
   Widget buildEmptyView() {
     return Padding(
@@ -875,25 +884,17 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text("这里什么都没有".tl),
-          const SizedBox(
-            height: 8,
-          ),
+          const SizedBox(height: 8),
           RichText(
             text: TextSpan(
               style: Theme.of(context).textTheme.bodyMedium,
               children: [
-                TextSpan(
-                  text: '前往'.tl,
-                ),
-                TextSpan(
-                  text: '探索页面'.tl,
-                ),
-                TextSpan(
-                  text: '寻找漫画'.tl,
-                ),
+                TextSpan(text: '前往'.tl),
+                TextSpan(text: '探索页面'.tl),
+                TextSpan(text: '寻找漫画'.tl),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -948,8 +949,11 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
   @override
   void dispose() {
     if (changed) {
-      LocalFavoritesManager().updateOrder(Map<String, int>.fromEntries(
-          folders.mapIndexed((index, element) => MapEntry(element, index))));
+      LocalFavoritesManager().updateOrder(
+        Map<String, int>.fromEntries(
+          folders.mapIndexed((index, element) => MapEntry(element, index)),
+        ),
+      );
       scheduleMicrotask(() {
         StateController.find<FavoritesPageController>().update();
       });
@@ -977,9 +981,12 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
                 });
               },
               dragChildBoxDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: lightenColor(
-                      Theme.of(context).splashColor.withOpacity(1), 0.2)),
+                borderRadius: BorderRadius.circular(8),
+                color: lightenColor(
+                  Theme.of(context).splashColor.withOpacity(1),
+                  0.2,
+                ),
+              ),
               builder: (children) {
                 return GridView(
                   key: _key,
@@ -1017,7 +1024,7 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
                   ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

@@ -4,21 +4,21 @@ import 'package:log_viewer_shared/log_viewer_shared.dart';
 /// 日志条目 Widget
 class LogItemWidget extends StatelessWidget {
   final LogEntry entry;
-  
+
   const LogItemWidget({
     super.key,
     required this.entry,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     // 根据日志级别选择颜色
     final backgroundColor = _getBackgroundColor(colorScheme);
     final textColor = _getTextColor(colorScheme);
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       color: backgroundColor,
@@ -31,7 +31,8 @@ class LogItemWidget extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: _getLevelColor(colorScheme),
                     borderRadius: BorderRadius.circular(4),
@@ -112,7 +113,7 @@ class LogItemWidget extends StatelessWidget {
       ),
     );
   }
-  
+
   Color _getBackgroundColor(ColorScheme colorScheme) {
     switch (entry.level) {
       case LogLevel.error:
@@ -126,7 +127,7 @@ class LogItemWidget extends StatelessWidget {
         return colorScheme.surface;
     }
   }
-  
+
   Color _getTextColor(ColorScheme colorScheme) {
     switch (entry.level) {
       case LogLevel.error:
@@ -140,7 +141,7 @@ class LogItemWidget extends StatelessWidget {
         return colorScheme.onSurface;
     }
   }
-  
+
   Color _getLevelColor(ColorScheme colorScheme) {
     switch (entry.level) {
       case LogLevel.error:
@@ -154,7 +155,7 @@ class LogItemWidget extends StatelessWidget {
         return colorScheme.primary;
     }
   }
-  
+
   String _formatTimestamp(DateTime timestamp) {
     return '${timestamp.year}-'
         '${timestamp.month.toString().padLeft(2, '0')}-'
@@ -165,5 +166,3 @@ class LogItemWidget extends StatelessWidget {
         '${timestamp.millisecond.toString().padLeft(3, '0')}';
   }
 }
-
-

@@ -27,48 +27,55 @@ class _WelcomePageState extends State<WelcomePage> {
     return Material(
       color: context.colorScheme.surfaceContainerLow,
       child: SafeArea(
-          child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 500),
-          child: Material(
-            color: context.brightness == Brightness.light
-                ? Colors.white
-                : Colors.black,
-            elevation: 1,
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox.expand(
-              child: PageView(
-                controller: controller,
-                onPageChanged: (i) {
-                  page = i;
-                },
-                physics: const NeverScrollableScrollPhysics(),
-                children: const [
-                  _AppIcon(),
-                  _AppInfo(),
-                  _AppAppearance(),
-                  _ComicsDisplaySettings(),
-                  _ReadingSettings(),
-                  _ComicSource(),
-                  _More(),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900, maxHeight: 500),
+            child: Material(
+              color: context.brightness == Brightness.light
+                  ? Colors.white
+                  : Colors.black,
+              elevation: 1,
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox.expand(
+                child: PageView(
+                  controller: controller,
+                  onPageChanged: (i) {
+                    page = i;
+                  },
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: const [
+                    _AppIcon(),
+                    _AppInfo(),
+                    _AppAppearance(),
+                    _ComicsDisplaySettings(),
+                    _ReadingSettings(),
+                    _ComicSource(),
+                    _More(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ).toCenter(),
-      )),
+          ).toCenter(),
+        ),
+      ),
     );
   }
 
   void next() {
-    controller.animateToPage((controller.page! + 1).round(),
-        duration: const Duration(milliseconds: 200), curve: Curves.ease);
+    controller.animateToPage(
+      (controller.page! + 1).round(),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.ease,
+    );
   }
 
   void back() {
-    controller.animateToPage((controller.page! - 1).round(),
-        duration: const Duration(milliseconds: 200), curve: Curves.ease);
+    controller.animateToPage(
+      (controller.page! - 1).round(),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.ease,
+    );
   }
 }
 
@@ -83,51 +90,48 @@ mixin class _WelcomePageComponents {
       children: [
         if (page != 0)
           Button.text(
-              padding: const EdgeInsets.fromLTRB(12, 6, 24, 6),
-              onPressed: state.back,
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_left),
-                  const SizedBox(
-                    width: 4,
-                  ),
-                  Text("返回".tl)
-                ],
-              )),
+            padding: const EdgeInsets.fromLTRB(12, 6, 24, 6),
+            onPressed: state.back,
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_left),
+                const SizedBox(width: 4),
+                Text("返回".tl),
+              ],
+            ),
+          ),
         const Spacer(),
         if (page != 6)
           Button.filled(
-              padding: const EdgeInsets.fromLTRB(24, 6, 12, 6),
-              onPressed: state.next,
-              disabled: !canNext,
-              child: Row(
-                children: [
-                  Text("继续".tl),
-                  const SizedBox(
-                    width: 4,
-                  ),
-                  const Icon(Icons.arrow_right),
-                ],
-              ))
+            padding: const EdgeInsets.fromLTRB(24, 6, 12, 6),
+            onPressed: state.next,
+            disabled: !canNext,
+            child: Row(
+              children: [
+                Text("继续".tl),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_right),
+              ],
+            ),
+          )
         else
           Button.filled(
-              padding: const EdgeInsets.fromLTRB(24, 6, 12, 6),
-              onPressed: () async {
-                await ComicSource.reload();
-                if (context.mounted) {
-                  context.to(() => const MainPage());
-                }
-              },
-              disabled: !canNext,
-              child: Row(
-                children: [
-                  Text("完成".tl),
-                  const SizedBox(
-                    width: 4,
-                  ),
-                  const Icon(Icons.check),
-                ],
-              ))
+            padding: const EdgeInsets.fromLTRB(24, 6, 12, 6),
+            onPressed: () async {
+              await ComicSource.reload();
+              if (context.mounted) {
+                context.to(() => const MainPage());
+              }
+            },
+            disabled: !canNext,
+            child: Row(
+              children: [
+                Text("完成".tl),
+                const SizedBox(width: 4),
+                const Icon(Icons.check),
+              ],
+            ),
+          ),
       ],
     ).paddingVertical(12);
   }
@@ -154,14 +158,16 @@ class _AppIcon extends StatelessWidget with _WelcomePageComponents {
               width: 256,
               height: 256,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(50),
-                  image: const DecorationImage(
-                      image: AssetImage("images/app_icon_no_bg.png"),
-                      filterQuality: FilterQuality.medium)),
+                borderRadius: BorderRadius.circular(50),
+                image: const DecorationImage(
+                  image: AssetImage("images/app_icon_no_bg.png"),
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
             ),
           ),
         ),
-        buildBottom(context, 0)
+        buildBottom(context, 0),
       ],
     );
   }
@@ -185,13 +191,8 @@ class _AppInfoState extends State<_AppInfo> with _WelcomePageComponents {
     return buildView(
       children: [
         buildTitle("使用须知".tl),
-        Text(
-          buildInfo(),
-          style: style,
-        ),
-        const SizedBox(
-          height: 16,
-        ),
+        Text(buildInfo(), style: style),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -200,16 +201,17 @@ class _AppInfoState extends State<_AppInfo> with _WelcomePageComponents {
               style: ts.withColor(context.colorScheme.primary),
             ),
             Checkbox(
-                value: agree,
-                onChanged: (b) {
-                  setState(() {
-                    agree = b ?? false;
-                  });
-                })
+              value: agree,
+              onChanged: (b) {
+                setState(() {
+                  agree = b ?? false;
+                });
+              },
+            ),
           ],
         ),
         const Spacer(),
-        buildBottom(context, 1, agree)
+        buildBottom(context, 1, agree),
       ],
     );
   }
@@ -295,7 +297,7 @@ class _AppAppearanceState extends State<_AppAppearance>
           },
         ),
         const Spacer(),
-        buildBottom(context, 2)
+        buildBottom(context, 2),
       ],
     );
   }
@@ -316,32 +318,32 @@ class _ComicsDisplaySettingsState extends State<_ComicsDisplaySettings>
       children: [
         buildTitle("漫画列表显示方式".tl),
         RadioListTile<int>(
-            title: Text("连续模式".tl),
-            value: 0,
-            groupValue: appdata.appSettings.comicsListDisplayType,
-            onChanged: (s) {
-              setState(() {
-                appdata.appSettings.comicsListDisplayType = s!;
-              });
-              appdata.updateSettings();
-            }),
-        Text("滑动到底部时自动加载下一页并追加到页面末尾".tl).paddingHorizontal(16),
-        const SizedBox(
-          height: 16,
+          title: Text("连续模式".tl),
+          value: 0,
+          groupValue: appdata.appSettings.comicsListDisplayType,
+          onChanged: (s) {
+            setState(() {
+              appdata.appSettings.comicsListDisplayType = s!;
+            });
+            appdata.updateSettings();
+          },
         ),
+        Text("滑动到底部时自动加载下一页并追加到页面末尾".tl).paddingHorizontal(16),
+        const SizedBox(height: 16),
         RadioListTile<int>(
-            title: Text("分页模式".tl),
-            value: 1,
-            groupValue: appdata.appSettings.comicsListDisplayType,
-            onChanged: (s) {
-              setState(() {
-                appdata.appSettings.comicsListDisplayType = s!;
-              });
-              appdata.updateSettings();
-            }),
+          title: Text("分页模式".tl),
+          value: 1,
+          groupValue: appdata.appSettings.comicsListDisplayType,
+          onChanged: (s) {
+            setState(() {
+              appdata.appSettings.comicsListDisplayType = s!;
+            });
+            appdata.updateSettings();
+          },
+        ),
         Text("需要手动切换页面".tl).paddingHorizontal(16),
         const Spacer(),
-        buildBottom(context, 3)
+        buildBottom(context, 3),
       ],
     );
   }
@@ -356,11 +358,9 @@ class _ReadingSettings extends StatelessWidget with _WelcomePageComponents {
       children: [
         buildTitle("阅读设置".tl),
         const Expanded(
-          child: SingleChildScrollView(
-            child: ReadingSettings(false),
-          ),
+          child: SingleChildScrollView(child: ReadingSettings(false)),
         ),
-        buildBottom(context, 4)
+        buildBottom(context, 4),
       ],
     );
   }
@@ -387,7 +387,8 @@ class _ComicSourceState extends State<_ComicSource>
               var key = builtInSources[index];
               return ListTile(
                 title: Text(
-                    ComicSource.builtIn.firstWhere((e) => e.key == key).name),
+                  ComicSource.builtIn.firstWhere((e) => e.key == key).name,
+                ),
                 trailing: Switch(
                   value: appdata.appSettings.isComicSourceEnabled(key.name),
                   onChanged: (v) {
@@ -400,7 +401,7 @@ class _ComicSourceState extends State<_ComicSource>
             },
           ),
         ),
-        buildBottom(context, 5)
+        buildBottom(context, 5),
       ],
     );
   }
@@ -415,23 +416,19 @@ class _More extends StatelessWidget with _WelcomePageComponents {
       children: [
         buildTitle("更多".tl),
         ListTile(
-          leading: const Icon(
-            Icons.account_circle,
-          ),
+          leading: const Icon(Icons.account_circle),
           title: Text("登录账号".tl),
           onTap: () => showPopUpWidget(context, const AccountsPage()),
           trailing: const Icon(Icons.arrow_right),
         ),
         ListTile(
-          leading: const Icon(
-            Icons.settings,
-          ),
+          leading: const Icon(Icons.settings),
           title: Text("更多设置".tl),
           onTap: SettingsPage.open,
           trailing: const Icon(Icons.arrow_right),
         ),
         const Spacer(),
-        buildBottom(context, 6)
+        buildBottom(context, 6),
       ],
     );
   }

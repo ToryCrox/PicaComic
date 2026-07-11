@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../components/components.dart';
 
-
 /// 输入弹框的dialog
 class InputDialog extends StatefulWidget {
   final String title;
@@ -36,17 +35,18 @@ class InputDialog extends StatefulWidget {
     bool showPaste = false,
   }) async {
     final result = await showDialog<String>(
-        context: context,
-        builder: (BuildContext context) {
-          return InputDialog._(
-            title: title,
-            hint: hint,
-            content: content,
-            predicate: predicate ?? (text) => true,
-            keyboardType: keyboardType,
-            showPaste: showPaste,
-          );
-        });
+      context: context,
+      builder: (BuildContext context) {
+        return InputDialog._(
+          title: title,
+          hint: hint,
+          content: content,
+          predicate: predicate ?? (text) => true,
+          keyboardType: keyboardType,
+          showPaste: showPaste,
+        );
+      },
+    );
     return result;
   }
 }
@@ -101,7 +101,9 @@ class _InputDialogState extends State<InputDialog> {
           ),
           border: const OutlineInputBorder(),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
       ),

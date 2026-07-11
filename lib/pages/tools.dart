@@ -15,15 +15,15 @@ void openTool() {
     context: App.globalContext!,
     builder: (context) => Column(
       children: [
-        ListTile(
-          title: Text("工具".tl),
-        ),
+        ListTile(title: Text("工具".tl)),
         ListTile(
           leading: const Icon(Icons.subscriptions),
           title: Text("EH订阅".tl),
           onTap: () {
             App.globalBack();
-            App.mainNavigatorKey?.currentContext?.to(() => const SubscriptionPage());
+            App.mainNavigatorKey?.currentContext?.to(
+              () => const SubscriptionPage(),
+            );
           },
         ),
         ListTile(
@@ -36,8 +36,10 @@ void openTool() {
                 () => AppWebview(
                   initialUrl: "https://soutubot.moe/",
                   onNavigation: (uri) {
-                    return handleAppLinks(Uri.parse(uri),
-                        showMessageWhenError: false);
+                    return handleAppLinks(
+                      Uri.parse(uri),
+                      showMessageWhenError: false,
+                    );
                   },
                 ),
               );
@@ -45,8 +47,10 @@ void openTool() {
               var webview = DesktopWebview(
                 initialUrl: "https://soutubot.moe/",
                 onNavigation: (s, webview) {
-                  if (handleAppLinks(Uri.parse(s),
-                      showMessageWhenError: false)) {
+                  if (handleAppLinks(
+                    Uri.parse(s),
+                    showMessageWhenError: false,
+                  )) {
                     Future.microtask(() => webview.close());
                   }
                 },
@@ -54,7 +58,7 @@ void openTool() {
               webview.open();
             }
           },
-          trailing: const Icon(Icons.open_in_new)
+          trailing: const Icon(Icons.open_in_new),
         ),
         ListTile(
           leading: const Icon(Icons.image_search),
@@ -66,8 +70,10 @@ void openTool() {
                 () => AppWebview(
                   initialUrl: "https://saucenao.com/",
                   onNavigation: (uri) {
-                    return handleAppLinks(Uri.parse(uri),
-                        showMessageWhenError: false);
+                    return handleAppLinks(
+                      Uri.parse(uri),
+                      showMessageWhenError: false,
+                    );
                   },
                 ),
               );
@@ -75,8 +81,10 @@ void openTool() {
               var webview = DesktopWebview(
                 initialUrl: "https://saucenao.com/",
                 onNavigation: (s, webview) {
-                  if (handleAppLinks(Uri.parse(s),
-                      showMessageWhenError: false)) {
+                  if (handleAppLinks(
+                    Uri.parse(s),
+                    showMessageWhenError: false,
+                  )) {
                     Future.microtask(() => webview.close());
                   }
                 },
@@ -84,7 +92,7 @@ void openTool() {
               webview.open();
             }
           },
-          trailing: const Icon(Icons.open_in_new)
+          trailing: const Icon(Icons.open_in_new),
         ),
         ListTile(
           leading: const Icon(Icons.link),
@@ -116,7 +124,7 @@ void openTool() {
                     "e-hentai.org",
                     "hitomi.la",
                     "nhentai.net",
-                    "nhentai.xxx"
+                    "nhentai.xxx",
                   ].contains(uri.host)) {
                     return "不支持的链接".tl;
                   }
@@ -143,18 +151,21 @@ void openTool() {
                 return AlertDialog(
                   title: Text("输入链接".tl),
                   content: StatefulBuilder(
-                    builder: (BuildContext context,
-                        void Function(void Function()) setState) {
-                      stateSetter = setState;
-                      return TextField(
-                        focusNode: focusNode,
-                        controller: controller,
-                        decoration: InputDecoration(
-                          errorText: validateText(),
-                        ),
-                        onSubmitted: (s) => onFinish(),
-                      );
-                    },
+                    builder:
+                        (
+                          BuildContext context,
+                          void Function(void Function()) setState,
+                        ) {
+                          stateSetter = setState;
+                          return TextField(
+                            focusNode: focusNode,
+                            controller: controller,
+                            decoration: InputDecoration(
+                              errorText: validateText(),
+                            ),
+                            onSubmitted: (s) => onFinish(),
+                          );
+                        },
                   ),
                   actions: [
                     TextButton(onPressed: onFinish, child: Text("打开".tl)),
@@ -191,33 +202,36 @@ void openTool() {
                         }
                       },
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp("[0-9]"))
+                        FilteringTextInputFormatter.allow(RegExp("[0-9]")),
                       ],
                       decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: "ID",
-                          prefix: Text("JM")),
+                        border: OutlineInputBorder(),
+                        labelText: "ID",
+                        prefix: Text("JM"),
+                      ),
                     ),
                   ),
                   actions: [
                     TextButton(
-                        onPressed: () {
+                      onPressed: () {
+                        App.globalBack();
+                        if (controller.text.isNum) {
                           App.globalBack();
-                          if (controller.text.isNum) {
-                            App.globalBack();
-                            App.mainNavigatorKey?.currentContext
-                                ?.to(() => JmComicPage(controller.text));
-                          } else {
-                            showToast(message: "输入的ID不是数字".tl);
-                          }
-                        },
-                        child: Text("提交".tl))
+                          App.mainNavigatorKey?.currentContext?.to(
+                            () => JmComicPage(controller.text),
+                          );
+                        } else {
+                          showToast(message: "输入的ID不是数字".tl);
+                        }
+                      },
+                      child: Text("提交".tl),
+                    ),
                   ],
                 );
               },
             );
           },
-        )
+        ),
       ],
     ),
   );

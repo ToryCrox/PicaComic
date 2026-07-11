@@ -61,15 +61,17 @@ abstract class ReadingData {
   History? history;
 
   bool checkEpDownloaded(int ep) {
-    return !hasEp || downloadedEps.contains(ep-1);
+    return !hasEp || downloadedEps.contains(ep - 1);
   }
 
   Stream<Res<List<String>>> loadEp(int ep) async* {
     history ??= await HistoryManager().findSync(id);
     history?.addReadEpisode(ep);
     _isDownloaded = await downloadManager.isExists(downloadId);
-    if(_isDownloaded && downloadedEps.isEmpty){
-      downloadedEps = (await downloadManager.getComicOrNull(downloadId))!.downloadedEps;
+    if (_isDownloaded && downloadedEps.isEmpty) {
+      downloadedEps = (await downloadManager.getComicOrNull(
+        downloadId,
+      ))!.downloadedEps;
     }
     if (dirPath.isNotEmpty) {
       final imageList = await downloadManager.getAllImagesByDir(dirPath);
@@ -79,46 +81,67 @@ abstract class ReadingData {
       } else {
         yield Res(imageFileUriList);
       }
-    } else if (_isDownloaded && checkEpDownloaded(ep)){
+    } else if (_isDownloaded && checkEpDownloaded(ep)) {
       final e = hasEp ? ep : 0;
-      final downloadDir = await downloadManager.getImageDirectory(downloadId, e);
-      final imageList = await downloadManager.getAllImageFileList(downloadId, e);
+      final downloadDir = await downloadManager.getImageDirectory(
+        downloadId,
+        e,
+      );
+      final imageList = await downloadManager.getAllImageFileList(
+        downloadId,
+        e,
+      );
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
-      debugPrint("loadEp $id $ep, imageFileUriList： ${imageList.map((e) => e.replaceFirst(downloadDir, '')).toList()}");
+      debugPrint(
+        "loadEp $id $ep, imageFileUriList： ${imageList.map((e) => e.replaceFirst(downloadDir, '')).toList()}",
+      );
       yield Res(imageFileUriList);
       //yield Res(List.filled(length, ""));
     } else {
       final cacheKey = 'reading-data-${type.name}-$id-$ep';
-      final cacheRes = await DiskCache.readModel(cacheKey,
-          (e) => TypeUtil.parseStringList(e['data']));
+      final cacheRes = await DiskCache.readModel(
+        cacheKey,
+        (e) => TypeUtil.parseStringList(e['data']),
+      );
       if (cacheRes != null && cacheRes.isNotEmpty) {
         yield Res(cacheRes);
       }
       final netRes = await loadEpNetwork(ep);
       if (netRes.success) {
         yield netRes;
-        DiskCache.writeString('reading-data-${type.name}-$id-$ep',
-            TypeUtil.parseString({'data': netRes.data}));
+        DiskCache.writeString(
+          'reading-data-${type.name}-$id-$ep',
+          TypeUtil.parseString({'data': netRes.data}),
+        );
       } else {
         yield netRes;
       }
     }
   }
 
-
-
-
   /// Load image from local or network
   ///
   /// [page] starts from 0, [ep] starts from 1
-  Stream<DownloadProgress> loadImage(int ep, int page, String url, {String? title}) async* {
+  Stream<DownloadProgress> loadImage(
+    int ep,
+    int page,
+    String url, {
+    String? title,
+  }) async* {
     if (_isDownloaded && checkEpDownloaded(ep)) {
-      final imageFile = await downloadManager.getImage(downloadId, hasEp ? ep : 0, page);
-      yield DownloadProgress(
-          1, 1, "", imageFile.path);
+      final imageFile = await downloadManager.getImage(
+        downloadId,
+        hasEp ? ep : 0,
+        page,
+      );
+      yield DownloadProgress(1, 1, "", imageFile.path);
     } else {
       if (title != null) {
-        final file = await downloadManager.getDownloadImageOrNull(title, ep, page);
+        final file = await downloadManager.getDownloadImageOrNull(
+          title,
+          ep,
+          page,
+        );
         if (file != null) {
           yield DownloadProgress(1, 1, "", file.path);
         } else {
@@ -130,14 +153,17 @@ abstract class ReadingData {
     }
   }
 
-  ImageProvider createImageProvider(int ep, int page, String url){
+  ImageProvider createImageProvider(int ep, int page, String url) {
     // url如果是文件的uri
     if (url.startsWith("file://")) {
       return FileImage(File(url.substring(7)));
-    } else if (_isDownloaded && checkEpDownloaded(ep)){
+    } else if (_isDownloaded && checkEpDownloaded(ep)) {
       return FileImageProvider(downloadId, hasEp ? ep : 0, page);
     } else {
-      return StreamImageProvider(() => loadImage(ep, page, url, title: title), buildImageKey(ep, page, url));
+      return StreamImageProvider(
+        () => loadImage(ep, page, url, title: title),
+        buildImageKey(ep, page, url),
+      );
     }
   }
 
@@ -156,7 +182,7 @@ class PicacgReadingData extends ReadingData {
   final String id;
 
   PicacgReadingData(this.title, this.id, List<String> epsList)
-      : eps = {for (var e in epsList) e: e};
+    : eps = {for (var e in epsList) e: e};
 
   @override
   final Map<String, String> eps;
@@ -205,7 +231,7 @@ class EhReadingData extends ReadingData {
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getEhImageNew(gallery, page+1);
+    return ImageManager().getEhImageNew(gallery, page + 1);
   }
 
   @override
@@ -232,17 +258,23 @@ class JmReadingData extends ReadingData {
   final String id;
 
   int? commentsLength;
-  
-  static Map<String, String> generateMap(List<String> epIds, List<String> epNames){
-    if(epIds.length == epNames.length){
+
+  static Map<String, String> generateMap(
+    List<String> epIds,
+    List<String> epNames,
+  ) {
+    if (epIds.length == epNames.length) {
       return Map.fromIterables(epIds, epNames);
     } else {
-      return Map.fromIterables(epIds, List.generate(epIds.length, (index) => "第${index+1}章"));
+      return Map.fromIterables(
+        epIds,
+        List.generate(epIds.length, (index) => "第${index + 1}章"),
+      );
     }
   }
 
   JmReadingData(this.title, this.id, List<String> epIds, List<String> epNames)
-      : eps = generateMap(epIds, epNames);
+    : eps = generateMap(epIds, epNames);
 
   @override
   bool get hasEp => true;
@@ -254,8 +286,10 @@ class JmReadingData extends ReadingData {
   String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
-  Future<Res<List<String>>> loadEpNetwork(int ep) async{
-    var res = await JmNetwork().getChapter(eps.keys.elementAtOrNull(ep-1) ?? id);
+  Future<Res<List<String>>> loadEpNetwork(int ep) async {
+    var res = await JmNetwork().getChapter(
+      eps.keys.elementAtOrNull(ep - 1) ?? id,
+    );
     commentsLength = res.subData;
     return res;
   }
@@ -269,17 +303,21 @@ class JmReadingData extends ReadingData {
         break;
       }
     }
-    return ImageManager().getJmImage(url, null,
-        epsId: eps.keys.elementAtOrNull(ep-1) ?? id,
-        scrambleId: kJmScrambleId,
-        bookId: bookId);
+    return ImageManager().getJmImage(
+      url,
+      null,
+      epsId: eps.keys.elementAtOrNull(ep - 1) ?? id,
+      scrambleId: kJmScrambleId,
+      bookId: bookId,
+    );
   }
 
   @override
   final Map<String, String> eps;
 
   @override
-  String buildImageKey(int ep, int page, String url) => url.replaceAll(RegExp(r"\?.+"), "");
+  String buildImageKey(int ep, int page, String url) =>
+      url.replaceAll(RegExp(r"\?.+"), "");
 
   @override
   FavoriteType get favoriteType => FavoriteType.jm;
@@ -337,7 +375,7 @@ class HtReadingData extends ReadingData {
   @override
   final String id;
 
-  HtReadingData(this.title, this.id,);
+  HtReadingData(this.title, this.id);
 
   @override
   Map<String, String>? get eps => null;
@@ -403,7 +441,7 @@ class NhentaiReadingData extends ReadingData {
   FavoriteType get favoriteType => FavoriteType.nhentai;
 }
 
-class CustomReadingData extends ReadingData{
+class CustomReadingData extends ReadingData {
   CustomReadingData(this.id, this.title, this.source, this.eps);
 
   final ComicSource? source;
@@ -425,11 +463,14 @@ class CustomReadingData extends ReadingData{
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
-    if(source == null) {
+    if (source == null) {
       return Future.value(const Res.error("Unknown Comic Source"));
     }
-    if(hasEp){
-      return source!.loadComicPages!(id, eps!.keys.elementAtOrNull(ep-1) ?? id);
+    if (hasEp) {
+      return source!.loadComicPages!(
+        id,
+        eps!.keys.elementAtOrNull(ep - 1) ?? id,
+      );
     } else {
       return source!.loadComicPages!(id, null);
     }
@@ -438,10 +479,10 @@ class CustomReadingData extends ReadingData{
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
     return ImageManager().getCustomImage(
-        url,
-        id,
-        eps?.keys.elementAtOrNull(ep-1) ?? id,
-        sourceKey
+      url,
+      id,
+      eps?.keys.elementAtOrNull(ep - 1) ?? id,
+      sourceKey,
     );
   }
 
@@ -453,23 +494,24 @@ class CustomReadingData extends ReadingData{
 
   @override
   String buildImageKey(int ep, int page, String url) =>
-      "$sourceKey$id${eps?.keys.elementAtOrNull(ep-1) ?? id}$url";
+      "$sourceKey$id${eps?.keys.elementAtOrNull(ep - 1) ?? id}$url";
 
   @override
   FavoriteType get favoriteType => FavoriteType(source!.intKey);
 }
 
-
-
 class LocalReadingData extends ReadingData {
-
   String _dirPath;
   final String _title;
   final List<String> allDirPaths;
   final bool _isReversed;
 
-  LocalReadingData(this._dirPath, this._title, {this.allDirPaths = const [], bool isReversed = false})
-      : _isReversed = isReversed;
+  LocalReadingData(
+    this._dirPath,
+    this._title, {
+    this.allDirPaths = const [],
+    bool isReversed = false,
+  }) : _isReversed = isReversed;
 
   @override
   bool get isReversed => _isReversed;
@@ -513,15 +555,16 @@ class LocalReadingData extends ReadingData {
   }
 
   @override
-  Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) async*{
-
-  }
+  Stream<DownloadProgress> loadImageNetwork(
+    int ep,
+    int page,
+    String url,
+  ) async* {}
 
   @override
   Map<String, String>? get eps {
     if (allDirPaths.isNotEmpty) {
-      return allDirPaths.groupFoldBy(
-          (e) => e, (p, e) => path.basename(e));
+      return allDirPaths.groupFoldBy((e) => e, (p, e) => path.basename(e));
     } else {
       return null;
     }

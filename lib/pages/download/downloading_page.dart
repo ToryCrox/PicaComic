@@ -59,18 +59,20 @@ class _DownloadingPageState extends State<DownloadingPage> {
         key = this.key;
       }
 
-      widgets.add(_DownloadingTile(
-        comic: i,
-        cancel: () {
-          showConfirmDialog(context, "取消".tl, "取消下载任务?".tl, () {
-            setState(() {
-              downloadManager.cancel(i.id);
+      widgets.add(
+        _DownloadingTile(
+          comic: i,
+          cancel: () {
+            showConfirmDialog(context, "取消".tl, "取消下载任务?".tl, () {
+              setState(() {
+                downloadManager.cancel(i.id);
+              });
             });
-          });
-        },
-        onComicPositionChange: rebuild,
-        key: key,
-      ));
+          },
+          onComicPositionChange: rebuild,
+          key: key,
+        ),
+      );
     }
 
     Widget itemBuilder(BuildContext context, int index) {
@@ -87,56 +89,50 @@ class _DownloadingPageState extends State<DownloadingPage> {
         downloadStatus = "";
       }
 
-      String downloadTaskText = "@length 项下载任务"
-          .tlParams({"length": downloadManager.downloading.length.toString()});
+      String downloadTaskText = "@length 项下载任务".tlParams({
+        "length": downloadManager.downloading.length.toString(),
+      });
 
-      String displayText =
-          downloadManager.error ? "下载出错".tl : downloadTaskText + downloadStatus;
+      String displayText = downloadManager.error
+          ? "下载出错".tl
+          : downloadTaskText + downloadStatus;
       return Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
-          height: 48,
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 16,
+        ),
+        height: 48,
+        child: Row(
+          children: [
+            const SizedBox(width: 16),
+            downloadManager.isDownloading
+                ? const Icon(Icons.downloading, color: Colors.blue)
+                : const Icon(
+                    Icons.pause_circle_outline_outlined,
+                    color: Colors.red,
+                  ),
+            const SizedBox(width: 12),
+            Text(displayText),
+            const Spacer(),
+            if (downloadManager.downloading.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  downloadManager.isDownloading
+                      ? downloadManager.pause()
+                      : downloadManager.start();
+                  setState(() {});
+                },
+                child: downloadManager.isDownloading
+                    ? Text("暂停".tl)
+                    : (downloadManager.error ? Text("重试".tl) : Text("继续".tl)),
               ),
-              downloadManager.isDownloading
-                  ? const Icon(
-                      Icons.downloading,
-                      color: Colors.blue,
-                    )
-                  : const Icon(
-                      Icons.pause_circle_outline_outlined,
-                      color: Colors.red,
-                    ),
-              const SizedBox(
-                width: 12,
-              ),
-              Text(displayText),
-              const Spacer(),
-              if (downloadManager.downloading.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    downloadManager.isDownloading
-                        ? downloadManager.pause()
-                        : downloadManager.start();
-                    setState(() {});
-                  },
-                  child: downloadManager.isDownloading
-                      ? Text("暂停".tl)
-                      : (downloadManager.error ? Text("重试".tl) : Text("继续".tl)),
-                ),
-              const SizedBox(
-                width: 16,
-              ),
-            ],
-          ));
+            const SizedBox(width: 16),
+          ],
+        ),
+      );
     }
 
     final itemCount = downloadManager.downloading.length + 1;
@@ -160,10 +156,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
             itemBuilder: itemBuilder,
           );
 
-    return PopUpWidgetScaffold(
-      title: "下载管理器".tl,
-      body: body,
-    );
+    return PopUpWidgetScaffold(title: "下载管理器".tl, body: body);
   }
 }
 
@@ -306,7 +299,9 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                           child: Text(
                             comic.title,
                             style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -446,11 +441,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
               children: [
                 // 完成状态指示器
                 if (isCompleted)
-                  const Icon(
-                    Icons.check_circle,
-                    size: 16,
-                    color: Colors.green,
-                  )
+                  const Icon(Icons.check_circle, size: 16, color: Colors.green)
                 else if (epValue == 0)
                   Icon(
                     Icons.access_time,
@@ -545,7 +536,8 @@ class _DownloadingTileState extends State<_DownloadingTile> {
     if ((comic is EhDownloadingTask &&
             (comic as EhDownloadingTask).downloadType != 0) ||
         comic.runtimeType.toString() == 'KemonoAttachmentDownloadingTask') {
-      status = "${_bytesToSize(downloadPages).split(' ').first}"
+      status =
+          "${_bytesToSize(downloadPages).split(' ').first}"
           "/${_bytesToSize(pagesCount!)}";
     }
 

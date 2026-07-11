@@ -1,11 +1,12 @@
 part of 'components.dart';
 
 class SliverGridViewWithFixedItemHeight extends StatelessWidget {
-  const SliverGridViewWithFixedItemHeight(
-      {required this.delegate,
-        required this.maxCrossAxisExtent,
-        required this.itemHeight,
-        super.key});
+  const SliverGridViewWithFixedItemHeight({
+    required this.delegate,
+    required this.maxCrossAxisExtent,
+    required this.itemHeight,
+    super.key,
+  });
 
   final SliverChildDelegate delegate;
 
@@ -16,13 +17,14 @@ class SliverGridViewWithFixedItemHeight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverLayoutBuilder(
-        builder: ((context, constraints) => SliverGrid(
-          delegate: delegate,
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: maxCrossAxisExtent,
-              childAspectRatio:
-              calcChildAspectRatio(constraints.crossAxisExtent)),
-        )));
+      builder: ((context, constraints) => SliverGrid(
+        delegate: delegate,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: maxCrossAxisExtent,
+          childAspectRatio: calcChildAspectRatio(constraints.crossAxisExtent),
+        ),
+      )),
+    );
   }
 
   double calcChildAspectRatio(double width) {
@@ -35,7 +37,7 @@ class SliverGridViewWithFixedItemHeight extends StatelessWidget {
   }
 }
 
-class SliverGridDelegateWithFixedHeight extends SliverGridDelegate{
+class SliverGridDelegateWithFixedHeight extends SliverGridDelegate {
   const SliverGridDelegateWithFixedHeight({
     required this.maxCrossAxisExtent,
     required this.itemHeight,
@@ -53,28 +55,27 @@ class SliverGridDelegateWithFixedHeight extends SliverGridDelegate{
       crossItems += 1;
     }
     return SliverGridRegularTileLayout(
-        crossAxisCount: crossItems,
-        mainAxisStride: itemHeight,
-        crossAxisStride: width / crossItems,
-        childMainAxisExtent: itemHeight,
-        childCrossAxisExtent: width / crossItems,
-        reverseCrossAxis: false
+      crossAxisCount: crossItems,
+      mainAxisStride: itemHeight,
+      crossAxisStride: width / crossItems,
+      childMainAxisExtent: itemHeight,
+      childCrossAxisExtent: width / crossItems,
+      reverseCrossAxis: false,
     );
   }
 
   @override
   bool shouldRelayout(covariant SliverGridDelegate oldDelegate) {
-    if(oldDelegate is! SliverGridDelegateWithFixedHeight) return true;
-    if(oldDelegate.maxCrossAxisExtent != maxCrossAxisExtent
-        || oldDelegate.itemHeight != itemHeight){
+    if (oldDelegate is! SliverGridDelegateWithFixedHeight) return true;
+    if (oldDelegate.maxCrossAxisExtent != maxCrossAxisExtent ||
+        oldDelegate.itemHeight != itemHeight) {
       return true;
     }
     return false;
   }
-
 }
 
-class SliverGridDelegateWithComics extends SliverGridDelegate{
+class SliverGridDelegateWithComics extends SliverGridDelegate {
   SliverGridDelegateWithComics([this.useBriefMode = false, this.scale]);
 
   final bool useBriefMode;
@@ -84,17 +85,23 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
     var setting = appdata.settings[44].split(',');
-    if(setting.length == 1){
+    if (setting.length == 1) {
       setting.add("1.0");
     }
-    if(setting[0] == "1" || setting[0] == "2" || useBriefMode){
+    if (setting[0] == "1" || setting[0] == "2" || useBriefMode) {
       return getBriefModeLayout(constraints, double.parse(scale ?? setting[1]));
     } else {
-      return getDetailedModeLayout(constraints, double.parse(scale ?? setting[1]));
+      return getDetailedModeLayout(
+        constraints,
+        double.parse(scale ?? setting[1]),
+      );
     }
   }
 
-  SliverGridLayout getDetailedModeLayout(SliverConstraints constraints, double scale){
+  SliverGridLayout getDetailedModeLayout(
+    SliverConstraints constraints,
+    double scale,
+  ) {
     const maxCrossAxisExtent = 650;
     final itemHeight = 164 * scale;
     final width = constraints.crossAxisExtent;
@@ -103,20 +110,25 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
       crossItems += 1;
     }
     return SliverGridRegularTileLayout(
-        crossAxisCount: crossItems,
-        mainAxisStride: itemHeight + 2, // add margin height
-        crossAxisStride: width / crossItems,
-        childMainAxisExtent: itemHeight,
-        childCrossAxisExtent: width / crossItems,
-        reverseCrossAxis: false
+      crossAxisCount: crossItems,
+      mainAxisStride: itemHeight + 2, // add margin height
+      crossAxisStride: width / crossItems,
+      childMainAxisExtent: itemHeight,
+      childCrossAxisExtent: width / crossItems,
+      reverseCrossAxis: false,
     );
   }
 
-  SliverGridLayout getBriefModeLayout(SliverConstraints constraints, double scale){
+  SliverGridLayout getBriefModeLayout(
+    SliverConstraints constraints,
+    double scale,
+  ) {
     final maxCrossAxisExtent = 192.0 * scale;
     const childAspectRatio = 0.72;
     const crossAxisSpacing = 2.0; // adjust spacing
-    int crossAxisCount = (constraints.crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing)).ceil();
+    int crossAxisCount =
+        (constraints.crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing))
+            .ceil();
     // Ensure a minimum count of 1, can be zero and result in an infinite extent
     // below when the window size is 0.
     crossAxisCount = math.max(1, crossAxisCount);
@@ -128,7 +140,8 @@ class SliverGridDelegateWithComics extends SliverGridDelegate{
     final double childMainAxisExtent = childCrossAxisExtent / childAspectRatio;
     return SliverGridRegularTileLayout(
       crossAxisCount: crossAxisCount,
-      mainAxisStride: childMainAxisExtent + crossAxisSpacing, // adjust mainAxisStride
+      mainAxisStride:
+          childMainAxisExtent + crossAxisSpacing, // adjust mainAxisStride
       crossAxisStride: childCrossAxisExtent + crossAxisSpacing,
       childMainAxisExtent: childMainAxisExtent,
       childCrossAxisExtent: childCrossAxisExtent,

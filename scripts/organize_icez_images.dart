@@ -49,10 +49,7 @@ class SkipItem {
   /// 跳过原因。
   final String reason;
 
-  const SkipItem({
-    required this.path,
-    required this.reason,
-  });
+  const SkipItem({required this.path, required this.reason});
 }
 
 /// 扫描结果。
@@ -63,10 +60,7 @@ class ScanResult {
   /// 被跳过条目。
   final List<SkipItem> skipped;
 
-  const ScanResult({
-    required this.plans,
-    required this.skipped,
-  });
+  const ScanResult({required this.plans, required this.skipped});
 }
 
 final _imageExtensions = <String>{
@@ -122,7 +116,10 @@ Future<ScanResult> _scanAllDirs(Directory rootDir) async {
   final skipped = <SkipItem>[];
 
   final allDirs = <Directory>[rootDir];
-  await for (final entity in rootDir.list(recursive: true, followLinks: false)) {
+  await for (final entity in rootDir.list(
+    recursive: true,
+    followLinks: false,
+  )) {
     if (entity is Directory) {
       allDirs.add(entity);
     }
@@ -135,13 +132,20 @@ Future<ScanResult> _scanAllDirs(Directory rootDir) async {
   }
 
   plans.sort((a, b) {
-    final sourceCmp = a.sourceDirPath.toLowerCase().compareTo(b.sourceDirPath.toLowerCase());
+    final sourceCmp = a.sourceDirPath.toLowerCase().compareTo(
+      b.sourceDirPath.toLowerCase(),
+    );
     if (sourceCmp != 0) return sourceCmp;
 
-    final dirCmp = a.targetDirName.toLowerCase().compareTo(b.targetDirName.toLowerCase());
+    final dirCmp = a.targetDirName.toLowerCase().compareTo(
+      b.targetDirName.toLowerCase(),
+    );
     if (dirCmp != 0) return dirCmp;
 
-    return p.basename(a.sourceFile.path).toLowerCase().compareTo(p.basename(b.sourceFile.path).toLowerCase());
+    return p
+        .basename(a.sourceFile.path)
+        .toLowerCase()
+        .compareTo(p.basename(b.sourceFile.path).toLowerCase());
   });
 
   return ScanResult(plans: plans, skipped: skipped);
@@ -160,38 +164,26 @@ Future<void> _scanSingleDir(
 
     final extension = p.extension(entity.path).toLowerCase();
     if (!_imageExtensions.contains(extension)) {
-      skipped.add(SkipItem(
-        path: entity.path,
-        reason: '不是支持的图片类型',
-      ));
+      skipped.add(SkipItem(path: entity.path, reason: '不是支持的图片类型'));
       continue;
     }
 
     final fileNameWithoutExtension = p.basenameWithoutExtension(entity.path);
     final match = _fileNamePattern.firstMatch(fileNameWithoutExtension);
     if (match == null) {
-      skipped.add(SkipItem(
-        path: entity.path,
-        reason: '文件名不符合“名称 (数字)”规则',
-      ));
+      skipped.add(SkipItem(path: entity.path, reason: '文件名不符合“名称 (数字)”规则'));
       continue;
     }
 
     final dirName = match.group(1)?.trim();
     if (dirName == null || dirName.isEmpty) {
-      skipped.add(SkipItem(
-        path: entity.path,
-        reason: '无法提取目录名',
-      ));
+      skipped.add(SkipItem(path: entity.path, reason: '无法提取目录名'));
       continue;
     }
 
     final currentBaseName = p.basename(currentDir.path).trim();
     if (dirName.toLowerCase() == currentBaseName.toLowerCase()) {
-      skipped.add(SkipItem(
-        path: entity.path,
-        reason: '文件已位于对应目录，跳过',
-      ));
+      skipped.add(SkipItem(path: entity.path, reason: '文件已位于对应目录，跳过'));
       continue;
     }
 
@@ -199,19 +191,18 @@ Future<void> _scanSingleDir(
     final targetFilePath = p.join(targetDirPath, p.basename(entity.path));
 
     if (File(targetFilePath).existsSync()) {
-      skipped.add(SkipItem(
-        path: entity.path,
-        reason: '目标文件已存在',
-      ));
+      skipped.add(SkipItem(path: entity.path, reason: '目标文件已存在'));
       continue;
     }
 
-    plans.add(MovePlan(
-      sourceDirPath: currentDir.path,
-      sourceFile: entity,
-      targetDirName: dirName,
-      targetFilePath: targetFilePath,
-    ));
+    plans.add(
+      MovePlan(
+        sourceDirPath: currentDir.path,
+        sourceFile: entity,
+        targetDirName: dirName,
+        targetFilePath: targetFilePath,
+      ),
+    );
   }
 }
 
@@ -221,7 +212,10 @@ void _printPreview(String rootPath, ScanResult result) {
 
   final grouped = <String, Map<String, List<MovePlan>>>{};
   for (final plan in result.plans) {
-    final bySource = grouped.putIfAbsent(plan.sourceDirPath, () => <String, List<MovePlan>>{});
+    final bySource = grouped.putIfAbsent(
+      plan.sourceDirPath,
+      () => <String, List<MovePlan>>{},
+    );
     bySource.putIfAbsent(plan.targetDirName, () => <MovePlan>[]).add(plan);
   }
 
@@ -232,7 +226,12 @@ void _printPreview(String rootPath, ScanResult result) {
     print('.');
 
     final sourceDirs = grouped.keys.toList()
-      ..sort((a, b) => p.relative(a, from: rootPath).toLowerCase().compareTo(p.relative(b, from: rootPath).toLowerCase()));
+      ..sort(
+        (a, b) => p
+            .relative(a, from: rootPath)
+            .toLowerCase()
+            .compareTo(p.relative(b, from: rootPath).toLowerCase()),
+      );
 
     for (var i = 0; i < sourceDirs.length; i++) {
       final sourceDirPath = sourceDirs[i];
@@ -251,7 +250,12 @@ void _printPreview(String rootPath, ScanResult result) {
       for (var j = 0; j < targetDirs.length; j++) {
         final targetDir = targetDirs[j];
         final files = targetGroups[targetDir]!;
-        files.sort((a, b) => p.basename(a.sourceFile.path).toLowerCase().compareTo(p.basename(b.sourceFile.path).toLowerCase()));
+        files.sort(
+          (a, b) => p
+              .basename(a.sourceFile.path)
+              .toLowerCase()
+              .compareTo(p.basename(b.sourceFile.path).toLowerCase()),
+        );
 
         final isLastTarget = j == targetDirs.length - 1;
         final targetPrefix = isLastTarget ? '└── ' : '├── ';
@@ -268,7 +272,9 @@ void _printPreview(String rootPath, ScanResult result) {
         }
 
         if (files.length > 5) {
-          print('$sourceChildPrefix$targetChildPrefix└── ... (还有 ${files.length - 5} 张)');
+          print(
+            '$sourceChildPrefix$targetChildPrefix└── ... (还有 ${files.length - 5} 张)',
+          );
         }
       }
     }
@@ -286,7 +292,9 @@ void _printPreview(String rootPath, ScanResult result) {
     print('');
   }
 
-  print('汇总: 待移动 ${result.plans.length} 个文件，跳过 ${result.skipped.length} 个条目。\n');
+  print(
+    '汇总: 待移动 ${result.plans.length} 个文件，跳过 ${result.skipped.length} 个条目。\n',
+  );
 }
 
 /// 执行移动计划。

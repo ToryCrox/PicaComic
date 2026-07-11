@@ -79,7 +79,7 @@ class CacheManager {
   // 数据库版本号
   static const int _databaseVersion = 1;
   static const String _databaseName = 'cache.db';
-  
+
   // 表名和字段名常量
   static const String tableCache = 'cache';
   static const String columnKey = 'key';
@@ -88,7 +88,7 @@ class CacheManager {
   static const String columnExpires = 'expires';
   static const String columnType = 'type';
 
-  CacheManager._create(){
+  CacheManager._create() {
     Directory(cachePath).createSync(recursive: true);
     // 初始化 sqflite_common_ffi
     databaseFactory = databaseFactoryFfi;
@@ -107,7 +107,7 @@ class CacheManager {
     final databasesPath = App.dataPath;
     final path = '$databasesPath/$_databaseName';
     Log.d("CacheManager Cache database path: $path");
-    
+
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -116,11 +116,13 @@ class CacheManager {
         onUpgrade: _onUpgrade,
       ),
     );
-    
+
     _initialized = true;
-    
-    compute((path) => Directory(path).size, cachePath)
-        .then((value) => _currentSize = value);
+
+    compute(
+      (path) => Directory(path).size,
+      cachePath,
+    ).then((value) => _currentSize = value);
   }
 
   /// 创建数据库表
@@ -139,7 +141,6 @@ class CacheManager {
 
   /// 升级数据库表
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    
     // 可以在这里添加更多版本升级逻辑
     // 示例：
     // if (oldVersion < 2) {
@@ -151,7 +152,7 @@ class CacheManager {
   factory CacheManager() => instance ??= CacheManager._create();
 
   /// set cache size limit in MB
-  void setLimitSize(int size){
+  void setLimitSize(int size) {
     _limitSize = size * 1024 * 1024;
   }
 
@@ -173,13 +174,17 @@ class CacheManager {
       where: '$columnKey = ?',
       whereArgs: [key],
     );
-    if(res.isEmpty){
+    if (res.isEmpty) {
       return null;
     }
     return TypeUtil.parseString(res.first[columnType]);
   }
 
-  Future<void> writeCache(String key, Uint8List data, [Duration duration = kDefaultCacheExpireDuration]) async{
+  Future<void> writeCache(
+    String key,
+    Uint8List data, [
+    Duration duration = kDefaultCacheExpireDuration,
+  ]) async {
     await _ensureInitialized();
     this.dir++;
     this.dir %= 100;
@@ -192,28 +197,24 @@ class CacheManager {
     // }
     await file.create(recursive: true);
     await file.writeAsBytes(data);
-    var expires = DateTime.now().add( duration).millisecondsSinceEpoch;
-    
-    await _db!.insert(
-      tableCache,
-      {
-        columnKey: key,
-        columnDir: dir.toString(),
-        columnName: name,
-        columnExpires: expires,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    
-    if(_currentSize != null) {
+    var expires = DateTime.now().add(duration).millisecondsSinceEpoch;
+
+    await _db!.insert(tableCache, {
+      columnKey: key,
+      columnDir: dir.toString(),
+      columnName: name,
+      columnExpires: expires,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    if (_currentSize != null) {
       _currentSize = _currentSize! + data.length;
     }
-    if(_currentSize != null && _currentSize! > _limitSize){
+    if (_currentSize != null && _currentSize! > _limitSize) {
       await checkCache();
     }
   }
 
-  Future<CachingFile> openWrite(String key) async{
+  Future<CachingFile> openWrite(String key) async {
     await _ensureInitialized();
     this.dir++;
     this.dir %= 100;
@@ -228,7 +229,6 @@ class CacheManager {
     return CachingFile._(key, dir.toString(), name, file);
   }
 
-
   Future<void> writeString(String key, String data) async {
     try {
       Log.d('CacheManager writeString $key');
@@ -239,7 +239,10 @@ class CacheManager {
     }
   }
 
-  Future<T?> findCacheModel<T>(String key, T Function(Map<String, dynamic> map) factory) async{
+  Future<T?> findCacheModel<T>(
+    String key,
+    T Function(Map<String, dynamic> map) factory,
+  ) async {
     await _ensureInitialized();
     final cache = await findCache(key);
     final filePath = cache?.filePath;
@@ -264,15 +267,14 @@ class CacheManager {
     return null;
   }
 
-
   Future<CacheRecord?> findCache(String key) async {
     await _ensureInitialized();
     final record = await _findRecord(key);
-    if(record == null){
+    if (record == null) {
       return null;
     }
     var file = record.file;
-    if(await file.exists()){
+    if (await file.exists()) {
       return record;
     }
     return null;
@@ -286,7 +288,7 @@ class CacheManager {
       where: '$columnKey = ?',
       whereArgs: [key],
     );
-    if(res.isEmpty){
+    if (res.isEmpty) {
       return null;
     }
     return CacheRecord.fromMap(res.first);
@@ -294,41 +296,44 @@ class CacheManager {
 
   bool _isChecking = false;
 
-  Future<void> checkCache() async{
+  Future<void> checkCache() async {
     await _ensureInitialized();
-    if(_isChecking){
+    if (_isChecking) {
       return;
     }
     _isChecking = true;
-    
+
     var now = DateTime.now().millisecondsSinceEpoch;
     var records = await getAllExpiredRecords(now);
-    
-    for(var record in records){
+
+    for (var record in records) {
       var file = record.file;
-      if(await file.exists()){
+      if (await file.exists()) {
         await file.delete();
       }
     }
-    
+
     await deleteExpiredRecords(now);
 
     int count = await getRecordCount();
 
-    compute((path) => Directory(path).size, cachePath)
-        .then((value) => _currentSize = value);
+    compute(
+      (path) => Directory(path).size,
+      cachePath,
+    ).then((value) => _currentSize = value);
 
-    while((_currentSize != null && _currentSize! > _limitSize) ||  count > 200000){
+    while ((_currentSize != null && _currentSize! > _limitSize) ||
+        count > 200000) {
       var records = await getOldestRecords(10);
-      
-      for(var record in records){
+
+      for (var record in records) {
         var file = File('$cachePath/${record.dir}/${record.name}');
-        if(await file.exists()){
+        if (await file.exists()) {
           var size = await file.length();
           await file.delete();
           await deleteRecord(record.key);
           _currentSize = _currentSize! - size;
-          if(_currentSize! <= _limitSize){
+          if (_currentSize! <= _limitSize) {
             break;
           }
         } else {
@@ -348,7 +353,7 @@ class CacheManager {
       where: '$columnExpires < ?',
       whereArgs: [timestamp],
     );
-    
+
     return res.map((row) => CacheRecord.fromMap(row)).toList();
   }
 
@@ -368,7 +373,7 @@ class CacheManager {
     var res = await _db!.rawQuery('''
       SELECT COUNT(*) FROM $tableCache
     ''');
-    if(res.isNotEmpty){
+    if (res.isNotEmpty) {
       return TypeUtil.parseInt(res.first.values.first);
     }
     return 0;
@@ -382,36 +387,34 @@ class CacheManager {
       orderBy: '$columnExpires ASC',
       limit: limit,
     );
-    
+
     return res.map((row) => CacheRecord.fromMap(row)).toList();
   }
 
   /// 删除记录
   Future<void> deleteRecord(String key) async {
     await _ensureInitialized();
-    await _db!.delete(
-      tableCache,
-      where: '$columnKey = ?',
-      whereArgs: [key],
-    );
+    await _db!.delete(tableCache, where: '$columnKey = ?', whereArgs: [key]);
   }
 
-  Future<void> delete(String key) async{
+  Future<void> delete(String key) async {
     await _ensureInitialized();
     final record = await _findRecord(key);
-    if(record == null){
+    if (record == null) {
       return;
     }
-    
+
     var file = File('$cachePath/${record.dir}/${record.name}');
     var fileSize = 0;
-    if(await file.exists()){
+    if (await file.exists()) {
       fileSize = await file.length();
       await file.delete();
     }
-    Log.d(() => 'CacheManager delete $key, filePath: ${file.path}, size: $fileSize');
+    Log.d(
+      () => 'CacheManager delete $key, filePath: ${file.path}, size: $fileSize',
+    );
     await deleteRecord(key);
-    if(_currentSize != null) {
+    if (_currentSize != null) {
       _currentSize = _currentSize! - fileSize;
     }
   }
@@ -424,22 +427,21 @@ class CacheManager {
     _currentSize = 0;
   }
 
-  Future<void> deleteKeyword(String keyword) async{
+  Future<void> deleteKeyword(String keyword) async {
     await _ensureInitialized();
     var records = await getRecordsByKeyPattern('%$keyword%');
-    
-    for(var record in records){
+
+    for (var record in records) {
       var file = File('$cachePath/${record.dir}/${record.name}');
       var fileSize = 0;
-      if(await file.exists()){
+      if (await file.exists()) {
         fileSize = await file.length();
         try {
           await file.delete();
-        }
-        finally {}
+        } finally {}
       }
       await deleteRecord(record.key);
-      if(_currentSize != null) {
+      if (_currentSize != null) {
         _currentSize = _currentSize! - fileSize;
       }
     }
@@ -453,18 +455,18 @@ class CacheManager {
       where: '$columnKey LIKE ?',
       whereArgs: [pattern],
     );
-    
+
     return res.map((row) => CacheRecord.fromMap(row)).toList();
   }
 
   Future<void> deleteByType(String type) async {
     await _ensureInitialized();
     var records = await getRecordsByType(type);
-    
-    for(var record in records){
+
+    for (var record in records) {
       var file = File('$cachePath/${record.dir}/${record.name}');
       var fileSize = 0;
-      if(await file.exists()){
+      if (await file.exists()) {
         fileSize = await file.length();
         try {
           await file.delete();
@@ -473,7 +475,7 @@ class CacheManager {
         }
       }
       await deleteRecord(record.key);
-      if(_currentSize != null) {
+      if (_currentSize != null) {
         _currentSize = _currentSize! - fileSize;
       }
     }
@@ -487,10 +489,10 @@ class CacheManager {
       where: '$columnType = ?',
       whereArgs: [type],
     );
-    
+
     return res.map((row) => CacheRecord.fromMap(row)).toList();
   }
-  
+
   /// 插入或更新记录（供CachingFile使用）
   Future<void> insertRecord(CacheRecord record) async {
     await _ensureInitialized();
@@ -502,7 +504,7 @@ class CacheManager {
   }
 }
 
-class CachingFile{
+class CachingFile {
   CachingFile._(this.key, this.dir, this.name, this.file);
 
   final String key;
@@ -519,24 +521,26 @@ class CachingFile{
 
   String? fileType;
 
-  Future<void> writeBytes(List<int> data) async{
+  Future<void> writeBytes(List<int> data) async {
     _buffer.addAll(data);
-    if(_buffer.length > 1024 * 1024){
+    if (_buffer.length > 1024 * 1024) {
       await _tmpFile.writeAsBytes(_buffer, mode: FileMode.append);
       _buffer.clear();
     }
   }
 
-  Future<void> close() async{
-    if(_buffer.isNotEmpty){
+  Future<void> close() async {
+    if (_buffer.isNotEmpty) {
       await _tmpFile.writeAsBytes(_buffer, mode: FileMode.append);
     }
 
-    if(await _tmpFile.exists()){
+    if (await _tmpFile.exists()) {
       await _tmpFile.rename(file.path);
     }
 
-    final expires = DateTime.now().add(kDefaultCacheExpireDuration).millisecondsSinceEpoch;
+    final expires = DateTime.now()
+        .add(kDefaultCacheExpireDuration)
+        .millisecondsSinceEpoch;
     final record = CacheRecord(
       key: key,
       dir: dir,
@@ -544,23 +548,23 @@ class CachingFile{
       expires: expires,
       type: fileType,
     );
-    
+
     final cacheManager = CacheManager();
     await cacheManager.insertRecord(record);
     await cacheManager.checkCache();
   }
 
-  Future<void> cancel() async{
+  Future<void> cancel() async {
     await _tmpFile.deleteIgnoreError();
     await file.deleteIgnoreError();
   }
 
   void reset() {
     _buffer.clear();
-    if(_tmpFile.existsSync()) {
+    if (_tmpFile.existsSync()) {
       _tmpFile.deleteSync();
     }
-    if(file.existsSync()) {
+    if (file.existsSync()) {
       file.deleteSync();
     }
   }

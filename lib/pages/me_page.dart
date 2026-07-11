@@ -50,9 +50,7 @@ class _MePageState extends State<MePage> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(
               children: [
-                const SizedBox(
-                  height: 12,
-                ),
+                const SizedBox(height: 12),
                 buildHistory(context),
                 if (shouldShowTwoPanel)
                   Row(
@@ -61,30 +59,20 @@ class _MePageState extends State<MePage> {
                       Expanded(
                         child: Column(
                           children: [
-                            const SizedBox(
-                              height: 12,
-                            ),
+                            const SizedBox(height: 12),
                             buildAccount(width),
-                            const SizedBox(
-                              height: 12,
-                            ),
+                            const SizedBox(height: 12),
                             buildDownload(context, width),
                           ],
                         ),
                       ),
-                      const SizedBox(
-                        width: 12,
-                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           children: [
-                            const SizedBox(
-                              height: 12,
-                            ),
+                            const SizedBox(height: 12),
                             buildImageFavorite(context, width),
-                            const SizedBox(
-                              height: 12,
-                            ),
+                            const SizedBox(height: 12),
                             buildTools(width),
                           ],
                         ),
@@ -92,21 +80,13 @@ class _MePageState extends State<MePage> {
                     ],
                   )
                 else ...[
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
                   buildAccount(width),
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
                   buildDownload(context, width),
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
                   buildImageFavorite(context, width),
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
                   buildTools(width),
                 ],
               ],
@@ -153,8 +133,9 @@ class _MePageState extends State<MePage> {
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          color:
-                              Theme.of(context).colorScheme.secondaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: PicaImage(
@@ -170,9 +151,7 @@ class _MePageState extends State<MePage> {
                   },
                 ),
               ).paddingHorizontal(8),
-              const SizedBox(
-                height: 12,
-              )
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -191,18 +170,16 @@ class _MePageState extends State<MePage> {
           color: Theme.of(App.globalContext!).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          name,
-          style: const TextStyle(fontSize: 12),
-        ).paddingTop(4),
+        child: Text(name, style: const TextStyle(fontSize: 12)).paddingTop(4),
       );
     }
 
     return _MePageCard(
       icon: const Icon(Icons.switch_account),
       title: "账号管理".tl,
-      description:
-          Text("已登录 @a 个账号".tlParams({"a": accounts.length.toString()})),
+      description: Text(
+        "已登录 @a 个账号".tlParams({"a": accounts.length.toString()}),
+      ),
       onTap: () => showPopUpWidget(App.globalContext!, const AccountsPage()),
       child: Wrap(
         spacing: 8,
@@ -225,8 +202,7 @@ class _MePageState extends State<MePage> {
     return _MePageCard(
       icon: const Icon(Icons.image),
       title: "图片收藏".tl,
-      description: Text(
-          "@a 条图片收藏".tlParams({"a": '$_favoriteCount'})),
+      description: Text("@a 条图片收藏".tlParams({"a": '$_favoriteCount'})),
       onTap: () => context.to(() => const ImageFavoritesPage()),
     );
   }
@@ -240,10 +216,7 @@ class _MePageState extends State<MePage> {
           color: Theme.of(App.globalContext!).colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          name,
-          style: const TextStyle(fontSize: 12),
-        ).paddingTop(4),
+        child: Text(name, style: const TextStyle(fontSize: 12)).paddingTop(4),
       );
     }
 
@@ -312,7 +285,7 @@ class _MePageCard extends StatelessWidget {
                   Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
               child: description,
             ).paddingHorizontal(16).paddingBottom(16).paddingTop(8),
-            if (child != null) child!
+            if (child != null) child!,
           ],
         ),
       ),

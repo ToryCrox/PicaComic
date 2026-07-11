@@ -59,15 +59,14 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: Appbar(
-        title: Text(widget.category),
-      ),
+      appBar: Appbar(title: Text(widget.category)),
       body: Column(
         children: [
           Expanded(
             child: _CategoryComicsList(
               key: ValueKey(
-                  "${widget.category} with ${widget.param} and $optionsValue"),
+                "${widget.category} with ${widget.param} and $optionsValue",
+              ),
               loader: data.load,
               category: widget.category,
               options: optionsValue,
@@ -82,7 +81,11 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   }
 
   Widget buildOptionItem(
-      String text, String value, int group, BuildContext context) {
+    String text,
+    String value,
+    int group,
+    BuildContext context,
+  ) {
     return OptionChip(
       text: text,
       isSelected: value == optionsValue[group],
@@ -98,19 +101,21 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   Widget buildOptions() {
     List<Widget> children = [];
     for (var optionList in options) {
-      children.add(Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (var option in optionList.options.entries)
-            buildOptionItem(
-              option.value.tl,
-              option.key,
-              options.indexOf(optionList),
-              context,
-            )
-        ],
-      ));
+      children.add(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var option in optionList.options.entries)
+              buildOptionItem(
+                option.value.tl,
+                option.key,
+                options.indexOf(optionList),
+                context,
+              ),
+          ],
+        ),
+      );
       if (options.last != optionList) {
         children.add(const SizedBox(height: 8));
       }

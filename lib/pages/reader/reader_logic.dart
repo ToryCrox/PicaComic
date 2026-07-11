@@ -165,26 +165,26 @@ class ReaderPageState {
 
   @override
   int get hashCode => Object.hashAll([
-        isLoading,
-        errorMessage,
-        Object.hashAll(urls),
-        currentPage,
-        currentEpisode,
-        toolsVisible,
-        showSettings,
-        readingMethod,
-        showFloatingButtonValue,
-        fabValue,
-        currentScale,
-        noScroll,
-        mouseScroll,
-        runningAutoPageTurning,
-        isFullScreen,
-        isShowOriginSize,
-        rotation,
-        isShowSelectImage,
-        rebuildCount,
-      ]);
+    isLoading,
+    errorMessage,
+    Object.hashAll(urls),
+    currentPage,
+    currentEpisode,
+    toolsVisible,
+    showSettings,
+    readingMethod,
+    showFloatingButtonValue,
+    fabValue,
+    currentScale,
+    noScroll,
+    mouseScroll,
+    runningAutoPageTurning,
+    isFullScreen,
+    isShowOriginSize,
+    rotation,
+    isShowSelectImage,
+    rebuildCount,
+  ]);
 }
 
 // ============================================================================
@@ -203,9 +203,16 @@ abstract class ReaderSession {
   static final Map<String, _ReaderInitParams> _pendingParams = {};
 
   static void prepare(
-      String sessionId, ReadingData readingData, int initialPage, int initialEp) {
-    _pendingParams[sessionId] =
-        _ReaderInitParams(readingData, initialPage, initialEp);
+    String sessionId,
+    ReadingData readingData,
+    int initialPage,
+    int initialEp,
+  ) {
+    _pendingParams[sessionId] = _ReaderInitParams(
+      readingData,
+      initialPage,
+      initialEp,
+    );
   }
 }
 
@@ -230,8 +237,11 @@ extension PageControllerExtension on PageController {
     if ((current - page).abs() > 1) {
       jumpToPage(page > current ? page - 1 : page + 1);
     }
-    animateToPage(page,
-        duration: const Duration(milliseconds: 300), curve: Curves.ease);
+    animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
   }
 
   void jumpByDeviceType(int page, ComicReaderLogic logic) {
@@ -354,18 +364,17 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     this.readingData = readingData;
     pageController = PageController(initialPage: getPage(initialPage));
 
-    final isShowOriginSize = appdata.settings[43] == '0' ||
+    final isShowOriginSize =
+        appdata.settings[43] == '0' ||
         readingData is LocalReadingData ||
         readingData.isDownloaded;
 
     // Set up itemScrollListener
     itemScrollListener.itemPositions.addListener(() {
       if (itemScrollListener.itemPositions.value.isNotEmpty) {
-        var newIndex =
-            itemScrollListener.itemPositions.value.first.index + 1;
+        var newIndex = itemScrollListener.itemPositions.value.first.index + 1;
         if (newIndex != state.currentPage) {
-          Future.microtask(
-              () => state = state.copyWith(currentPage: newIndex));
+          Future.microtask(() => state = state.copyWith(currentPage: newIndex));
         }
       }
     });
@@ -374,8 +383,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       isLoading: true,
       currentPage: _getIndex(initialPage),
       currentEpisode: order,
-      readingMethod:
-          ReadingMethod.values[int.parse(appdata.settings[9]) - 1],
+      readingMethod: ReadingMethod.values[int.parse(appdata.settings[9]) - 1],
       isShowOriginSize: isShowOriginSize,
     );
   }
@@ -393,12 +401,15 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   // ---- Public state mutation methods ----
 
   void setCurrentPage(int page) => state = state.copyWith(currentPage: page);
-  void setCurrentScale(double scale) => state = state.copyWith(currentScale: scale);
+  void setCurrentScale(double scale) =>
+      state = state.copyWith(currentScale: scale);
   void setNoScroll(bool value) => state = state.copyWith(noScroll: value);
   void setFabValue(double value) => state = state.copyWith(fabValue: value);
   void hideSettings() => state = state.copyWith(showSettings: false);
-  void setToolsVisible(bool value) => state = state.copyWith(toolsVisible: value);
-  void toggleTools() => state = state.copyWith(toolsVisible: !state.toolsVisible);
+  void setToolsVisible(bool value) =>
+      state = state.copyWith(toolsVisible: value);
+  void toggleTools() =>
+      state = state.copyWith(toolsVisible: !state.toolsVisible);
   void setRotation(bool? value) => state = state.copyWith(rotation: value);
   void toggleShowOriginSize() =>
       state = state.copyWith(isShowOriginSize: !state.isShowOriginSize);
@@ -454,8 +465,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
   // ---- Navigation ----
 
-  Future<void> jumpToNextPage(
-      {bool animate = false, bool resetAutoTurning = false}) async {
+  Future<void> jumpToNextPage({
+    bool animate = false,
+    bool resetAutoTurning = false,
+  }) async {
     final method = state.readingMethod;
     if (method.index < 3) {
       pageController.jumpToPage(state.currentPage + 1);
@@ -472,23 +485,29 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       if (animate) {
         double distance = 600;
         if (maxScrollExtent - scrollController.position.pixels < 600) {
-          distance = (maxScrollExtent - scrollController.position.pixels)
-              .clamp(10, 600);
+          distance = (maxScrollExtent - scrollController.position.pixels).clamp(
+            10,
+            600,
+          );
         }
         int sec = int.parse(appdata.settings[33]);
         final duration = Duration(
-            milliseconds: (distance / 600 * 1200 * (sec / 5)).toInt());
+          milliseconds: (distance / 600 * 1200 * (sec / 5)).toInt(),
+        );
         await scrollController.animateTo(
-            scrollController.position.pixels + distance,
-            duration: duration,
-            curve: Curves.linear);
+          scrollController.position.pixels + distance,
+          duration: duration,
+          curve: Curves.linear,
+        );
       } else {
         final duration = Duration(
-            milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
+          milliseconds: (300 / 600 * _animateNextPageDistance).toInt(),
+        );
         await scrollController.animateTo(
-            scrollController.position.pixels + _animateNextPageDistance,
-            duration: duration,
-            curve: Curves.decelerate);
+          scrollController.position.pixels + _animateNextPageDistance,
+          duration: duration,
+          curve: Curves.decelerate,
+        );
       }
 
       if (resetAutoTurning && state.runningAutoPageTurning) {
@@ -514,11 +533,13 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       }
 
       final duration = Duration(
-          milliseconds: (300 / 600 * _animateNextPageDistance).toInt());
+        milliseconds: (300 / 600 * _animateNextPageDistance).toInt(),
+      );
       await scrollController.animateTo(
-          scrollController.position.pixels - _animateNextPageDistance,
-          duration: duration,
-          curve: Curves.decelerate);
+        scrollController.position.pixels - _animateNextPageDistance,
+        duration: duration,
+        curve: Curves.decelerate,
+      );
 
       if (resetAutoTurning && state.runningAutoPageTurning) {
         _isKeyboardPageTurning = false;
@@ -658,14 +679,17 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     _hasComputeImageSizes.addAll(needLoadUrls);
 
     debugPrint(
-        "loadImageSizes start $startIndex, ${needLoadUrls.map((e) => path.basename(e)).toList()}");
-    _imageSizeSubscriptions.add(computeImageSizes(needLoadUrls).listen((e) {
-      for (var url in e.keys) {
-        final sizeInfo = e[url]!;
-        _imageSize[url] = sizeInfo.size;
-      }
-      state = state.copyWith();
-    }));
+      "loadImageSizes start $startIndex, ${needLoadUrls.map((e) => path.basename(e)).toList()}",
+    );
+    _imageSizeSubscriptions.add(
+      computeImageSizes(needLoadUrls).listen((e) {
+        for (var url in e.keys) {
+          final sizeInfo = e[url]!;
+          _imageSize[url] = sizeInfo.size;
+        }
+        state = state.copyWith();
+      }),
+    );
     debugPrint("loadImageSizes finish");
   }
 
@@ -698,8 +722,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     bool hasEvent = false;
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       Log.d('handleKeyboard key: $event');
-      bool reverse =
-          appdata.settings[9] == "2" || appdata.settings[9] == "6";
+      bool reverse = appdata.settings[9] == "2" || appdata.settings[9] == "6";
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
@@ -896,10 +919,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       await Future.delayed(const Duration(milliseconds: 500));
       if (isDispose) return;
       fullscreen();
-      state = state.copyWith(
-        runningAutoPageTurning: true,
-        toolsVisible: false,
-      );
+      state = state.copyWith(runningAutoPageTurning: true, toolsVisible: false);
       autoPageTurning();
     }
   }
@@ -940,10 +960,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
                                 App.globalBack();
                               },
                               trailing: const Icon(Icons.arrow_right),
-                            )
+                            ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 );
               },
@@ -954,8 +974,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
           }
         }
       } else if (method.isTwoPage && position != null) {
-        final screenWidth =
-            MediaQuery.of(App.globalContext!).size.width;
+        final screenWidth = MediaQuery.of(App.globalContext!).size.width;
         final leftPageIndex = state.currentPage - 1;
         final rightPageIndex = leftPageIndex + 1;
         if (position.dx < screenWidth / 2) {
@@ -971,7 +990,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       File? file;
       try {
         final stream = readingData.loadImage(
-            state.currentEpisode, pageIndex, state.urls[pageIndex]);
+          state.currentEpisode,
+          pageIndex,
+          state.urls[pageIndex],
+        );
         await for (var event in stream) {
           if (event.finished) {
             file = event.getFile();
@@ -992,19 +1014,18 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
       var otherInfo = <String, dynamic>{};
       if (readingData.type == ReadingType.ehentai) {
-        otherInfo["gallery"] =
-            (readingData as EhReadingData).gallery.toJson();
+        otherInfo["gallery"] = (readingData as EhReadingData).gallery.toJson();
       } else if (readingData.type == ReadingType.hitomi) {
-        otherInfo["hitomi"] = (readingData as HitomiReadingData)
-            .images
+        otherInfo["hitomi"] = (readingData as HitomiReadingData).images
             .map((e) => e.toMap())
             .toList();
         otherInfo["galleryId"] = readingData.id;
       } else if (readingData.type == ReadingType.jm) {
         Log.d("TooBar ${readingData.eps}, ${state.currentEpisode}");
         otherInfo["jmEpNames"] = readingData.eps!.values.toList();
-        otherInfo["epsId"] =
-            readingData.eps!.keys.getOrNull(state.currentEpisode - 1);
+        otherInfo["epsId"] = readingData.eps!.keys.getOrNull(
+          state.currentEpisode - 1,
+        );
         otherInfo["bookId"] = readingData.id;
       } else if (readingData.type != ComicType.other) {
         otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];
@@ -1022,7 +1043,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
         otherInfo,
       );
       if (!(await ImageFavoriteManager.exist(
-          id, state.currentEpisode, pageIndex + 1))) {
+        id,
+        state.currentEpisode,
+        pageIndex + 1,
+      ))) {
         ImageFavoriteManager.add(favorite);
         showToast(message: "已添加至图片收藏".tl);
       } else {

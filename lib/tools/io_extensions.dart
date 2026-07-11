@@ -103,13 +103,16 @@ String sanitizeFileName(String fileName, [int maxLength = 255]) {
   while (true) {
     // 移除开头和结尾的空格和点号
     sanitizedFileName = sanitizedFileName.trim();
-    while (sanitizedFileName.startsWith('.') || sanitizedFileName.endsWith('.')) {
+    while (sanitizedFileName.startsWith('.') ||
+        sanitizedFileName.endsWith('.')) {
       if (sanitizedFileName.startsWith('.')) {
         sanitizedFileName = sanitizedFileName.substring(1);
       }
       if (sanitizedFileName.endsWith('.')) {
-        sanitizedFileName =
-            sanitizedFileName.substring(0, sanitizedFileName.length - 1);
+        sanitizedFileName = sanitizedFileName.substring(
+          0,
+          sanitizedFileName.length - 1,
+        );
       }
       sanitizedFileName = sanitizedFileName.trim();
     }
@@ -121,8 +124,10 @@ String sanitizeFileName(String fileName, [int maxLength = 255]) {
     final bytes = utf8.encode(sanitizedFileName);
     if (bytes.length > maxLength) {
       // 每次截断后, 下一轮循环会再次进行 trim() 和结尾清理
-      sanitizedFileName =
-          sanitizedFileName.substring(0, sanitizedFileName.length - 1);
+      sanitizedFileName = sanitizedFileName.substring(
+        0,
+        sanitizedFileName.length - 1,
+      );
     } else {
       break;
     }

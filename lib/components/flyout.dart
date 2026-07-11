@@ -15,18 +15,19 @@ class FlyoutController {
 }
 
 class Flyout extends StatefulWidget {
-  const Flyout(
-      {super.key,
-      required this.flyoutBuilder,
-      required this.child,
-      this.enableTap = false,
-      this.enableDoubleTap = false,
-      this.enableLongPress = false,
-      this.enableSecondaryTap = false,
-      this.withInkWell = false,
-      this.borderRadius = 0,
-      this.controller,
-      this.navigator});
+  const Flyout({
+    super.key,
+    required this.flyoutBuilder,
+    required this.child,
+    this.enableTap = false,
+    this.enableDoubleTap = false,
+    this.enableLongPress = false,
+    this.enableSecondaryTap = false,
+    this.withInkWell = false,
+    this.borderRadius = 0,
+    this.controller,
+    this.navigator,
+  });
 
   final WidgetBuilder flyoutBuilder;
 
@@ -94,7 +95,8 @@ class _FlyoutState extends State<Flyout> {
     var renderBox = context.findRenderObject() as RenderBox;
     var rect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
     var navigator = widget.navigator ?? Navigator.of(context);
-    navigator.push(PageRouteBuilder(
+    navigator.push(
+      PageRouteBuilder(
         fullscreenDialog: true,
         barrierDismissible: true,
         opaque: false,
@@ -111,8 +113,12 @@ class _FlyoutState extends State<Flyout> {
             top = MediaQuery.of(context).size.height - minFlyoutHeight;
           }
 
-          Widget transition(BuildContext context, Animation<double> animation,
-              Animation<double> secondaryAnimation, Widget flyout) {
+          Widget transition(
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget flyout,
+          ) {
             return SlideTransition(
               position: Tween<Offset>(
                 begin: const Offset(0, -0.05),
@@ -144,23 +150,30 @@ class _FlyoutState extends State<Flyout> {
                 top: top,
                 bottom: 0,
                 child: transition(
-                    context,
-                    animation,
-                    secondaryAnimation,
-                    Align(
-                      alignment: Alignment.topLeft,
-                      child: widget.flyoutBuilder(context),
-                    )),
-              )
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: widget.flyoutBuilder(context),
+                  ),
+                ),
+              ),
             ],
           );
-        }));
+        },
+      ),
+    );
   }
 }
 
 class FlyoutContent extends StatelessWidget {
-  const FlyoutContent(
-      {super.key, required this.title, required this.actions, this.content});
+  const FlyoutContent({
+    super.key,
+    required this.title,
+    required this.actions,
+    this.content,
+  });
 
   final String title;
 
@@ -177,25 +190,25 @@ class FlyoutContent extends StatelessWidget {
         elevation: 1,
         surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
         child: Container(
-          constraints: const BoxConstraints(
-            minWidth: minFlyoutWidth,
-          ),
+          constraints: const BoxConstraints(minWidth: minFlyoutWidth),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               if (content != null)
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(content!, style: const TextStyle(fontSize: 12)),
                 ),
-              const SizedBox(
-                height: 12,
-              ),
+              const SizedBox(height: 12),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -210,11 +223,12 @@ class FlyoutContent extends StatelessWidget {
 }
 
 class FlyoutTextButton extends StatefulWidget {
-  const FlyoutTextButton(
-      {super.key,
-      required this.child,
-      required this.flyoutBuilder,
-      this.navigator});
+  const FlyoutTextButton({
+    super.key,
+    required this.child,
+    required this.flyoutBuilder,
+    this.navigator,
+  });
 
   final Widget child;
 
@@ -232,24 +246,26 @@ class _FlyoutTextButtonState extends State<FlyoutTextButton> {
   @override
   Widget build(BuildContext context) {
     return Flyout(
-        controller: _controller,
-        flyoutBuilder: widget.flyoutBuilder,
-        navigator: widget.navigator,
-        child: TextButton(
-          onPressed: () {
-            _controller.show();
-          },
-          child: widget.child,
-        ));
+      controller: _controller,
+      flyoutBuilder: widget.flyoutBuilder,
+      navigator: widget.navigator,
+      child: TextButton(
+        onPressed: () {
+          _controller.show();
+        },
+        child: widget.child,
+      ),
+    );
   }
 }
 
 class FlyoutIconButton extends StatefulWidget {
-  const FlyoutIconButton(
-      {super.key,
-      required this.icon,
-      required this.flyoutBuilder,
-      this.navigator});
+  const FlyoutIconButton({
+    super.key,
+    required this.icon,
+    required this.flyoutBuilder,
+    this.navigator,
+  });
 
   final Widget icon;
 
@@ -267,24 +283,26 @@ class _FlyoutIconButtonState extends State<FlyoutIconButton> {
   @override
   Widget build(BuildContext context) {
     return Flyout(
-        controller: _controller,
-        flyoutBuilder: widget.flyoutBuilder,
-        navigator: widget.navigator,
-        child: IconButton(
-          onPressed: () {
-            _controller.show();
-          },
-          icon: widget.icon,
-        ));
+      controller: _controller,
+      flyoutBuilder: widget.flyoutBuilder,
+      navigator: widget.navigator,
+      child: IconButton(
+        onPressed: () {
+          _controller.show();
+        },
+        icon: widget.icon,
+      ),
+    );
   }
 }
 
 class FlyoutFilledButton extends StatefulWidget {
-  const FlyoutFilledButton(
-      {super.key,
-      required this.child,
-      required this.flyoutBuilder,
-      this.navigator});
+  const FlyoutFilledButton({
+    super.key,
+    required this.child,
+    required this.flyoutBuilder,
+    this.navigator,
+  });
 
   final Widget child;
 
@@ -302,14 +320,15 @@ class _FlyoutFilledButtonState extends State<FlyoutFilledButton> {
   @override
   Widget build(BuildContext context) {
     return Flyout(
-        controller: _controller,
-        flyoutBuilder: widget.flyoutBuilder,
-        navigator: widget.navigator,
-        child: ElevatedButton(
-          onPressed: () {
-            _controller.show();
-          },
-          child: widget.child,
-        ));
+      controller: _controller,
+      flyoutBuilder: widget.flyoutBuilder,
+      navigator: widget.navigator,
+      child: ElevatedButton(
+        onPressed: () {
+          _controller.show();
+        },
+        child: widget.child,
+      ),
+    );
   }
 }

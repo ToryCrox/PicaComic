@@ -53,30 +53,35 @@ class _SelectState extends State<Select> {
           var offset = renderBox.localToGlobal(Offset.zero);
           var size = MediaQuery.of(context).size;
           showMenu<int>(
-              context: App.globalContext!,
-              initialValue: value,
-              position: RelativeRect.fromLTRB(offset.dx, offset.dy,
-                  offset.dx + widget.width, size.height - offset.dy),
-              constraints: BoxConstraints(
-                maxWidth: widget.width,
-                minWidth: widget.width,
-              ),
-              color: context.colorScheme.surfaceContainerLowest,
-              items: [
-                for (int i = 0; i < widget.values.length; i++)
-                  if (!widget.disabledValues.contains(i))
-                    PopupMenuItem(
-                      value: i,
-                      height: App.isDesktop ? 38 : 42,
-                      onTap: () {
-                        setState(() {
-                          value = i;
-                          widget.onChange(i);
-                        });
-                      },
-                      child: Text(widget.values[i]),
-                    )
-              ]);
+            context: App.globalContext!,
+            initialValue: value,
+            position: RelativeRect.fromLTRB(
+              offset.dx,
+              offset.dy,
+              offset.dx + widget.width,
+              size.height - offset.dy,
+            ),
+            constraints: BoxConstraints(
+              maxWidth: widget.width,
+              minWidth: widget.width,
+            ),
+            color: context.colorScheme.surfaceContainerLowest,
+            items: [
+              for (int i = 0; i < widget.values.length; i++)
+                if (!widget.disabledValues.contains(i))
+                  PopupMenuItem(
+                    value: i,
+                    height: App.isDesktop ? 38 : 42,
+                    onTap: () {
+                      setState(() {
+                        value = i;
+                        widget.onChange(i);
+                      });
+                    },
+                    child: Text(widget.values[i]),
+                  ),
+            ],
+          );
         },
         child: AnimatedContainer(
           duration: _fastAnimationDuration,
@@ -84,19 +89,14 @@ class _SelectState extends State<Select> {
             color: color,
             borderRadius: BorderRadius.circular(widget.outline ? 4 : 8),
             border: widget.outline
-                ? Border.all(
-                    color: context.colorScheme.outline,
-                    width: 1,
-                  )
+                ? Border.all(color: context.colorScheme.outline, width: 1)
                 : null,
           ),
           width: widget.width,
           height: 38,
           child: Row(
             children: [
-              const SizedBox(
-                width: 12,
-              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   value == null ? "" : widget.values[value!],
@@ -105,9 +105,7 @@ class _SelectState extends State<Select> {
                 ),
               ),
               const Icon(Icons.arrow_drop_down_sharp),
-              const SizedBox(
-                width: 4,
-              ),
+              const SizedBox(width: 4),
             ],
           ),
         ),
@@ -131,11 +129,12 @@ class _SelectState extends State<Select> {
 }
 
 class FilterChipFixedWidth extends StatefulWidget {
-  const FilterChipFixedWidth(
-      {required this.label,
-      required this.selected,
-      required this.onSelected,
-      super.key});
+  const FilterChipFixedWidth({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
 
   final Widget label;
 
@@ -195,10 +194,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
 
   Widget firstBuild() {
     return Center(
-      child: SizedBox(
-        key: key,
-        child: widget.label,
-      ),
+      child: SizedBox(key: key, child: widget.label),
     );
   }
 
@@ -222,7 +218,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
               bottom: 0,
               right: labelWidth! + gap,
               child: const AnimatedCheckIcon(size: iconSize).toCenter(),
-            )
+            ),
         ],
       ),
     );
@@ -298,19 +294,17 @@ class _AnimatedCheckIconState extends State<AnimatedCheckIcon>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedCheckWidget(
-      animation: animation,
-      size: widget.size,
-    );
+    return AnimatedCheckWidget(animation: animation, size: widget.size);
   }
 }
 
 class OptionChip extends StatelessWidget {
-  const OptionChip(
-      {super.key,
-      required this.text,
-      required this.isSelected,
-      required this.onTap});
+  const OptionChip({
+    super.key,
+    required this.text,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   final String text;
 

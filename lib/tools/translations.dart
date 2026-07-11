@@ -27,10 +27,12 @@ extension AppTranslation on String {
 
   static late final Map<String, Map<String, String>> translations;
 
-  static Future<void> init() async{
+  static Future<void> init() async {
     var data = await rootBundle.load("assets/translation.json");
     var json = jsonDecode(utf8.decode(data.buffer.asUint8List()));
-    translations = { for (var e in json.entries) e.key : Map<String, String>.from(e.value) };
+    translations = {
+      for (var e in json.entries) e.key: Map<String, String>.from(e.value),
+    };
   }
 }
 

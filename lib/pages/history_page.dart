@@ -55,8 +55,10 @@ class _HistoryPageState extends State<HistoryPage> {
       searchInit = false;
       return TextField(
         focusNode: focus ? focusNode : null,
-        decoration:
-        InputDecoration(border: InputBorder.none, hintText: "搜索".tl),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: "搜索".tl,
+        ),
         onChanged: (s) {
           setState(() {
             keyword = s.toLowerCase();
@@ -98,24 +100,27 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: IconButton(
                   icon: const Icon(Icons.delete_forever),
                   onPressed: () => showDialog(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                            title: Text("清除记录".tl),
-                            content: Text("要清除历史记录吗?".tl),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => App.globalBack(),
-                                  child: Text("取消".tl)),
-                              TextButton(
-                                  onPressed: () {
-                                    appdata.history.clearHistory();
-                                    setState(() => comics.clear());
-                                    isModified = true;
-                                    App.globalBack();
-                                  },
-                                  child: Text("清除".tl)),
-                            ],
-                          )),
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Text("清除记录".tl),
+                      content: Text("要清除历史记录吗?".tl),
+                      actions: [
+                        TextButton(
+                          onPressed: () => App.globalBack(),
+                          child: Text("取消".tl),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            appdata.history.clearHistory();
+                            setState(() => comics.clear());
+                            isModified = true;
+                            App.globalBack();
+                          },
+                          child: Text("清除".tl),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               Tooltip(
@@ -132,14 +137,15 @@ class _HistoryPageState extends State<HistoryPage> {
                     });
                   },
                 ),
-              )
+              ),
             ],
           ),
           if (!searchMode) buildComics(comics) else buildComics(results),
           SliverPadding(
-            padding:
-                EdgeInsets.only(top: MediaQuery.of(context).padding.bottom),
-          )
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.bottom,
+            ),
+          ),
         ],
       ),
     );
@@ -147,8 +153,10 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Widget buildComics(List<History> comics_) {
     return SliverGrid(
-      delegate:
-          SliverChildBuilderDelegate(childCount: comics_.length, (context, i) {
+      delegate: SliverChildBuilderDelegate(childCount: comics_.length, (
+        context,
+        i,
+      ) {
         final comic = ComicItemBrief(
           comics_[i].title,
           comics_[i].subtitle,
@@ -164,29 +172,33 @@ class _HistoryPageState extends State<HistoryPage> {
           comicType: ComicType.fromString(comics_[i].type.name),
           onLongTap: () {
             showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    title: Text("删除".tl),
-                    content: Text("要删除这条历史记录吗".tl),
-                    actions: [
-                      TextButton(
-                          onPressed: () => App.globalBack(),
-                          child: Text("取消".tl)),
-                      TextButton(
-                          onPressed: () {
-                            appdata.history.remove(comics_[i].target);
-                            setState(() {
-                              isModified = true;
-                              comics.removeWhere((element) =>
-                                  element.target == comics_[i].target);
-                            });
-                            App.globalBack();
-                          },
-                          child: Text("删除".tl)),
-                    ],
-                  );
-                });
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text("删除".tl),
+                  content: Text("要删除这条历史记录吗".tl),
+                  actions: [
+                    TextButton(
+                      onPressed: () => App.globalBack(),
+                      child: Text("取消".tl),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        appdata.history.remove(comics_[i].target);
+                        setState(() {
+                          isModified = true;
+                          comics.removeWhere(
+                            (element) => element.target == comics_[i].target,
+                          );
+                        });
+                        App.globalBack();
+                      },
+                      child: Text("删除".tl),
+                    ),
+                  ],
+                );
+              },
+            );
           },
           description_: timeToString(comics_[i].time),
           coverPath: comic.path,
@@ -200,7 +212,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 comics_[i].type == HistoryType.hitomi)
               "User-Agent": webUA,
             if (comics_[i].type == HistoryType.hitomi)
-              "Referer": "https://hitomi.la/"
+              "Referer": "https://hitomi.la/",
           },
           onTap: () {
             toComicPageWithHistory(context, comics_[i]);

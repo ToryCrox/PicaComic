@@ -20,10 +20,7 @@ final hitomi = ComicSource.named(
   key: ComicType.hitomi,
   filePath: "built-in",
   comicTileBuilderOverride: (context, comic, options) {
-    return _HiComicTile(
-      comic as HitomiComicBrief,
-      addonMenuOptions: options,
-    );
+    return _HiComicTile(comic as HitomiComicBrief, addonMenuOptions: options);
   },
   explorePages: [
     ExplorePageData.named(
@@ -77,44 +74,46 @@ class _HiComicTile extends ComicTile {
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(App.globalContext!,
-            onCancel: () => cancel = true);
-        var res = await HiNetwork().getComicInfo(comic.link);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await History.findOrCreate(res.data);
-          App.globalTo(
-                () => ComicReadingPage.hitomi(
-              res.data,
-              comic.link,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await HiNetwork().getComicInfo(comic.link);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await History.findOrCreate(res.data);
+      App.globalTo(
+        () => ComicReadingPage.hitomi(
+          res.data,
+          comic.link,
+          initialPage: history.page,
+        ),
+      );
+    }
+  };
 
   @override
   String get description => () {
-        var description = "${comic.type}    ";
-        description += comic.lang;
-        return description;
-      }.call();
+    var description = "${comic.type}    ";
+    description += comic.lang;
+    return description;
+  }.call();
 
   @override
   Widget get image => PicaImage(
-        url: comic.cover,
-        sourceKey: ComicType.hitomi.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: comic.cover,
+    sourceKey: ComicType.hitomi.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {

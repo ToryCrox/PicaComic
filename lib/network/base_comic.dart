@@ -49,12 +49,12 @@ class CustomComic extends BaseComic {
   );
 
   CustomComic.fromJson(Map<String, dynamic> json, this.sourceKey)
-      : title = json["title"],
-        subTitle = json["subTitle"] ?? "",
-        cover = json["cover"],
-        id = json["id"],
-        tags = List<String>.from(json["tags"] ?? []),
-        description = json["description"] ?? "";
+    : title = json["title"],
+      subTitle = json["subTitle"] ?? "",
+      cover = json["cover"],
+      id = json["id"],
+      tags = List<String>.from(json["tags"] ?? []),
+      description = json["description"] ?? "";
 
   Map<String, dynamic> toJson() {
     return {
@@ -66,5 +66,4 @@ class CustomComic extends BaseComic {
       "description": description,
     };
   }
-
 }

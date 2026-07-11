@@ -41,15 +41,17 @@ class NhentaiNetwork {
         logged = true;
       }
     }
-    dio = logDio(BaseOptions(
-      headers: {
-        "Accept":
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7,en;q=0.6",
-        "Referer": "$baseUrl/",
-      },
-      validateStatus: (i) => i == 200 || i == 302,
-    ));
+    dio = logDio(
+      BaseOptions(
+        headers: {
+          "Accept":
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+          "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7,en;q=0.6",
+          "Referer": "$baseUrl/",
+        },
+        validateStatus: (i) => i == 200 || i == 302,
+      ),
+    );
     dio.interceptors.add(CookieManagerSql(cookieJar!));
     dio.interceptors.add(CloudflareInterceptor());
   }
@@ -64,9 +66,13 @@ class NhentaiNetwork {
       await init();
     }
     try {
-      var res = await dio.get<String>(url, options: Options(followRedirects: false));
+      var res = await dio.get<String>(
+        url,
+        options: Options(followRedirects: false),
+      );
       if (res.statusCode == 302) {
-        var path = res.headers["Location"]?.first ??
+        var path =
+            res.headers["Location"]?.first ??
             res.headers["location"]?.first ??
             "";
         return get(Uri.parse(url).replace(path: path).toString());
@@ -77,13 +83,20 @@ class NhentaiNetwork {
     }
   }
 
-  Future<Res<String>> post(String url, dynamic data,
-      [Map<String, String>? headers]) async {
+  Future<Res<String>> post(
+    String url,
+    dynamic data, [
+    Map<String, String>? headers,
+  ]) async {
     if (cookieJar == null) {
       await init();
     }
     try {
-      var res = await dio.post<String>(url, data: data, options: Options(headers: headers));
+      var res = await dio.post<String>(
+        url,
+        data: data,
+        options: Options(headers: headers),
+      );
       return Res(res.data);
     } catch (e) {
       return Res(null, errorMessage: e.toString());
@@ -131,19 +144,31 @@ class NhentaiNetwork {
       List<Element> popularDoms;
       if (url == baseUrl) {
         popularDoms = document.querySelectorAll(
-            "div.container.index-container.index-popular > div.gallery");
+          "div.container.index-container.index-popular > div.gallery",
+        );
       } else {
         popularDoms = const [];
       }
-      var latest = document
-          .querySelectorAll("div.container.index-container > div.gallery");
+      var latest = document.querySelectorAll(
+        "div.container.index-container > div.gallery",
+      );
 
-      return Res(NhentaiHomePageData(
-        removeNullValue(List.generate(
-            popularDoms.length, (index) => parseComic(popularDoms[index]))),
-        removeNullValue(List.generate(latest.length - popularDoms.length,
-            (index) => parseComic(latest[index + popularDoms.length]))),
-      ));
+      return Res(
+        NhentaiHomePageData(
+          removeNullValue(
+            List.generate(
+              popularDoms.length,
+              (index) => parseComic(popularDoms[index]),
+            ),
+          ),
+          removeNullValue(
+            List.generate(
+              latest.length - popularDoms.length,
+              (index) => parseComic(latest[index + popularDoms.length]),
+            ),
+          ),
+        ),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
@@ -160,8 +185,11 @@ class NhentaiNetwork {
 
       var latest = document.querySelectorAll("div.gallery");
 
-      data.latest.addAll(removeNullValue(
-          List.generate(latest.length, (index) => parseComic(latest[index]))));
+      data.latest.addAll(
+        removeNullValue(
+          List.generate(latest.length, (index) => parseComic(latest[index])),
+        ),
+      );
 
       data.page++;
 
@@ -172,15 +200,19 @@ class NhentaiNetwork {
     }
   }
 
-  Future<Res<List<NhentaiComicBrief>>> search(String keyword, int page,
-      [NhentaiSort sort = NhentaiSort.recent]) async {
+  Future<Res<List<NhentaiComicBrief>>> search(
+    String keyword,
+    int page, [
+    NhentaiSort sort = NhentaiSort.recent,
+  ]) async {
     if (appdata.searchHistory.contains(keyword)) {
       appdata.searchHistory.remove(keyword);
     }
     appdata.searchHistory.add(keyword);
     appdata.writeHistory();
     var res = await get(
-        "$baseUrl/search?q=${Uri.encodeComponent(keyword)}&page=$page${sort.value}");
+      "$baseUrl/search?q=${Uri.encodeComponent(keyword)}&page=$page${sort.value}",
+    );
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -207,9 +239,14 @@ class NhentaiNetwork {
       }
 
       return Res(
-          removeNullValue(List.generate(
-              comicDoms.length, (index) => parseComic(comicDoms[index]))),
-          subData: lastPagination == null ? 1 : int.parse(lastPagination));
+        removeNullValue(
+          List.generate(
+            comicDoms.length,
+            (index) => parseComic(comicDoms[index]),
+          ),
+        ),
+        subData: lastPagination == null ? 1 : int.parse(lastPagination),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
@@ -239,7 +276,7 @@ class NhentaiNetwork {
       }
 
       var document = parse(res.data);
-      
+
       id = id == "" ? document.querySelector("h3#gallery_id")!.text.nums : id;
 
       var cover = document
@@ -252,8 +289,10 @@ class NhentaiNetwork {
 
       Map<String, List<String>> tags = {};
       for (var field in document.querySelectorAll("div.tag-container")) {
-        var fieldName =
-            field.firstChild!.text!.removeAllBlank.replaceLast(":", "");
+        var fieldName = field.firstChild!.text!.removeAllBlank.replaceLast(
+          ":",
+          "",
+        );
         if (fieldName == "Uploaded") {
           var timeStr = document.querySelector("time")?.attributes["datetime"];
           if (timeStr != null) {
@@ -269,8 +308,8 @@ class NhentaiNetwork {
 
       bool favorite =
           document.querySelector("button#favorite > span.text")?.text !=
-                  "Favorite" &&
-              logged;
+              "Favorite" &&
+          logged;
 
       var thumbnails = <String>[];
       for (var t in document.querySelectorAll("a.gallerythumb > img")) {
@@ -293,8 +332,19 @@ class NhentaiNetwork {
         // ignore
       }
 
-      return Res(NhentaiComic(id, title, subTitle, cover, tags, favorite,
-          thumbnails, recommendations, token));
+      return Res(
+        NhentaiComic(
+          id,
+          title,
+          subTitle,
+          cover,
+          tags,
+          favorite,
+          thumbnails,
+          recommendations,
+          token,
+        ),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
@@ -310,11 +360,14 @@ class NhentaiNetwork {
       var json = const JsonDecoder().convert(res.data);
       var comments = <NhentaiComment>[];
       for (var c in json) {
-        comments.add(NhentaiComment(
+        comments.add(
+          NhentaiComment(
             c["poster"]["username"],
             "https://i3.nhentai.net/${c["poster"]["avatar_url"]}",
             c["body"],
-            c["post_date"]));
+            c["post_date"],
+          ),
+        );
       }
       return Res(comments);
     } catch (e, s) {
@@ -330,8 +383,7 @@ class NhentaiNetwork {
     }
     try {
       var document = parse(res.data);
-      var scripts = document
-          .querySelectorAll("script");
+      var scripts = document.querySelectorAll("script");
 
       var script = scripts
           .firstWhere((element) => element.text.contains("media_id"))
@@ -340,7 +392,8 @@ class NhentaiNetwork {
       var galleryData = json.decode(json.decode(script)["body"]);
 
       var url = document
-          .querySelector("#image-container > a > img")!.attributes["src"]!;
+          .querySelector("#image-container > a > img")!
+          .attributes["src"]!;
 
       String baseUrl = url.split('/galleries')[0];
 
@@ -373,9 +426,11 @@ class NhentaiNetwork {
           ?.attributes["href"]
           ?.nums;
       return Res(
-          removeNullValue(List.generate(
-              comics.length, (index) => parseComic(comics[index]))),
-          subData: lastPagination == null ? 1 : int.parse(lastPagination));
+        removeNullValue(
+          List.generate(comics.length, (index) => parseComic(comics[index])),
+        ),
+        subData: lastPagination == null ? 1 : int.parse(lastPagination),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");
@@ -386,7 +441,7 @@ class NhentaiNetwork {
     var res = await post("$baseUrl/api/gallery/$id/favorite", null, {
       "Referer": "$baseUrl/g/$id",
       "X-Csrftoken": token,
-      "X-Requested-With": "XMLHttpRequest"
+      "X-Requested-With": "XMLHttpRequest",
     });
     if (res.error) {
       return Res.fromErrorRes(res);
@@ -399,7 +454,7 @@ class NhentaiNetwork {
     var res = await post("$baseUrl/api/gallery/$id/unfavorite", null, {
       "Referer": "$baseUrl/g/$id",
       "X-Csrftoken": token,
-      "X-Requested-With": "XMLHttpRequest"
+      "X-Requested-With": "XMLHttpRequest",
     });
     if (res.error) {
       return Res.fromErrorRes(res);
@@ -409,13 +464,16 @@ class NhentaiNetwork {
   }
 
   Future<Res<List<NhentaiComicBrief>>> getCategoryComics(
-      String path, int page, NhentaiSort sort) async {
+    String path,
+    int page,
+    NhentaiSort sort,
+  ) async {
     var param = switch (sort) {
       NhentaiSort.recent => '/',
       NhentaiSort.popularToday => '/popular-today',
       NhentaiSort.popularWeek => '/popular-week',
       NhentaiSort.popularMonth => '/popular-month',
-      NhentaiSort.popularAll => '/popular'
+      NhentaiSort.popularAll => '/popular',
     };
     var res = await get("$baseUrl$path$param?page=$page");
     if (res.error) {
@@ -444,9 +502,14 @@ class NhentaiNetwork {
       }
 
       return Res(
-          removeNullValue(List.generate(
-              comicDoms.length, (index) => parseComic(comicDoms[index]))),
-          subData: lastPagination == null ? 1 : int.parse(lastPagination));
+        removeNullValue(
+          List.generate(
+            comicDoms.length,
+            (index) => parseComic(comicDoms[index]),
+          ),
+        ),
+        subData: lastPagination == null ? 1 : int.parse(lastPagination),
+      );
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
       return Res(null, errorMessage: "Failed to Parse Data: $e");

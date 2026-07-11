@@ -39,12 +39,16 @@ class DownloadedHtComic extends DownloadedItem {
   DownloadType get type => DownloadType.htmanga;
 
   @override
-  Map<String, dynamic> toJson() => {"comic": comic.toJson(), "size": size, "color": color?.name};
+  Map<String, dynamic> toJson() => {
+    "comic": comic.toJson(),
+    "size": size,
+    "color": color?.name,
+  };
 
   DownloadedHtComic.fromJson(Map<String, dynamic> json)
-      : comic = HtComicInfo.fromJson(json["comic"]),
-        size = json["size"],
-        color = DownloadColorTag.fromString(json["color"]);
+    : comic = HtComicInfo.fromJson(json["comic"]),
+      size = json["size"],
+      color = DownloadColorTag.fromString(json["color"]);
 
   @override
   set comicSize(double? value) => size = value;
@@ -55,8 +59,13 @@ class DownloadedHtComic extends DownloadedItem {
 
 class HtDownloadingTask extends DownloadingTask {
   HtDownloadingTask(
-      this.comic, super.whenFinish, super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.htmanga});
+    this.comic,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.htmanga,
+  });
 
   final HtComicInfo comic;
 
@@ -86,23 +95,22 @@ class HtDownloadingTask extends DownloadingTask {
   }
 
   @override
-  Map<String, dynamic> toMap() =>
-      {"comic": comic.toJson(), ...super.toBaseMap()};
+  Map<String, dynamic> toMap() => {
+    "comic": comic.toJson(),
+    ...super.toBaseMap(),
+  };
 
   HtDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = HtComicInfo.fromJson(map["comic"]),
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = HtComicInfo.fromJson(map["comic"]),
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    return DownloadedHtComic(
-      comic,
-      await getFolderSize(Directory(path)),
-    );
+    return DownloadedHtComic(comic, await getFolderSize(Directory(path)));
   }
 }

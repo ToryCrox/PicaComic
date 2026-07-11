@@ -43,12 +43,14 @@ class ScrollManager {
     if (moveOffset != null && moveOffset != Offset.zero) {
       if (moveOffset!.dx * moveOffset!.dx + moveOffset!.dy * moveOffset!.dy >
           400) {
-        final offset = moveOffset! /
+        final offset =
+            moveOffset! /
             (DateTime.now().millisecondsSinceEpoch - startTime!).toDouble() *
             100;
         logic.photoViewController.animatePosition?.call(
-            logic.photoViewController.position,
-            logic.photoViewController.position + offset);
+          logic.photoViewController.position,
+          logic.photoViewController.position + offset,
+        );
       }
     }
     moveOffset = null;
@@ -82,8 +84,9 @@ class ScrollManager {
             logic.scrollController.position.minScrollExtent) {
       value = Offset(value.dx, 0);
     }
-    logic.photoViewController
-        .updateMultiple(position: logic.photoViewController.position + value);
+    logic.photoViewController.updateMultiple(
+      position: logic.photoViewController.position + value,
+    );
     return;
   }
 }
@@ -193,18 +196,19 @@ class TapController {
     var logic = _currentLogic!;
     showMenu(
       context: App.globalContext!,
-      position: RelativeRect.fromLTRB(detail.position.dx, detail.position.dy,
-          detail.position.dx, detail.position.dy),
+      position: RelativeRect.fromLTRB(
+        detail.position.dx,
+        detail.position.dy,
+        detail.position.dx,
+        detail.position.dy,
+      ),
       items: [
         PopupMenuItem(
           child: Text("设置".tl),
           onTap: () => showSettings(App.globalContext!, _sessionId!),
         ),
         if (App.isDesktop)
-          PopupMenuItem(
-            onTap: logic.fullscreen,
-            child: Text("全屏".tl),
-          ),
+          PopupMenuItem(onTap: logic.fullscreen, child: Text("全屏".tl)),
         PopupMenuItem(
           child: Text("自动翻页".tl),
           onTap: () {
@@ -223,8 +227,7 @@ class TapController {
         if (App.isDesktop)
           PopupMenuItem(
             onTap: () {
-              appdata.settings[43] =
-                  appdata.settings[43] == '0' ? "1" : "0";
+              appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
               appdata.updateSettings();
               Future.microtask(() => logic.notifySettingsChanged());
             },
@@ -235,22 +238,15 @@ class TapController {
             onTap: () {
               logic.toggleShowOriginSize();
             },
-            child: Text(
-                logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
+            child: Text(logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
           ),
         PopupMenuItem(
           onTap: () => logic.favoriteCurrentImage(position: detail.position),
           child: Text("收藏图片".tl),
         ),
-        PopupMenuItem(
-          child: Text("退出".tl),
-          onTap: () => App.globalBack(),
-        ),
+        PopupMenuItem(child: Text("退出".tl), onTap: () => App.globalBack()),
         if (logic.readingData.hasEp)
-          PopupMenuItem(
-            onTap: logic.openEpsView,
-            child: Text("章节".tl),
-          ),
+          PopupMenuItem(onTap: logic.openEpsView, child: Text("章节".tl)),
       ],
     );
   }
@@ -318,8 +314,11 @@ class TapController {
     }
   }
 
-  static void _handleClick(PointerUpEvent detail, ComicReaderLogic logic,
-      BuildContext context) {
+  static void _handleClick(
+    PointerUpEvent detail,
+    ComicReaderLogic logic,
+    BuildContext context,
+  ) {
     bool flag = false;
     bool flag2 = false;
     final range = int.parse(appdata.settings[40]) / 100;
@@ -388,7 +387,8 @@ class TapController {
     var logic = _currentLogic!;
     var controller = logic.photoViewController;
     double target;
-    if (controller.scale == null || controller.getInitialScale?.call() == null) {
+    if (controller.scale == null ||
+        controller.getInitialScale?.call() == null) {
       return;
     }
     if (!logic.state.readingMethod.useComicImage) {
@@ -401,8 +401,10 @@ class TapController {
       target = controller.getInitialScale!.call()! * 1.75;
     }
     var size = MediaQuery.of(App.globalContext!).size;
-    controller.animateScale?.call(target,
-        Offset(size.width / 2 - position.dx, size.height / 2 - position.dy));
+    controller.animateScale?.call(
+      target,
+      Offset(size.width / 2 - position.dx, size.height / 2 - position.dy),
+    );
   }
 
   static void _handleLongPressStart(Offset position) {
@@ -415,8 +417,10 @@ class TapController {
     }
     final target = controller.getInitialScale!.call()! * 1.75;
     var size = MediaQuery.of(App.globalContext!).size;
-    controller.animateScale?.call(target,
-        Offset(size.width / 2 - position.dx, size.height / 2 - position.dy));
+    controller.animateScale?.call(
+      target,
+      Offset(size.width / 2 - position.dx, size.height / 2 - position.dy),
+    );
     controller.updateState?.call(null);
   }
 

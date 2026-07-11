@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart';
 class RegistryWidget extends StatefulWidget {
   /// Creates a [RegistryWidget].
   const RegistryWidget({Key? key, this.elementNotifier, required this.child})
-      : super(key: key);
+    : super(key: key);
 
   /// The widget below this widget in the tree.
   final Widget child;
@@ -29,7 +29,7 @@ class RegistryWidget extends StatefulWidget {
 class RegisteredElementWidget extends ProxyWidget {
   /// Creates a [RegisteredElementWidget].
   const RegisteredElementWidget({Key? key, required Widget child})
-      : super(key: key, child: child);
+    : super(key: key, child: child);
 
   @override
   Element createElement() => _RegisteredElement(this);
@@ -39,18 +39,18 @@ class _RegistryWidgetState extends State<RegistryWidget> {
   final Set<Element> registeredElements = {};
 
   @override
-  Widget build(BuildContext context) => _InheritedRegistryWidget(
-        state: this,
-        child: widget.child,
-      );
+  Widget build(BuildContext context) =>
+      _InheritedRegistryWidget(state: this, child: widget.child);
 }
 
 class _InheritedRegistryWidget extends InheritedWidget {
   final _RegistryWidgetState state;
 
-  const _InheritedRegistryWidget(
-      {Key? key, required this.state, required Widget child})
-      : super(key: key, child: child);
+  const _InheritedRegistryWidget({
+    Key? key,
+    required this.state,
+    required Widget child,
+  }) : super(key: key, child: child);
 
   @override
   bool updateShouldNotify(InheritedWidget oldWidget) => true;

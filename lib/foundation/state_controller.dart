@@ -16,14 +16,20 @@ class SimpleController extends StateController {
 abstract class StateController {
   static final _controllers = <StateControllerWrapped>[];
 
-  static T put<T extends StateController>(T controller,
-      {Object? tag, bool autoRemove = false}) {
+  static T put<T extends StateController>(
+    T controller, {
+    Object? tag,
+    bool autoRemove = false,
+  }) {
     _controllers.add(StateControllerWrapped(controller, autoRemove, tag));
     return controller;
   }
 
-  static T putIfNotExists<T extends StateController>(T controller,
-      {Object? tag, bool autoRemove = false}) {
+  static T putIfNotExists<T extends StateController>(
+    T controller, {
+    Object? tag,
+    bool autoRemove = false,
+  }) {
     return findOrNull<T>(tag: tag) ??
         put(controller, tag: tag, autoRemove: autoRemove);
   }
@@ -31,9 +37,13 @@ abstract class StateController {
   static T find<T extends StateController>({Object? tag}) {
     try {
       return _controllers
-          .lastWhere((element) =>
-              element.controller is T && (tag == null || tag == element.tag))
-          .controller as T;
+              .lastWhere(
+                (element) =>
+                    element.controller is T &&
+                    (tag == null || tag == element.tag),
+              )
+              .controller
+          as T;
     } catch (e) {
       throw StateError("$T with tag $tag Not Found");
     }
@@ -41,8 +51,10 @@ abstract class StateController {
 
   static List<T> findAll<T extends StateController>({Object? tag}) {
     return _controllers
-        .where((element) =>
-            element.controller is T && (tag == null || tag == element.tag))
+        .where(
+          (element) =>
+              element.controller is T && (tag == null || tag == element.tag),
+        )
         .map((e) => e.controller as T)
         .toList();
   }
@@ -50,9 +62,13 @@ abstract class StateController {
   static T? findOrNull<T extends StateController>({Object? tag}) {
     try {
       return _controllers
-          .lastWhere((element) =>
-              element.controller is T && (tag == null || tag == element.tag))
-          .controller as T;
+              .lastWhere(
+                (element) =>
+                    element.controller is T &&
+                    (tag == null || tag == element.tag),
+              )
+              .controller
+          as T;
     } catch (e) {
       return null;
     }
@@ -72,8 +88,10 @@ abstract class StateController {
   }
 
   static SimpleController putSimpleController(
-      void Function() onUpdate, Object? tag,
-      {void Function()? refresh}) {
+    void Function() onUpdate,
+    Object? tag, {
+    void Function()? refresh,
+  }) {
     var controller = SimpleController(refresh_: refresh);
     controller.stateUpdaters.add(Pair(null, onUpdate));
     _controllers.add(StateControllerWrapped(controller, false, tag));
@@ -166,30 +184,37 @@ class _StateBuilderState<T extends StateController>
     } catch (e) {
       throw "Controller Not Found";
     }
-    controller.stateUpdaters.add(Pair(widget.id, () {
-      updateState();
-    }));
+    controller.stateUpdaters.add(
+      Pair(widget.id, () {
+        updateState();
+      }),
+    );
     widget.initStateWrapped(controller);
     super.initState();
   }
 
   bool isInBuildPhase() {
-    return SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks;
+    return SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks;
   }
-// 使用示例
+
+  // 使用示例
   void updateState() {
     if (isInBuildPhase()) {
       debugPrint("⚠️ 当前处于构建过程中，需延迟更新");
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          setState(() { /* 安全更新 */ });
+          setState(() {
+            /* 安全更新 */
+          });
         }
       });
-    } else if (mounted){
-      setState(() { /* 直接更新 */ });
+    } else if (mounted) {
+      setState(() {
+        /* 直接更新 */
+      });
     }
   }
-
 
   @override
   void dispose() {

@@ -75,8 +75,9 @@ final class FavoriteType {
       var key = comicType.name.toLowerCase();
       return ComicSource.find(key);
     }
-    return ComicSource.sources
-        .firstWhereOrNull((element) => element.intKey == key);
+    return ComicSource.sources.firstWhereOrNull(
+      (element) => element.intKey == key,
+    );
   }
 
   String get name {
@@ -113,8 +114,9 @@ class FavoriteItem {
     if (type.key <= 6 && type.key >= 0) {
       return true;
     }
-    return ComicSource.sources
-            .firstWhereOrNull((element) => element.intKey == type.key) !=
+    return ComicSource.sources.firstWhereOrNull(
+          (element) => element.intKey == type.key,
+        ) !=
         null;
   }
 
@@ -136,89 +138,91 @@ class FavoriteItem {
   });
 
   FavoriteItem.fromPicacg(ComicItemBrief comic)
-      : name = comic.title,
-        author = comic.author,
-        type = FavoriteType.picacg,
-        tags = comic.tags,
-        target = comic.id,
-        coverPath = comic.path;
+    : name = comic.title,
+      author = comic.author,
+      type = FavoriteType.picacg,
+      tags = comic.tags,
+      target = comic.id,
+      coverPath = comic.path;
 
   FavoriteItem.fromEhentai(EhGalleryBrief comic)
-      : name = comic.title,
-        author = comic.uploader,
-        type = FavoriteType.ehentai,
-        tags = comic.tags,
-        target = comic.link,
-        coverPath = comic.coverPath;
+    : name = comic.title,
+      author = comic.uploader,
+      type = FavoriteType.ehentai,
+      tags = comic.tags,
+      target = comic.link,
+      coverPath = comic.coverPath;
 
   FavoriteItem.fromJmComic(JmComicBrief comic)
-      : name = comic.name,
-        author = comic.author,
-        type = FavoriteType.jm,
-        tags = [],
-        target = comic.id,
-        coverPath = getJmCoverUrl(comic.id);
+    : name = comic.name,
+      author = comic.author,
+      type = FavoriteType.jm,
+      tags = [],
+      target = comic.id,
+      coverPath = getJmCoverUrl(comic.id);
 
   FavoriteItem.fromHitomi(HitomiComicBrief comic)
-      : name = comic.name,
-        author = comic.artist,
-        type = FavoriteType.hitomi,
-        tags = List.generate(
-            comic.tagList.length, (index) => comic.tagList[index].name),
-        target = comic.link,
-        coverPath = comic.cover;
+    : name = comic.name,
+      author = comic.artist,
+      type = FavoriteType.hitomi,
+      tags = List.generate(
+        comic.tagList.length,
+        (index) => comic.tagList[index].name,
+      ),
+      target = comic.link,
+      coverPath = comic.cover;
 
   FavoriteItem.fromHtcomic(HtComicBrief comic)
-      : name = comic.name,
-        author = "${comic.pages}Pages",
-        type = FavoriteType.htmanga,
-        tags = [],
-        target = comic.id,
-        coverPath = comic.image;
+    : name = comic.name,
+      author = "${comic.pages}Pages",
+      type = FavoriteType.htmanga,
+      tags = [],
+      target = comic.id,
+      coverPath = comic.image;
 
   FavoriteItem.fromNhentai(NhentaiComicBrief comic)
-      : name = comic.title,
-        author = "",
-        type = FavoriteType.nhentai,
-        tags = comic.tags,
-        target = comic.id,
-        coverPath = comic.cover;
+    : name = comic.title,
+      author = "",
+      type = FavoriteType.nhentai,
+      tags = comic.tags,
+      target = comic.id,
+      coverPath = comic.cover;
 
   FavoriteItem.custom(CustomComic comic)
-      : name = comic.title,
-        author = comic.subTitle,
-        type = FavoriteType(comic.sourceKey.hashCode),
-        tags = comic.tags,
-        target = comic.id,
-        coverPath = comic.cover;
+    : name = comic.title,
+      author = comic.subTitle,
+      type = FavoriteType(comic.sourceKey.hashCode),
+      tags = comic.tags,
+      target = comic.id,
+      coverPath = comic.cover;
 
   Map<String, dynamic> toJson() => {
-        "name": name,
-        "author": author,
-        "type": type.key,
-        "tags": tags,
-        "target": target,
-        "coverPath": coverPath,
-        "time": time
-      };
+    "name": name,
+    "author": author,
+    "type": type.key,
+    "tags": tags,
+    "target": target,
+    "coverPath": coverPath,
+    "time": time,
+  };
 
   FavoriteItem.fromJson(Map<String, dynamic> json)
-      : name = json["name"],
-        author = json["author"],
-        type = FavoriteType(json["type"]),
-        tags = List<String>.from(json["tags"]),
-        target = json["target"],
-        coverPath = json["coverPath"],
-        time = json["time"];
+    : name = json["name"],
+      author = json["author"],
+      type = FavoriteType(json["type"]),
+      tags = List<String>.from(json["tags"]),
+      target = json["target"],
+      coverPath = json["coverPath"],
+      time = json["time"];
 
   FavoriteItem.fromRow(Map row)
-      : name = row["name"],
-        author = row["author"],
-        type = FavoriteType(row["type"]),
-        tags = (row["tags"] as String).split(","),
-        target = row["target"],
-        coverPath = row["cover_path"],
-        time = row["time"] {
+    : name = row["name"],
+      author = row["author"],
+      type = FavoriteType(row["type"]),
+      tags = (row["tags"] as String).split(","),
+      target = row["target"],
+      coverPath = row["cover_path"],
+      time = row["time"] {
     tags.remove("");
   }
 
@@ -241,7 +245,9 @@ class FavoriteItem {
 
   @override
   bool operator ==(Object other) {
-    return other is FavoriteItem && other.target == target && other.type == type;
+    return other is FavoriteItem &&
+        other.target == target &&
+        other.type == type;
   }
 
   @override
@@ -250,7 +256,7 @@ class FavoriteItem {
   @override
   String toString() {
     var s = "FavoriteItem: $name $author $coverPath $hashCode $tags";
-    if(s.length > 100) {
+    if (s.length > 100) {
       return s.substring(0, 100);
     }
     return s;
@@ -313,19 +319,21 @@ class LocalFavoritesManager {
     if (_initialized) return;
     await _lock.synchronized(() async {
       if (_initialized) return;
-      
+
       final dbPath = "${App.dataPath}/local_favorite.db";
       final dir = Directory(App.dataPath);
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
 
-      _db = await databaseFactory.openDatabase(dbPath,
-          options: OpenDatabaseOptions(
-            version: 1,
-            onCreate: _onCreate,
-            onUpgrade: _onUpgrade,
-          ));
+      _db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        ),
+      );
 
       _checkAndCreate();
       await readData();
@@ -386,13 +394,13 @@ class LocalFavoritesManager {
         )
       ''');
     }
-    
+
     // 移除系统表
     tables.remove(kTableFolderSync);
     tables.remove(kTableFolderOrder);
-    
-    if(tables.isEmpty) return;
-    
+
+    if (tables.isEmpty) return;
+
     // 检查表结构是否需要更新
     var testTable = tables.first;
     // 获取表信息
@@ -404,7 +412,7 @@ class LocalFavoritesManager {
         break;
       }
     }
-    
+
     if (shouldUpdate) {
       for (var table in tables) {
         var tempName = "${table}_dw5d8g2_temp";
@@ -432,9 +440,11 @@ class LocalFavoritesManager {
 
   void updateUI() {
     Future.microtask(
-        () => StateController.findOrNull(tag: "me page")?.update());
+      () => StateController.findOrNull(tag: "me page")?.update(),
+    );
     Future.microtask(
-        () => StateController.findOrNull<FavoritesPageController>()?.update());
+      () => StateController.findOrNull<FavoritesPageController>()?.update(),
+    );
   }
 
   Future<List<String>> find(String target, FavoriteType type) async {
@@ -484,8 +494,9 @@ class LocalFavoritesManager {
     if (file.existsSync()) {
       Map<String, List<FavoriteItem>> allComics = {};
       try {
-        var data = (const JsonDecoder().convert(await file.readAsString()))
-            as Map<String, dynamic>;
+        var data =
+            (const JsonDecoder().convert(await file.readAsString()))
+                as Map<String, dynamic>;
 
         for (var key in data.keys.toList()) {
           Set<FavoriteItem> comics = {};
@@ -512,20 +523,24 @@ class LocalFavoritesManager {
       } finally {
         file.deleteSync();
       }
-    } else if ((file = File("${App.dataPath}/local_favorite_temp.db"))
-        .existsSync()) {
+    } else if ((file = File(
+      "${App.dataPath}/local_favorite_temp.db",
+    )).existsSync()) {
       var tmpDbFactory = databaseFactoryFfi;
       final tmpDb = await tmpDbFactory.openDatabase(file.path);
-      
+
       final folders = await tmpDb.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table';");
+        "SELECT name FROM sqlite_master WHERE type='table';",
+      );
       final folderNames = folders
           .map((element) => element["name"] as String)
           .toList();
-          
+
       folderNames.remove(kTableFolderSync);
       folderNames.remove(kTableFolderOrder);
-      Log.i("LocalFavoritesManager.readData read folders from local database $folderNames");
+      Log.i(
+        "LocalFavoritesManager.readData read folders from local database $folderNames",
+      );
       var folderToOrder = <String, int>{};
       for (var folder in folderNames) {
         var res = await tmpDb.query(
@@ -545,18 +560,32 @@ class LocalFavoritesManager {
       var res = <FavoriteItemWithFolderInfo>[];
       for (final folder in folderNames) {
         var comics = await tmpDb.query(folder);
-        Log.i("LocalFavoritesManager.readData read $folder gets ${comics.length} comics");
-        res.addAll(comics.map((element) =>
-            FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder)));
+        Log.i(
+          "LocalFavoritesManager.readData read $folder gets ${comics.length} comics",
+        );
+        res.addAll(
+          comics.map(
+            (element) => FavoriteItemWithFolderInfo(
+              FavoriteItem.fromRow(element),
+              folder,
+            ),
+          ),
+        );
       }
       var skips = 0;
       for (var comic in res) {
         if (!folderNames.contains(comic.folder)) {
           createFolder(comic.folder);
         }
-        if (!(await comicExists(comic.folder, comic.comic.target, comic.comic.type.key))) {
+        if (!(await comicExists(
+          comic.folder,
+          comic.comic.target,
+          comic.comic.type.key,
+        ))) {
           addComic(comic.folder, comic.comic);
-          Log.i("LocalFavoritesManager add comic ${comic.comic.target} to ${comic.folder}");
+          Log.i(
+            "LocalFavoritesManager add comic ${comic.comic.target} to ${comic.folder}",
+          );
         } else {
           skips++;
         }
@@ -571,7 +600,8 @@ class LocalFavoritesManager {
 
   Future<List<String>> _getTablesWithDB(Database db) async {
     final tablesResult = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table';");
+      "SELECT name FROM sqlite_master WHERE type='table';",
+    );
     final tables = tablesResult
         .map((element) => element["name"] as String)
         .toList();
@@ -605,14 +635,10 @@ class LocalFavoritesManager {
   void updateOrder(Map<String, int> order) async {
     final db = await _getDatabase();
     for (var folder in order.keys) {
-      await db.insert(
-        kTableFolderOrder,
-        {
-          kFolderOrderName: folder,
-          kFolderOrderValue: order[folder],
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert(kTableFolderOrder, {
+        kFolderOrderName: folder,
+        kFolderOrderValue: order[folder],
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -655,14 +681,16 @@ class LocalFavoritesManager {
   Future<int> maxValue(String folder) async {
     final db = await _getDatabase();
     final result = await db.rawQuery(
-        'SELECT MAX(display_order) AS max_value FROM "$folder"');
+      'SELECT MAX(display_order) AS max_value FROM "$folder"',
+    );
     return result.firstOrNull?["max_value"] as int? ?? 0;
   }
 
   Future<int> minValue(String folder) async {
     final db = await _getDatabase();
     final result = await db.rawQuery(
-        'SELECT MIN(display_order) AS min_value FROM "$folder"');
+      'SELECT MIN(display_order) AS min_value FROM "$folder"',
+    );
     return result.firstOrNull?["min_value"] as int? ?? 0;
   }
 
@@ -685,7 +713,7 @@ class LocalFavoritesManager {
     if (result.isNotEmpty) {
       final existingTags = result.first['tags'] as String;
       final newTags = '$tag,$existingTags';
-      
+
       await db.update(
         folder,
         {'tags': newTags},
@@ -701,14 +729,21 @@ class LocalFavoritesManager {
     var res = <FavoriteItemWithFolderInfo>[];
     for (final folder in await folderNames) {
       var comics = await db.query(folder);
-      res.addAll(comics.map((element) =>
-          FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder)));
+      res.addAll(
+        comics.map(
+          (element) =>
+              FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder),
+        ),
+      );
     }
     return res;
   }
 
   /// create a folder
-  Future<String> createFolder(String name, [bool renameWhenInvalidName = false]) async {
+  Future<String> createFolder(
+    String name, [
+    bool renameWhenInvalidName = false,
+  ]) async {
     if (name.isEmpty) {
       if (renameWhenInvalidName) {
         int i = 0;
@@ -732,7 +767,7 @@ class LocalFavoritesManager {
         throw Exception("Folder is existing");
       }
     }
-    
+
     final db = await _getDatabase();
     await db.execute('''
       CREATE TABLE "$name"(
@@ -761,7 +796,11 @@ class LocalFavoritesManager {
     return res.isNotEmpty;
   }
 
-  Future<FavoriteItem> getComic(String folder, String target, FavoriteType type) async {
+  Future<FavoriteItem> getComic(
+    String folder,
+    String target,
+    FavoriteType type,
+  ) async {
     final db = await _getDatabase();
     var res = await db.query(
       folder,
@@ -782,7 +821,7 @@ class LocalFavoritesManager {
     if (!(await folderNames).contains(folder)) {
       throw Exception("Folder does not exists");
     }
-    
+
     final db = await _getDatabase();
     var res = await db.query(
       folder,
@@ -792,7 +831,7 @@ class LocalFavoritesManager {
     if (res.isNotEmpty) {
       return;
     }
-    
+
     int displayOrder;
     if (order != null) {
       displayOrder = order;
@@ -816,16 +855,18 @@ class LocalFavoritesManager {
     updateUI();
     saveData();
     try {
-      var file =
-          (await (ImageManager().getImage(comic.coverPath)).last).getFile();
+      var file = (await (ImageManager().getImage(
+        comic.coverPath,
+      )).last).getFile();
       var path =
           "${(await getApplicationSupportDirectory()).path}${pathSep}favoritesCover";
       var directory = Directory(path);
       if (!directory.existsSync()) {
         directory.createSync();
       }
-      var hash =
-          md5.convert(const Utf8Encoder().convert(comic.coverPath)).toString();
+      var hash = md5
+          .convert(const Utf8Encoder().convert(comic.coverPath))
+          .toString();
       file.copySync("$path$pathSep$hash.jpg");
     } catch (e) {
       //忽略
@@ -835,15 +876,17 @@ class LocalFavoritesManager {
   /// get comic cover
   Future<File> getCover(FavoriteItem item) async {
     var path = "${App.dataPath}/favoritesCover";
-    var hash =
-        md5.convert(const Utf8Encoder().convert(item.coverPath)).toString();
+    var hash = md5
+        .convert(const Utf8Encoder().convert(item.coverPath))
+        .toString();
     var file = File("$path/$hash.jpg");
     if (file.existsSync()) {
       return file;
     }
     if (item.coverPath.startsWith("file://")) {
-      var data = await downloadManager
-          .getCover(item.coverPath.replaceFirst("file://", ""));
+      var data = await downloadManager.getCover(
+        item.coverPath.replaceFirst("file://", ""),
+      );
       file.createSync(recursive: true);
       file.writeAsBytesSync(data.readAsBytesSync());
       return file;
@@ -854,7 +897,7 @@ class LocalFavoritesManager {
       }
       var res = await (ImageManager().getImage(item.coverPath, {
         if (item.type == FavoriteType.ehentai) "cookie": EhNetwork().cookiesStr,
-        if (item.type == FavoriteType.hitomi) "Referer": "https://hitomi.la/"
+        if (item.type == FavoriteType.hitomi) "Referer": "https://hitomi.la/",
       }).last);
       file.createSync(recursive: true);
       file.writeAsBytesSync(res.getFile().readAsBytesSync());
@@ -889,7 +932,11 @@ class LocalFavoritesManager {
     checkAndDeleteCover(comic);
   }
 
-  void deleteComicWithTarget(String folder, String target, FavoriteType type) async {
+  void deleteComicWithTarget(
+    String folder,
+    String target,
+    FavoriteType type,
+  ) async {
     _modifiedAfterLastCache = true;
     final db = await _getDatabase();
     await db.delete(
@@ -927,10 +974,10 @@ class LocalFavoritesManager {
     if (after.contains('"')) {
       throw "Invalid name";
     }
-    
+
     final db = await _getDatabase();
     await db.execute('ALTER TABLE "$before" RENAME TO "$after"');
-    
+
     if ((await folderSync).isNotEmpty) {
       await db.update(
         kTableFolderSync,
@@ -958,7 +1005,7 @@ class LocalFavoritesManager {
             .toIso8601String()
             .replaceFirst("T", " ")
             .substring(0, 19);
-            
+
         Map<String, dynamic> updates = {'time': newTime};
         if (appdata.settings[54] == "1") {
           int maxValue = await this.maxValue(folder);
@@ -967,7 +1014,7 @@ class LocalFavoritesManager {
           int minValue = await this.minValue(folder);
           updates['display_order'] = minValue - 1;
         }
-        
+
         await db.update(
           folder,
           updates,
@@ -989,7 +1036,9 @@ class LocalFavoritesManager {
     data["website"] = "https://github.com/Pacalini/PicaComic";
     data["name"] = folderName;
     var comics = await db.query(folderName);
-    data["comics"] = comics.map((e) => FavoriteItem.fromRow(e).toJson()).toList();
+    data["comics"] = comics
+        .map((e) => FavoriteItem.fromRow(e).toJson())
+        .toList();
     return const JsonEncoder().convert(data);
   }
 
@@ -1029,7 +1078,8 @@ class LocalFavoritesManager {
       );
       for (var comic in res) {
         comics.add(
-            FavoriteItemWithFolderInfo(FavoriteItem.fromRow(comic), table));
+          FavoriteItemWithFolderInfo(FavoriteItem.fromRow(comic), table),
+        );
       }
       if (comics.length > 200) {
         break;
@@ -1048,8 +1098,9 @@ class LocalFavoritesManager {
     }
 
     for (var i = 1; i < keywordList.length; i++) {
-      comics =
-          comics.where((element) => test(element, keywordList[i])).toList();
+      comics = comics
+          .where((element) => test(element, keywordList[i]))
+          .toList();
     }
 
     return comics;

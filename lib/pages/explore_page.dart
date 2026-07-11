@@ -31,20 +31,20 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   void initState() {
     pages = appdata.appSettings.explorePages;
-    var all = ComicSource.sources.map((e) => e.explorePages).expand((e) => e.map((e) => e.title)).toList();
+    var all = ComicSource.sources
+        .map((e) => e.explorePages)
+        .expand((e) => e.map((e) => e.title))
+        .toList();
     pages = pages.where((e) => all.contains(e)).toList();
-    if(pages.isEmpty && appdata.appSettings.explorePages.isNotEmpty) {
-      if(appdata.appSettings.explorePages.first.isNum) {
+    if (pages.isEmpty && appdata.appSettings.explorePages.isNotEmpty) {
+      if (appdata.appSettings.explorePages.first.isNum) {
         // is odd data, update
         appdata.appSettings.explorePages = all;
         pages = all;
         appdata.updateSettings();
       }
     }
-    controller = TabController(
-      length: pages.length,
-      vsync: this,
-    );
+    controller = TabController(length: pages.length, vsync: this);
     super.initState();
   }
 
@@ -55,13 +55,13 @@ class _ExplorePageState extends State<ExplorePage>
   }
 
   Widget buildFAB() => Material(
-        color: Colors.transparent,
-        child: FloatingActionButton(
-          key: const Key("FAB"),
-          onPressed: refresh,
-          child: const Icon(Icons.refresh),
-        ),
-      );
+    color: Colors.transparent,
+    child: FloatingActionButton(
+      key: const Key("FAB"),
+      onPressed: refresh,
+      child: const Icon(Icons.refresh),
+    ),
+  );
 
   Tab buildTab(String i) {
     return Tab(text: i.tl, key: Key(i));
@@ -81,50 +81,50 @@ class _ExplorePageState extends State<ExplorePage>
     return Stack(
       children: [
         Positioned.fill(
-            child: Column(
-          children: [
-            tabBar,
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (notifications) {
-                  if (notifications.metrics.axis == Axis.horizontal) {
-                    if (!showFB) {
+          child: Column(
+            children: [
+              tabBar,
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notifications) {
+                    if (notifications.metrics.axis == Axis.horizontal) {
+                      if (!showFB) {
+                        setState(() {
+                          showFB = true;
+                        });
+                      }
+                      return true;
+                    }
+
+                    var current = notifications.metrics.pixels;
+
+                    if ((current > location && current != 0) && showFB) {
+                      setState(() {
+                        showFB = false;
+                      });
+                    } else if ((current < location || current == 0) &&
+                        !showFB) {
                       setState(() {
                         showFB = true;
                       });
                     }
-                    return true;
-                  }
 
-                  var current = notifications.metrics.pixels;
-
-                  if ((current > location && current != 0) && showFB) {
-                    setState(() {
-                      showFB = false;
-                    });
-                  } else if ((current < location || current == 0) && !showFB) {
-                    setState(() {
-                      showFB = true;
-                    });
-                  }
-
-                  location = current;
-                  return false;
-                },
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: TabBarView(
-                    controller: controller,
-                    children: pages
-                        .map((e) => buildBody(e))
-                        .toList(),
+                    location = current;
+                    return false;
+                  },
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: TabBarView(
+                      controller: controller,
+                      children: pages.map((e) => buildBody(e)).toList(),
+                    ),
                   ),
                 ),
               ),
-            )
-          ],
-        )),
+            ],
+          ),
+        ),
         Positioned(
           right: 16,
           bottom: 16,
@@ -134,14 +134,16 @@ class _ExplorePageState extends State<ExplorePage>
             child: showFB ? buildFAB() : const SizedBox(),
             transitionBuilder: (widget, animation) {
               var tween = Tween<Offset>(
-                  begin: const Offset(0, 1), end: const Offset(0, 0));
+                begin: const Offset(0, 1),
+                end: const Offset(0, 0),
+              );
               return SlideTransition(
                 position: tween.animate(animation),
                 child: widget,
               );
             },
           ),
-        )
+        ),
       ],
     );
   }
@@ -191,11 +193,7 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
     } else if (data.loadPage != null) {
       return buildComicList();
     } else if (data.loadMixed != null) {
-      return _MixedExplorePage(
-        data,
-        comicSourceKey,
-        key: ValueKey(key),
-      );
+      return _MixedExplorePage(data, comicSourceKey, key: ValueKey(key));
     } else if (data.overridePageBuilder != null) {
       return Builder(
         builder: (context) {
@@ -204,14 +202,16 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
         key: ValueKey(key),
       );
     } else {
-      return const Center(
-        child: Text("Empty Page"),
-      );
+      return const Center(child: Text("Empty Page"));
     }
   }
 
-  Widget buildComicList() =>
-      _ComicList(data.loadPage!, tag.toString(), comicSourceKey, cacheBuilder: data.loadCache,);
+  Widget buildComicList() => _ComicList(
+    data.loadPage!,
+    tag.toString(),
+    comicSourceKey,
+    cacheBuilder: data.loadCache,
+  );
 
   void load() async {
     final loadCache = data.loadMultiPartCache;
@@ -241,24 +241,16 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
   Widget buildMultiPart() {
     if (loading) {
       load();
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     } else if (message != null) {
-      return NetworkError(
-        message: message!,
-        retry: refresh,
-        withAppbar: false,
-      );
+      return NetworkError(message: message!, retry: refresh, withAppbar: false);
     } else {
       return buildPage();
     }
   }
 
   Widget buildPage() {
-    return SmoothCustomScrollView(
-      slivers: _buildPage().toList(),
-    );
+    return SmoothCustomScrollView(slivers: _buildPage().toList());
   }
 
   Iterable<Widget> _buildPage() sync* {
@@ -278,8 +270,9 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
         loading = true;
       });
     } else if (data.loadPage != null) {
-      StateController.findOrNull<ComicsPageLogic>(tag: tag.toString())
-          ?.refresh();
+      StateController.findOrNull<ComicsPageLogic>(
+        tag: tag.toString(),
+      )?.refresh();
     } else {
       setState(() {
         key++;
@@ -333,10 +326,7 @@ class _MixedExplorePageState
     for (var part in data) {
       if (part is ExplorePagePart) {
         if (cache.isNotEmpty) {
-          yield SliverGridComics(
-            comics: (cache),
-            comicType: widget.comicType,
-          );
+          yield SliverGridComics(comics: (cache), comicType: widget.comicType);
           yield const SliverToBoxAdapter(child: Divider());
           cache.clear();
         }
@@ -347,10 +337,7 @@ class _MixedExplorePageState
       }
     }
     if (cache.isNotEmpty) {
-      yield SliverGridComics(
-        comics: (cache),
-        comicType: widget.comicType,
-      );
+      yield SliverGridComics(comics: (cache), comicType: widget.comicType);
     }
   }
 
@@ -359,7 +346,7 @@ class _MixedExplorePageState
     return SmoothCustomScrollView(
       slivers: [
         ...buildSlivers(context, data),
-        if (haveNextPage) const ListLoadingIndicator().toSliver()
+        if (haveNextPage) const ListLoadingIndicator().toSliver(),
       ],
     );
   }
@@ -380,7 +367,9 @@ class _MixedExplorePageState
 }
 
 Iterable<Widget> _buildExplorePagePart(
-    ExplorePagePart part, ComicType comicType) sync* {
+  ExplorePagePart part,
+  ComicType comicType,
+) sync* {
   Widget buildTitle(ExplorePagePart part) {
     return SliverToBoxAdapter(
       child: SizedBox(
@@ -391,8 +380,10 @@ Iterable<Widget> _buildExplorePagePart(
             children: [
               Text(
                 part.title,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const Spacer(),
               if (part.viewMore != null)
@@ -423,7 +414,7 @@ Iterable<Widget> _buildExplorePagePart(
                     }
                   },
                   child: Text("查看更多".tl),
-                )
+                ),
             ],
           ),
         ),

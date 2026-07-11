@@ -7,24 +7,17 @@ import 'package:pica_comic/tools/prefs_helper.dart';
 class RepositoryInfo {
   /// 存储库名称（唯一标识符，不可更改）
   final String name;
-  
+
   /// 存储库路径
   final String path;
-  
+
   /// 存储库标题（可更改，用于显示）
   String title;
 
-  RepositoryInfo({
-    required this.name,
-    required this.path,
-    String? title,
-  }) : title = title ?? name;
+  RepositoryInfo({required this.name, required this.path, String? title})
+    : title = title ?? name;
 
-  Map<String, dynamic> toMap() => {
-        'name': name,
-        'path': path,
-        'title': title,
-      };
+  Map<String, dynamic> toMap() => {'name': name, 'path': path, 'title': title};
 
   factory RepositoryInfo.fromMap(Map<String, dynamic> map) {
     return RepositoryInfo(
@@ -168,4 +161,3 @@ class LocalRepositoryManager {
     _repositories = repositories;
   }
 }
-

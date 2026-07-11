@@ -1,4 +1,3 @@
-
 import 'package:mime/mime.dart';
 
 class FileType {
@@ -11,7 +10,7 @@ class FileType {
 FileType detectFileType(List<int> data) {
   var mime = lookupMimeType('no-file', headerBytes: data);
   var ext = mime == null ? '' : extensionFromMime(mime);
-  if(ext == 'jpe') {
+  if (ext == 'jpe') {
     ext = 'jpg';
   }
   return FileType(".$ext", mime ?? 'application/octet-stream');

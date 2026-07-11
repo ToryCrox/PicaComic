@@ -31,7 +31,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             "从上至下".tl,
             "从上至下(连续)".tl,
             "双页".tl,
-            "双页(反向)".tl
+            "双页(反向)".tl,
           ],
           onChanged: (i) {
             appdata.settings[9] = (i + 1).toString();
@@ -61,24 +61,26 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             child: Stack(
               children: [
                 Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: -20,
-                    right: 0,
-                    child: Slider(
-                      max: 20,
-                      min: 0,
-                      divisions: 20,
-                      value: int.parse(appdata.settings[33]).toDouble(),
-                      overlayColor: WidgetStateColor.resolveWith(
-                              (states) => Colors.transparent),
-                      onChanged: (v) {
-                        if (v == 0) return;
-                        appdata.settings[33] = v.toInt().toString();
-                        appdata.updateSettings();
-                        setState(() {});
-                      },
-                    ))
+                  top: 0,
+                  bottom: 0,
+                  left: -20,
+                  right: 0,
+                  child: Slider(
+                    max: 20,
+                    min: 0,
+                    divisions: 20,
+                    value: int.parse(appdata.settings[33]).toDouble(),
+                    overlayColor: WidgetStateColor.resolveWith(
+                      (states) => Colors.transparent,
+                    ),
+                    onChanged: (v) {
+                      if (v == 0) return;
+                      appdata.settings[33] = v.toInt().toString();
+                      appdata.updateSettings();
+                      setState(() {});
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -107,16 +109,12 @@ class _ReadingSettingsState extends State<ReadingSettings> {
           settingsIndex: 18,
           icon: const Icon(Icons.brightness_4),
         ),
-        if(App.isAndroid)
+        if (App.isAndroid)
           SelectSetting(
             leading: const Icon(Icons.screen_lock_rotation),
             title: "固定屏幕方向".tl,
             initialValue: int.parse(appdata.settings[76]),
-            values: [
-              "禁用".tl,
-              "横屏".tl,
-              "竖屏".tl,
-            ],
+            values: ["禁用".tl, "横屏".tl, "竖屏".tl],
             onChanged: (i) {
               appdata.settings[76] = i.toString();
               appdata.updateSettings();
@@ -125,10 +123,28 @@ class _ReadingSettingsState extends State<ReadingSettings> {
         SelectSetting(
           leading: const Icon(Icons.image_outlined),
           title: "图片预加载".tl,
-          initialValue: ["0", "1", "2", "3", "4", "5", "10", "15"].indexOf(appdata.settings[28]),
+          initialValue: [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "10",
+            "15",
+          ].indexOf(appdata.settings[28]),
           values: const ["0", "1", "2", "3", "4", "5", "10", "15"],
           onChanged: (i) {
-            appdata.settings[28] = ["0", "1", "2", "3", "4", "5", "10", "15"][i];
+            appdata.settings[28] = [
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "10",
+              "15",
+            ][i];
             appdata.updateSettings();
           },
         ),
@@ -152,7 +168,11 @@ class _ReadingSettingsState extends State<ReadingSettings> {
           settingsIndex: 81,
           icon: const Icon(Icons.dark_mode),
         ),
-        Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom))
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     );
   }

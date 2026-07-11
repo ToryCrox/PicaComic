@@ -19,9 +19,7 @@ class _PicacgSettingsState extends State<PicacgSettings> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ListTile(
-          title: Text("哔咔漫画".tl),
-        ),
+        ListTile(title: Text("哔咔漫画".tl)),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("设置分流".tl),
@@ -38,8 +36,9 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           leading: const Icon(Icons.image),
           title: Text("设置图片质量".tl),
           trailing: Select(
-            initialValue:
-                _imageQualityValues.indexOf(picacg.data['imageQuality']),
+            initialValue: _imageQualityValues.indexOf(
+              picacg.data['imageQuality'],
+            ),
             width: App.locale.languageCode == "en" ? 140 : 120,
             values: ["低".tl, "中".tl, "高".tl, "原图".tl],
             onChange: (i) {
@@ -89,8 +88,9 @@ class _PicacgSettingsState extends State<PicacgSettings> {
         ListTile(
           leading: const Icon(Icons.today),
           title: Text("自动打卡".tl),
-          subtitle:
-              App.isMobile ? Text("APP启动或是距离上次打卡间隔一天时执行".tl) : Text("启动时执行".tl),
+          subtitle: App.isMobile
+              ? Text("APP启动或是距离上次打卡间隔一天时执行".tl)
+              : Text("启动时执行".tl),
           onTap: () {},
           trailing: Switch(
             value: punchIn,

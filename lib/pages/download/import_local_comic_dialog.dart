@@ -72,8 +72,9 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
     });
 
     try {
-      final repositoryPath =
-          await LocalRepositoryManager().getRepositoryPath(selectedRepositoryName!);
+      final repositoryPath = await LocalRepositoryManager().getRepositoryPath(
+        selectedRepositoryName!,
+      );
       if (repositoryPath == null) {
         setState(() {
           scanning = false;
@@ -120,7 +121,10 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
 
         // 如果包含至少3张图片，则将该文件夹作为漫画目录
         if (imageCount >= 3) {
-          final relativePath = Path.relative(draggedDir.path, from: repositoryPath);
+          final relativePath = Path.relative(
+            draggedDir.path,
+            from: repositoryPath,
+          );
           final relativeImagePath = firstImagePath != null
               ? Path.relative(firstImagePath, from: draggedDir.path)
               : null;
@@ -145,7 +149,9 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
       }
 
       // 按照目录名排序
-      comics = comics.sortedFileNameBy((comic) => comic['name'] as String).toList();
+      comics = comics
+          .sortedFileNameBy((comic) => comic['name'] as String)
+          .toList();
 
       setState(() {
         scannedComics = comics;
@@ -254,9 +260,11 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                             filteredTags = List.from(allTags);
                           } else {
                             filteredTags = allTags
-                                .where((tag) => tag.name
-                                    .toLowerCase()
-                                    .contains(value.toLowerCase()))
+                                .where(
+                                  (tag) => tag.name.toLowerCase().contains(
+                                    value.toLowerCase(),
+                                  ),
+                                )
                                 .toList();
                           }
                         });
@@ -269,7 +277,9 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                         itemCount: filteredTags.length,
                         itemBuilder: (context, index) {
                           final tag = filteredTags[index];
-                          final isSelected = tempSelectedTagIds.contains(tag.id);
+                          final isSelected = tempSelectedTagIds.contains(
+                            tag.id,
+                          );
                           return CheckboxListTile(
                             title: Text(tag.name),
                             value: isSelected,
@@ -338,10 +348,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "导入本地漫画".tl,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text("导入本地漫画".tl, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             // 存储库选择
             Row(
@@ -403,9 +410,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                             child: selectedTagIds.isEmpty
                                 ? Text(
                                     '无',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                    ),
+                                    style: TextStyle(color: Colors.grey[600]),
                                   )
                                 : Wrap(
                                     spacing: 8,
@@ -414,7 +419,8 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                                       final tag = allTags
                                           .where((tag) => tag.id == tagId)
                                           .firstOrNull;
-                                      if (tag == null) return const SizedBox.shrink();
+                                      if (tag == null)
+                                        return const SizedBox.shrink();
                                       return Chip(
                                         label: Text(tag.name),
                                         onDeleted: () {
@@ -422,7 +428,10 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                                             selectedTagIds.remove(tagId);
                                           });
                                         },
-                                        deleteIcon: const Icon(Icons.close, size: 18),
+                                        deleteIcon: const Icon(
+                                          Icons.close,
+                                          size: 18,
+                                        ),
                                       );
                                     }).toList(),
                                   ),
@@ -591,4 +600,3 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
     );
   }
 }
-

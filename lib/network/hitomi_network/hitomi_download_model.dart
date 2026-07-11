@@ -17,17 +17,28 @@ class DownloadedHitomiComic extends DownloadedItem {
   @override
   DownloadColorTag? color;
 
-  DownloadedHitomiComic(this.comic, this.size, this.link, this.cover, {this.color});
+  DownloadedHitomiComic(
+    this.comic,
+    this.size,
+    this.link,
+    this.cover, {
+    this.color,
+  });
 
-  Map<String, dynamic> toMap() =>
-      {"comic": comic.toMap(), "size": size, "link": link, "cover": cover, "color": color?.name};
+  Map<String, dynamic> toMap() => {
+    "comic": comic.toMap(),
+    "size": size,
+    "link": link,
+    "cover": cover,
+    "color": color?.name,
+  };
 
   DownloadedHitomiComic.fromMap(Map<String, dynamic> map)
-      : comic = HitomiComic.fromMap(map["comic"]),
-        size = map["size"],
-        link = map["link"],
-        cover = map["cover"],
-        color = DownloadColorTag.fromString(map["color"]);
+    : comic = HitomiComic.fromMap(map["comic"]),
+      size = map["size"],
+      link = map["link"],
+      cover = map["cover"],
+      color = DownloadColorTag.fromString(map["color"]);
 
   @override
   double? get comicSize => size;
@@ -64,9 +75,16 @@ class DownloadedHitomiComic extends DownloadedItem {
 }
 
 class HitomiDownloadingTask extends DownloadingTask {
-  HitomiDownloadingTask(this.comic, this._coverPath, this.link,
-      super.whenFinish, super.whenError, super.updateInfo, super.id,
-      {super.type = DownloadType.hitomi});
+  HitomiDownloadingTask(
+    this.comic,
+    this._coverPath,
+    this.link,
+    super.whenFinish,
+    super.whenError,
+    super.updateInfo,
+    super.id, {
+    super.type = DownloadType.hitomi,
+  });
 
   final String _coverPath;
 
@@ -78,7 +96,7 @@ class HitomiDownloadingTask extends DownloadingTask {
 
   late final _headers = {
     "User-Agent": webUA,
-    "Referer": "https://hitomi.la/reader/${id.substring(6)}.html"
+    "Referer": "https://hitomi.la/reader/${id.substring(6)}.html",
   };
 
   @override
@@ -93,8 +111,10 @@ class HitomiDownloadingTask extends DownloadingTask {
   @override
   Future<Map<int, List<String>>> getLinks() async {
     return {
-      0: List<String>.generate(comic.files.length,
-          (index) => const JsonEncoder().convert(comic.files[index].toMap()))
+      0: List<String>.generate(
+        comic.files.length,
+        (index) => const JsonEncoder().convert(comic.files[index].toMap()),
+      ),
     };
   }
 
@@ -108,26 +128,30 @@ class HitomiDownloadingTask extends DownloadingTask {
 
   @override
   Map<String, dynamic> toMap() => {
-        "comic": comic.toMap(),
-        "_coverPath": _coverPath,
-        "link": link,
-        ...super.toBaseMap()
-      };
+    "comic": comic.toMap(),
+    "_coverPath": _coverPath,
+    "link": link,
+    ...super.toBaseMap(),
+  };
 
   HitomiDownloadingTask.fromMap(
-      Map<String, dynamic> map,
-      DownloadProgressCallback whenFinish,
-      DownloadProgressCallback whenError,
-      DownloadProgressCallbackAsync updateInfo,
-      String id)
-      : comic = HitomiComic.fromMap(map["comic"]),
-        _coverPath = map["_coverPath"],
-        link = map["link"],
-        super.fromMap(map, whenFinish, whenError, updateInfo);
+    Map<String, dynamic> map,
+    DownloadProgressCallback whenFinish,
+    DownloadProgressCallback whenError,
+    DownloadProgressCallbackAsync updateInfo,
+    String id,
+  ) : comic = HitomiComic.fromMap(map["comic"]),
+      _coverPath = map["_coverPath"],
+      link = map["link"],
+      super.fromMap(map, whenFinish, whenError, updateInfo);
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     return DownloadedHitomiComic(
-        comic, await getFolderSize(Directory(path)), link, _coverPath);
+      comic,
+      await getFolderSize(Directory(path)),
+      link,
+      _coverPath,
+    );
   }
 }

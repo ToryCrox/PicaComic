@@ -36,9 +36,11 @@ class PicacgNetwork {
 
   Profile? user;
 
-  Future<Res<Map<String, dynamic>>> get(String url,
-      {CacheExpiredTime expiredTime = CacheExpiredTime.short,
-      bool log = true}) async {
+  Future<Res<Map<String, dynamic>>> get(
+    String url, {
+    CacheExpiredTime expiredTime = CacheExpiredTime.short,
+    bool log = true,
+  }) async {
     if (token == "") {
       await Future.delayed(const Duration(milliseconds: 500));
       return const Res(null, errorMessage: "未登录");
@@ -83,7 +85,9 @@ class PicacgNetwork {
   }
 
   Future<Res<Map<String, dynamic>>> post(
-      String url, Map<String, String>? data) async {
+    String url,
+    Map<String, String>? data,
+  ) async {
     var api = "https://picaapi.picacomic.com";
     if (token == "" &&
         url != '$api/auth/sign-in' &&
@@ -95,13 +99,16 @@ class PicacgNetwork {
     dio.options = getHeaders("post", token, url.replaceAll("$apiUrl/", ""));
     try {
       await setNetworkProxy();
-      var res = await dio.post<String>(url,
-          data: data,
-          options: Options(
-              responseType: ResponseType.plain,
-              validateStatus: (i) {
-                return i == 200 || i == 400 || i == 401;
-              }));
+      var res = await dio.post<String>(
+        url,
+        data: data,
+        options: Options(
+          responseType: ResponseType.plain,
+          validateStatus: (i) {
+            return i == 200 || i == 400 || i == 401;
+          },
+        ),
+      );
 
       if (res.data == null) {
         throw Exception("Empty data");
@@ -174,8 +181,11 @@ class PicacgNetwork {
 
   ///获取用户信息
   Future<Res<Profile>> getProfile([bool log = true]) async {
-    var response = await get("$apiUrl/users/profile",
-        expiredTime: CacheExpiredTime.no, log: log);
+    var response = await get(
+      "$apiUrl/users/profile",
+      expiredTime: CacheExpiredTime.no,
+      log: log,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -188,16 +198,17 @@ class PicacgNetwork {
       url = res["avatar"]["fileServer"] + "/static/" + res["avatar"]["path"];
     }
     var p = Profile(
-        res["_id"],
-        url,
-        res["email"],
-        res["exp"],
-        res["level"],
-        res["name"],
-        res["title"],
-        res["isPunched"],
-        res["slogan"],
-        res["character"]);
+      res["_id"],
+      url,
+      res["email"],
+      res["exp"],
+      res["level"],
+      res["name"],
+      res["title"],
+      res["isPunched"],
+      res["slogan"],
+      res["character"],
+    );
     return Res(p);
   }
 
@@ -216,8 +227,10 @@ class PicacgNetwork {
   }
 
   Future<Res<List<String>>> getHotTags() async {
-    var response =
-        await get("$apiUrl/keywords", expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/keywords",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessageWithoutNull);
     }
@@ -231,8 +244,10 @@ class PicacgNetwork {
 
   ///获取分类
   Future<Res<List<CategoryItem>>> getCategories() async {
-    var response =
-        await get("$apiUrl/categories", expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/categories",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -276,10 +291,15 @@ class PicacgNetwork {
 
   ///搜索
   Future<Res<List<ComicItemBrief>>> search(
-      String keyWord, String sort, int page,
-      {bool addToHistory = false}) async {
-    var response = await post('$apiUrl/comics/advanced-search?page=$page',
-        {"keyword": keyWord, "sort": sort});
+    String keyWord,
+    String sort,
+    int page, {
+    bool addToHistory = false,
+  }) async {
+    var response = await post('$apiUrl/comics/advanced-search?page=$page', {
+      "keyword": keyWord,
+      "sort": sort,
+    });
     if (page == 1 && addToHistory && keyWord != "") {
       appdata.searchHistory.remove(keyWord);
       appdata.searchHistory.add(keyWord);
@@ -295,21 +315,27 @@ class PicacgNetwork {
       for (int i = 0; i < res["data"]["comics"]["docs"].length; i++) {
         try {
           var tags = <String>[];
-          tags.addAll(List<String>.from(
-              res["data"]["comics"]["docs"][i]["tags"] ?? []));
-          tags.addAll(List<String>.from(
-              res["data"]["comics"]["docs"][i]["categories"] ?? []));
+          tags.addAll(
+            List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []),
+          );
+          tags.addAll(
+            List<String>.from(
+              res["data"]["comics"]["docs"][i]["categories"] ?? [],
+            ),
+          );
           var si = ComicItemBrief(
-              res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",
-              res["data"]["comics"]["docs"][i]["author"] ?? "Unknown",
-              int.parse(
-                  res["data"]["comics"]["docs"][i]["likesCount"].toString()),
-              res["data"]["comics"]["docs"][i]["thumb"]["fileServer"] +
-                  "/static/" +
-                  res["data"]["comics"]["docs"][i]["thumb"]["path"],
-              res["data"]["comics"]["docs"][i]["_id"],
-              tags,
-              pages: res["data"]["comics"]["docs"][i]["pagesCount"]);
+            res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",
+            res["data"]["comics"]["docs"][i]["author"] ?? "Unknown",
+            int.parse(
+              res["data"]["comics"]["docs"][i]["likesCount"].toString(),
+            ),
+            res["data"]["comics"]["docs"][i]["thumb"]["fileServer"] +
+                "/static/" +
+                res["data"]["comics"]["docs"][i]["thumb"]["path"],
+            res["data"]["comics"]["docs"][i]["_id"],
+            tags,
+            pages: res["data"]["comics"]["docs"][i]["pagesCount"],
+          );
           comics.add(si);
         } catch (e) {
           continue;
@@ -333,8 +359,10 @@ class PicacgNetwork {
 
   ///获取漫画信息
   Future<Res<ComicItem>> getComicInfo(String id) async {
-    var response =
-        await get("$apiUrl/comics/$id", expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/comics/$id",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -352,21 +380,23 @@ class PicacgNetwork {
       if (res["data"]["comic"]["_creator"]["avatar"] == null) {
         url = defaultAvatarUrl;
       } else {
-        url = res["data"]["comic"]["_creator"]["avatar"]["fileServer"] +
+        url =
+            res["data"]["comic"]["_creator"]["avatar"]["fileServer"] +
             "/static/" +
             res["data"]["comic"]["_creator"]["avatar"]["path"];
       }
       var creator = Profile(
-          res["data"]["comic"]["_id"],
-          url,
-          "",
-          res["data"]["comic"]["_creator"]["exp"],
-          res["data"]["comic"]["_creator"]["level"],
-          res["data"]["comic"]["_creator"]["name"],
-          res["data"]["comic"]["_creator"]["title"] ?? "Unknown",
-          null,
-          res["data"]["comic"]["_creator"]["slogan"] ?? "无",
-          null);
+        res["data"]["comic"]["_id"],
+        url,
+        "",
+        res["data"]["comic"]["_creator"]["exp"],
+        res["data"]["comic"]["_creator"]["level"],
+        res["data"]["comic"]["_creator"]["name"],
+        res["data"]["comic"]["_creator"]["title"] ?? "Unknown",
+        null,
+        res["data"]["comic"]["_creator"]["slogan"] ?? "无",
+        null,
+      );
       var categories = <String>[];
       for (int i = 0; i < res["data"]["comic"]["categories"].length; i++) {
         categories.add(res["data"]["comic"]["categories"][i]);
@@ -376,27 +406,28 @@ class PicacgNetwork {
         tags.add(res["data"]["comic"]["tags"][i]);
       }
       var ci = ComicItem(
-          creator,
-          res["data"]["comic"]["title"] ?? "Unknown",
-          res["data"]["comic"]["description"] ?? "无",
-          res["data"]["comic"]["thumb"]["fileServer"] +
-                  "/static/" +
-                  res["data"]["comic"]["thumb"]["path"] ??
-              "",
-          res["data"]["comic"]["author"] ?? "Unknown",
-          res["data"]["comic"]["chineseTeam"] ?? "Unknown",
-          categories,
-          tags,
-          res["data"]["comic"]["likesCount"] ?? 0,
-          res["data"]["comic"]["commentsCount"] ?? 0,
-          res["data"]["comic"]["isFavourite"] ?? false,
-          res["data"]["comic"]["isLiked"] ?? false,
-          res["data"]["comic"]["epsCount"] ?? 0,
-          id,
-          res["data"]["comic"]["pagesCount"],
-          res["data"]["comic"]["updated_at"],
-          epsRes.data,
-          recommendationRes.data);
+        creator,
+        res["data"]["comic"]["title"] ?? "Unknown",
+        res["data"]["comic"]["description"] ?? "无",
+        res["data"]["comic"]["thumb"]["fileServer"] +
+                "/static/" +
+                res["data"]["comic"]["thumb"]["path"] ??
+            "",
+        res["data"]["comic"]["author"] ?? "Unknown",
+        res["data"]["comic"]["chineseTeam"] ?? "Unknown",
+        categories,
+        tags,
+        res["data"]["comic"]["likesCount"] ?? 0,
+        res["data"]["comic"]["commentsCount"] ?? 0,
+        res["data"]["comic"]["isFavourite"] ?? false,
+        res["data"]["comic"]["isLiked"] ?? false,
+        res["data"]["comic"]["epsCount"] ?? 0,
+        id,
+        res["data"]["comic"]["pagesCount"],
+        res["data"]["comic"]["updated_at"],
+        epsRes.data,
+        recommendationRes.data,
+      );
       return Res(ci);
     } catch (e, s) {
       Log.e("Data Analyse $e\n$s");
@@ -412,8 +443,10 @@ class PicacgNetwork {
     try {
       while (flag) {
         i++;
-        var res = await get("$apiUrl/comics/$id/eps?page=$i",
-            expiredTime: CacheExpiredTime.no);
+        var res = await get(
+          "$apiUrl/comics/$id/eps?page=$i",
+          expiredTime: CacheExpiredTime.no,
+        );
         if (res.error) {
           return Res(null, errorMessage: res.errorMessage);
         } else if (res.data["data"]["eps"]["pages"] == i) {
@@ -437,29 +470,35 @@ class PicacgNetwork {
     bool flag = true;
     while (flag) {
       i++;
-      var res = await get("$apiUrl/comics/$id/order/$order/pages?page=$i",
-          expiredTime: CacheExpiredTime.no);
+      var res = await get(
+        "$apiUrl/comics/$id/order/$order/pages?page=$i",
+        expiredTime: CacheExpiredTime.no,
+      );
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
       } else if (res.data["data"]["pages"]["pages"] == i) {
         flag = false;
       }
       for (int j = 0; j < res.data["data"]["pages"]["docs"].length; j++) {
-        imageUrls.add(res.data["data"]["pages"]["docs"][j]["media"]
-                ["fileServer"] +
-            "/static/" +
-            res.data["data"]["pages"]["docs"][j]["media"]["path"]);
+        imageUrls.add(
+          res.data["data"]["pages"]["docs"][j]["media"]["fileServer"] +
+              "/static/" +
+              res.data["data"]["pages"]["docs"][j]["media"]["path"],
+        );
       }
     }
     return Res(imageUrls);
   }
 
-  Future<Res<bool>> loadMoreCommends(Comments c,
-      {String type = "comics"}) async {
+  Future<Res<bool>> loadMoreCommends(
+    Comments c, {
+    String type = "comics",
+  }) async {
     if (c.loaded != c.pages) {
       var response = await get(
-          "$apiUrl/$type/${c.id}/comments?page=${c.loaded + 1}",
-          expiredTime: CacheExpiredTime.no);
+        "$apiUrl/$type/${c.id}/comments?page=${c.loaded + 1}",
+        expiredTime: CacheExpiredTime.no,
+      );
       if (response.error) {
         return Res(null, errorMessage: response.errorMessage);
       }
@@ -468,8 +507,8 @@ class PicacgNetwork {
       for (int i = 0; i < res["data"]["comments"]["docs"].length; i++) {
         String url = "";
         try {
-          url = res["data"]["comments"]["docs"][i]["_user"]["avatar"]
-                  ["fileServer"] +
+          url =
+              res["data"]["comments"]["docs"][i]["_user"]["avatar"]["fileServer"] +
               "/static/" +
               res["data"]["comments"]["docs"][i]["_user"]["avatar"]["path"];
         } catch (e) {
@@ -478,32 +517,34 @@ class PicacgNetwork {
         var t = Comment("", "", "", 1, "", 0, "", false, 0, null, null, "");
         if (res["data"]["comments"]["docs"][i]["_user"] != null) {
           t = Comment(
-              res["data"]["comments"]["docs"][i]["_user"]["name"],
-              url,
-              res["data"]["comments"]["docs"][i]["_user"]["_id"],
-              res["data"]["comments"]["docs"][i]["_user"]["level"],
-              res["data"]["comments"]["docs"][i]["content"],
-              res["data"]["comments"]["docs"][i]["commentsCount"],
-              res["data"]["comments"]["docs"][i]["_id"],
-              res["data"]["comments"]["docs"][i]["isLiked"],
-              res["data"]["comments"]["docs"][i]["likesCount"],
-              res["data"]["comments"]["docs"][i]["_user"]["character"],
-              res["data"]["comments"]["docs"][i]["_user"]["slogan"],
-              res["data"]["comments"]["docs"][i]["created_at"]);
+            res["data"]["comments"]["docs"][i]["_user"]["name"],
+            url,
+            res["data"]["comments"]["docs"][i]["_user"]["_id"],
+            res["data"]["comments"]["docs"][i]["_user"]["level"],
+            res["data"]["comments"]["docs"][i]["content"],
+            res["data"]["comments"]["docs"][i]["commentsCount"],
+            res["data"]["comments"]["docs"][i]["_id"],
+            res["data"]["comments"]["docs"][i]["isLiked"],
+            res["data"]["comments"]["docs"][i]["likesCount"],
+            res["data"]["comments"]["docs"][i]["_user"]["character"],
+            res["data"]["comments"]["docs"][i]["_user"]["slogan"],
+            res["data"]["comments"]["docs"][i]["created_at"],
+          );
         } else {
           t = Comment(
-              "Unknown",
-              url,
-              "",
-              1,
-              res["data"]["comments"]["docs"][i]["content"],
-              res["data"]["comments"]["docs"][i]["commentsCount"],
-              res["data"]["comments"]["docs"][i]["_id"],
-              res["data"]["comments"]["docs"][i]["isLiked"],
-              res["data"]["comments"]["docs"][i]["likesCount"],
-              null,
-              null,
-              res["data"]["comments"]["docs"][i]["created_at"]);
+            "Unknown",
+            url,
+            "",
+            1,
+            res["data"]["comments"]["docs"][i]["content"],
+            res["data"]["comments"]["docs"][i]["commentsCount"],
+            res["data"]["comments"]["docs"][i]["_id"],
+            res["data"]["comments"]["docs"][i]["isLiked"],
+            res["data"]["comments"]["docs"][i]["likesCount"],
+            null,
+            null,
+            res["data"]["comments"]["docs"][i]["created_at"],
+          );
         }
         c.comments.add(t);
       }
@@ -520,10 +561,13 @@ class PicacgNetwork {
 
   /// 获取收藏夹
   Future<Res<List<ComicItemBrief>>> getFavorites(
-      int page, bool newToOld) async {
+    int page,
+    bool newToOld,
+  ) async {
     var response = await get(
-        "$apiUrl/users/favourite?s=${newToOld ? "dd" : "da"}&page=$page",
-        expiredTime: CacheExpiredTime.no);
+      "$apiUrl/users/favourite?s=${newToOld ? "dd" : "da"}&page=$page",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -534,20 +578,24 @@ class PicacgNetwork {
       for (int i = 0; i < res["data"]["comics"]["docs"].length; i++) {
         var tags = <String>[];
         tags.addAll(
-            List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []));
-        tags.addAll(List<String>.from(
-            res["data"]["comics"]["docs"][i]["categories"] ?? []));
+          List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []),
+        );
+        tags.addAll(
+          List<String>.from(
+            res["data"]["comics"]["docs"][i]["categories"] ?? [],
+          ),
+        );
         var si = ComicItemBrief(
-            res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",
-            res["data"]["comics"]["docs"][i]["author"] ?? "Unknown",
-            int.parse(
-                res["data"]["comics"]["docs"][i]["likesCount"].toString()),
-            res["data"]["comics"]["docs"][i]["thumb"]["fileServer"] +
-                "/static/" +
-                res["data"]["comics"]["docs"][i]["thumb"]["path"],
-            res["data"]["comics"]["docs"][i]["_id"],
-            tags,
-            pages: res["data"]["comics"]["docs"][i]["pagesCount"]);
+          res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",
+          res["data"]["comics"]["docs"][i]["author"] ?? "Unknown",
+          int.parse(res["data"]["comics"]["docs"][i]["likesCount"].toString()),
+          res["data"]["comics"]["docs"][i]["thumb"]["fileServer"] +
+              "/static/" +
+              res["data"]["comics"]["docs"][i]["thumb"]["path"],
+          res["data"]["comics"]["docs"][i]["_id"],
+          tags,
+          pages: res["data"]["comics"]["docs"][i]["pagesCount"],
+        );
         comics.add(si);
       }
       return Res(comics, subData: pages);
@@ -559,29 +607,34 @@ class PicacgNetwork {
 
   Future<Res<List<ComicItemBrief>>> getRandomComics() async {
     var comics = <ComicItemBrief>[];
-    var response =
-        await get("$apiUrl/comics/random", expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/comics/random",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.success) {
       var res = response.data;
       for (int i = 0; i < res["data"]["comics"].length; i++) {
         try {
           var tags = <String>[];
           tags.addAll(
-              List<String>.from(res["data"]["comics"][i]["tags"] ?? []));
+            List<String>.from(res["data"]["comics"][i]["tags"] ?? []),
+          );
           tags.addAll(
-              List<String>.from(res["data"]["comics"][i]["categories"] ?? []));
+            List<String>.from(res["data"]["comics"][i]["categories"] ?? []),
+          );
           var si = ComicItemBrief(
-              res["data"]["comics"][i]["title"] ?? "Unknown",
-              res["data"]["comics"][i]["author"] ?? "Unknown",
-              res["data"]["comics"][i]["totalLikes"] ?? 0,
-              res["data"]["comics"][i]["thumb"]["fileServer"] +
-                  "/static/" +
-                  res["data"]["comics"][i]["thumb"]["path"],
-              res["data"]["comics"][i]["_id"],
-              tags,
-              pages: res["data"]["comics"][i]["pagesCount"]);
+            res["data"]["comics"][i]["title"] ?? "Unknown",
+            res["data"]["comics"][i]["author"] ?? "Unknown",
+            res["data"]["comics"][i]["totalLikes"] ?? 0,
+            res["data"]["comics"][i]["thumb"]["fileServer"] +
+                "/static/" +
+                res["data"]["comics"][i]["thumb"]["path"],
+            res["data"]["comics"][i]["_id"],
+            tags,
+            pages: res["data"]["comics"][i]["pagesCount"],
+          );
           comics.add(si);
-        }  finally {}
+        } finally {}
       }
     } else {
       return Res.fromErrorRes(response);
@@ -611,8 +664,10 @@ class PicacgNetwork {
   /// - D7: 过去7天
   /// - D30: 过去30天
   Future<Res<List<ComicItemBrief>>> getLeaderboard(String time) async {
-    var response = await get("$apiUrl/comics/leaderboard?tt=$time&ct=VC",
-        expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/comics/leaderboard?tt=$time&ct=VC",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -623,7 +678,8 @@ class PicacgNetwork {
         var tags = <String>[];
         tags.addAll(List<String>.from(res["data"]["comics"][i]["tags"] ?? []));
         tags.addAll(
-            List<String>.from(res["data"]["comics"][i]["categories"] ?? []));
+          List<String>.from(res["data"]["comics"][i]["categories"] ?? []),
+        );
         var si = ComicItemBrief(
           res["data"]["comics"][i]["title"] ?? "Unknown",
           res["data"]["comics"][i]["author"] ?? "Unknown",
@@ -636,23 +692,24 @@ class PicacgNetwork {
           pages: res["data"]["comics"][i]["pagesCount"],
         );
         comics.add(si);
-      }  finally {}
+      } finally {}
     }
     return Res(comics, subData: 1);
   }
 
   Future<Res<String>> register(
-      String ans1,
-      String ans2,
-      String ans3,
-      String birthday,
-      String account,
-      String gender,
-      String name,
-      String password,
-      String que1,
-      String que2,
-      String que3) async {
+    String ans1,
+    String ans2,
+    String ans3,
+    String birthday,
+    String account,
+    String gender,
+    String name,
+    String password,
+    String que1,
+    String que2,
+    String que3,
+  ) async {
     //gender:m,f,bot
     var res = await post("https://picaapi.picacomic.com/auth/register", {
       "answer1": ans1,
@@ -665,7 +722,7 @@ class PicacgNetwork {
       "password": password,
       "question1": que1,
       "question2": que2,
-      "question3": que3
+      "question3": que3,
     });
     if (res.error) {
       return Res(null, errorMessage: res.errorMessageWithoutNull);
@@ -719,16 +776,17 @@ class PicacgNetwork {
   Future<void> getMoreReply(Reply reply) async {
     if (reply.loaded == reply.total) return;
     var response = await get(
-        "$apiUrl/comments/${reply.id}/childrens?page=${reply.loaded + 1}",
-        expiredTime: CacheExpiredTime.no); //哔咔的英语水平有点烂
+      "$apiUrl/comments/${reply.id}/childrens?page=${reply.loaded + 1}",
+      expiredTime: CacheExpiredTime.no,
+    ); //哔咔的英语水平有点烂
     if (response.success) {
       var res = response.data;
       reply.total = res["data"]["comments"]["pages"];
       for (int i = 0; i < res["data"]["comments"]["docs"].length; i++) {
         String url = "";
         try {
-          url = res["data"]["comments"]["docs"][i]["_user"]["avatar"]
-                  ["fileServer"] +
+          url =
+              res["data"]["comments"]["docs"][i]["_user"]["avatar"]["fileServer"] +
               "/static/" +
               res["data"]["comments"]["docs"][i]["_user"]["avatar"]["path"];
         } catch (e) {
@@ -737,32 +795,34 @@ class PicacgNetwork {
         var t = Comment("", "", "", 1, "", 0, "", false, 0, null, null, "");
         if (res["data"]["comments"]["docs"][i]["_user"] != null) {
           t = Comment(
-              res["data"]["comments"]["docs"][i]["_user"]["name"] ?? "Unknown",
-              url,
-              res["data"]["comments"]["docs"][i]["_user"]["_id"] ?? "",
-              res["data"]["comments"]["docs"][i]["_user"]["level"] ?? 0,
-              res["data"]["comments"]["docs"][i]["content"] ?? "",
-              0,
-              "",
-              res["data"]["comments"]["docs"][i]["isLiked"],
-              res["data"]["comments"]["docs"][i]["likesCount"] ?? 0,
-              res["data"]["comments"]["docs"][i]["_user"]["character"],
-              res["data"]["comments"]["docs"][i]["_user"]["slogan"] ?? "",
-              res["data"]["comments"]["docs"][i]["created_at"]);
+            res["data"]["comments"]["docs"][i]["_user"]["name"] ?? "Unknown",
+            url,
+            res["data"]["comments"]["docs"][i]["_user"]["_id"] ?? "",
+            res["data"]["comments"]["docs"][i]["_user"]["level"] ?? 0,
+            res["data"]["comments"]["docs"][i]["content"] ?? "",
+            0,
+            "",
+            res["data"]["comments"]["docs"][i]["isLiked"],
+            res["data"]["comments"]["docs"][i]["likesCount"] ?? 0,
+            res["data"]["comments"]["docs"][i]["_user"]["character"],
+            res["data"]["comments"]["docs"][i]["_user"]["slogan"] ?? "",
+            res["data"]["comments"]["docs"][i]["created_at"],
+          );
         } else {
           t = Comment(
-              "Unknown",
-              url,
-              "",
-              1,
-              res["data"]["comments"]["docs"][i]["content"],
-              0,
-              "",
-              res["data"]["comments"]["docs"][i]["isLiked"],
-              res["data"]["comments"]["docs"][i]["likesCount"],
-              null,
-              null,
-              res["data"]["comments"]["docs"][i]["created_at"]);
+            "Unknown",
+            url,
+            "",
+            1,
+            res["data"]["comments"]["docs"][i]["content"],
+            0,
+            "",
+            res["data"]["comments"]["docs"][i]["isLiked"],
+            res["data"]["comments"]["docs"][i]["likesCount"],
+            null,
+            null,
+            res["data"]["comments"]["docs"][i]["created_at"],
+          );
         }
         reply.comments.add(t);
       }
@@ -781,8 +841,12 @@ class PicacgNetwork {
     return res.success;
   }
 
-  Future<bool> comment(String id, String text, bool isReply,
-      {String type = "comics"}) async {
+  Future<bool> comment(
+    String id,
+    String text,
+    bool isReply, {
+    String type = "comics",
+  }) async {
     Res<Map<String, dynamic>?> res;
     if (!isReply) {
       res = await post("$apiUrl/$type/$id/comments", {"content": text});
@@ -802,9 +866,11 @@ class PicacgNetwork {
         try {
           var tags = <String>[];
           tags.addAll(
-              List<String>.from(res["data"]["comics"][i]["tags"] ?? []));
+            List<String>.from(res["data"]["comics"][i]["tags"] ?? []),
+          );
           tags.addAll(
-              List<String>.from(res["data"]["comics"][i]["categories"] ?? []));
+            List<String>.from(res["data"]["comics"][i]["categories"] ?? []),
+          );
           var si = ComicItemBrief(
             res["data"]["comics"][i]["title"] ?? "Unknown",
             res["data"]["comics"][i]["author"] ?? "Unknown",
@@ -816,7 +882,7 @@ class PicacgNetwork {
             tags,
           );
           comics.add(si);
-        }  finally {}
+        } finally {}
       }
     } else {
       return Res.fromErrorRes(response);
@@ -827,8 +893,10 @@ class PicacgNetwork {
   /// 获取本子母/本子妹推荐
   Future<Res<List<List<ComicItemBrief>>>> getCollection() async {
     var comics = <List<ComicItemBrief>>[[], []];
-    var response =
-        await get("$apiUrl/collections", expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/collections",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -852,7 +920,7 @@ class PicacgNetwork {
           //出现错误跳过
         }
       }
-    }  finally {}
+    } finally {}
     try {
       for (int i = 0; i < res["data"]["collections"][1]["comics"].length; i++) {
         try {
@@ -870,26 +938,29 @@ class PicacgNetwork {
           comics[1].add(si);
         } finally {}
       }
-    }  finally {}
+    } finally {}
     return Res(comics);
   }
 
   Future<void> getMoreGames(Games games) async {
     if (games.total == games.loaded) return;
-    var response = await get("$apiUrl/games?page=${games.loaded + 1}",
-        expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/games?page=${games.loaded + 1}",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.success) {
       var res = response.data;
       games.total = res["data"]["games"]["pages"];
       for (int i = 0; i < res["data"]["games"]["docs"].length; i++) {
         var game = GameItemBrief(
-            res["data"]["games"]["docs"][i]["_id"] ?? "",
-            res["data"]["games"]["docs"][i]["title"] ?? "Unknown",
-            res["data"]["games"]["docs"][i]["adult"],
-            res["data"]["games"]["docs"][i]["icon"]["fileServer"] +
-                "/static/" +
-                res["data"]["games"]["docs"][i]["icon"]["path"],
-            res["data"]["games"]["docs"][i]["publisher"] ?? "Unknown");
+          res["data"]["games"]["docs"][i]["_id"] ?? "",
+          res["data"]["games"]["docs"][i]["title"] ?? "Unknown",
+          res["data"]["games"]["docs"][i]["adult"],
+          res["data"]["games"]["docs"][i]["icon"]["fileServer"] +
+              "/static/" +
+              res["data"]["games"]["docs"][i]["icon"]["path"],
+          res["data"]["games"]["docs"][i]["publisher"] ?? "Unknown",
+        );
         games.games.add(game);
       }
     }
@@ -909,23 +980,25 @@ class PicacgNetwork {
     }
     var res = response.data;
     var gameInfo = GameInfo(
-        id,
-        res["data"]["game"]["title"] ?? "Unknown",
-        res["data"]["game"]["description"],
-        res["data"]["game"]["icon"]["fileServer"] +
-            "/static/" +
-            res["data"]["game"]["icon"]["path"],
-        res["data"]["game"]["publisher"],
-        [],
-        res["data"]["game"]["androidLinks"][0],
-        res["data"]["game"]["isLiked"],
-        res["data"]["game"]["likesCount"],
-        res["data"]["game"]["commentsCount"]);
-    for (int i = 0; i < res["data"]["game"]["screenshots"].length; i++) {
-      gameInfo.screenshots.add(res["data"]["game"]["screenshots"][i]
-              ["fileServer"] +
+      id,
+      res["data"]["game"]["title"] ?? "Unknown",
+      res["data"]["game"]["description"],
+      res["data"]["game"]["icon"]["fileServer"] +
           "/static/" +
-          res["data"]["game"]["screenshots"][i]["path"]);
+          res["data"]["game"]["icon"]["path"],
+      res["data"]["game"]["publisher"],
+      [],
+      res["data"]["game"]["androidLinks"][0],
+      res["data"]["game"]["isLiked"],
+      res["data"]["game"]["likesCount"],
+      res["data"]["game"]["commentsCount"],
+    );
+    for (int i = 0; i < res["data"]["game"]["screenshots"].length; i++) {
+      gameInfo.screenshots.add(
+        res["data"]["game"]["screenshots"][i]["fileServer"] +
+            "/static/" +
+            res["data"]["game"]["screenshots"][i]["path"],
+      );
     }
     return Res(gameInfo);
   }
@@ -936,14 +1009,18 @@ class PicacgNetwork {
   }
 
   Future<Res<bool>> changePassword(
-      String oldPassword, String newPassword) async {
+    String oldPassword,
+    String newPassword,
+  ) async {
     var url = "$apiUrl/users/password";
     var dio = logDio();
     dio.options = getHeaders("put", token, url.replaceAll("$apiUrl/", ""));
     try {
-      var res = await dio.put(url,
-          data: {"new_password": newPassword, "old_password": oldPassword},
-          options: Options(validateStatus: (i) => i == 200 || i == 400));
+      var res = await dio.put(
+        url,
+        data: {"new_password": newPassword, "old_password": oldPassword},
+        options: Options(validateStatus: (i) => i == 200 || i == 400),
+      );
       if (res.statusCode == 200) {
         return const Res(true);
       } else {
@@ -959,11 +1036,15 @@ class PicacgNetwork {
 
   /// 获取分类中的漫画
   Future<Res<List<ComicItemBrief>>> getCategoryComics(
-      String keyWord, int page, String sort,
-      [String type = "c"]) async {
+    String keyWord,
+    int page,
+    String sort, [
+    String type = "c",
+  ]) async {
     var response = await get(
-        '$apiUrl/comics?page=$page&$type=${Uri.encodeComponent(keyWord)}&s=$sort',
-        expiredTime: CacheExpiredTime.no);
+      '$apiUrl/comics?page=$page&$type=${Uri.encodeComponent(keyWord)}&s=$sort',
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -974,9 +1055,13 @@ class PicacgNetwork {
       try {
         var tags = <String>[];
         tags.addAll(
-            List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []));
-        tags.addAll(List<String>.from(
-            res["data"]["comics"]["docs"][i]["categories"] ?? []));
+          List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []),
+        );
+        tags.addAll(
+          List<String>.from(
+            res["data"]["comics"]["docs"][i]["categories"] ?? [],
+          ),
+        );
         var si = ComicItemBrief(
           res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",
           res["data"]["comics"]["docs"][i]["author"] ?? "Unknown",
@@ -998,8 +1083,10 @@ class PicacgNetwork {
 
   ///获取最新漫画
   Future<Res<List<ComicItemBrief>>> getLatest(int page) async {
-    var response = await get("$apiUrl/comics?page=$page&s=dd",
-        expiredTime: CacheExpiredTime.no);
+    var response = await get(
+      "$apiUrl/comics?page=$page&s=dd",
+      expiredTime: CacheExpiredTime.no,
+    );
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
@@ -1009,9 +1096,13 @@ class PicacgNetwork {
       try {
         var tags = <String>[];
         tags.addAll(
-            List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []));
-        tags.addAll(List<String>.from(
-            res["data"]["comics"]["docs"][i]["categories"] ?? []));
+          List<String>.from(res["data"]["comics"]["docs"][i]["tags"] ?? []),
+        );
+        tags.addAll(
+          List<String>.from(
+            res["data"]["comics"]["docs"][i]["categories"] ?? [],
+          ),
+        );
 
         var si = ComicItemBrief(
           res["data"]["comics"]["docs"][i]["title"] ?? "Unknown",

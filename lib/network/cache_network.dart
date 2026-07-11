@@ -9,12 +9,15 @@ import 'app_dio.dart';
 
 ///缓存网络请求, 仅提供get方法, 其它的没有意义
 class CachedNetwork {
-  Future<CachedNetworkRes<String>> get(String url, BaseOptions options,
-      {CacheExpiredTime expiredTime = CacheExpiredTime.short,
-      CookieJarSql? cookieJar,
-      bool log = true,
-      bool http2 = false,
-      CancelToken? cancelToken}) async {
+  Future<CachedNetworkRes<String>> get(
+    String url,
+    BaseOptions options, {
+    CacheExpiredTime expiredTime = CacheExpiredTime.short,
+    CookieJarSql? cookieJar,
+    bool log = true,
+    bool http2 = false,
+    CancelToken? cancelToken,
+  }) async {
     await setNetworkProxy();
     var fileName = md5.convert(const Utf8Encoder().convert(url)).toString();
     if (fileName.length > 20) {
@@ -39,10 +42,18 @@ class CachedNetwork {
       throw Exception("Empty data");
     }
     if (expiredTime != CacheExpiredTime.no) {
-      await CacheManager().writeCache(key, res.data!, Duration(milliseconds: expiredTime.time));
+      await CacheManager().writeCache(
+        key,
+        res.data!,
+        Duration(milliseconds: expiredTime.time),
+      );
     }
-    return CachedNetworkRes(utf8.decode(res.data!, allowMalformed: true),
-        res.statusCode, res.realUri.toString(), res.headers.map);
+    return CachedNetworkRes(
+      utf8.decode(res.data!, allowMalformed: true),
+      res.statusCode,
+      res.realUri.toString(),
+      res.headers.map,
+    );
   }
 
   void delete(String url) async {
@@ -68,6 +79,10 @@ class CachedNetworkRes<T> {
   Map<String, List<String>> headers;
   String url;
 
-  CachedNetworkRes(this.data, this.statusCode, this.url,
-      [this.headers = const {}]);
+  CachedNetworkRes(
+    this.data,
+    this.statusCode,
+    this.url, [
+    this.headers = const {},
+  ]);
 }

@@ -25,12 +25,16 @@ class LoadComicClass {
   NetToLocalEhPageData data = NetToLocalEhPageData();
 
   Future<Res<List<BaseComic>>> loadComic(
-      FavoriteData fData, int i, String folder) async {
+    FavoriteData fData,
+    int i,
+    String folder,
+  ) async {
     if (fData.key == "ehentai") {
       if (data.galleries == null) {
         Res<Galleries> res = await EhNetwork().getGalleries(
-            "${EhNetwork().ehBaseUrl}/favorites.php?favcat=$folder",
-            favoritePage: true);
+          "${EhNetwork().ehBaseUrl}/favorites.php?favcat=$folder",
+          favoritePage: true,
+        );
         if (res.error) {
           return Res(null, errorMessage: res.errorMessage);
         } else {
@@ -70,7 +74,9 @@ class _ChooseNetworkFolderWidgetState
 
   Map<String, Map<String, String>> multiFolderData = {
     "ehentai": Map.fromIterables(
-        List.generate(10, (index) => index.toString()), EhNetwork().folderNames)
+      List.generate(10, (index) => index.toString()),
+      EhNetwork().folderNames,
+    ),
   };
 
   @override
@@ -90,10 +96,7 @@ class _ChooseNetworkFolderWidgetState
       appBar: Appbar(
         title: Text("选择收藏夹".tl),
         actions: [
-          IconButton(
-            onPressed: context.pop,
-            icon: const Icon(Icons.close),
-          )
+          IconButton(onPressed: context.pop, icon: const Icon(Icons.close)),
         ],
       ),
       body: Column(
@@ -109,34 +112,29 @@ class _ChooseNetworkFolderWidgetState
               ),
             ),
           ),
-          const Divider(
-            height: 1,
-          ),
+          const Divider(height: 1),
           SizedBox(
             height: 56,
             child: Row(
               children: [
-                const SizedBox(
-                  width: 8,
-                ),
+                const SizedBox(width: 8),
                 Checkbox(
-                    value: agreeSync,
-                    onChanged: (b) {
-                      setState(() {
-                        agreeSync = b ?? false;
-                      });
-                    }),
+                  value: agreeSync,
+                  onChanged: (b) {
+                    setState(() {
+                      agreeSync = b ?? false;
+                    });
+                  },
+                ),
                 Text("支持下拉更新".tl),
                 const Spacer(),
                 FilledButton(onPressed: onConfirm, child: Text("继续".tl)),
-                const SizedBox(
-                  width: 24,
-                ),
+                const SizedBox(width: 24),
               ],
             ),
           ),
           if (UiMode.m1(context))
-            SizedBox(height: MediaQuery.of(context).padding.bottom)
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
@@ -144,62 +142,61 @@ class _ChooseNetworkFolderWidgetState
 
   ExpansionPanel buildItem(FavoriteData data) {
     return ExpansionPanel(
-        headerBuilder: (context, expand) {
-          return ListTile(
-            title: Text(data.title),
-          );
-        },
-        isExpanded: isExpanded[_folders.indexOf(data)],
-        body: buildBody(data),
-        canTapOnHeader: true);
+      headerBuilder: (context, expand) {
+        return ListTile(title: Text(data.title));
+      },
+      isExpanded: isExpanded[_folders.indexOf(data)],
+      body: buildBody(data),
+      canTapOnHeader: true,
+    );
   }
 
   Widget buildTile(String key, String title) {
     return RadioListTile<String?>(
-        title: Text(title),
-        value: key,
-        groupValue: selected,
-        onChanged: (newValue) {
-          setState(() {
-            selected = newValue;
-          });
+      title: Text(title),
+      value: key,
+      groupValue: selected,
+      onChanged: (newValue) {
+        setState(() {
+          selected = newValue;
         });
+      },
+    );
   }
 
   Widget buildBody(FavoriteData data) {
     if (!data.multiFolder) {
       return buildTile(data.key, data.title);
     } else {
-      return StatefulBuilder(builder: (context, updater) {
-        if (multiFolderData[data.key] == null) {
-          if (isExpanded[_folders.indexOf(data)]) {
-            data.loadFolders!().then((value) {
-              if (value.error) {
-                showToast(message: "网络错误".tl);
-              } else {
-                updater(() {
-                  multiFolderData[data.key] = value.data;
-                });
-              }
-            });
+      return StatefulBuilder(
+        builder: (context, updater) {
+          if (multiFolderData[data.key] == null) {
+            if (isExpanded[_folders.indexOf(data)]) {
+              data.loadFolders!().then((value) {
+                if (value.error) {
+                  showToast(message: "网络错误".tl);
+                } else {
+                  updater(() {
+                    multiFolderData[data.key] = value.data;
+                  });
+                }
+              });
+            }
+            return const SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          } else {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: multiFolderData[data.key]!.entries
+                  .map((e) => buildTile("${data.key}:${e.key}", e.value))
+                  .toList(),
+            );
           }
-          return const SizedBox(
-            height: 56,
-            width: double.infinity,
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        } else {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: multiFolderData[data.key]!
-                .entries
-                .map((e) => buildTile("${data.key}:${e.key}", e.value))
-                .toList(),
-          );
-        }
-      });
+        },
+      );
     }
   }
 
@@ -219,14 +216,15 @@ class _ChooseNetworkFolderWidgetState
     App.globalBack();
     final loadComicObj = LoadComicClass();
     startConvert<BaseComic>(
-        (page) => loadComicObj.loadComic(data, page, folderId),
-        null,
-        App.globalContext!,
-        name,
-        (comic) => FavoriteItem.fromBaseComic(comic),
-        data.key,
-        agreeSync,
-        {"folderId": folderId});
+      (page) => loadComicObj.loadComic(data, page, folderId),
+      null,
+      App.globalContext!,
+      name,
+      (comic) => FavoriteItem.fromBaseComic(comic),
+      data.key,
+      agreeSync,
+      {"folderId": folderId},
+    );
   }
 }
 

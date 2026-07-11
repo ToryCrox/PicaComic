@@ -9,7 +9,7 @@ import 'log_filter_panel.dart';
 /// 日志查看器主内容
 class LogViewerContent extends StatefulWidget {
   const LogViewerContent({super.key});
-  
+
   @override
   State<LogViewerContent> createState() => _LogViewerContentState();
 }
@@ -20,35 +20,35 @@ class _LogViewerContentState extends State<LogViewerContent> {
   String _searchQuery = '';
   bool _isLoading = true;
   String? _error;
-  
+
   late LogService _logService;
   SSEClient? _sseClient;
   StreamSubscription<LogEntry>? _logSubscription;
   StreamSubscription<String>? _errorSubscription;
-  
+
   // 从 URL 获取服务器地址，默认为 localhost:8080
   String get _baseUrl {
     final uri = Uri.base;
     return '${uri.scheme}://${uri.host}:${uri.hasPort ? uri.port : 8080}';
   }
-  
+
   @override
   void initState() {
     super.initState();
     _initialize();
   }
-  
+
   Future<void> _initialize() async {
     try {
       _logService = LogService(_baseUrl);
-      
+
       // 加载历史日志
       final history = await _logService.getHistory();
       setState(() {
         _logs.addAll(history);
         _isLoading = false;
       });
-      
+
       // 连接 SSE 流
       _connectSSE();
     } catch (e) {
@@ -58,10 +58,10 @@ class _LogViewerContentState extends State<LogViewerContent> {
       });
     }
   }
-  
+
   void _connectSSE() {
     _sseClient = SSEClient();
-    
+
     _logSubscription = _sseClient!.logStream.listen((entry) {
       setState(() {
         _logs.add(entry);
@@ -71,16 +71,16 @@ class _LogViewerContentState extends State<LogViewerContent> {
         }
       });
     });
-    
+
     _errorSubscription = _sseClient!.errorStream.listen((error) {
       setState(() {
         _error = error;
       });
     });
-    
+
     _sseClient!.connect(_baseUrl);
   }
-  
+
   @override
   void dispose() {
     _logSubscription?.cancel();
@@ -88,7 +88,7 @@ class _LogViewerContentState extends State<LogViewerContent> {
     _sseClient?.close();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,7 +131,8 @@ class _LogViewerContentState extends State<LogViewerContent> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(Icons.error_outline,
+                          size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(_error!),
                       const SizedBox(height: 16),
@@ -168,7 +169,7 @@ class _LogViewerContentState extends State<LogViewerContent> {
                 ),
     );
   }
-  
+
   Widget _buildLogList() {
     // 过滤日志
     final filteredLogs = _logs.where((entry) {
@@ -176,27 +177,29 @@ class _LogViewerContentState extends State<LogViewerContent> {
       if (!_selectedLevels.contains(entry.level)) {
         return false;
       }
-      
+
       // 搜索过滤
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchesMessage = entry.message.toLowerCase().contains(query);
-        final matchesError = entry.error?.toLowerCase().contains(query) ?? false;
-        final matchesStackTrace = entry.stackTrace?.toLowerCase().contains(query) ?? false;
+        final matchesError =
+            entry.error?.toLowerCase().contains(query) ?? false;
+        final matchesStackTrace =
+            entry.stackTrace?.toLowerCase().contains(query) ?? false;
         if (!matchesMessage && !matchesError && !matchesStackTrace) {
           return false;
         }
       }
-      
+
       return true;
     }).toList();
-    
+
     if (filteredLogs.isEmpty) {
       return const Center(
         child: Text('没有日志'),
       );
     }
-    
+
     return ListView.builder(
       reverse: true, // 最新的日志在顶部
       itemCount: filteredLogs.length,
@@ -207,5 +210,3 @@ class _LogViewerContentState extends State<LogViewerContent> {
     );
   }
 }
-
-

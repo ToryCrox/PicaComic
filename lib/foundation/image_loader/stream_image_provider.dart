@@ -7,9 +7,7 @@ import 'base_image_provider.dart';
 /// Function which is called after loading the image failed.
 typedef ErrorListener = void Function();
 
-class StreamImageProvider
-    extends BaseImageProvider<StreamImageProvider> {
-
+class StreamImageProvider extends BaseImageProvider<StreamImageProvider> {
   /// Image provider with [Stream<DownloadProgress>].
   const StreamImageProvider(this.streamBuilder, this.key);
 
@@ -19,10 +17,9 @@ class StreamImageProvider
   final String key;
 
   @override
-  Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async{
-    chunkEvents.add(const ImageChunkEvent(
-        cumulativeBytesLoaded: 0,
-        expectedTotalBytes: 100)
+  Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async {
+    chunkEvents.add(
+      const ImageChunkEvent(cumulativeBytesLoaded: 0, expectedTotalBytes: 100),
     );
     DownloadProgress? finishProgress;
 
@@ -30,13 +27,15 @@ class StreamImageProvider
       if (progress.currentBytes == progress.expectedBytes) {
         finishProgress = progress;
       }
-      chunkEvents.add(ImageChunkEvent(
+      chunkEvents.add(
+        ImageChunkEvent(
           cumulativeBytesLoaded: progress.currentBytes,
-          expectedTotalBytes: progress.expectedBytes)
+          expectedTotalBytes: progress.expectedBytes,
+        ),
       );
     }
 
-    if(finishProgress!.data != null){
+    if (finishProgress!.data != null) {
       return finishProgress.data!;
     }
 

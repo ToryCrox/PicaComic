@@ -26,5 +26,3 @@ class LogViewerWebApp extends StatelessWidget {
     );
   }
 }
-
-

@@ -18,12 +18,7 @@ class RenameDownloadDialog extends StatefulWidget {
   State<RenameDownloadDialog> createState() => _RenameDownloadDialogState();
 }
 
-enum RenameStatus {
-  waiting,
-  renaming,
-  success,
-  failed,
-}
+enum RenameStatus { waiting, renaming, success, failed }
 
 class RenameTask {
   final DownloadedItem comic;
@@ -57,11 +52,7 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
     for (var comic in widget.comics) {
       final oldName = await downloadManager.getDirectoryName(comic.id);
       final newName = downloadManager.generateDirectoryName(comic);
-      _tasks.add(RenameTask(
-        comic: comic,
-        oldName: oldName,
-        newName: newName,
-      ));
+      _tasks.add(RenameTask(comic: comic, oldName: oldName, newName: newName));
     }
     if (mounted) {
       setState(() {
@@ -91,8 +82,10 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
         continue;
       }
 
-      final error = await downloadManager
-          .renameComicDirectory(task.comic.id, task.newName);
+      final error = await downloadManager.renameComicDirectory(
+        task.comic.id,
+        task.newName,
+      );
 
       if (mounted) {
         setState(() {
@@ -203,10 +196,7 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text('取消'.tl),
           ),
-          FilledButton(
-            onPressed: _startRename,
-            child: Text('确认重命名'.tl),
-          ),
+          FilledButton(onPressed: _startRename, child: Text('确认重命名'.tl)),
         ],
         if (!_isRenaming && (_successCount + _failCount > 0)) ...[
           FilledButton(

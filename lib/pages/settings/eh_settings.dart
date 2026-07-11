@@ -13,19 +13,14 @@ class _EhSettingsState extends State<EhSettings> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const ListTile(
-          title: Text("E-Hentai"),
-        ),
+        const ListTile(title: Text("E-Hentai")),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("画廊站点".tl),
           trailing: Select(
             initialValue: int.parse(appdata.settings[20]),
             width: 150,
-            values: const [
-              "e-hentai.org",
-              "exhentai.org",
-            ],
+            values: const ["e-hentai.org", "exhentai.org"],
             onChange: (i) {
               appdata.settings[20] = i.toString();
               appdata.updateSettings();
@@ -79,7 +74,7 @@ class _EhSettingsState extends State<EhSettings> {
           title: Text("配置文件".tl),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => App.to(context, () => const EhProfileSelectPage()),
-        )
+        ),
       ],
     );
   }
@@ -119,25 +114,21 @@ class _EhProfileSelectPageState extends State<EhProfileSelectPage> {
       loadData();
     }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Profile"),
-      ),
+      appBar: AppBar(title: const Text("Profile")),
       body: loading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : error != null
-              ? Center(child: Text(error!))
-              : profiles == null
-                  ? const Center(child: Text("Unknown Error"))
-                  : buildBody(),
+          ? Center(child: Text(error!))
+          : profiles == null
+          ? const Center(child: Text("Unknown Error"))
+          : buildBody(),
     );
   }
 
-  Widget buildBody(){
+  Widget buildBody() {
     profiles?[""] = "Do not modify";
     var keys = profiles?.keys.toList();
-    if(keys != null){
+    if (keys != null) {
       keys.sort();
     }
     return ListView.builder(

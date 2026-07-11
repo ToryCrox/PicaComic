@@ -14,9 +14,20 @@ class Profile {
   bool? isPunched;
   String? slogan;
 
-  Profile(this.id, this.avatarUrl, this.email, this.exp, this.level, this.name, this.title, this.isPunched, this.slogan, this.frameUrl);
+  Profile(
+    this.id,
+    this.avatarUrl,
+    this.email,
+    this.exp,
+    this.level,
+    this.name,
+    this.title,
+    this.isPunched,
+    this.slogan,
+    this.frameUrl,
+  );
 
-  Map<String,dynamic> toJson()=>{
+  Map<String, dynamic> toJson() => {
     "id": id,
     "title": title,
     "email": email,
@@ -26,20 +37,20 @@ class Profile {
     "avatarUrl": avatarUrl,
     "frameUrl": frameUrl,
     "isPunched": isPunched,
-    "slogan": slogan
+    "slogan": slogan,
   };
 
-  Profile.fromJson(Map<String,dynamic> json):
-    id = json["id"],
-    title = json["title"],
-    email = json["email"],
-    name = json["name"],
-    level = json["level"],
-    exp = json["exp"],
-    avatarUrl = json["avatarUrl"],
-    frameUrl = json["frameUrl"],
-    isPunched = json["isPunched"],
-    slogan = json["slogan"];
+  Profile.fromJson(Map<String, dynamic> json)
+    : id = json["id"],
+      title = json["title"],
+      email = json["email"],
+      name = json["name"],
+      level = json["level"],
+      exp = json["exp"],
+      avatarUrl = json["avatarUrl"],
+      frameUrl = json["frameUrl"],
+      isPunched = json["isPunched"],
+      slogan = json["slogan"];
 }
 
 class CategoryItem {
@@ -55,7 +66,7 @@ class InitData {
   InitData(this.imageServer, this.fileServer);
 }
 
-class ComicItemBrief extends BaseComic{
+class ComicItemBrief extends BaseComic {
   @override
   String title;
   String author;
@@ -67,7 +78,15 @@ class ComicItemBrief extends BaseComic{
   List<String> tags;
   int? pages;
 
-  ComicItemBrief(this.title, this.author, this.likes, this.path, this.id, this.tags, {this.pages});
+  ComicItemBrief(
+    this.title,
+    this.author,
+    this.likes,
+    this.path,
+    this.id,
+    this.tags, {
+    this.pages,
+  });
 
   @override
   String get cover => path;
@@ -78,27 +97,27 @@ class ComicItemBrief extends BaseComic{
   @override
   String get subTitle => author;
 
-  ComicItemBrief.fromJson(Map<String,dynamic> json):
-    title = json.optString("title"),
-    author = json["author"],
-    likes = json["likes"],
-    path = json["path"],
-    id = json["id"],
-    tags = json.optStringList("tags"),
-    pages = json["pages"];
+  ComicItemBrief.fromJson(Map<String, dynamic> json)
+    : title = json.optString("title"),
+      author = json["author"],
+      likes = json["likes"],
+      path = json["path"],
+      id = json["id"],
+      tags = json.optStringList("tags"),
+      pages = json["pages"];
 
-  Map<String,dynamic> toJson()=>{
+  Map<String, dynamic> toJson() => {
     "title": title,
     "author": author,
     "likes": likes,
     "path": path,
     "id": id,
     "tags": tags,
-    "pages": pages
+    "pages": pages,
   };
 }
 
-class ComicItem with HistoryMixin{
+class ComicItem with HistoryMixin {
   String id;
   Profile creator;
   @override
@@ -119,30 +138,30 @@ class ComicItem with HistoryMixin{
   List<String> eps;
   List<ComicItemBrief> recommendation;
   ComicItem(
-      this.creator,
-      this.title,
-      this.description,
-      this.thumbUrl,
-      this.author,
-      this.chineseTeam,
-      this.categories,
-      this.tags,
-      this.likes,
-      this.comments,
-      this.isFavourite,
-      this.isLiked,
-      this.epsCount,
-      this.id,
-      this.pagesCount,
-      this.time,
-      this.eps,
-      this.recommendation
-      );
-  ComicItemBrief toBrief(){
+    this.creator,
+    this.title,
+    this.description,
+    this.thumbUrl,
+    this.author,
+    this.chineseTeam,
+    this.categories,
+    this.tags,
+    this.likes,
+    this.comments,
+    this.isFavourite,
+    this.isLiked,
+    this.epsCount,
+    this.id,
+    this.pagesCount,
+    this.time,
+    this.eps,
+    this.recommendation,
+  );
+  ComicItemBrief toBrief() {
     return ComicItemBrief(title, author, likes, thumbUrl, id, []);
   }
 
-  Map<String,dynamic> toJson()=>{
+  Map<String, dynamic> toJson() => {
     "creator": creator.toJson(),
     "id": id,
     "title": title,
@@ -163,25 +182,28 @@ class ComicItem with HistoryMixin{
     'recommendation': recommendation.map((e) => e.toJson()).toList(),
   };
 
-  ComicItem.fromJson(Map<String,dynamic> json):
-    creator = Profile.fromJson(json["creator"]),
-    id = json["id"],
-    title = json["title"],
-    description = json["description"],
-    thumbUrl = json["thumbUrl"],
-    author = json["author"],
-    chineseTeam = json["chineseTeam"],
-    categories = json["categories"].cast<String>(),
-    tags = json["tags"].cast<String>(),
-    likes = json["likes"],
-    comments = json["comments"],
-    isLiked = json["isLiked"],
-    isFavourite = json["isFavourite"],
-    epsCount = json["epsCount"],
-    time = json["time"],
-    pagesCount = json["pagesCount"],
-    eps = json.optStringList('eps'),
-    recommendation = json.optList('recommendation', (e) => ComicItemBrief.fromJson(e));
+  ComicItem.fromJson(Map<String, dynamic> json)
+    : creator = Profile.fromJson(json["creator"]),
+      id = json["id"],
+      title = json["title"],
+      description = json["description"],
+      thumbUrl = json["thumbUrl"],
+      author = json["author"],
+      chineseTeam = json["chineseTeam"],
+      categories = json["categories"].cast<String>(),
+      tags = json["tags"].cast<String>(),
+      likes = json["likes"],
+      comments = json["comments"],
+      isLiked = json["isLiked"],
+      isFavourite = json["isFavourite"],
+      epsCount = json["epsCount"],
+      time = json["time"],
+      pagesCount = json["pagesCount"],
+      eps = json.optStringList('eps'),
+      recommendation = json.optList(
+        'recommendation',
+        (e) => ComicItemBrief.fromJson(e),
+      );
 
   @override
   String get cover => thumbUrl;
@@ -211,22 +233,22 @@ class Comment {
   String time;
 
   @override
-  String toString()=>"$name:$text";
+  String toString() => "$name:$text";
 
   Comment(
-      this.name,
-      this.avatarUrl,
-      this.userId,
-      this.level,
-      this.text,
-      this.reply,
-      this.id,
-      this.isLiked,
-      this.likes,
-      this.frame,
-      this.slogan,
-      this.time
-      );
+    this.name,
+    this.avatarUrl,
+    this.userId,
+    this.level,
+    this.text,
+    this.reply,
+    this.id,
+    this.isLiked,
+    this.likes,
+    this.frame,
+    this.slogan,
+    this.time,
+  );
 }
 
 class Comments {
@@ -246,40 +268,40 @@ class Favorites {
   Favorites(this.comics, this.pages, this.loaded);
 }
 
-class SearchResult{
+class SearchResult {
   String keyWord;
   String sort;
   int pages;
   int loaded;
   List<ComicItemBrief> comics;
-  SearchResult(this.keyWord,this.sort,this.comics,this.pages,this.loaded);
+  SearchResult(this.keyWord, this.sort, this.comics, this.pages, this.loaded);
 }
 
-class Reply{
+class Reply {
   String id;
   int loaded;
   int total;
   List<Comment> comments;
-  Reply(this.id,this.loaded,this.total,this.comments);
+  Reply(this.id, this.loaded, this.total, this.comments);
 }
 
-class GameItemBrief{
+class GameItemBrief {
   String id;
   String iconUrl;
   String name;
   String publisher;
   bool adult;
-  GameItemBrief(this.id,this.name,this.adult,this.iconUrl,this.publisher);
+  GameItemBrief(this.id, this.name, this.adult, this.iconUrl, this.publisher);
 }
 
-class Games{
+class Games {
   List<GameItemBrief> games;
   int total;
   int loaded;
-  Games(this.games,this.loaded,this.total);
+  Games(this.games, this.loaded, this.total);
 }
 
-class GameInfo{
+class GameInfo {
   String id;
   String name;
   String description;
@@ -290,5 +312,16 @@ class GameInfo{
   bool isLiked;
   int likes;
   int comments;
-  GameInfo(this.id,this.name,this.description,this.icon,this.publisher,this.screenshots,this.link,this.isLiked,this.likes,this.comments);
+  GameInfo(
+    this.id,
+    this.name,
+    this.description,
+    this.icon,
+    this.publisher,
+    this.screenshots,
+    this.link,
+    this.isLiked,
+    this.likes,
+    this.comments,
+  );
 }

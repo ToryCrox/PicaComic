@@ -47,12 +47,7 @@ final htManga = ComicSource.named(
     title: "绅士漫画",
     key: "htmanga",
     categories: [
-      FixedCategoryPart(
-        "最新",
-        ["最新漫画"],
-        "category",
-        ["/albums.html"],
-      ),
+      FixedCategoryPart("最新", ["最新漫画"], "category", ["/albums.html"]),
       FixedCategoryPart(
         "同人志",
         [
@@ -62,7 +57,7 @@ final htManga = ComicSource.named(
           "同人志-English",
           "同人志-CG画集",
           "同人志-3D漫画",
-          "同人志-Cosplay"
+          "同人志-Cosplay",
         ],
         "category",
         [
@@ -115,10 +110,7 @@ final htManga = ComicSource.named(
       if (!param!.startsWith("http")) {
         param = HtmangaNetwork.baseUrl + param;
       }
-      return HtmangaNetwork().getComicList(
-        param,
-        page,
-      );
+      return HtmangaNetwork().getComicList(param, page);
     },
     rankingData: RankingData.named(
       options: {
@@ -182,20 +174,23 @@ final htManga = ComicSource.named(
         }
         return Res(res);
       },
-        loadMultiPartCache: () async {
-          var homepage = await DiskCache.readModel(
-              'ht_manga_home', HtHomePageData.fromJson);
-          final list = homepage?.comics ?? [];
-          final links = homepage?.links ?? {};
-          return [
-            for(int i = 0; i < list.length; i++)
-              ExplorePagePart(
-                links.keys.elementAt(i),
-                list[i],
-                "category:${links.keys.elementAt(i)}@${links.values.elementAt(i)}",
-              ),
-          ];
-        }),
+      loadMultiPartCache: () async {
+        var homepage = await DiskCache.readModel(
+          'ht_manga_home',
+          HtHomePageData.fromJson,
+        );
+        final list = homepage?.comics ?? [];
+        final links = homepage?.links ?? {};
+        return [
+          for (int i = 0; i < list.length; i++)
+            ExplorePagePart(
+              links.keys.elementAt(i),
+              list[i],
+              "category:${links.keys.elementAt(i)}@${links.values.elementAt(i)}",
+            ),
+        ];
+      },
+    ),
   ],
   searchPageData: SearchPageData.named(
     loadPage: (keyword, page, options) {
@@ -203,10 +198,7 @@ final htManga = ComicSource.named(
     },
   ),
   comicPageBuilder: (context, id, cover) {
-    return HtComicPage(
-      id,
-      comicCover: cover,
-    );
+    return HtComicPage(id, comicCover: cover);
   },
 );
 
@@ -220,21 +212,23 @@ class _HtComicTile extends ComicTile {
 
   @override
   Widget get image => PicaImage(
-        url: comic.image,
-        sourceKey: ComicType.htmanga.name,
-        isThumbnail: true,
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      );
+    url: comic.image,
+    sourceKey: ComicType.htmanga.name,
+    isThumbnail: true,
+    fit: BoxFit.cover,
+    height: double.infinity,
+    width: double.infinity,
+  );
 
   @override
   void onTap_() {
-    App.mainNavigatorKey!.currentContext!.to(() => ComicPage(
-          comicType: ComicType.htmanga,
-          id: comic.id,
-          cover: comic.cover,
-        ));
+    App.mainNavigatorKey!.currentContext!.to(
+      () => ComicPage(
+        comicType: ComicType.htmanga,
+        id: comic.id,
+        cover: comic.cover,
+      ),
+    );
   }
 
   @override
@@ -242,27 +236,29 @@ class _HtComicTile extends ComicTile {
 
   @override
   ActionFunc? get read => () async {
-        bool cancel = false;
-        var dialog = showLoadingDialog(App.globalContext!,
-            onCancel: () => cancel = true);
-        var res = await HtmangaNetwork().getComicInfo(comic.id);
-        if (cancel) {
-          return;
-        }
-        dialog.close();
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          var history = await History.findOrCreate(res.data);
-          App.globalTo(
-            () => ComicReadingPage.htmanga(
-              res.data.id,
-              comic.name,
-              initialPage: history.page,
-            ),
-          );
-        }
-      };
+    bool cancel = false;
+    var dialog = showLoadingDialog(
+      App.globalContext!,
+      onCancel: () => cancel = true,
+    );
+    var res = await HtmangaNetwork().getComicInfo(comic.id);
+    if (cancel) {
+      return;
+    }
+    dialog.close();
+    if (res.error) {
+      showToast(message: res.errorMessage ?? "Error");
+    } else {
+      var history = await History.findOrCreate(res.data);
+      App.globalTo(
+        () => ComicReadingPage.htmanga(
+          res.data.id,
+          comic.name,
+          initialPage: history.page,
+        ),
+      );
+    }
+  };
 
   @override
   String get title => comic.name.trim();

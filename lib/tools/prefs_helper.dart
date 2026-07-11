@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'type_util.dart';
 
-
 /// 本地存储帮助类，全部为空安全
 class PrefsHelper {
   PrefsHelper._();
@@ -86,8 +85,11 @@ class PrefsHelper {
     return getStringList(key).map((e) => fn(e)).toList();
   }
 
-  static Future<bool> setList<T>(String key, List<T> value,
-      [String Function(T e) fn = TypeUtil.parseString]) {
+  static Future<bool> setList<T>(
+    String key,
+    List<T> value, [
+    String Function(T e) fn = TypeUtil.parseString,
+  ]) {
     if (value is List<String>) return setStringList(key, value as List<String>);
     return _prefs.setStringList(key, value.map(fn).toList());
   }
@@ -103,8 +105,10 @@ class PrefsHelper {
   /// 根据泛型自动获取值，只支持int、double、bool、String、List<String>、Map<String, dynamic>
   static T getValue<T>(String key, T defaultValue) {
     assert(defaultValue != null);
-    assert(T == defaultValue.runtimeType,
-        'type error: $T, ${defaultValue.runtimeType}');
+    assert(
+      T == defaultValue.runtimeType,
+      'type error: $T, ${defaultValue.runtimeType}',
+    );
     if (T == int) {
       return getInt(key, defaultValue as int) as T;
     } else if (T == double) {

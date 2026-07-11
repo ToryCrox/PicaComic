@@ -72,16 +72,24 @@ class ImageManager {
   /// EH 认证加载任务，同一画廊只允许一个认证请求执行。
   final Map<String, _EhAuthenticationTask> _ehAuthenticationTasks = {};
 
-  ({StreamController<DownloadProgress> controller,
+  ({
+    StreamController<DownloadProgress> controller,
     CancelToken cancelToken,
-    bool isOwner}) _getOrCreateController(
-      String cacheKey, StreamController<DownloadProgress> controller) {
+    bool isOwner,
+  })
+  _getOrCreateController(
+    String cacheKey,
+    StreamController<DownloadProgress> controller,
+  ) {
     final existingTask = _downloadTasks[cacheKey];
     if (existingTask != null) {
       Log.d(() => "_putImageStream $cacheKey: already downloading");
       _connectStream(existingTask.controller, controller, cancelOnError: true);
-      return (controller: existingTask.controller,
-        cancelToken: existingTask.cancelToken, isOwner: false);
+      return (
+        controller: existingTask.controller,
+        cancelToken: existingTask.cancelToken,
+        isOwner: false,
+      );
     }
 
     Log.d(() => "_putImageStream $cacheKey");
@@ -102,8 +110,11 @@ class ImageManager {
       }
     });
     _connectStream(downloadController, controller, cancelOnError: true);
-    return (controller: downloadController,
-      cancelToken: cancelToken, isOwner: true);
+    return (
+      controller: downloadController,
+      cancelToken: cancelToken,
+      isOwner: true,
+    );
   }
 
   /// 连接两个StreamController，传输所有事件（数据、错误、完成）
@@ -154,11 +165,13 @@ class ImageManager {
     }
     final cacheKey = key ?? url;
     var cache = await CacheManager().findCache(cacheKey);
-    if (cache != null && (await cache.file.exists()) &&
+    if (cache != null &&
+        (await cache.file.exists()) &&
         (await cache.file.length()) > 0) {
       Log.d(() => "checkFileCache $cacheKey: already cached");
-      controller
-          .add(DownloadProgress(1, 1, url, cache.filePath, null, cache.type));
+      controller.add(
+        DownloadProgress(1, 1, url, cache.filePath, null, cache.type),
+      );
       return true;
     } else {
       if (cache != null) await CacheManager().delete(cacheKey);
@@ -167,8 +180,10 @@ class ImageManager {
   }
 
   /// 获取图片, 适用于没有任何限制的图片链接
-  Stream<DownloadProgress> getImage(final String url,
-      [Map<String, String>? headers]) {
+  Stream<DownloadProgress> getImage(
+    final String url, [
+    Map<String, String>? headers,
+  ]) {
     final controller = StreamController<DownloadProgress>();
     _putImageStream(controller: controller, url: url, headers: headers);
     return controller.stream;
@@ -216,9 +231,11 @@ class ImageManager {
           ehgtLoading++;
         }
       }
-      var dioRes = await dio.get<ResponseBody>(realUrl,
-          options: Options(responseType: ResponseType.stream, headers: headers),
-          cancelToken: task.cancelToken);
+      var dioRes = await dio.get<ResponseBody>(
+        realUrl,
+        options: Options(responseType: ResponseType.stream, headers: headers),
+        cancelToken: task.cancelToken,
+      );
       if (dioRes.data == null) {
         throw Exception("Empty Data");
       }
@@ -233,30 +250,37 @@ class ImageManager {
       await for (var res in dioRes.data!.stream) {
         imageData.addAll(res);
         await cachingFile.writeBytes(res);
-        var progress = DownloadProgress(imageData.length,
-            (expectedBytes ?? imageData.length + 1), url, savePath);
+        var progress = DownloadProgress(
+          imageData.length,
+          (expectedBytes ?? imageData.length + 1),
+          url,
+          savePath,
+        );
         downloadController.add(progress);
       }
       var ext = getExt(dioRes);
       cachingFile.fileType = ext;
       await cachingFile.close();
-      downloadController.add(DownloadProgress(
-        imageData.length,
-        imageData.length,
-        url,
-        savePath,
-        Uint8List.fromList(imageData),
-        ext,
-        cachingFile,
-      ));
+      downloadController.add(
+        DownloadProgress(
+          imageData.length,
+          imageData.length,
+          url,
+          savePath,
+          Uint8List.fromList(imageData),
+          ext,
+          cachingFile,
+        ),
+      );
     } catch (e, s) {
       caching?.cancel();
       Log.e("Network $e\n$s");
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
-          downloadController
-              .addError(BadRequestException(e.message.toString()));
+          downloadController.addError(
+            BadRequestException(e.message.toString()),
+          );
         } else {
           downloadController.addError(e);
         }
@@ -272,7 +296,9 @@ class ImageManager {
   }
 
   Stream<DownloadProgress> getEhImageNew(
-      final Gallery gallery, final int page) {
+    final Gallery gallery,
+    final int page,
+  ) {
     final controller = StreamController<DownloadProgress>();
     _putEhImageStream(controller: controller, gallery: gallery, page: page);
     return controller.stream;
@@ -299,36 +325,58 @@ class ImageManager {
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
       output.add(DownloadProgress(0, 100, cacheKey, savePath));
-      final readerRes = await EhNetwork().getReaderLink(gallery.link, page,
-          cancelToken: task.cancelToken);
+      final readerRes = await EhNetwork().getReaderLink(
+        gallery.link,
+        page,
+        cancelToken: task.cancelToken,
+      );
       if (readerRes.error) {
         throw readerRes.errorMessage ?? "Failed to get reader link";
       }
       final readerLink = readerRes.data;
-      await _ensureEhAuthentication(gallery, readerLink, gid,
-          task.cancelToken);
+      await _ensureEhAuthentication(gallery, readerLink, gid, task.cancelToken);
 
       var link = await _resolveEhImageLink(
-          gallery, readerLink, gid, page, task.cancelToken);
+        gallery,
+        readerLink,
+        gid,
+        page,
+        task.cancelToken,
+      );
       ({Uint8List data, String ext})? image;
       Object? lastError;
-      final imageDio = logDio(BaseOptions(headers: {
-        "user-agent": webUA,
-        "cookie": EhNetwork().cookiesStr,
-      }));
+      final imageDio = logDio(
+        BaseOptions(
+          headers: {"user-agent": webUA, "cookie": EhNetwork().cookiesStr},
+        ),
+      );
 
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
-          image = await _downloadEhImage(imageDio, link.imageUrl, cacheKey,
-              savePath, caching, output, task.cancelToken);
+          image = await _downloadEhImage(
+            imageDio,
+            link.imageUrl,
+            cacheKey,
+            savePath,
+            caching,
+            output,
+            task.cancelToken,
+          );
           break;
         } catch (e) {
           lastError = e;
           if (task.cancelToken.isCancelled || e is ImageExceedError) rethrow;
           if (attempt == 2) break;
           await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
-          link = await _renewEhImageLink(gallery, readerLink, gid, page,
-              link, task.cancelToken, attempt > 0);
+          link = await _renewEhImageLink(
+            gallery,
+            readerLink,
+            gid,
+            page,
+            link,
+            task.cancelToken,
+            attempt > 0,
+          );
         }
       }
       if (image == null) {
@@ -337,8 +385,17 @@ class ImageManager {
 
       caching.fileType = image.ext;
       await caching.close();
-      output.add(DownloadProgress(image.data.length, image.data.length,
-          cacheKey, savePath, image.data, image.ext, caching));
+      output.add(
+        DownloadProgress(
+          image.data.length,
+          image.data.length,
+          cacheKey,
+          savePath,
+          image.data,
+          image.ext,
+          caching,
+        ),
+      );
     } catch (e, stackTrace) {
       await caching?.cancel();
       Log.e("EH image download failed: $e\n$stackTrace");
@@ -349,11 +406,17 @@ class ImageManager {
   }
 
   /// 确保同一画廊只有一个认证请求在执行。
-  Future<void> _ensureEhAuthentication(Gallery gallery, String readerLink,
-      String gid, CancelToken callerToken, {bool force = false}) async {
+  Future<void> _ensureEhAuthentication(
+    Gallery gallery,
+    String readerLink,
+    String gid,
+    CancelToken callerToken, {
+    bool force = false,
+  }) async {
     _throwIfCancelled(callerToken);
     gallery.auth ??= {};
-    bool valid() => gallery.auth!["showKey"]?.isNotEmpty == true ||
+    bool valid() =>
+        gallery.auth!["showKey"]?.isNotEmpty == true ||
         gallery.auth!["mpvKey"]?.isNotEmpty == true;
     if (!force && valid()) return;
 
@@ -379,17 +442,26 @@ class ImageManager {
     }
   }
 
-  Future<void> _loadEhAuthentication(Gallery gallery, String readerLink,
-      String gid, CancelToken cancelToken) async {
+  Future<void> _loadEhAuthentication(
+    Gallery gallery,
+    String readerLink,
+    String gid,
+    CancelToken cancelToken,
+  ) async {
     try {
-      final res = await EhNetwork().request(readerLink,
-          expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
+      final res = await EhNetwork().request(
+        readerLink,
+        expiredTime: CacheExpiredTime.no,
+        cancelToken: cancelToken,
+      );
       if (res.error) throw res.errorMessage ?? "Failed to load reader page";
       final document = parse(res.data);
-      final showScript = document.querySelectorAll("script")
+      final showScript = document
+          .querySelectorAll("script")
           .firstWhereOrNull((e) => e.text.contains("showkey"));
-      final showKey = showScript == null ? null :
-          RegExp(r'showkey="(.*?)"').firstMatch(showScript.text)?.group(1);
+      final showKey = showScript == null
+          ? null
+          : RegExp(r'showkey="(.*?)"').firstMatch(showScript.text)?.group(1);
       if (showKey?.isNotEmpty == true) {
         gallery.auth!["showKey"] = showKey!;
         gallery.auth!.remove("mpvKey");
@@ -397,13 +469,18 @@ class ImageManager {
         return;
       }
 
-      final script = document.querySelectorAll("script")
-          .firstWhereOrNull((e) => e.text.contains("mpvkey"))?.text;
+      final script = document
+          .querySelectorAll("script")
+          .firstWhereOrNull((e) => e.text.contains("mpvkey"))
+          ?.text;
       if (script == null) throw Exception("Failed to get EH authentication");
-      final mpvKey = RegExp(r'mpvkey\s*=\s*"([^"]+)"')
-          .firstMatch(script)?.group(1);
-      final listText = RegExp(r'imagelist\s*=\s*(\[.*?\])\s*;', dotAll: true)
-          .firstMatch(script)?.group(1);
+      final mpvKey = RegExp(
+        r'mpvkey\s*=\s*"([^"]+)"',
+      ).firstMatch(script)?.group(1);
+      final listText = RegExp(
+        r'imagelist\s*=\s*(\[.*?\])\s*;',
+        dotAll: true,
+      ).firstMatch(script)?.group(1);
       if (mpvKey == null || listText == null) {
         throw Exception("Invalid EH MPV authentication");
       }
@@ -431,11 +508,19 @@ class ImageManager {
   }
 
   Future<({String imageUrl, String? nl, bool mpv})> _resolveEhImageLink(
-      Gallery gallery, String readerLink, String gid, int page,
-      CancelToken cancelToken, {String? nl}) async {
+    Gallery gallery,
+    String readerLink,
+    String gid,
+    int page,
+    CancelToken cancelToken, {
+    String? nl,
+  }) async {
     final keys = gallery.auth?["imgKey"]?.split(",");
-    final isMpv = gallery.auth?["mpvKey"] != null && keys != null &&
-        page > 0 && page <= keys.length;
+    final isMpv =
+        gallery.auth?["mpvKey"] != null &&
+        keys != null &&
+        page > 0 &&
+        page <= keys.length;
     if (isMpv) {
       final res = await EhNetwork().apiRequest({
         "gid": int.parse(gid),
@@ -450,8 +535,11 @@ class ImageManager {
       final url = json["i"]?.toString() ?? "";
       if (!url.isURL) throw Exception("Invalid EH image URL");
       final nextNl = json["s"]?.toString();
-      return (imageUrl: url,
-        nl: nextNl?.isEmpty == true ? null : nextNl, mpv: true);
+      return (
+        imageUrl: url,
+        nl: nextNl?.isEmpty == true ? null : nextNl,
+        mpv: true,
+      );
     }
 
     try {
@@ -471,40 +559,67 @@ class ImageManager {
       final original = origins.isEmpty ? "" : origins.last.group(1) ?? "";
       if (appdata.settings[29] == "1" && original.isURL) url = original;
       if (!url.isURL) throw Exception("Invalid EH showpage image URL");
-      return (imageUrl: url,
-        nl: RegExp(r"nl\('(.+?)'\)").firstMatch(i6)?.group(1), mpv: false);
+      return (
+        imageUrl: url,
+        nl: RegExp(r"nl\('(.+?)'\)").firstMatch(i6)?.group(1),
+        mpv: false,
+      );
     } catch (e) {
       Log.w("EH showpage API failed, fallback to HTML: $e");
-      final res = await EhNetwork().request(readerLink,
-          expiredTime: CacheExpiredTime.no, cancelToken: cancelToken);
+      final res = await EhNetwork().request(
+        readerLink,
+        expiredTime: CacheExpiredTime.no,
+        cancelToken: cancelToken,
+      );
       if (res.error) throw res.errorMessage ?? "Failed to reload reader page";
       final document = parse(res.data);
-      var url = document.querySelector("div#i3 > a > img")
-          ?.attributes["src"] ?? "";
-      final original = document.querySelectorAll("div#i6 a")
-          .firstWhereOrNull((e) => e.text.contains("original"))
-          ?.attributes["href"] ?? "";
+      var url =
+          document.querySelector("div#i3 > a > img")?.attributes["src"] ?? "";
+      final original =
+          document
+              .querySelectorAll("div#i6 a")
+              .firstWhereOrNull((e) => e.text.contains("original"))
+              ?.attributes["href"] ??
+          "";
       if (appdata.settings[29] == "1" && original.isURL) url = original;
       if (!url.isURL) throw Exception("Invalid EH reader image URL");
-      final nextNl = document.querySelector("a#loadfail")?.attributes["onclick"]
-          ?.split("'").firstWhereOrNull((e) => e.contains("-"));
+      final nextNl = document
+          .querySelector("a#loadfail")
+          ?.attributes["onclick"]
+          ?.split("'")
+          .firstWhereOrNull((e) => e.contains("-"));
       return (imageUrl: url, nl: nextNl, mpv: false);
     }
   }
 
   Future<({String imageUrl, String? nl, bool mpv})> _renewEhImageLink(
-      Gallery gallery, String readerLink, String gid, int page,
-      ({String imageUrl, String? nl, bool mpv}) current,
-      CancelToken cancelToken, bool forceAuthentication) async {
+    Gallery gallery,
+    String readerLink,
+    String gid,
+    int page,
+    ({String imageUrl, String? nl, bool mpv}) current,
+    CancelToken cancelToken,
+    bool forceAuthentication,
+  ) async {
     if (!forceAuthentication && current.nl != null) {
       try {
         if (current.mpv) {
-          return _resolveEhImageLink(gallery, readerLink, gid, page,
-              cancelToken, nl: current.nl);
+          return _resolveEhImageLink(
+            gallery,
+            readerLink,
+            gid,
+            page,
+            cancelToken,
+            nl: current.nl,
+          );
         }
         final value = await EhNetwork().getImageLinkWithNL(
-            gid, _ehImageKey(readerLink), page, current.nl!,
-            cancelToken: cancelToken);
+          gid,
+          _ehImageKey(readerLink),
+          page,
+          current.nl!,
+          cancelToken: cancelToken,
+        );
         if (value.$1.isURL) {
           return (imageUrl: value.$1, nl: value.$2, mpv: false);
         }
@@ -513,8 +628,13 @@ class ImageManager {
         Log.w("EH nl refresh failed: $e");
       }
     }
-    await _ensureEhAuthentication(gallery, readerLink, gid, cancelToken,
-        force: true);
+    await _ensureEhAuthentication(
+      gallery,
+      readerLink,
+      gid,
+      cancelToken,
+      force: true,
+    );
     return _resolveEhImageLink(gallery, readerLink, gid, page, cancelToken);
   }
 
@@ -527,16 +647,23 @@ class ImageManager {
   }
 
   Future<({Uint8List data, String ext})> _downloadEhImage(
-      Dio dio, String imageUrl, String cacheKey, String savePath,
-      CachingFile caching, StreamController<DownloadProgress> output,
-      CancelToken cancelToken) async {
+    Dio dio,
+    String imageUrl,
+    String cacheKey,
+    String savePath,
+    CachingFile caching,
+    StreamController<DownloadProgress> output,
+    CancelToken cancelToken,
+  ) async {
     if (!imageUrl.isURL) throw const FormatException("Invalid EH image URL");
     if (imageUrl.contains("509.gif")) throw ImageExceedError();
     caching.reset();
 
-    final res = await dio.get<ResponseBody>(imageUrl,
-        options: Options(responseType: ResponseType.stream),
-        cancelToken: cancelToken);
+    final res = await dio.get<ResponseBody>(
+      imageUrl,
+      options: Options(responseType: ResponseType.stream),
+      cancelToken: cancelToken,
+    );
     final body = res.data;
     if (body == null) throw const FormatException("Empty EH image response");
     final contentType = _bodyHeader(body, "content-type")?.toLowerCase();
@@ -549,8 +676,14 @@ class ImageManager {
     await for (final chunk in body.stream) {
       bytes.addAll(chunk);
       await caching.writeBytes(chunk);
-      output.add(DownloadProgress(bytes.length,
-          (expected ?? bytes.length) + 1, cacheKey, savePath));
+      output.add(
+        DownloadProgress(
+          bytes.length,
+          (expected ?? bytes.length) + 1,
+          cacheKey,
+          savePath,
+        ),
+      );
     }
     if (bytes.isEmpty) throw const FormatException("Empty EH image data");
     if (expected != null && expected != bytes.length) {
@@ -576,8 +709,7 @@ class ImageManager {
   ///为Hitomi设计的图片加载函数
   ///
   /// 使用hash标识图片
-  Stream<DownloadProgress> getHitomiImage(
-      HitomiFile image, String galleryId) {
+  Stream<DownloadProgress> getHitomiImage(HitomiFile image, String galleryId) {
     final controller = StreamController<DownloadProgress>();
     _putHitomiImageStream(
       controller: controller,
@@ -594,7 +726,7 @@ class ImageManager {
   }) async {
     Log.d("Get Hitomi image ${image.hash}");
     final cacheKey = image.hash;
-    if(await _checkFileCache(controller: controller, url: '', key: cacheKey)) {
+    if (await _checkFileCache(controller: controller, url: '', key: cacheKey)) {
       return;
     }
 
@@ -620,12 +752,14 @@ class ImageManager {
       var dio = logDio();
       dio.options.headers = {
         "User-Agent": webUA,
-        "Referer": "https://hitomi.la/reader/$galleryId.html"
+        "Referer": "https://hitomi.la/reader/$galleryId.html",
       };
 
-      var res = await dio.get<ResponseBody>(url,
-          options: Options(responseType: ResponseType.stream),
-          cancelToken: task.cancelToken);
+      var res = await dio.get<ResponseBody>(
+        url,
+        options: Options(responseType: ResponseType.stream),
+        cancelToken: task.cancelToken,
+      );
       var stream = res.data!.stream;
       int? expectedBytes;
       try {
@@ -644,14 +778,27 @@ class ImageManager {
         await cachingFile.writeBytes(b);
         currentBytes += b.length;
         var progress = DownloadProgress(
-            currentBytes, (expectedBytes ?? currentBytes + 1), url, savePath);
+          currentBytes,
+          (expectedBytes ?? currentBytes + 1),
+          url,
+          savePath,
+        );
         downloadController.add(progress);
       }
       var ext = getExt(res);
       cachingFile.fileType = ext;
       await cachingFile.close();
-      downloadController.add(DownloadProgress(currentBytes, currentBytes, url, savePath,
-          Uint8List.fromList(data), ext, cachingFile));
+      downloadController.add(
+        DownloadProgress(
+          currentBytes,
+          currentBytes,
+          url,
+          savePath,
+          Uint8List.fromList(data),
+          ext,
+          cachingFile,
+        ),
+      );
     } catch (e) {
       caching?.cancel();
       if (e is DioException && e.type == DioExceptionType.badResponse) {
@@ -667,7 +814,7 @@ class ImageManager {
   }
 
   /// 获取禁漫图片, 如果缓存中没有, 则尝试下载
-  /// 
+  ///
   /// - [url] 图片 URL
   /// - [headers] 请求头
   /// - [epsId] 章节 ID，用于图片反混淆算法
@@ -681,8 +828,14 @@ class ImageManager {
     required String bookId,
   }) {
     final controller = StreamController<DownloadProgress>();
-    _putJmImageStream(controller, url, headers,
-        epsId: epsId, scrambleId: scrambleId, bookId: bookId);
+    _putJmImageStream(
+      controller,
+      url,
+      headers,
+      epsId: epsId,
+      scrambleId: scrambleId,
+      bookId: bookId,
+    );
     return controller.stream;
   }
 
@@ -720,10 +873,14 @@ class ImageManager {
       var bytes = <int>[];
       String? ext;
       try {
-        var res = await dio.get<ResponseBody>(url,
-            options: Options(
-                responseType: ResponseType.stream, headers: getImgHeaders()),
-            cancelToken: task.cancelToken);
+        var res = await dio.get<ResponseBody>(
+          url,
+          options: Options(
+            responseType: ResponseType.stream,
+            headers: getImgHeaders(),
+          ),
+          cancelToken: task.cancelToken,
+        );
         ext = getExt(res);
         var stream = res.data!.stream;
         await for (var b in stream) {
@@ -746,7 +903,12 @@ class ImageManager {
       downloadController.add(progress);
       if (url.split('.').last != "gif") {
         bytes = await startRecombineAndWriteImage(
-            Uint8List.fromList(bytes), epsId, scrambleId, bookId, savePath);
+          Uint8List.fromList(bytes),
+          epsId,
+          scrambleId,
+          bookId,
+          savePath,
+        );
       }
       await cachingFile.writeBytes(bytes);
 
@@ -778,18 +940,37 @@ class ImageManager {
   }
 
   Stream<DownloadProgress> getCustomImage(
-      String url, String comicId, String epId, String sourceKey) {
+    String url,
+    String comicId,
+    String epId,
+    String sourceKey,
+  ) {
     final controller = StreamController<DownloadProgress>();
-    _putCustomImageStream(controller: controller, url: url, comicId: comicId, epId: epId, sourceKey: sourceKey);
+    _putCustomImageStream(
+      controller: controller,
+      url: url,
+      comicId: comicId,
+      epId: epId,
+      sourceKey: sourceKey,
+    );
     return controller.stream;
   }
+
   Future<void> _putCustomImageStream({
-     required StreamController<DownloadProgress> controller,
-      required String url, required String comicId, required String epId, required String sourceKey}) async{
+    required StreamController<DownloadProgress> controller,
+    required String url,
+    required String comicId,
+    required String epId,
+    required String sourceKey,
+  }) async {
     var cacheKey = "$sourceKey$comicId$epId$url";
     Log.d("getCustomImage $url");
 
-    if (await _checkFileCache(controller: controller, url: url, key: cacheKey)) {
+    if (await _checkFileCache(
+      controller: controller,
+      url: url,
+      key: cacheKey,
+    )) {
       controller.close();
       return;
     }
@@ -800,7 +981,8 @@ class ImageManager {
 
     CachingFile? caching;
 
-    var source = ComicSource.find(sourceKey) ??
+    var source =
+        ComicSource.find(sourceKey) ??
         (throw "Unknown Comic Source $sourceKey");
 
     try {
@@ -815,13 +997,16 @@ class ImageManager {
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
 
-      var res = await dio.request<ResponseBody>(config?.url ?? url,
-          data: config?.data,
-          cancelToken: task.cancelToken,
-          options: Options(
-              method: config?.method ?? 'GET',
-              headers: config?.headers ?? {'user-agent': webUA},
-              responseType: ResponseType.stream));
+      var res = await dio.request<ResponseBody>(
+        config?.url ?? url,
+        data: config?.data,
+        cancelToken: task.cancelToken,
+        options: Options(
+          method: config?.method ?? 'GET',
+          headers: config?.headers ?? {'user-agent': webUA},
+          responseType: ResponseType.stream,
+        ),
+      );
 
       List<int> imageData = [];
 
@@ -849,8 +1034,9 @@ class ImageManager {
       Uint8List? result;
 
       if (shouldModifyData) {
-        var data = (config!.onResponse
-            as JSInvokable)(Uint8List.fromList(imageData));
+        var data = (config!.onResponse as JSInvokable)(
+          Uint8List.fromList(imageData),
+        );
         imageData.clear();
         if (data is! Uint8List) {
           throw "Invalid Config: onImageLoad.onResponse return invalid type\n"
@@ -879,7 +1065,7 @@ class ImageManager {
       if (e is DioException && e.type == DioExceptionType.badResponse) {
         var statusCode = e.response?.statusCode;
         if (statusCode != null && statusCode >= 400 && statusCode < 500) {
-         // throw BadRequestException(e.message.toString());
+          // throw BadRequestException(e.message.toString());
         }
       }
       downloadController.addError(e);
@@ -904,18 +1090,33 @@ class ImageManager {
   //   });
   // }
 
-  Stream<DownloadProgress> getCustomThumbnail(String url, String sourceKey,
-      [Map<String, String>? headers]) {
+  Stream<DownloadProgress> getCustomThumbnail(
+    String url,
+    String sourceKey, [
+    Map<String, String>? headers,
+  ]) {
     final controller = StreamController<DownloadProgress>();
-    _putCustomThumbnailStream(controller: controller, url: url, sourceKey: sourceKey, headers: headers);
+    _putCustomThumbnailStream(
+      controller: controller,
+      url: url,
+      sourceKey: sourceKey,
+      headers: headers,
+    );
     return controller.stream;
   }
 
   Future<void> _putCustomThumbnailStream({
     required StreamController<DownloadProgress> controller,
-    required String url, required String sourceKey, Map<String, String>? headers}) async {
+    required String url,
+    required String sourceKey,
+    Map<String, String>? headers,
+  }) async {
     var cacheKey = "$sourceKey$url";
-    if (await _checkFileCache(controller: controller, url: url, key: cacheKey)) {
+    if (await _checkFileCache(
+      controller: controller,
+      url: url,
+      key: cacheKey,
+    )) {
       controller.close();
       return;
     }
@@ -925,7 +1126,8 @@ class ImageManager {
 
     CachingFile? caching;
 
-    var source = ComicSource.find(sourceKey) ??
+    var source =
+        ComicSource.find(sourceKey) ??
         (throw "Unknown Comic Source $sourceKey");
 
     try {
@@ -940,13 +1142,16 @@ class ImageManager {
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
 
-      var res = await dio.request<ResponseBody>(config?.url ?? url,
-          data: config?.data,
-          cancelToken: task.cancelToken,
-          options: Options(
-              method: config?.method ?? 'GET',
-              headers: config?.headers ?? headers ?? {'user-agent': webUA},
-              responseType: ResponseType.stream));
+      var res = await dio.request<ResponseBody>(
+        config?.url ?? url,
+        data: config?.data,
+        cancelToken: task.cancelToken,
+        options: Options(
+          method: config?.method ?? 'GET',
+          headers: config?.headers ?? headers ?? {'user-agent': webUA},
+          responseType: ResponseType.stream,
+        ),
+      );
 
       List<int> imageData = [];
 
@@ -962,16 +1167,21 @@ class ImageManager {
           await caching.writeBytes(data);
         }
         imageData.addAll(data);
-        var progress = DownloadProgress(imageData.length,
-            expectedBytes ?? (imageData.length + 1), url, savePath);
+        var progress = DownloadProgress(
+          imageData.length,
+          expectedBytes ?? (imageData.length + 1),
+          url,
+          savePath,
+        );
         downloadController.add(progress);
       }
 
       Uint8List? result;
 
       if (shouldModifyData) {
-        var data = (config!.onResponse
-            as JSInvokable)(Uint8List.fromList(imageData));
+        var data = (config!.onResponse as JSInvokable)(
+          Uint8List.fromList(imageData),
+        );
         imageData.clear();
         if (data is! Uint8List) {
           throw "Invalid Config: onImageLoad.onResponse return invalid type\n"
@@ -984,7 +1194,12 @@ class ImageManager {
 
       await caching.close();
       final progress = DownloadProgress(
-          1, 1, url, savePath, result ?? Uint8List.fromList(imageData));
+        1,
+        1,
+        url,
+        savePath,
+        result ?? Uint8List.fromList(imageData),
+      );
       downloadController.add(progress);
     } catch (e) {
       Log.e("Network Failed to load a image:\nUrl:$url\nError:$e");
@@ -1029,15 +1244,17 @@ class ImageManager {
         "image/png" => "png",
         "image/gif" => "gif",
         "image/webp" => "webp",
-        _ => null
+        _ => null,
       };
     }
     ext ??= url.split('.').last;
     if (!["jpg", "jpeg", "png", "gif", "webp"].contains(ext)) {
       ext = "jpg";
-      Log.w("ImageManager Unknown image extension: \n"
-          "Content-Type: $contentType\n"
-          "URL: $url");
+      Log.w(
+        "ImageManager Unknown image extension: \n"
+        "Content-Type: $contentType\n"
+        "URL: $url",
+      );
     }
     return ext;
   }
@@ -1071,8 +1288,14 @@ class DownloadProgress {
   bool get finished => _currentBytes == _expectedBytes;
 
   const DownloadProgress(
-      this._currentBytes, this._expectedBytes, this.url, this.savePath,
-      [this.data, this.ext, this.cachingFile]);
+    this._currentBytes,
+    this._expectedBytes,
+    this.url,
+    this.savePath, [
+    this.data,
+    this.ext,
+    this.cachingFile,
+  ]);
 
   File getFile() => File(savePath);
 }
