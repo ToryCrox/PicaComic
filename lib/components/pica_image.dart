@@ -36,6 +36,19 @@ class PicaImage extends StatelessWidget {
     this.memCacheHeight,
   });
 
+  /// 根据缩略图的逻辑宽度和设备像素比计算分档后的内存解码宽度。
+  @visibleForTesting
+  static int calculateThumbnailCacheWidth(
+    double logicalWidth,
+    double devicePixelRatio,
+  ) {
+    final physicalWidth = logicalWidth * devicePixelRatio;
+    const cacheWidthStep = 64;
+    return ((physicalWidth / cacheWidthStep).ceil() * cacheWidthStep)
+        .clamp(cacheWidthStep, 1024)
+        .toInt();
+  }
+
   @override
   Widget build(BuildContext context) {
     // 决定 BoxFit
@@ -50,22 +63,50 @@ class PicaImage extends StatelessWidget {
       if (epId != null) 'epId': epId!,
     };
 
-    return CachedNetworkImage(
-      imageUrl: url,
-      cacheKey: cacheKey,
-      httpHeaders: finalHeaders,
-      width: width,
-      height: height,
-      fit: imageFit,
-      cacheManager: picaImageManager,
-      memCacheWidth: memCacheWidth,
-      memCacheHeight: memCacheHeight,
-      fadeOutDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
-      fadeInDuration: fade ? const Duration(milliseconds: 200) : Duration.zero,
-      placeholder: placeholder ?? (context, url) => const Center(),
-      errorWidget:
-          errorWidget ??
-          (context, url, error) => const Center(child: Icon(Icons.error)),
+    Widget buildImage(int? targetMemCacheWidth) {
+      return CachedNetworkImage(
+        imageUrl: url,
+        cacheKey: cacheKey,
+        httpHeaders: finalHeaders,
+        width: width,
+        height: height,
+        fit: imageFit,
+        cacheManager: picaImageManager,
+        memCacheWidth: targetMemCacheWidth,
+        memCacheHeight: memCacheHeight,
+        fadeOutDuration: fade
+            ? const Duration(milliseconds: 200)
+            : Duration.zero,
+        fadeInDuration: fade
+            ? const Duration(milliseconds: 200)
+            : Duration.zero,
+        placeholder: placeholder ?? (context, url) => const Center(),
+        errorWidget:
+            errorWidget ??
+            (context, url, error) => const Center(child: Icon(Icons.error)),
+      );
+    }
+
+    if (isThumbnail != true || memCacheWidth != null) {
+      return buildImage(memCacheWidth);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : width;
+        if (logicalWidth == null ||
+            !logicalWidth.isFinite ||
+            logicalWidth <= 0) {
+          return buildImage(null);
+        }
+        final cacheWidth = calculateThumbnailCacheWidth(
+          logicalWidth,
+          MediaQuery.devicePixelRatioOf(context),
+        );
+        return buildImage(cacheWidth);
+      },
     );
   }
 }

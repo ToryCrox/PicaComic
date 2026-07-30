@@ -136,7 +136,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     String? coverUrl,
   ) {
     if (state.loading) {
-      return _buildLoadingShimmer(context, adapter, coverUrl);
+      return _buildLoadingShimmer(context, state, notifier, adapter, coverUrl);
     }
 
     if (state.message != null && data == null) {
@@ -152,6 +152,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
   Widget _buildLoadingShimmer(
     BuildContext context,
+    ComicPageState state,
+    ComicPageLogic notifier,
     ComicPageAdapter adapter,
     String? coverUrl,
   ) {
@@ -170,8 +172,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               width: double.infinity,
               child: _buildComicInfo(
                 context,
-                null,
-                null,
+                state,
+                notifier,
                 adapter,
                 null,
                 coverUrl,
@@ -411,21 +413,26 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     double height,
     double width,
   ) {
-    if (coverUrl == null) {
-      return Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
+    final localCoverPath = notifier?.state.coverPath;
+    final displayUrl = localCoverPath != null
+        ? Uri.file(localCoverPath).toString()
+        : coverUrl;
+    final tag = comicCoverHeroTag(adapter.comicType, widget.id);
+    if (displayUrl == null) {
+      // 详情页初始骨架也保留 Hero，避免本地标签等异步数据延迟时，
+      // 目标页缺少匹配 Hero 而导致列表封面动画被取消。
+      return Hero(
+        tag: tag,
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
-
-    final tag = comicCoverHeroTag(adapter.comicType, widget.id);
-    final displayUrl = (notifier?.state.coverPath != null)
-        ? Uri.file(notifier!.state.coverPath!).toString()
-        : coverUrl;
 
     return GestureDetector(
       child: Container(
@@ -446,7 +453,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           ),
         ),
       ),
-      onTap: () => App.globalTo(() => ShowImagePageWithHero(coverUrl, tag)),
+      onTap: () => App.globalTo(() => ShowImagePageWithHero(displayUrl, tag)),
     );
   }
 
@@ -547,7 +554,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 state,
                 screenWidth,
               ),
-              ..._buildDeleteDownloadAction(adapter, notifier),
+              ..._buildDeleteDownloadAction(adapter, notifier, state),
               _buildActionItem(context, "图片收藏".tl, Icons.image, () {
                 Navigator.of(context).push(
                   AppPageRoute(
@@ -673,58 +680,51 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   List<Widget> _buildDeleteDownloadAction(
     ComicPageAdapter adapter,
     ComicPageLogic notifier,
+    ComicPageState state,
   ) {
+    if (!state.isDownloaded) return const [];
+
     final downloadId = adapter.downloadId(widget.id);
     return [
-      FutureBuilder<bool>(
-        future: downloadManager.isExists(downloadId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done ||
-              !snapshot.hasData ||
-              snapshot.data != true) {
-            return const SizedBox.shrink();
-          }
-          return Flyout(
-            enableTap: true,
-            navigator: App.navigatorKey.currentState!,
-            withInkWell: true,
-            borderRadius: 8,
-            flyoutBuilder: (ctx) => FlyoutContent(
-              title: "从本地下载中删除?".tl,
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    Navigator.of(ctx).pop();
-                    await downloadManager.delete([downloadId]);
-                    showToast(message: "已删除".tl);
-                    notifier.updateState();
-                  },
-                  child: Text("删除".tl),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text("取消".tl),
-                ),
-              ],
+      Flyout(
+        enableTap: true,
+        navigator: App.navigatorKey.currentState!,
+        withInkWell: true,
+        borderRadius: 8,
+        flyoutBuilder: (ctx) => FlyoutContent(
+          title: "从本地下载中删除?".tl,
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await downloadManager.delete([downloadId]);
+                showToast(message: "已删除".tl);
+                notifier.markDownloadDeleted();
+              },
+              child: Text("删除".tl),
             ),
-            child: SizedBox(
-              height: 72,
-              width: 64,
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Icon(
-                    Icons.delete_outline,
-                    size: 24,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 8),
-                  Text("删除下载".tl, style: const TextStyle(fontSize: 12)),
-                ],
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text("取消".tl),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          height: 72,
+          width: 64,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Icon(
+                Icons.delete_outline,
+                size: 24,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-          );
-        },
+              const SizedBox(height: 8),
+              Text("删除下载".tl, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
       ),
     ];
   }

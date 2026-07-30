@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../base.dart';
-import '../../foundation/def.dart';
 import '../../foundation/history.dart';
+import '../../network/download/download_model.dart';
 import '../../network/download/models/download_tag.dart';
-import '../../network/res.dart';
 import '../comic_page.dart' show ThumbnailsData;
 import 'comic_page_adapter.dart';
 import 'default_comic_page_adapter.dart';
@@ -171,17 +169,40 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   // ========================================================================
 
   Future<void> _load(String id) async {
-    // 第一步：优先加载下载数据库，其次读取普通磁盘缓存
-    final downloaded = await _loadDownloadedData(id);
-    final cached = downloaded ?? await _adapter.loadCachedData(id);
+    // 第一步：下载记录和普通磁盘缓存互不依赖，并行读取。
+    final downloadId = _adapter.downloadId(id);
+    final cachedDataFuture = _adapter.loadCachedData(id);
+    final downloadedItem = await _loadDownloadedItem(downloadId);
+    final downloaded = downloadedItem == null
+        ? null
+        : _adapter.dataFromDownloadedItem(downloadedItem);
+
+    // 先提供本地封面，让加载骨架也能参与列表到详情页的 Hero 动画。
+    if (downloadedItem != null && ref.mounted) {
+      state = state.copyWith(coverPath: downloadedItem.coverPath);
+    }
+
+    // 磁盘缓存与本地标签互不依赖，并行读取；两者完成后再显示详情内容，
+    // 既缩短首屏等待时间，也避免本地标签和删除按钮后插入布局。
+    final localStateFuture = _loadLocalDownloadState(
+      downloadId,
+      downloaded: downloadedItem,
+      hasLoadedDownloadedItem: true,
+    );
+    final results = await Future.wait<Object?>([
+      cachedDataFuture,
+      localStateFuture.then<Object?>((_) => null),
+    ]);
+    final cached = downloaded ?? results.first;
     if (!ref.mounted) return;
     if (cached != null) {
       _data = cached;
+      // 本地状态已与缓存并行完成，可直接显示稳定的首帧内容。
       state = state.copyWith(loading: false);
-      // 缓存数据加载后立即获取历史、收藏、本地标签
+      // 缓存数据加载后立即获取历史、收藏；本地缩略图可延后加载。
       _loadHistory(id);
       _loadFavorite(cached);
-      _loadLocalTags(_adapter.downloadId(id));
+      unawaited(_loadLocalImages(downloadId));
     }
 
     // 第二步：并发加载网络数据（至少等待100ms避免闪屏）
@@ -203,18 +224,15 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     if (!ref.mounted) return;
     _loadHistory(id);
     _loadFavorite(networkData);
-    await _loadLocalTags(_adapter.downloadId(id));
+    await _loadLocalDownloadState(downloadId);
     if (!ref.mounted) return;
     state = state.copyWith(loading: false, clearMessage: true);
   }
 
   /// 从下载数据库读取详情页数据。
-  Future<Object?> _loadDownloadedData(String id) async {
-    final downloadId = _adapter.downloadId(id);
+  Future<DownloadedItem?> _loadDownloadedItem(String downloadId) async {
     if (downloadId.isEmpty) return null;
-    final item = await downloadManager.getComicOrNull(downloadId);
-    if (item == null) return null;
-    return _adapter.dataFromDownloadedItem(item);
+    return downloadManager.getComicOrNull(downloadId);
   }
 
   /// 网络请求成功后，将最新详情同步到已有下载记录。
@@ -254,10 +272,19 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   // 本地下载标签 & 缩略图
   // ========================================================================
 
-  Future<void> _loadLocalTags(String downloadId) async {
-    final isDownloaded = await downloadManager.isExists(downloadId);
+  /// 读取本地下载状态和标签。
+  ///
+  /// 该方法在详情首帧显示前调用，使相关组件一次性出现，避免布局跳动。
+  Future<void> _loadLocalDownloadState(
+    String downloadId, {
+    DownloadedItem? downloaded,
+    bool hasLoadedDownloadedItem = false,
+  }) async {
+    if (!hasLoadedDownloadedItem) {
+      downloaded = await _loadDownloadedItem(downloadId);
+    }
     if (!ref.mounted) return;
-    if (!isDownloaded) {
+    if (downloaded == null) {
       state = state.copyWith(
         isDownloaded: false,
         localTags: const [],
@@ -269,19 +296,23 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
     final tags = await downloadManager.getComicTags(downloadId);
     if (!ref.mounted) return;
-    List<String>? images;
-    if (_adapter.supportThumbnails) {
-      images = await downloadManager.getAllImageFileList(downloadId, 0);
-      if (!ref.mounted) return;
-    }
-    final downloaded = await downloadManager.getComicOrNull(downloadId);
-    if (!ref.mounted) return;
     state = state.copyWith(
       isDownloaded: true,
       localTags: tags,
-      localImages: images,
-      coverPath: downloaded?.coverPath,
+      coverPath: downloaded.coverPath,
     );
+  }
+
+  /// 延后读取本地缩略图，避免文件扫描阻塞详情页首帧。
+  Future<void> _loadLocalImages(String downloadId) async {
+    if (downloadId.isEmpty ||
+        !_adapter.supportThumbnails ||
+        !state.isDownloaded) {
+      return;
+    }
+    final images = await downloadManager.getAllImageFileList(downloadId, 0);
+    if (!ref.mounted || !state.isDownloaded) return;
+    state = state.copyWith(localImages: images);
   }
 
   // ========================================================================
@@ -295,6 +326,16 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     _thumbnailsData = null;
     state = const ComicPageState();
     _load(id);
+  }
+
+  /// 下载被删除后立即同步页面本地状态。
+  void markDownloadDeleted() {
+    state = state.copyWith(
+      isDownloaded: false,
+      localTags: const [],
+      clearLocalImages: true,
+      clearCoverPath: true,
+    );
   }
 
   /// 阅读器页面关闭后更新历史记录

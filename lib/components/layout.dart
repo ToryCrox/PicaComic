@@ -76,25 +76,41 @@ class SliverGridDelegateWithFixedHeight extends SliverGridDelegate {
 }
 
 class SliverGridDelegateWithComics extends SliverGridDelegate {
-  SliverGridDelegateWithComics([this.useBriefMode = false, this.scale]);
+  SliverGridDelegateWithComics([this.useBriefMode = false, String? scale])
+    : scale = _resolveScale(scale),
+      displayType = _resolveDisplayType();
 
   final bool useBriefMode;
 
-  final String? scale;
+  final double scale;
+
+  final int displayType;
+
+  bool get _usesBriefMode =>
+      displayType == 1 || displayType == 2 || useBriefMode;
+
+  static int _resolveDisplayType() {
+    final values = appdata.settings[44].split(',');
+    return int.tryParse(values.first) ?? 0;
+  }
+
+  static double _resolveScale(String? override) {
+    if (override != null) {
+      return double.tryParse(override) ?? 1;
+    }
+    final values = appdata.settings[44].split(',');
+    if (values.length < 2) {
+      return 1;
+    }
+    return double.tryParse(values[1]) ?? 1;
+  }
 
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
-    var setting = appdata.settings[44].split(',');
-    if (setting.length == 1) {
-      setting.add("1.0");
-    }
-    if (setting[0] == "1" || setting[0] == "2" || useBriefMode) {
-      return getBriefModeLayout(constraints, double.parse(scale ?? setting[1]));
+    if (_usesBriefMode) {
+      return getBriefModeLayout(constraints, scale);
     } else {
-      return getDetailedModeLayout(
-        constraints,
-        double.parse(scale ?? setting[1]),
-      );
+      return getDetailedModeLayout(constraints, scale);
     }
   }
 
@@ -151,6 +167,8 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
 
   @override
   bool shouldRelayout(covariant SliverGridDelegate oldDelegate) {
-    return true;
+    return oldDelegate is! SliverGridDelegateWithComics ||
+        oldDelegate._usesBriefMode != _usesBriefMode ||
+        oldDelegate.scale != scale;
   }
 }

@@ -2,37 +2,39 @@ library components;
 
 import 'dart:async';
 import 'dart:collection';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/pages/download/download_providers.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:signals/signals_flutter.dart';
+
 import 'package:pica_comic/comic_source/comic_source.dart';
+import 'package:pica_comic/components/hover_scale_card.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
+import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/cloudflare.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
+import 'package:pica_comic/pages/download/download_helper.dart';
 import 'package:pica_comic/pages/download/download_page.dart';
+import 'package:pica_comic/pages/download/download_providers.dart';
+import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
 import 'package:pica_comic/pages/show_image_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/foundation/file_utils.dart';
-import 'package:pica_comic/pages/download/download_helper.dart';
 
 import '../base.dart';
 import '../foundation/ui_mode.dart';

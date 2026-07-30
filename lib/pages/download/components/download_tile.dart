@@ -100,7 +100,17 @@ class DownloadedComicTile extends ComicTile {
       .toList();
 
   @override
-  String get description => "${size}MB";
+  String get description {
+    final sizeText = double.tryParse(size) == null ? size : "${size}MB";
+    final authorText = author.trim();
+    if (authorText.isEmpty) {
+      return sizeText;
+    }
+    return "$authorText · $sizeText";
+  }
+
+  @override
+  int get descriptionMaxLines => 1;
 
   @override
   String? get comicID {
@@ -124,41 +134,51 @@ class DownloadedComicTile extends ComicTile {
 
   @override
   Widget? buildSubDescription(BuildContext context) {
-    if (onManageTags == null && onOpenFolder == null && onRead == null)
+    if (onManageTags == null && onOpenFolder == null && onRead == null) {
       return null;
+    }
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-      child: Row(
-        children: [
-          if (onRead != null)
-            _buildActionItem(
-              context,
-              onTap: onRead!,
-              icon: Icons.menu_book,
-              title: "阅读".tl,
-              isPrimary: true,
-            ),
-          if (onRead != null && (onOpenFolder != null || onManageTags != null))
-            const SizedBox(width: 8),
-          if (onOpenFolder != null)
-            _buildActionItem(
-              context,
-              onTap: onOpenFolder!,
-              icon: Icons.folder_open,
-              title: "目录".tl,
-            ),
-          if (onOpenFolder != null && onManageTags != null)
-            const SizedBox(width: 8),
-          if (onManageTags != null)
-            _buildActionItem(
-              context,
-              onTap: onManageTags!,
-              icon: Icons.label_outline,
-              title: "标签".tl,
-            ),
-          const SizedBox(width: 8),
-          _buildColorTagButton(context),
-        ],
+      padding: const EdgeInsets.only(top: 6, bottom: 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showLabels = constraints.maxWidth >= 300;
+          final actions = <Widget>[
+            if (onRead != null)
+              _buildActionItem(
+                context,
+                onTap: onRead!,
+                icon: Icons.menu_book,
+                title: "阅读".tl,
+                isPrimary: true,
+                showLabel: showLabels,
+              ),
+            if (onOpenFolder != null)
+              _buildActionItem(
+                context,
+                onTap: onOpenFolder!,
+                icon: Icons.folder_open,
+                title: "目录".tl,
+                showLabel: showLabels,
+              ),
+            if (onManageTags != null)
+              _buildActionItem(
+                context,
+                onTap: onManageTags!,
+                icon: Icons.label_outline,
+                title: "标签".tl,
+                showLabel: showLabels,
+              ),
+            _buildColorTagButton(context, showLabel: showLabels),
+          ];
+          return Row(
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 6),
+                actions[index],
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -169,6 +189,7 @@ class DownloadedComicTile extends ComicTile {
     required IconData icon,
     required String title,
     bool isPrimary = false,
+    bool showLabel = true,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final backgroundColor = isPrimary
@@ -178,99 +199,120 @@ class DownloadedComicTile extends ComicTile {
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSecondaryContainer;
 
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: foregroundColor),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: foregroundColor,
-                ),
+    return Tooltip(
+      message: title,
+      child: Material(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(7),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 24),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: showLabel ? 7 : 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 15, color: foregroundColor),
+                  if (showLabel) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: foregroundColor,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildColorTagButton(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.secondaryContainer,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTapDown: (details) async {
-          final overlay =
-              Overlay.of(context).context.findRenderObject() as RenderBox;
-          final targetPosition = overlay.globalToLocal(details.globalPosition);
-          final position = RelativeRect.fromRect(
-            Rect.fromPoints(targetPosition, targetPosition),
-            Offset.zero & overlay.size,
-          );
-          final color = await showMenu<DownloadColorTag>(
-            context: context,
-            position: position,
-            items: [
-              for (var tag in DownloadColorTag.values)
-                PopupMenuItem(
-                  value: tag,
-                  child: Row(
-                    children: [
-                      if (tag.color != null)
-                        Icon(Icons.circle, color: tag.color!, size: 18)
-                      else
-                        const Icon(Icons.circle_outlined, size: 18),
-                      const SizedBox(width: 8),
-                      Text(tag.label),
-                    ],
+  Widget _buildColorTagButton(BuildContext context, {required bool showLabel}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: "标记".tl,
+      child: Material(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(7),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTapDown: (details) async {
+            final overlay =
+                Overlay.of(context).context.findRenderObject() as RenderBox;
+            final targetPosition = overlay.globalToLocal(
+              details.globalPosition,
+            );
+            final position = RelativeRect.fromRect(
+              Rect.fromPoints(targetPosition, targetPosition),
+              Offset.zero & overlay.size,
+            );
+            final color = await showMenu<DownloadColorTag>(
+              context: context,
+              position: position,
+              items: [
+                for (var tag in DownloadColorTag.values)
+                  PopupMenuItem(
+                    value: tag,
+                    child: Row(
+                      children: [
+                        if (tag.color != null)
+                          Icon(Icons.circle, color: tag.color!, size: 18)
+                        else
+                          const Icon(Icons.circle_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        Text(tag.label),
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          );
-          if (color != null) {
-            downloadManager.updateColor(downloadedItem.id, color);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (downloadedItem.color?.color != null)
-                Icon(
-                  Icons.circle,
-                  size: 16,
-                  color: downloadedItem.color!.color!,
-                )
-              else
-                Icon(
-                  Icons.circle_outlined,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-              const SizedBox(width: 6),
-              Text(
-                "标记".tl,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
+              ],
+            );
+            if (color != null) {
+              downloadManager.updateColor(downloadedItem.id, color);
+            }
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 24),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: showLabel ? 7 : 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (downloadedItem.color?.color != null)
+                    Icon(
+                      Icons.circle,
+                      size: 15,
+                      color: downloadedItem.color!.color!,
+                    )
+                  else
+                    Icon(
+                      Icons.circle_outlined,
+                      size: 15,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  if (showLabel) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      "标记".tl,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -287,7 +329,7 @@ class DownloadedComicTile extends ComicTile {
   void onSecondaryTap_(TapDownDetails details) => onSecondaryTap(details);
 
   @override
-  String get subTitle => author;
+  String get subTitle => "";
 
   @override
   String get title => name;
