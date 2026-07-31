@@ -164,20 +164,21 @@ class AllTags extends _$AllTags {
 }
 
 /// 标签数据 Provider（包含封面路径等计算后的信息）
-@Riverpod(keepAlive: false)
+@Riverpod(keepAlive: true)
 Future<List<TagInfo>> downloadTags(Ref ref) async {
   final allComics = await ref.watch(allDownloadedComicsProvider.future);
 
   final allTags = await ref.watch(allTagsProvider.future);
+  final comicsById = <String, DownloadedItem>{
+    for (final comic in allComics) comic.id: comic,
+  };
 
   final List<TagInfo> tagInfos = [];
 
   for (final tag in allTags) {
     String? coverPath;
     if (tag.coverComicId != null) {
-      coverPath = allComics
-          .firstWhereOrNull((c) => c.id == tag.coverComicId)
-          ?.coverPath;
+      coverPath = comicsById[tag.coverComicId]?.coverPath;
     }
 
     tagInfos.add(
@@ -202,7 +203,7 @@ Future<List<TagInfo>> downloadTags(Ref ref) async {
 ///
 /// Map<ComicId, List<TagName>>
 /// 监听 onTagsChanged 流来精确刷新，不会触发漫画列表重新加载
-@Riverpod(keepAlive: false)
+@Riverpod(keepAlive: true)
 class ComicUserTags extends _$ComicUserTags {
   StreamSubscription<void>? _tagsSubscription;
 
@@ -257,9 +258,6 @@ class DownloadPageState {
   /// 排除本地
   final bool excludeLocal;
 
-  /// 排序版本号（用于触发排序更新）
-  final int sortVersion;
-
   /// 是否处于搜索模式
   final bool isSearching;
 
@@ -274,7 +272,6 @@ class DownloadPageState {
     this.tagCategoryFilter,
     this.downloadTypeFilter,
     this.excludeLocal = false,
-    this.sortVersion = 0,
     this.isSearching = false,
     this.isDragDisabled = true,
   });
@@ -289,7 +286,6 @@ class DownloadPageState {
     DownloadType? downloadTypeFilter,
     bool? excludeLocal,
     bool clearDownloadTypeFilter = false,
-    int? sortVersion,
     bool? isSearching,
     bool? isDragDisabled,
   }) {
@@ -305,7 +301,6 @@ class DownloadPageState {
           ? null
           : (downloadTypeFilter ?? this.downloadTypeFilter),
       excludeLocal: excludeLocal ?? this.excludeLocal,
-      sortVersion: sortVersion ?? this.sortVersion,
       isSearching: isSearching ?? this.isSearching,
       isDragDisabled: isDragDisabled ?? this.isDragDisabled,
     );
@@ -489,24 +484,41 @@ void toggleDragDisabled(WidgetRef ref, String pageId) {
 // 辅助函数
 // ============================================================================
 
-/// 触发排序更新
+/// 当前下载列表排序设置。
 ///
-/// 通过增加 sortVersion 来触发 filteredComicsProvider 重新计算
-void triggerSortUpdate(WidgetRef ref, String pageId) {
-  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    final currentVersion = state.sortVersion;
-    return state.copyWith(sortVersion: currentVersion + 1);
-  });
+/// 排序设置是全局配置，使用持久 Provider 让所有下载页面共享同一份状态。
+@Riverpod(keepAlive: true)
+class DownloadSortSetting extends _$DownloadSortSetting {
+  @override
+  String build() => appdata.settings[26];
+
+  /// 从应用设置同步当前排序方式。
+  void syncWithSettings() {
+    final nextSetting = appdata.settings[26];
+    if (state != nextSetting) {
+      state = nextSetting;
+    }
+  }
+}
+
+/// 触发下载列表排序更新。
+void triggerSortUpdate(WidgetRef ref) {
+  ref.read(downloadSortSettingProvider.notifier).syncWithSettings();
 }
 
 /// 在内存中对漫画列表进行排序
 ///
 /// 根据 appdata.settings[26] 的设置进行排序，避免每次排序变化都从数据库重新读取
-List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
+List<DownloadedItem> _sortComics(
+  List<DownloadedItem> comics,
+  String sortSetting,
+) {
   if (comics.isEmpty) return comics;
 
-  final sortType = appdata.settings[26][0]; // 0:时间, 1:标题, 2:副标题, 3:大小
-  final isAscending = appdata.settings[26][1] == "1";
+  final sortType = sortSetting.isEmpty
+      ? "0"
+      : sortSetting[0]; // 0:时间, 1:标题, 2:副标题, 3:大小
+  final isAscending = sortSetting.length > 1 && sortSetting[1] == "1";
 
   final sorted = List<DownloadedItem>.from(comics);
 
@@ -535,6 +547,25 @@ List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
   return sorted;
 }
 
+/// 判断下载页面当前是否存在会改变漫画集合的筛选条件。
+bool _hasActiveFilters(DownloadPageState state) {
+  return state.keyword.isNotEmpty ||
+      state.downloadTypeFilter != null ||
+      state.excludeLocal ||
+      state.tagCategoryFilter != null ||
+      state.selectedTagIds.isNotEmpty;
+}
+
+/// 无筛选状态下的已下载漫画排序结果。
+///
+/// 排序设置或下载数据变化时自动更新，其余时间复用上次排序结果。
+@Riverpod(keepAlive: true)
+Future<List<DownloadedItem>> sortedDownloadedComics(Ref ref) async {
+  final comics = await ref.watch(allDownloadedComicsProvider.future);
+  final sortSetting = ref.watch(downloadSortSettingProvider);
+  return _sortComics(comics, sortSetting);
+}
+
 // ============================================================================
 // 衍生计算层 (Computed State)
 // ============================================================================
@@ -544,10 +575,16 @@ List<DownloadedItem> _sortComics(List<DownloadedItem> comics) {
 /// 同时监听全局数据层和实例状态层，精确计算当前页面应显示的漫画列表。
 @Riverpod(keepAlive: false)
 Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
+  final pageState = ref.watch(downloadPageStateProvider(pageId));
+  final sortSetting = ref.watch(downloadSortSettingProvider);
+
+  if (!_hasActiveFilters(pageState)) {
+    return ref.watch(sortedDownloadedComicsProvider.future);
+  }
+
   final comics = await ref.watch(allDownloadedComicsProvider.future);
   final userTagsMap = await ref.watch(comicUserTagsProvider.future);
   final allTags = await ref.watch(downloadTagsProvider.future);
-  final pageState = ref.watch(downloadPageStateProvider(pageId));
 
   var filtered = comics;
 
@@ -628,7 +665,7 @@ Future<List<DownloadedItem>> filteredComics(Ref ref, String pageId) async {
   }
 
   // 在内存中进行排序（避免每次排序变化都从数据库重新读取）
-  final sortResult = _sortComics(filtered);
+  final sortResult = _sortComics(filtered, sortSetting);
 
   return sortResult;
 }
@@ -643,17 +680,14 @@ int selectedCount(Ref ref, String pageId) {
   );
 }
 
-/// 已下载漫画摘要 Provider (Count, TotalSize)
-@Riverpod(keepAlive: false)
-Future<String> downloadedComicsSummary(Ref ref, String pageId) async {
-  final comics = await ref.watch(filteredComicsProvider(pageId).future);
-
+/// 根据漫画列表生成数量和总大小摘要。
+String _buildDownloadedComicsSummary(List<DownloadedItem> comics) {
   double totalSizeMB = 0;
-  for (var comic in comics) {
+  for (final comic in comics) {
     totalSizeMB += comic.comicSize ?? 0;
   }
 
-  String sizeStr;
+  final String sizeStr;
   if (totalSizeMB > 1024) {
     sizeStr = "${(totalSizeMB / 1024).toStringAsFixed(2)}GB";
   } else {
@@ -661,6 +695,29 @@ Future<String> downloadedComicsSummary(Ref ref, String pageId) async {
   }
 
   return "(${comics.length}, $sizeStr)";
+}
+
+/// 无筛选状态下的已下载漫画摘要。
+///
+/// 摘要与排序方式无关，仅在下载数据变化时重新计算。
+@Riverpod(keepAlive: true)
+Future<String> unfilteredDownloadedComicsSummary(Ref ref) async {
+  final comics = await ref.watch(allDownloadedComicsProvider.future);
+  return _buildDownloadedComicsSummary(comics);
+}
+
+/// 当前下载页面的漫画摘要 (Count, TotalSize)
+@Riverpod(keepAlive: false)
+Future<String> downloadedComicsSummary(Ref ref, String pageId) async {
+  final hasActiveFilters = ref.watch(
+    downloadPageStateProvider(pageId).select(_hasActiveFilters),
+  );
+  if (!hasActiveFilters) {
+    return ref.watch(unfilteredDownloadedComicsSummaryProvider.future);
+  }
+
+  final comics = await ref.watch(filteredComicsProvider(pageId).future);
+  return _buildDownloadedComicsSummary(comics);
 }
 
 /// 过滤后的标签列表 Provider (用于标签筛选面板)
@@ -674,12 +731,7 @@ Future<List<TagInfo>> filteredTags(Ref ref, String pageId) async {
   final pageState = ref.watch(downloadPageStateProvider(pageId));
 
   // check if filtering
-  bool isFiltering =
-      pageState.keyword.isNotEmpty ||
-      pageState.downloadTypeFilter != null ||
-      pageState.excludeLocal ||
-      pageState.tagCategoryFilter != null ||
-      pageState.selectedTagIds.isNotEmpty;
+  final isFiltering = _hasActiveFilters(pageState);
 
   List<TagInfo> applyCategoryFilter(List<TagInfo> tags) {
     if (pageState.tagCategoryFilter == null) return tags;

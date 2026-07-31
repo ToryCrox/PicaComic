@@ -268,7 +268,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         }
         appdata.updateSettings();
         // 触发排序更新（内存排序，不重新从数据库读取）
-        triggerSortUpdate(ref, _pageId);
+        triggerSortUpdate(ref);
       },
       tooltip: isDescending ? "切换为正序".tl : "切换为倒序".tl,
       child: isDescending
@@ -517,9 +517,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       // 标签分类筛选
       _buildTagCategoryFilterAction(pageState),
       // 排序
-      buildComicSortMenuAnchor(
-        onChanged: () => triggerSortUpdate(ref, _pageId),
-      ),
+      buildComicSortMenuAnchor(onChanged: () => triggerSortUpdate(ref)),
       // 更多菜单
       Builder(
         builder: (context) => IconButton(

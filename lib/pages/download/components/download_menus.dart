@@ -684,7 +684,7 @@ List<Widget> buildAppBarActions({
         ),
       ),
     if (!isSelecting)
-      buildComicSortMenuAnchor(onChanged: () => triggerSortUpdate(ref, pageId)),
+      buildComicSortMenuAnchor(onChanged: () => triggerSortUpdate(ref)),
     if (!isSelecting && !isSearchMode)
       Tooltip(
         message: "下载管理器".tl,
