@@ -109,6 +109,7 @@ dependencies:
   event_bus: ^2.0.1
   flutter_riverpod: ^3.0.3
   riverpod_annotation: ^3.0.3
+  path: ^1.9.0
   wakelock_plus: ^1.4.0
   reorderables: ^0.6.0
   
@@ -132,7 +133,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^2.0.0
   archive: ^3.4.0
-  path: ^1.9.0
   flutter_to_arch:
     git: https://github.com/wgh136/flutter_to_arch
   build_runner: ^2.4.0

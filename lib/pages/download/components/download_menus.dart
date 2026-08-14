@@ -23,6 +23,8 @@ import 'package:pica_comic/pages/rename_download_dialog.dart';
 
 import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/download/tag_management_page.dart';
+import 'package:pica_comic/pages/download/translation_result_replace_dialog.dart';
+import 'package:pica_comic/pages/download/translation_result_replacer.dart';
 import 'package:pica_comic/pages/update_size_dialog.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -383,7 +385,7 @@ void showDownloadTypeFilterMenu({
 }
 
 /// 显示右键菜单
-void showTileContextMenu({
+Future<void> showTileContextMenu({
   required BuildContext context,
   required TapDownDetails details,
   required DownloadedItem comic,
@@ -393,11 +395,29 @@ void showTileContextMenu({
   required VoidCallback onRemoveComic,
   required VoidCallback onShowInfo,
   VoidCallback? onShowImageList,
-}) {
+}) async {
+  final hasTranslationResult = await TranslationResultReplacer()
+      .hasReplacementCandidate(comic.directoryPath);
   showDesktopMenu(
     App.globalContext!,
     Offset(details.globalPosition.dx, details.globalPosition.dy),
     [
+      if (hasTranslationResult)
+        DesktopMenuEntry(
+          text: '应用翻译结果'.tl,
+          icon: Icons.translate,
+          onClick: () async {
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+            if (!context.mounted) return;
+            await showDialog<void>(
+              context: context,
+              builder: (_) => TranslationResultReplaceDialog(
+                comic: comic,
+                onComplete: onRefresh,
+              ),
+            );
+          },
+        ),
       DesktopMenuEntry(
         text: "阅读".tl,
         onClick: () async {

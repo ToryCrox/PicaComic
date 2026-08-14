@@ -219,7 +219,7 @@ class DownloadList extends ConsumerWidget {
             enterSelecting(ref, pageId);
           },
           onSecondaryTap: (details) async {
-            showTileContextMenu(
+            await showTileContextMenu(
               context: context,
               details: details,
               comic: item,
