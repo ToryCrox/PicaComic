@@ -22,6 +22,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'ai/ai.dart';
 import 'base.dart';
 import 'comic_source/built_in/ehentai.dart';
 import 'comic_source/built_in/ht_manga.dart';
@@ -37,7 +38,7 @@ Future<void> init() async {
   try {
     await App.init();
     //LogManager.init();
-    PrefsHelper.init();
+    await PrefsHelper.init();
     Log.i("App Status Start initialization.");
     await appdata.readData();
     // Apply log level setting
@@ -80,6 +81,7 @@ Future<void> init() async {
 
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    await aiSettings.init();
 
     await Future.wait([
       downloadManager.init(),

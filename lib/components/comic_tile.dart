@@ -1,5 +1,11 @@
 part of 'components.dart';
 
+/// 仅在存在译文时创建提示框，避免 Tooltip 接收空消息触发断言。
+Widget _withTranslationTooltip(String? translation, Widget child) {
+  if (translation == null || translation.isEmpty) return child;
+  return Tooltip(message: translation, child: child);
+}
+
 class ComicTileMenuOption {
   final String title;
   final IconData icon;
@@ -21,6 +27,9 @@ abstract class ComicTile extends StatelessWidget {
   Widget? buildSubDescription(BuildContext context) => null;
 
   String get title;
+
+  /// 已缓存的 AI 标题译文；为空时不显示。
+  String? get translatedTitle => null;
 
   String get subTitle;
 
@@ -716,6 +725,7 @@ abstract class ComicTile extends StatelessWidget {
                     title: pages == null
                         ? title.replaceAll("\n", "")
                         : "[${pages}P]${title.replaceAll("\n", "")}",
+                    translatedTitle: translatedTitle,
                     user: subTitle,
                     description: description,
                     descriptionMaxLines: descriptionMaxLines,
@@ -767,16 +777,25 @@ abstract class ComicTile extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 20, 10, 8),
-              child: Text(
-                title.replaceAll("\n", ""),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.0,
-                  height: 1.25,
-                  color: Colors.white,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _withTranslationTooltip(
+                    translatedTitle,
+                    Text(
+                      title.replaceAll("\n", ""),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.0,
+                        height: 1.25,
+                        color: Colors.white,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -802,6 +821,7 @@ abstract class ComicTile extends StatelessWidget {
 class _ComicDescription extends StatefulWidget {
   const _ComicDescription({
     required this.title,
+    this.translatedTitle,
     required this.user,
     required this.description,
     required this.descriptionMaxLines,
@@ -817,6 +837,7 @@ class _ComicDescription extends StatefulWidget {
   });
 
   final String title;
+  final String? translatedTitle;
   final String user;
   final String description;
   final int descriptionMaxLines;
@@ -850,15 +871,18 @@ class _ComicDescriptionState extends State<_ComicDescription> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          widget.title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-            height: 1.2,
+        _withTranslationTooltip(
+          widget.translatedTitle,
+          Text(
+            widget.title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              height: 1.2,
+            ),
+            maxLines: widget.maxLines,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: widget.maxLines,
-          overflow: TextOverflow.ellipsis,
         ),
         if (widget.user != "")
           Text(

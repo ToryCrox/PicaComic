@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 // ignore_for_file: implementation_imports
 
+import 'package:pica_comic/ai/ai.dart';
+import 'package:pica_comic/ai/ai_cached_title_builder.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/pages/download/components/download_tile.dart'
     show toDownloadingComicInfoPage;
@@ -296,14 +299,40 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            comic.title,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                          child: AiCachedTitleBuilder(
+                            resource: AiComicResource(
+                              sourceKey: comic is CustomDownloadingTask
+                                  ? (comic as CustomDownloadingTask)
+                                        .comic
+                                        .sourceKey
+                                  : comic.type.toComicType().name,
+                              downloadId: comic.id,
+                              targetLanguage: App.locale.toLanguageTag(),
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            title: comic.title,
+                            builder: (context, translatedTitle) =>
+                                translatedTitle?.isNotEmpty == true
+                                ? Tooltip(
+                                    message: translatedTitle!,
+                                    child: Text(
+                                      comic.title,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )
+                                : Text(
+                                    comic.title,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                           ),
                         ),
                         if (!_isSingleEpisode)

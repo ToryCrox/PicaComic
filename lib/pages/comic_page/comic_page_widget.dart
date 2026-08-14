@@ -22,6 +22,7 @@ import '../download/tag_assignment_dialog.dart';
 import '../favorites/local_favorites.dart';
 import '../image_favorites.dart';
 import '../reader/comic_reading_page.dart';
+import '../settings/ai_settings_page.dart';
 import '../show_image_page.dart';
 import 'comic_page_adapter.dart';
 import 'comic_page_logic.dart';
@@ -228,7 +229,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         _buildComicInfo(context, state, notifier, adapter, data, coverUrl),
         _buildTagsSection(context, state, adapter, data),
         ..._buildEpisodeSection(context, state, adapter, data),
-        ..._buildIntroductionSection(context, adapter, data),
+        ..._buildIntroductionSection(context, state, adapter, data),
         ..._buildThumbnailsSection(context, state, notifier, adapter, data),
         ..._buildRecommendationSection(context, adapter, data),
         SliverPadding(
@@ -352,6 +353,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                           titleText?.trim() ?? "",
                           style: const TextStyle(fontSize: 18),
                         ),
+                        if (state?.translationVisible == true &&
+                            state!.translation.title.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: SelectableText(
+                              state.translation.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         if (subTitleText != null) ...[
                           const SizedBox(height: 8),
                           SelectableText(
@@ -517,6 +532,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               }),
               _buildActionItem(
                 context,
+                state.translationLoading
+                    ? "AI翻译中".tl
+                    : state.translation.hasValue
+                    ? (state.translationVisible ? "隐藏译文".tl : "显示译文".tl)
+                    : state.translationError != null
+                    ? "重新翻译".tl
+                    : "AI翻译".tl,
+                state.translationLoading
+                    ? Icons.hourglass_top
+                    : Icons.translate,
+                () => _onAiTranslatePressed(context, notifier, state),
+              ),
+              _buildActionItem(
+                context,
                 state.favorite ? "已收藏".tl : "收藏".tl,
                 state.favorite
                     ? Icons.collections_bookmark
@@ -576,6 +605,50 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
   // 额外操作按钮（来自adapter）
   // ========================================================================
+
+  /// 处理 AI 翻译操作；未配置时直接引导用户前往设置页。
+  Future<void> _onAiTranslatePressed(
+    BuildContext context,
+    ComicPageLogic notifier,
+    ComicPageState state,
+  ) async {
+    if (state.translationLoading) return;
+    if (state.translation.hasValue) {
+      notifier.toggleTranslationVisibility();
+      return;
+    }
+    await notifier.translateMetadata();
+    if (!context.mounted) return;
+    final latest = ref.read(
+      comicPageLogicProvider((widget.comicType, widget.id)),
+    );
+    final error = latest.translationError;
+    if (error == null) return;
+    if (latest.translationNeedsSetup) {
+      final openSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('AI翻译未配置'.tl),
+          content: Text(error),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('取消'.tl),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('前往AI设置'.tl),
+            ),
+          ],
+        ),
+      );
+      if (openSettings == true && context.mounted) {
+        App.to(context, () => const AiSettingsPage());
+      }
+      return;
+    }
+    showToast(message: error);
+  }
 
   List<Widget> _buildExtraActions(
     ComicPageAdapter adapter,
@@ -1430,6 +1503,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
   Iterable<Widget> _buildIntroductionSection(
     BuildContext context,
+    ComicPageState state,
     ComicPageAdapter adapter,
     Object data,
   ) sync* {
@@ -1442,7 +1516,23 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     yield SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
-        child: SelectableText(introduction),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText(introduction),
+            if (state.translationVisible &&
+                state.translation.introduction.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: SelectableText(
+                  state.translation.introduction,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
     yield const SliverPadding(padding: EdgeInsets.all(5));

@@ -16,6 +16,7 @@ import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/pages/settings/ai_settings_page.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/main.dart';
 import 'package:pica_comic/network/app_dio.dart';
@@ -448,6 +449,13 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
   Widget buildAppSettings() {
     return Column(
       children: [
+        ListTile(
+          leading: const Icon(Icons.auto_awesome),
+          title: Text('AI设置'.tl),
+          subtitle: Text('配置漫画标题和简介翻译服务'.tl),
+          trailing: const Icon(Icons.arrow_right),
+          onTap: () => App.to(context, () => const AiSettingsPage()),
+        ),
         if (Platform.isWindows)
           ListTile(
             title: const Text('打开Data目录'),

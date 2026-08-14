@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../ai/ai.dart';
 import '../../base.dart';
+import '../../foundation/app.dart';
+import '../../foundation/log.dart';
 import '../../foundation/history.dart';
 import '../../network/download/download_model.dart';
 import '../../network/download/models/download_tag.dart';
@@ -34,6 +37,11 @@ class ComicPageState {
   final List<String>? localImages;
   final String? coverPath;
   final bool showAppbarTitle;
+  final ComicMetadataTranslation translation;
+  final bool translationLoading;
+  final bool translationVisible;
+  final String? translationError;
+  final bool translationNeedsSetup;
 
   const ComicPageState({
     this.loading = true,
@@ -49,6 +57,11 @@ class ComicPageState {
     this.localImages,
     this.coverPath,
     this.showAppbarTitle = false,
+    this.translation = const ComicMetadataTranslation(),
+    this.translationLoading = false,
+    this.translationVisible = true,
+    this.translationError,
+    this.translationNeedsSetup = false,
   });
 
   ComicPageState copyWith({
@@ -65,11 +78,17 @@ class ComicPageState {
     List<String>? localImages,
     String? coverPath,
     bool? showAppbarTitle,
+    ComicMetadataTranslation? translation,
+    bool? translationLoading,
+    bool? translationVisible,
+    String? translationError,
+    bool? translationNeedsSetup,
     bool clearMessage = false,
     bool clearHistory = false,
     bool clearLocalImages = false,
     bool clearCoverPath = false,
     bool clearFavoriteOnPlatform = false,
+    bool clearTranslationError = false,
   }) {
     return ComicPageState(
       loading: loading ?? this.loading,
@@ -87,6 +106,14 @@ class ComicPageState {
       localImages: clearLocalImages ? null : (localImages ?? this.localImages),
       coverPath: clearCoverPath ? null : (coverPath ?? this.coverPath),
       showAppbarTitle: showAppbarTitle ?? this.showAppbarTitle,
+      translation: translation ?? this.translation,
+      translationLoading: translationLoading ?? this.translationLoading,
+      translationVisible: translationVisible ?? this.translationVisible,
+      translationError: clearTranslationError
+          ? null
+          : (translationError ?? this.translationError),
+      translationNeedsSetup:
+          translationNeedsSetup ?? this.translationNeedsSetup,
     );
   }
 }
@@ -144,6 +171,49 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   ComicPageAdapter get adapter => _adapter;
   ThumbnailsData? get thumbnailsData => _thumbnailsData;
 
+  /// 切换详情页已缓存译文的显示状态。
+  void toggleTranslationVisibility() {
+    if (!state.translation.hasValue) return;
+    state = state.copyWith(translationVisible: !state.translationVisible);
+  }
+
+  /// 翻译当前漫画的标题与简介。
+  Future<void> translateMetadata() async {
+    final data = _data;
+    if (data == null || state.translationLoading) return;
+    final title = _adapter.title(data)?.trim() ?? '';
+    if (title.isEmpty) return;
+    final introduction = _adapter.introduction(data);
+    state = state.copyWith(
+      translationLoading: true,
+      translationNeedsSetup: false,
+      clearTranslationError: true,
+    );
+    try {
+      final translation = await aiTranslationService.translateComicMetadata(
+        resource: _translationResource(),
+        title: title,
+        introduction: introduction,
+      );
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        translation: translation,
+        translationLoading: false,
+        translationVisible: true,
+        translationNeedsSetup: false,
+        clearTranslationError: true,
+      );
+    } catch (error, stackTrace) {
+      Log.w('漫画信息 AI 翻译失败', error: error, stackTrace: stackTrace);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        translationLoading: false,
+        translationError: error.toString(),
+        translationNeedsSetup: error is AiConfigurationException,
+      );
+    }
+  }
+
   // ========================================================================
   // build — 初始化
   // ========================================================================
@@ -199,6 +269,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
       _data = cached;
       // 本地状态已与缓存并行完成，可直接显示稳定的首帧内容。
       state = state.copyWith(loading: false);
+      unawaited(_loadCachedTranslation(cached));
       // 缓存数据加载后立即获取历史、收藏；本地缩略图可延后加载。
       _loadHistory(id);
       _loadFavorite(cached);
@@ -227,7 +298,34 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     await _loadLocalDownloadState(downloadId);
     if (!ref.mounted) return;
     state = state.copyWith(loading: false, clearMessage: true);
+    unawaited(_loadCachedTranslation(networkData));
   }
+
+  /// 详情加载后只读取本地译文缓存，避免进入页面即产生 AI 请求。
+  Future<void> _loadCachedTranslation(Object data) async {
+    final title = _adapter.title(data)?.trim() ?? '';
+    if (title.isEmpty) return;
+    try {
+      final translation = await aiTranslationService.cachedComicMetadata(
+        resource: _translationResource(),
+        title: title,
+        introduction: _adapter.introduction(data),
+      );
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        translation: translation,
+        translationVisible: translation.hasValue,
+      );
+    } catch (error, stackTrace) {
+      Log.w('读取漫画 AI 翻译缓存失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  AiComicResource _translationResource() => AiComicResource(
+    sourceKey: _adapter.comicType.name,
+    downloadId: _adapter.downloadId(_key.$2),
+    targetLanguage: App.locale.toLanguageTag(),
+  );
 
   /// 从下载数据库读取详情页数据。
   Future<DownloadedItem?> _loadDownloadedItem(String downloadId) async {

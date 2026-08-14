@@ -43,6 +43,7 @@ class DownloadedComicTile extends ComicTile {
   final String author;
   final String name;
   final String type;
+  final String? translatedName;
 
   @override
   final List<String> primaryTags;
@@ -81,6 +82,7 @@ class DownloadedComicTile extends ComicTile {
     required this.onLongTap,
     required this.onSecondaryTap,
     required this.type,
+    this.translatedName,
     this.primaryTags = const [],
     this.tag = const [],
     this.onTagTap,
@@ -333,6 +335,9 @@ class DownloadedComicTile extends ComicTile {
 
   @override
   String get title => name;
+
+  @override
+  String? get translatedTitle => translatedName;
 
   @override
   Widget get image => Image.file(
