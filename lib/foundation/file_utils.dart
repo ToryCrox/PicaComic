@@ -3,6 +3,8 @@ import 'package:open_file/open_file.dart';
 import 'log.dart';
 
 class FileUtils {
+  static const _openPathEnvironmentKey = 'PICA_COMIC_OPEN_PATH';
+
   /// 打开文件或文件夹
   /// 针对 Windows 下 Unicode 路径（如 ④ 等特殊字符）导致的 cmd 截断问题：
   /// 1. 不使用 explorer.exe，因为它会强制使用系统资源管理器，跳过三方管理器。
@@ -13,22 +15,29 @@ class FileUtils {
       final type = await FileSystemEntity.type(path);
       Log.d(() => 'openFileOrDirectory: $path, type: $type');
       if (type == FileSystemEntityType.directory) {
-        // 使用 powershell 的 Invoke-Item。
-        // 它与 cmd 的 start 命令行为一致，但支持 -LiteralPath 参数，可以正确处理包含 [ ] 等通配符的路径。
-        // 同样会通过 ShellExecute 唤起，支持三方文件管理器。
-        // 同时 powershell 是原生 Unicode 环境，不会截断 ④ 等特殊字符。
-        // 我们需要对路径中的单引号进行转义，防止 powershell 语法错误。
-        final escapedPath = path.replaceAll("'", "''");
-        final result = await Process.run('powershell', [
-          '-NoProfile',
-          '-Command',
-          "Invoke-Item -LiteralPath '$escapedPath'",
-        ]);
+        // 路径通过环境变量传递，避免直引号、弯引号等内容被 PowerShell
+        // 当作命令语法解析，同时保留 Invoke-Item 对默认文件管理器的支持。
+        final result = await Process.run(
+          'powershell',
+          [
+            '-NoProfile',
+            '-Command',
+            'Invoke-Item -LiteralPath \$env:$_openPathEnvironmentKey',
+          ],
+          environment: {_openPathEnvironmentKey: path},
+        );
         Log.d(
           () =>
               'openFileOrDirectory result: ${result.exitCode}, ${result.stdout}, ${result.stderr}',
         );
-        return;
+        if (result.exitCode == 0) {
+          return;
+        }
+        Log.w(
+          () =>
+              'openFileOrDirectory: PowerShell 打开目录失败，回退到 open_file，'
+              'exitCode=${result.exitCode}, stderr=${result.stderr}',
+        );
       } else {
         Log.w(() => 'openFileOrDirectory not directory: $path, type: $type');
       }

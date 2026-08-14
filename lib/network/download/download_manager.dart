@@ -983,38 +983,29 @@ extension AddDownloadExt on DownloadManager {
   ///
   /// 使用 title 生成目录名，如果失败则使用 id 作为后备，确保永远不为空
   String _generateDirectoryName(DownloadingTask task) {
-    String sanitizedTitle;
     try {
-      final titleToUse = task.title.isNotEmpty ? task.title : task.id;
-      int? maxLength;
-      if (App.isWindows && path != null) {
-        // Windows MAX_PATH = 260
-        // 预留约 60 字符给章节文件夹(如 /1/)和图片文件名(如 /1.jpg)以及可能的后缀
-        const reserved = 60;
-        maxLength =
-            260 -
-            path!.length -
-            reserved -
-            task.type.name.length -
-            task.id.length -
-            4;
-        if (maxLength < 10) maxLength = 10; // 确保标题至少保留一些
-      }
-      sanitizedTitle = sanitizeFileName(titleToUse, maxLength ?? 255);
-      if (sanitizedTitle.trim().isEmpty) {
-        sanitizedTitle = task.id;
-      }
+      return _buildDirectoryName(task.type.name, task.id, task.title);
     } catch (e) {
       Log.w('DownloadManager: sanitizeFileName 失败，使用 id: $e');
-      sanitizedTitle = task.id;
+      return _buildDirectoryName(task.type.name, task.id, task.id);
     }
-    // 复用统一的目录名格式
-    return _buildDirectoryName(task.type.name, task.id, sanitizedTitle);
   }
 
   /// 构建目录名称的通用方法，格式: [type][id]title
   String _buildDirectoryName(String type, String id, String title) {
-    return '[$type][$id]$title';
+    var maxLength = maxDownloadDirectoryNameBytes;
+    if (App.isWindows && path != null) {
+      // 为章节目录、图片文件名和分隔符预留 60 个字符。
+      const reservedPathLength = 60;
+      final pathLimitedLength = 260 - path!.length - reservedPathLength - 1;
+      maxLength = min(maxLength, pathLimitedLength);
+    }
+    return buildDownloadDirectoryName(
+      type: type,
+      id: id,
+      title: title,
+      maxLength: maxLength,
+    );
   }
 
   ///添加哔咔漫画下载
@@ -2059,8 +2050,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 根据漫画信息生成新的目录名
   String generateDirectoryName(DownloadedItem item) {
-    String sanitizedTitle = sanitizeFileName(item.name);
-    return _buildDirectoryName(item.type.name, item.id, sanitizedTitle);
+    return _buildDirectoryName(item.type.name, item.id, item.name);
   }
 
   /// 生成唯一的本地漫画ID（带冲突检测）
