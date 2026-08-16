@@ -1,12 +1,10 @@
 import 'dart:io';
-import 'dart:async';
 
 import 'package:flutter/material.dart'; // ignore: unused_import
 // ignore: unused_import
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:path/path.dart' as Path;
-import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:path/path.dart' as path;
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -360,101 +358,22 @@ class DownloadedComicTile extends ComicTile {
       return baseTile;
     }
 
-    // 将拖拽逻辑封装在 StatefulWidget 中以缓存文件列表
+    // 单本漫画直接拖出下载目录；批量拖拽仍由独立对话框导出图片。
     return _DownloadedComicTileDragWrapper(
       downloadedItem: downloadedItem,
-      isDragDisabled: isDragDisabled,
       child: baseTile,
     );
   }
 }
 
-class _DownloadedComicTileDragWrapper extends StatefulWidget {
+class _DownloadedComicTileDragWrapper extends StatelessWidget {
   final DownloadedItem downloadedItem;
-  final bool isDragDisabled;
   final Widget child;
 
   const _DownloadedComicTileDragWrapper({
     required this.downloadedItem,
-    required this.isDragDisabled,
     required this.child,
   });
-
-  @override
-  State<_DownloadedComicTileDragWrapper> createState() =>
-      _DownloadedComicTileDragWrapperState();
-}
-
-class _DownloadedComicTileDragWrapperState
-    extends State<_DownloadedComicTileDragWrapper> {
-  List<File>? _cachedFiles;
-  bool _isScanning = false;
-
-  /// 获取所有图片文件（带简单缓存）
-  Future<List<File>> _getImageFiles() async {
-    if (_cachedFiles != null) return _cachedFiles!;
-    if (_isScanning) {
-      // 避免并发扫描，等待当前扫描完成
-      while (_isScanning) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-      return _cachedFiles ?? [];
-    }
-
-    _isScanning = true;
-    try {
-      final dirPath = widget.downloadedItem.directoryPath;
-      if (dirPath.isEmpty) {
-        _cachedFiles = [];
-        return [];
-      }
-
-      final dir = Directory(dirPath);
-      if (!await dir.exists()) {
-        _cachedFiles = [];
-        return [];
-      }
-
-      final imageFiles = <File>[];
-
-      // 递归遍历目录获取所有图片文件
-      await for (var entity in dir.list(recursive: true)) {
-        if (entity is! File) continue;
-
-        final fileName = Path.basename(entity.path);
-
-        // 排除封面文件
-        if (fileName == 'cover.jpg' ||
-            fileName == 'cover.webp' ||
-            fileName == 'cover.png') {
-          continue;
-        }
-
-        // 检查是否为图片文件
-        final ext = Path.extension(fileName).toLowerCase();
-        if (ext == '.jpg' ||
-            ext == '.jpeg' ||
-            ext == '.png' ||
-            ext == '.gif' ||
-            ext == '.webp' ||
-            ext == '.bmp') {
-          imageFiles.add(entity);
-        }
-      }
-
-      // 按照文件名排序，确保顺序正确（可选，但对连贯性有帮助）
-      imageFiles.sort((a, b) => a.path.compareTo(b.path));
-
-      _cachedFiles = imageFiles;
-      return imageFiles;
-    } catch (e) {
-      print('Error getting image files: $e');
-      _cachedFiles = [];
-      return [];
-    } finally {
-      _isScanning = false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -462,50 +381,20 @@ class _DownloadedComicTileDragWrapperState
       allowedOperations: () => [DropOperation.copy],
       canAddItemToExistingSession: true,
       dragItemProvider: (request) async {
-        // 尝试获取文件列表（会触发缓存）
-        final imageFiles = await _getImageFiles();
-        if (imageFiles.isEmpty) return null;
+        final directoryPath = downloadedItem.directoryPath;
+        if (directoryPath.isEmpty) return null;
 
-        // 返回第一个文件作为基础
-        final item = DragItem(suggestedName: Path.basename(imageFiles[0].path));
-        item.add(Formats.fileUri(Uri.file(imageFiles[0].path)));
+        final directory = Directory(directoryPath);
+        if (!await directory.exists()) return null;
+
+        final item = DragItem(suggestedName: path.basename(directory.path));
+        item.add(Formats.fileUri(Uri.file(directory.path)));
         return item;
       },
       child: DraggableWidget(
         hitTestBehavior: HitTestBehavior.opaque,
-        isLocationDraggable: (location) {
-          // 在包装器存在时（即非禁用状态），始终允许拖拽
-          return true;
-        },
-        onDragConfiguration: (configuration, session) async {
-          final imageFiles = await _getImageFiles();
-          if (imageFiles.length <= 1) return configuration;
-
-          final items = <DragConfigurationItem>[];
-
-          // 使用引用计数包装镜像，防止多个项共享同一个对象时重复释放导致崩溃
-          final refCountingImage = _RefCountingSnapshot(
-            configuration.items[0].image.snapshot,
-            configuration.items[0].image.rect,
-            imageFiles.length,
-          );
-
-          // 为所有图片添加拖拽项
-          for (int i = 0; i < imageFiles.length; i++) {
-            final file = imageFiles[i];
-            final item = DragItem(suggestedName: Path.basename(file.path));
-            item.add(Formats.fileUri(Uri.file(file.path)));
-            items.add(
-              DragConfigurationItem(item: item, image: refCountingImage),
-            );
-          }
-
-          return DragConfiguration(
-            items: items,
-            allowedOperations: configuration.allowedOperations,
-          );
-        },
-        child: widget.child,
+        isLocationDraggable: (location) => true,
+        child: child,
       ),
     );
   }
@@ -680,21 +569,6 @@ class TagInfo {
       'sort_order': sortOrder,
       'category_sort_order': categorySortOrder,
     };
-  }
-}
-
-/// 引用计数镜像包装器，用于解决批量拖拽时共享镜像导致的重复释放问题
-class _RefCountingSnapshot extends raw.TargetedWidgetSnapshot {
-  int _count;
-  _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count)
-    : super(snapshot, rect);
-
-  @override
-  void dispose() {
-    _count--;
-    if (_count <= 0) {
-      super.dispose();
-    }
   }
 }
 
