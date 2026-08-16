@@ -158,6 +158,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         pageId: _pageId,
         onRefresh: () {
           ref.invalidate(allDownloadedComicsProvider);
+          ref.invalidate(translationResultAvailabilityProvider);
         },
         // 标签变更后只需惰性失效 downloadTagsProvider，无需刷新 allDownloadedComicsProvider
         // 因为 batchUpdateTags 内部已通过 _notifyTagsChanged() 流通知了 allTagsProvider
@@ -556,12 +557,26 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                     ],
                   ),
                   onTap: () {
-                    Future.delayed(const Duration(milliseconds: 100), () {
-                      if (context.mounted) {
-                        showTranslationResultDirectoryDialog(context);
+                    Future.delayed(const Duration(milliseconds: 100), () async {
+                      if (!context.mounted) return;
+                      final changed =
+                          await showTranslationResultDirectoryDialog(context);
+                      if (changed && mounted) {
+                        ref.invalidate(translationResultAvailabilityProvider);
                       }
                     });
                   },
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.refresh),
+                      const SizedBox(width: 8),
+                      Text("重新扫描翻译结果".tl),
+                    ],
+                  ),
+                  onTap: () =>
+                      ref.invalidate(translationResultAvailabilityProvider),
                 ),
                 PopupMenuItem(
                   child: Row(

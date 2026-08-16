@@ -610,7 +610,15 @@
     "翻译失败": "翻譯失敗",
     "重新翻译": "重新翻譯",
     "AI翻译未配置": "AI 翻譯尚未設定",
-    "前往AI设置": "前往 AI 設定"
+    "前往AI设置": "前往 AI 設定",
+    "漫画翻译结果目录": "漫畫翻譯結果目錄",
+    "重新扫描翻译结果": "重新掃描翻譯結果",
+    "目录路径": "目錄路徑",
+    "留空则使用漫画目录内的 result 目录": "留空則使用漫畫目錄內的 result 目錄",
+    "结果目录中应包含与原漫画同名的漫画目录": "結果目錄中應包含與原漫畫同名的漫畫目錄",
+    "选择目录": "選擇目錄",
+    "发现 @num 张翻译结果，分布在 @dirs 个目录": "發現 @num 張翻譯結果，分布在 @dirs 個目錄",
+    "翻译结果 @num": "翻譯結果 @num"
   },
   "en_US": {
     "有可用更新": "Updates available",
@@ -1227,6 +1235,14 @@
     "翻译失败": "Translation failed",
     "重新翻译": "Translate again",
     "AI翻译未配置": "AI translation is not configured",
-    "前往AI设置": "Go to AI Settings"
+    "前往AI设置": "Go to AI Settings",
+    "漫画翻译结果目录": "Comic translation result directory",
+    "重新扫描翻译结果": "Rescan translation results",
+    "目录路径": "Directory path",
+    "留空则使用漫画目录内的 result 目录": "Leave empty to use the result directory inside each comic",
+    "结果目录中应包含与原漫画同名的漫画目录": "The result directory should contain comic folders with the same names as the originals",
+    "选择目录": "Select directory",
+    "发现 @num 张翻译结果，分布在 @dirs 个目录": "Found @num translation results in @dirs directories",
+    "翻译结果 @num": "Translation results @num"
   }
 }

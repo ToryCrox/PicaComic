@@ -6,6 +6,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/pages/download/components/download_tile.dart';
+import 'package:pica_comic/pages/download/translation_result_replacer.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 void main() {
@@ -68,16 +69,46 @@ void main() {
     expect(find.text('KuruFapJikan · 7.73MB'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('存在翻译结果时显示可点击的红色文字标记', (tester) async {
+    var tapped = false;
+    await _pumpTile(
+      tester,
+      width: 400,
+      translationResult: const TranslationResultInfo(
+        pairCount: 2,
+        resultDirectoryCount: 1,
+      ),
+      onTranslationResultTap: () => tapped = true,
+    );
+
+    expect(find.text('翻译结果 2'), findsOneWidget);
+    await tester.tap(find.text('翻译结果 2'));
+    expect(tapped, isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }
 
-Future<void> _pumpTile(WidgetTester tester, {required double width}) async {
+Future<void> _pumpTile(
+  WidgetTester tester, {
+  required double width,
+  TranslationResultInfo? translationResult,
+  VoidCallback? onTranslationResultTap,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey: App.navigatorKey,
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
-          child: SizedBox(width: width, height: 164, child: _buildTile()),
+          child: SizedBox(
+            width: width,
+            height: 164,
+            child: _buildTile(
+              translationResult: translationResult,
+              onTranslationResultTap: onTranslationResultTap,
+            ),
+          ),
         ),
       ),
     ),
@@ -85,7 +116,10 @@ Future<void> _pumpTile(WidgetTester tester, {required double width}) async {
   await tester.pump();
 }
 
-DownloadedComicTile _buildTile() {
+DownloadedComicTile _buildTile({
+  TranslationResultInfo? translationResult,
+  VoidCallback? onTranslationResultTap,
+}) {
   final item = LocalDownloadedItem(
     comicSize: 7.73,
     downloadedEps: const [],
@@ -116,5 +150,7 @@ DownloadedComicTile _buildTile() {
     onManageTags: () {},
     isDragDisabled: true,
     downloadedItem: item,
+    translationResult: translationResult,
+    onTranslationResultTap: onTranslationResultTap,
   );
 }

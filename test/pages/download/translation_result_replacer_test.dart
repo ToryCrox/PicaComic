@@ -211,6 +211,27 @@ void main() {
       expect(plan.pairs, isEmpty);
     });
 
+    test('批量扫描返回可替换译图摘要', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图',
+      );
+      final otherComic = Directory(
+        path.join(temporaryDirectory.path, 'other-comic'),
+      );
+      await otherComic.create();
+
+      final result = await replacer.scanAvailability([
+        comicDirectory.path,
+        otherComic.path,
+      ]);
+
+      expect(result.keys, contains(comicDirectory.path));
+      expect(result[comicDirectory.path]?.pairCount, 1);
+      expect(result[otherComic.path], isNull);
+    });
+
     test('预览计划按图片文件名的自然顺序排列', () async {
       for (final name in ['1', '2', '10']) {
         await _writeImage(path.join(comicDirectory.path, '$name.webp'), '原图');

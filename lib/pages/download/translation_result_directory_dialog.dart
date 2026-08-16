@@ -5,14 +5,15 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 /// 设置外部漫画翻译结果的根目录。
-Future<void> showTranslationResultDirectoryDialog(BuildContext context) async {
+Future<bool> showTranslationResultDirectoryDialog(BuildContext context) async {
   final directory = await showDialog<String>(
     context: context,
     builder: (_) => const _TranslationResultDirectoryDialog(),
   );
-  if (directory == null) return;
+  if (directory == null) return false;
   appdata.appSettings.translationResultDirectory = directory;
   await appdata.updateSettings();
+  return true;
 }
 
 class _TranslationResultDirectoryDialog extends StatefulWidget {

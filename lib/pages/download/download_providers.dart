@@ -10,6 +10,7 @@ import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'components/download_tile.dart';
+import 'translation_result_replacer.dart';
 
 part 'download_providers.g.dart';
 
@@ -52,6 +53,19 @@ class AllDownloadedComics extends _$AllDownloadedComics {
   Future<void> refresh() async {
     await _refresh();
   }
+}
+
+/// 当前下载列表中存在可替换翻译结果的漫画。
+@Riverpod(keepAlive: true)
+Future<Map<String, TranslationResultInfo>> translationResultAvailability(
+  Ref ref,
+) async {
+  final comics = await ref.watch(allDownloadedComicsProvider.future);
+  final translationRoot = appdata.appSettings.translationResultDirectory;
+  return TranslationResultReplacer().scanAvailability(
+    comics.map((comic) => comic.directoryPath),
+    translationResultRootDirectory: translationRoot,
+  );
 }
 
 /// 下载状态枚举

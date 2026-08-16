@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -110,6 +111,17 @@ class TranslationReplacementSummary {
   int get successCount => results.where((result) => result.isSuccess).length;
 
   int get failureCount => results.length - successCount;
+}
+
+/// 下载页显示用的翻译结果摘要。
+class TranslationResultInfo {
+  const TranslationResultInfo({
+    required this.pairCount,
+    required this.resultDirectoryCount,
+  });
+
+  final int pairCount;
+  final int resultDirectoryCount;
 }
 
 class _TranslationResultDirectoryEntry {
@@ -260,6 +272,54 @@ class TranslationResultReplacer {
       );
       return false;
     }
+  }
+
+  /// 批量扫描漫画目录，返回存在可替换译图的漫画及其摘要。
+  Future<Map<String, TranslationResultInfo>> scanAvailability(
+    Iterable<String> comicDirectories, {
+    String? translationResultRootDirectory,
+  }) async {
+    final directories = comicDirectories
+        .where((directory) => directory.trim().isNotEmpty)
+        .toSet()
+        .toList();
+    final available = <String, TranslationResultInfo>{};
+    const batchSize = 4;
+    for (var start = 0; start < directories.length; start += batchSize) {
+      final end = math.min(start + batchSize, directories.length);
+      final batch = directories.sublist(start, end);
+      final results = await Future.wait(
+        batch.map((directory) async {
+          try {
+            final plan = await prepare(
+              directory,
+              includeDimensions: false,
+              translationResultRootDirectory: translationResultRootDirectory,
+            );
+            if (plan.pairs.isEmpty) return null;
+            return MapEntry(
+              directory,
+              TranslationResultInfo(
+                pairCount: plan.pairs.length,
+                resultDirectoryCount: plan.resultDirectories.length,
+              ),
+            );
+          } catch (error, stackTrace) {
+            Log.w(
+              '扫描漫画翻译结果失败: $directory',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            return null;
+          }
+        }),
+      );
+      for (final entry
+          in results.whereType<MapEntry<String, TranslationResultInfo>>()) {
+        available[entry.key] = entry.value;
+      }
+    }
+    return available;
   }
 
   Future<Set<Directory>> _findResultDirectories(Directory rootDirectory) async {

@@ -26,6 +26,7 @@ import 'package:pica_comic/pages/picacg/comic_page.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/pages/download/translation_result_replacer.dart';
 
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -69,6 +70,12 @@ class DownloadedComicTile extends ComicTile {
   /// 下载的漫画项（用于获取图片文件）
   final DownloadedItem downloadedItem;
 
+  /// 可替换的翻译结果摘要。
+  final TranslationResultInfo? translationResult;
+
+  /// 点击翻译结果标记时执行的操作。
+  final VoidCallback? onTranslationResultTap;
+
   const DownloadedComicTile({
     super.key,
     required this.id,
@@ -92,6 +99,8 @@ class DownloadedComicTile extends ComicTile {
     this.onRead,
     this.isDragDisabled = false,
     required this.downloadedItem,
+    this.translationResult,
+    this.onTranslationResultTap,
   });
 
   @override
@@ -351,7 +360,10 @@ class DownloadedComicTile extends ComicTile {
 
   @override
   Widget build(BuildContext context) {
-    final baseTile = super.build(context);
+    final baseTile = _buildTranslationResultMarkedTile(
+      context,
+      super.build(context),
+    );
 
     // 如果禁用拖拽，直接返回基础 Tile，移除所有拖拽相关的包装控件
     if (isDragDisabled) {
@@ -362,6 +374,66 @@ class DownloadedComicTile extends ComicTile {
     return _DownloadedComicTileDragWrapper(
       downloadedItem: downloadedItem,
       child: baseTile,
+    );
+  }
+
+  Widget _buildTranslationResultMarkedTile(BuildContext context, Widget child) {
+    final result = translationResult;
+    if (result == null) return child;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          top: 8,
+          left: 8,
+          child: IgnorePointer(
+            ignoring: onTranslationResultTap == null,
+            child: Tooltip(
+              message: '发现 @num 张翻译结果，分布在 @dirs 个目录'.tlParams({
+                'num': result.pairCount.toString(),
+                'dirs': result.resultDirectoryCount.toString(),
+              }),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTranslationResultTap,
+                  borderRadius: BorderRadius.circular(7),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface.withValues(alpha: 0.94),
+                      border: Border.all(
+                        color: Colors.red.shade700,
+                        width: 1.2,
+                      ),
+                      borderRadius: BorderRadius.circular(7),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 3),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        '翻译结果 @num'.tlParams({
+                          'num': result.pairCount.toString(),
+                        }),
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -27,6 +27,8 @@ import '../download_providers.dart';
 import 'download_tile.dart';
 import 'download_menus.dart';
 import 'comic_info_view.dart';
+import '../translation_result_replacer.dart';
+import '../translation_result_replace_dialog.dart';
 
 /// 下载列表组件
 ///
@@ -49,6 +51,12 @@ class DownloadList extends ConsumerWidget {
     final pageState = ref.watch(downloadPageStateProvider(pageId));
     final allTagsAsync = ref.watch(downloadTagsProvider);
     final userTagsMapAsync = ref.watch(comicUserTagsProvider);
+    final translationResultsAsync = ref.watch(
+      translationResultAvailabilityProvider,
+    );
+    final translationResults =
+        translationResultsAsync.value ??
+        const <String, TranslationResultInfo>{};
 
     return comicsAsync.when(
       skipLoadingOnReload: true,
@@ -66,6 +74,7 @@ class DownloadList extends ConsumerWidget {
                   pageState,
                   allTags,
                   userTagsMap,
+                  translationResults,
                 );
               },
               loading: () => const SliverToBoxAdapter(
@@ -96,6 +105,7 @@ class DownloadList extends ConsumerWidget {
     DownloadPageState pageState,
     List<TagInfo> allTags,
     Map<String, List<String>> userTagsMap,
+    Map<String, TranslationResultInfo> translationResults,
   ) {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
@@ -108,6 +118,7 @@ class DownloadList extends ConsumerWidget {
           pageState,
           allTags,
           userTagsMap,
+          translationResults,
         ),
       ),
       gridDelegate: SliverGridDelegateWithComics(),
@@ -122,6 +133,7 @@ class DownloadList extends ConsumerWidget {
     DownloadPageState pageState,
     List<TagInfo> allTags,
     Map<String, List<String>> userTagsMap,
+    Map<String, TranslationResultInfo> translationResults,
   ) {
     final isSelected = pageState.selectedIds.contains(item.id);
     final typeName = getComicTypeName(item);
@@ -262,6 +274,21 @@ class DownloadList extends ConsumerWidget {
             },
             isDragDisabled: pageState.isDragDisabled,
             downloadedItem: item,
+            translationResult: translationResults[item.directoryPath],
+            onTranslationResultTap:
+                translationResults[item.directoryPath] == null
+                ? null
+                : () async {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (_) => TranslationResultReplaceDialog(
+                        comic: item,
+                        translationResultRootDirectory:
+                            appdata.appSettings.translationResultDirectory,
+                        onComplete: onRefresh,
+                      ),
+                    );
+                  },
           ),
         ),
       ),
