@@ -34,6 +34,7 @@ import 'import_local_comic_dialog.dart';
 import 'local_repository_management_page.dart';
 import 'downloading_page.dart';
 import 'components/multi_select_drag_dialog.dart';
+import 'translation_result_directory_dialog.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key, this.showBack = true});
@@ -545,6 +546,22 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                 PopupMenuItem(
                   child: Text("多选".tl),
                   onTap: () => enterSelecting(ref, _pageId),
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.translate),
+                      const SizedBox(width: 8),
+                      Text("漫画翻译结果目录".tl),
+                    ],
+                  ),
+                  onTap: () {
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (context.mounted) {
+                        showTranslationResultDirectoryDialog(context);
+                      }
+                    });
+                  },
                 ),
                 PopupMenuItem(
                   child: Row(

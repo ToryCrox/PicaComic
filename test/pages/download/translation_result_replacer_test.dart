@@ -78,6 +78,139 @@ void main() {
       );
     });
 
+    test('按漫画目录名扫描自定义结果目录并匹配镜像路径', () async {
+      final sourceChapter = Directory(
+        path.join(comicDirectory.path, '1', 'translated'),
+      );
+      await sourceChapter.create(recursive: true);
+      await _writeImage(path.join(sourceChapter.path, '1.webp'), '原图');
+
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      final translationChapter = Directory(
+        path.join(
+          translationRoot.path,
+          path.basename(comicDirectory.path),
+          '1',
+          'translated',
+        ),
+      );
+      await _writeImage(path.join(translationChapter.path, '1.png'), '译图');
+      await File(
+        path.join(comicDirectory.path, 'manga_translator_work', 'data.tmp'),
+      ).create(recursive: true);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+
+      expect(plan.pairs, hasLength(1));
+      expect(
+        plan.pairs.single.originalPath,
+        path.join(sourceChapter.path, '1.webp'),
+      );
+      expect(
+        plan.pairs.single.translatedPath,
+        path.join(translationChapter.path, '1.png'),
+      );
+
+      final summary = await replacer.apply(plan);
+      expect(summary.successCount, 1);
+      expect(
+        await File(path.join(sourceChapter.path, '1.png')).readAsString(),
+        '译图',
+      );
+      expect(
+        await File(path.join(translationChapter.path, '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(
+          path.join(comicDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isFalse,
+      );
+    });
+
+    test('自定义结果目录根层图片可以直接匹配原漫画根层图片', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      final translationComic = Directory(
+        path.join(translationRoot.path, path.basename(comicDirectory.path)),
+      );
+      await _writeImage(path.join(translationComic.path, '1.png'), '译图');
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+
+      expect(plan.pairs, hasLength(1));
+      expect(
+        plan.pairs.single.destinationPath,
+        path.join(comicDirectory.path, '1.png'),
+      );
+    });
+
+    test('同时扫描旧 result 与自定义结果目录', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图一');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图一',
+      );
+      final customSourceChapter = Directory(
+        path.join(comicDirectory.path, '2'),
+      );
+      await customSourceChapter.create();
+      await _writeImage(path.join(customSourceChapter.path, '2.webp'), '原图二');
+
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      final translationChapter = Directory(
+        path.join(
+          translationRoot.path,
+          path.basename(comicDirectory.path),
+          '2',
+        ),
+      );
+      await _writeImage(path.join(translationChapter.path, '2.jpg'), '译图二');
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+
+      expect(plan.pairs, hasLength(2));
+      expect(plan.pairs.map((pair) => pair.baseName), containsAll(['1', '2']));
+    });
+
+    test('只使用与原漫画同名的自定义结果目录', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      await _writeImage(
+        path.join(translationRoot.path, 'another-comic', '1.png'),
+        '错误译图',
+      );
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+
+      expect(plan.pairs, isEmpty);
+    });
+
     test('预览计划按图片文件名的自然顺序排列', () async {
       for (final name in ['1', '2', '10']) {
         await _writeImage(path.join(comicDirectory.path, '$name.webp'), '原图');
@@ -110,6 +243,9 @@ void main() {
       ).create(recursive: true);
       await File(
         path.join(comicDirectory.path, 'mask', 'data.tmp'),
+      ).create(recursive: true);
+      await File(
+        path.join(comicDirectory.path, 'manga_translator_work', 'data.tmp'),
       ).create(recursive: true);
 
       final plan = await replacer.prepare(
@@ -179,6 +315,12 @@ void main() {
         await Directory(path.join(comicDirectory.path, 'mask')).exists(),
         isFalse,
       );
+      expect(
+        await Directory(
+          path.join(comicDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isFalse,
+      );
     });
 
     test('忽略中间目录内嵌套的 result，避免误覆盖', () async {
@@ -186,6 +328,15 @@ void main() {
       await _writeImage(
         path.join(comicDirectory.path, 'inpainted', 'result', '1.png'),
         '不应使用的译图',
+      );
+      await _writeImage(
+        path.join(
+          comicDirectory.path,
+          'manga_translator_work',
+          'result',
+          '1.png',
+        ),
+        '不应使用的工作文件',
       );
 
       final plan = await replacer.prepare(

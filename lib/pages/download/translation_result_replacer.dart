@@ -112,32 +112,29 @@ class TranslationReplacementSummary {
   int get failureCount => results.length - successCount;
 }
 
+class _TranslationResultDirectoryEntry {
+  const _TranslationResultDirectoryEntry({
+    required this.translationDirectory,
+    required this.originalDirectory,
+  });
+
+  final Directory translationDirectory;
+  final Directory originalDirectory;
+}
+
 /// 扫描并安全应用漫画目录中的翻译结果。
 ///
-/// 每个 `result/` 目录只与其父目录内的图片匹配，避免多章节漫画发生跨目录覆盖。
+/// 旧 `result/` 目录与其父目录匹配；自定义目录按原漫画相对路径匹配，避免跨章节覆盖。
 class TranslationResultReplacer {
   static const resultDirectoryName = 'result';
   static const _intermediateDirectoryNames = ['inpainted', 'mask'];
+  static const _translationWorkDirectoryName = 'manga_translator_work';
 
-  /// 快速判断是否存在至少一组可替换图片。
-  Future<bool> hasReplacementCandidate(String comicDirectory) async {
-    try {
-      final plan = await prepare(comicDirectory, includeDimensions: false);
-      return plan.pairs.isNotEmpty;
-    } catch (error, stackTrace) {
-      Log.e(
-        '检查翻译结果目录失败: $comicDirectory',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return false;
-    }
-  }
-
-  /// 扫描漫画及其章节目录中的 `result/`。
+  /// 扫描漫画及其章节目录中的翻译结果。
   Future<TranslationReplacementPlan> prepare(
     String comicDirectory, {
     bool includeDimensions = true,
+    String? translationResultRootDirectory,
   }) async {
     final rootDirectory = Directory(comicDirectory);
     if (comicDirectory.isEmpty || !await rootDirectory.exists()) {
@@ -149,12 +146,46 @@ class TranslationResultReplacer {
       );
     }
 
+    final entries = <_TranslationResultDirectoryEntry>[];
     final resultDirectories = await _findResultDirectories(rootDirectory);
+    entries.addAll(
+      resultDirectories.map(
+        (directory) => _TranslationResultDirectoryEntry(
+          translationDirectory: directory,
+          originalDirectory: directory.parent,
+        ),
+      ),
+    );
+
+    final customRoot = translationResultRootDirectory?.trim() ?? '';
+    if (customRoot.isNotEmpty) {
+      final translationComicDirectory = Directory(
+        path.join(customRoot, path.basename(path.normalize(comicDirectory))),
+      );
+      if (await translationComicDirectory.exists()) {
+        final mirroredEntries = await _findMirroredResultDirectories(
+          translationComicDirectory,
+          rootDirectory,
+        );
+        final existingPaths = entries
+            .map((entry) => path.normalize(entry.translationDirectory.path))
+            .toSet();
+        entries.addAll(
+          mirroredEntries.where(
+            (entry) => !existingPaths.contains(
+              path.normalize(entry.translationDirectory.path),
+            ),
+          ),
+        );
+      }
+    }
+
     final pairs = <TranslationReplacementPair>[];
     final unmatched = <TranslationUnmatchedFile>[];
-    for (final resultDirectory in resultDirectories) {
+    for (final entry in entries) {
       await _scanResultDirectory(
-        resultDirectory,
+        entry.translationDirectory,
+        originalDirectory: entry.originalDirectory,
         pairs: pairs,
         unmatched: unmatched,
         includeDimensions: includeDimensions,
@@ -168,8 +199,8 @@ class TranslationResultReplacer {
         .toList();
     return TranslationReplacementPlan(
       comicDirectory: comicDirectory,
-      resultDirectories: resultDirectories
-          .map((directory) => directory.path)
+      resultDirectories: entries
+          .map((entry) => entry.translationDirectory.path)
           .toSet(),
       pairs: sortedPairs,
       unmatched: sortedUnmatched,
@@ -198,13 +229,37 @@ class TranslationResultReplacer {
     );
     var intermediateDirectoriesCleaned = false;
     if (allSucceeded && !hasUnmatchedTranslation && resultDirectoriesRemoved) {
-      await _removeIntermediateDirectories(plan.resultDirectories);
+      await _removeIntermediateDirectories(
+        plan.resultDirectories,
+        comicDirectory: plan.comicDirectory,
+      );
       intermediateDirectoriesCleaned = true;
     }
     return TranslationReplacementSummary(
       results: results,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
     );
+  }
+
+  Future<bool> hasReplacementCandidate(
+    String comicDirectory, {
+    String? translationResultRootDirectory,
+  }) async {
+    try {
+      final plan = await prepare(
+        comicDirectory,
+        includeDimensions: false,
+        translationResultRootDirectory: translationResultRootDirectory,
+      );
+      return plan.pairs.isNotEmpty;
+    } catch (error, stackTrace) {
+      Log.e(
+        '检查翻译结果目录失败: $comicDirectory',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
   }
 
   Future<Set<Directory>> _findResultDirectories(Directory rootDirectory) async {
@@ -223,6 +278,51 @@ class TranslationResultReplacer {
     return resultDirectories;
   }
 
+  Future<List<_TranslationResultDirectoryEntry>> _findMirroredResultDirectories(
+    Directory translationRoot,
+    Directory originalRoot,
+  ) async {
+    final entries = <_TranslationResultDirectoryEntry>[];
+    await for (final entity in translationRoot.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is! Directory || !await _containsImages(entity)) continue;
+      final relativePath = path.relative(
+        entity.path,
+        from: translationRoot.path,
+      );
+      final originalPath = relativePath == '.'
+          ? originalRoot.path
+          : path.join(originalRoot.path, relativePath);
+      entries.add(
+        _TranslationResultDirectoryEntry(
+          translationDirectory: entity,
+          originalDirectory: Directory(originalPath),
+        ),
+      );
+    }
+    if (await _containsImages(translationRoot)) {
+      entries.insert(
+        0,
+        _TranslationResultDirectoryEntry(
+          translationDirectory: translationRoot,
+          originalDirectory: originalRoot,
+        ),
+      );
+    }
+    return entries;
+  }
+
+  Future<bool> _containsImages(Directory directory) async {
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final fileName = path.basename(entity.path).toLowerCase();
+      if (_isTranslationImage(fileName)) return true;
+    }
+    return false;
+  }
+
   bool _isInsideIgnoredDirectory(String directoryPath, String rootPath) {
     var current = Directory(path.dirname(directoryPath));
     final normalizedRoot = path.normalize(rootPath);
@@ -231,7 +331,8 @@ class TranslationResultReplacer {
       if (path.equals(currentPath, normalizedRoot)) return false;
       final name = path.basename(currentPath).toLowerCase();
       if (name == resultDirectoryName ||
-          _intermediateDirectoryNames.contains(name)) {
+          _intermediateDirectoryNames.contains(name) ||
+          name == _translationWorkDirectoryName) {
         return true;
       }
       final parentPath = path.dirname(currentPath);
@@ -242,11 +343,12 @@ class TranslationResultReplacer {
 
   Future<void> _scanResultDirectory(
     Directory resultDirectory, {
+    required Directory originalDirectory,
     required List<TranslationReplacementPair> pairs,
     required List<TranslationUnmatchedFile> unmatched,
     required bool includeDimensions,
   }) async {
-    final originals = await _readImages(resultDirectory.parent);
+    final originals = await _readImages(originalDirectory);
     final translations = await _readImages(resultDirectory);
     final originalByName = _groupByBaseName(originals);
     final translatedByName = _groupByBaseName(translations);
@@ -279,15 +381,15 @@ class TranslationResultReplacer {
         isOriginal: true,
         reason: originalFiles.length > 1
             ? '同级目录中存在同名原图，无法确定替换目标'
-            : 'result 中没有同名译图',
+            : '翻译结果目录中没有同名译图',
         unmatched: unmatched,
       );
       _addUnmatched(
         translatedFiles,
         isOriginal: false,
         reason: translatedFiles.length > 1
-            ? 'result 中存在同名译图，无法确定替换目标'
-            : '同级目录中没有同名原图',
+            ? '翻译结果目录中存在同名译图，无法确定替换目标'
+            : '对应原目录中没有同名原图',
         unmatched: unmatched,
       );
     }
@@ -295,20 +397,25 @@ class TranslationResultReplacer {
 
   Future<List<File>> _readImages(Directory directory) async {
     final files = <File>[];
+    if (!await directory.exists()) return files;
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is! File) continue;
       final fileName = path.basename(entity.path).toLowerCase();
-      if (fileName == 'cover.jpg' ||
-          fileName == 'cover.jpeg' ||
-          fileName == 'cover.png' ||
-          fileName == 'cover.webp') {
-        continue;
-      }
-      if (translationResultImageExtensions.contains(path.extension(fileName))) {
+      if (_isTranslationImage(fileName)) {
         files.add(entity);
       }
     }
     return files;
+  }
+
+  bool _isTranslationImage(String fileName) {
+    if (fileName == 'cover.jpg' ||
+        fileName == 'cover.jpeg' ||
+        fileName == 'cover.png' ||
+        fileName == 'cover.webp') {
+      return false;
+    }
+    return translationResultImageExtensions.contains(path.extension(fileName));
   }
 
   Map<String, List<File>> _groupByBaseName(List<File> files) {
@@ -453,9 +560,14 @@ class TranslationResultReplacer {
   }
 
   Future<void> _removeIntermediateDirectories(
-    Set<String> resultDirectories,
-  ) async {
+    Set<String> resultDirectories, {
+    required String comicDirectory,
+  }) async {
     final parentDirectories = resultDirectories
+        .where(
+          (directory) =>
+              path.basename(directory).toLowerCase() == resultDirectoryName,
+        )
         .map((directory) => path.dirname(directory))
         .toSet();
     for (final parentDirectory in parentDirectories) {
@@ -463,6 +575,12 @@ class TranslationResultReplacer {
         final directory = Directory(path.join(parentDirectory, name));
         if (await directory.exists()) await directory.delete(recursive: true);
       }
+    }
+    final translationWorkDirectory = Directory(
+      path.join(comicDirectory, _translationWorkDirectoryName),
+    );
+    if (await translationWorkDirectory.exists()) {
+      await translationWorkDirectory.delete(recursive: true);
     }
   }
 

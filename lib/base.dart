@@ -119,6 +119,7 @@ class Appdata {
     "0", //88 jm auto checkin
     "2.0.11", //89 jm app version
     "auto", //90 日志级别: auto/trace/debug/info/warning/error
+    "", //91 漫画翻译结果目录
   ];
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步
@@ -446,4 +447,15 @@ class _Settings {
   String get font => PrefsHelper.getString("font");
 
   set font(String value) => PrefsHelper.setString("font", value);
+
+  /// 漫画翻译结果根目录，为空时仅扫描原漫画目录内的 `result` 目录。
+  String get translationResultDirectory =>
+      appdata.settings.length > 91 ? appdata.settings[91] : '';
+
+  set translationResultDirectory(String value) {
+    while (appdata.settings.length <= 91) {
+      appdata.settings.add('');
+    }
+    appdata.settings[91] = value;
+  }
 }

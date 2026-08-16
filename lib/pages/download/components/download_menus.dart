@@ -396,8 +396,13 @@ Future<void> showTileContextMenu({
   required VoidCallback onShowInfo,
   VoidCallback? onShowImageList,
 }) async {
+  final translationResultRootDirectory =
+      appdata.appSettings.translationResultDirectory;
   final hasTranslationResult = await TranslationResultReplacer()
-      .hasReplacementCandidate(comic.directoryPath);
+      .hasReplacementCandidate(
+        comic.directoryPath,
+        translationResultRootDirectory: translationResultRootDirectory,
+      );
   showDesktopMenu(
     App.globalContext!,
     Offset(details.globalPosition.dx, details.globalPosition.dy),
@@ -413,6 +418,7 @@ Future<void> showTileContextMenu({
               context: context,
               builder: (_) => TranslationResultReplaceDialog(
                 comic: comic,
+                translationResultRootDirectory: translationResultRootDirectory,
                 onComplete: onRefresh,
               ),
             );

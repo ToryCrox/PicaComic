@@ -12,10 +12,12 @@ class TranslationResultReplaceDialog extends StatefulWidget {
   const TranslationResultReplaceDialog({
     super.key,
     required this.comic,
+    required this.translationResultRootDirectory,
     required this.onComplete,
   });
 
   final DownloadedItem comic;
+  final String translationResultRootDirectory;
   final VoidCallback onComplete;
 
   @override
@@ -39,7 +41,10 @@ class _TranslationResultReplaceDialogState
 
   Future<void> _loadPlan() async {
     try {
-      final plan = await _replacer.prepare(widget.comic.directoryPath);
+      final plan = await _replacer.prepare(
+        widget.comic.directoryPath,
+        translationResultRootDirectory: widget.translationResultRootDirectory,
+      );
       if (!mounted) return;
       setState(() => _plan = plan);
     } catch (error) {
@@ -109,7 +114,7 @@ class _TranslationResultReplaceDialogState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '将替换 ${plan.pairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个 result 目录。',
+          '将替换 ${plan.pairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个翻译结果目录。',
         ),
         const SizedBox(height: 4),
         Text(
@@ -158,7 +163,7 @@ class _TranslationResultReplaceDialogState
           const SizedBox(height: 8),
           Text(
             summary.intermediateDirectoriesCleaned
-                ? '已清理 result、inpainted 和 mask 中间目录。'
+                ? '已清理翻译结果、inpainted、mask 和 manga_translator_work 中间目录。'
                 : '保留中间目录，方便继续处理未匹配译图或替换失败的图片。',
             textAlign: TextAlign.center,
           ),
