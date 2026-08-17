@@ -3,6 +3,7 @@ import 'package:worker_manager/worker_manager.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as Path;
+import 'package:image/image.dart' as img;
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
 
@@ -127,16 +128,7 @@ Map<String, ImageSizeInfo> loadImageSizes(List<String> imageUrs) {
     String imageFilePath = adjustImagePath(url);
     final file = File(imageFilePath);
     try {
-      // 使用ImageSizeGetter库计算图片尺寸
-      final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
-      // 将图片尺寸信息添加到结果集中
-      imageSizes[url] = ImageSizeInfo(
-        imagePath: file.path,
-        width: sizeResult.size.width.toDouble(),
-        height: sizeResult.size.height.toDouble(),
-        fileSize: file.lengthSync(),
-        lastModifiedTime: file.lastModifiedSync().millisecondsSinceEpoch,
-      );
+      imageSizes[url] = ImageSizeUtils.parseImageFile(file);
     } catch (e) {
       // 打印错误信息，方便调试
       debugPrint("loadImageSizes error: $e");
@@ -178,4 +170,84 @@ class ImageSizeInfo {
     required this.fileSize,
     required this.lastModifiedTime,
   });
+}
+
+/// 图片尺寸读取工具。
+///
+/// 对 [computeImageSizes] 进行 Future 封装，供不需要监听中间批次结果的
+/// 调用方一次性读取多张图片的尺寸。底层仍复用尺寸缓存和 worker 并行处理。
+class ImageSizeUtils {
+  /// 通过项目统一入口解析本地图片信息。
+  ///
+  /// 第三方 [ImageSizeGetter] 的调用集中在这里，业务代码不直接依赖第三方
+  /// 解析 API；该方法会读取图片尺寸、文件大小和最后修改时间。
+  static ImageSizeInfo parseImageFile(File file) {
+    try {
+      return _parseWithImageSizeGetter(file);
+    } catch (error) {
+      if (!_shouldUseFallback(error)) rethrow;
+
+      try {
+        final image = img.decodeImage(file.readAsBytesSync());
+        if (image == null) throw const FormatException('无法解码图片');
+        debugPrint('ImageSizeGetter 解析失败，已使用 image 库降级: ${file.path}');
+        return _buildImageSizeInfo(
+          file,
+          width: image.width.toDouble(),
+          height: image.height.toDouble(),
+        );
+      } catch (fallbackError) {
+        debugPrint('图片尺寸降级解析失败: ${file.path}, $fallbackError');
+        rethrow;
+      }
+    }
+  }
+
+  static ImageSizeInfo _parseWithImageSizeGetter(File file) {
+    final sizeResult = ImageSizeGetter.getSizeResult(FileInput(file));
+    return _buildImageSizeInfo(
+      file,
+      width: sizeResult.size.width.toDouble(),
+      height: sizeResult.size.height.toDouble(),
+    );
+  }
+
+  static ImageSizeInfo _buildImageSizeInfo(
+    File file, {
+    required double width,
+    required double height,
+  }) {
+    return ImageSizeInfo(
+      imagePath: file.path,
+      width: width,
+      height: height,
+      fileSize: file.lengthSync(),
+      lastModifiedTime: file.lastModifiedSync().millisecondsSinceEpoch,
+    );
+  }
+
+  static bool _shouldUseFallback(Object error) {
+    return error is UnsupportedError ||
+        error.toString().contains('Invalid jpeg file');
+  }
+
+  /// 批量读取图片尺寸。
+  static Future<Map<String, ImageSizeInfo>> parseImageSizes(
+    Iterable<String> imagePaths,
+  ) async {
+    final paths = imagePaths.toSet().toList(growable: false);
+    final result = <String, ImageSizeInfo>{};
+    if (paths.isEmpty) return result;
+
+    await for (final batch in computeImageSizes(paths)) {
+      result.addAll(batch);
+    }
+    return result;
+  }
+
+  /// 读取单张图片尺寸。
+  static Future<ImageSizeInfo?> parseImageSize(String imagePath) async {
+    final result = await parseImageSizes([imagePath]);
+    return result[imagePath];
+  }
 }

@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:path/path.dart' as path;
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/image_utils.dart';
+import 'package:pica_comic/tools/image_size_getter.dart';
 
 /// 支持由外部翻译工具产生的图片格式。
 const translationResultImageExtensions = {
@@ -200,12 +199,36 @@ class TranslationResultReplacer {
         originalDirectory: entry.originalDirectory,
         pairs: pairs,
         unmatched: unmatched,
-        includeDimensions: includeDimensions,
       );
     }
-    final sortedPairs = pairs
+    var sortedPairs = pairs
         .sortedFileNameBy((pair) => pair.originalPath)
         .toList();
+    if (includeDimensions && sortedPairs.isNotEmpty) {
+      final imageSizes = await ImageSizeUtils.parseImageSizes([
+        for (final pair in sortedPairs) ...[
+          pair.originalPath,
+          pair.translatedPath,
+        ],
+      ]);
+      sortedPairs = sortedPairs
+          .map(
+            (pair) => TranslationReplacementPair(
+              originalPath: pair.originalPath,
+              translatedPath: pair.translatedPath,
+              originalSize:
+                  imageSizes[pair.originalPath]?.fileSize ?? pair.originalSize,
+              translatedSize:
+                  imageSizes[pair.translatedPath]?.fileSize ??
+                  pair.translatedSize,
+              originalDimensions: _toDimensions(imageSizes[pair.originalPath]),
+              translatedDimensions: _toDimensions(
+                imageSizes[pair.translatedPath],
+              ),
+            ),
+          )
+          .toList(growable: false);
+    }
     final sortedUnmatched = unmatched
         .sortedFileNameBy((file) => file.filePath)
         .toList();
@@ -429,7 +452,6 @@ class TranslationResultReplacer {
     required Directory originalDirectory,
     required List<TranslationReplacementPair> pairs,
     required List<TranslationUnmatchedFile> unmatched,
-    required bool includeDimensions,
   }) async {
     final originals = await _readImages(originalDirectory);
     final translations = await _readImages(resultDirectory);
@@ -449,12 +471,6 @@ class TranslationResultReplacer {
             translatedPath: translated.path,
             originalSize: await original.length(),
             translatedSize: await translated.length(),
-            originalDimensions: includeDimensions
-                ? await _readImageDimensions(original)
-                : null,
-            translatedDimensions: includeDimensions
-                ? await _readImageDimensions(translated)
-                : null,
           ),
         );
         continue;
@@ -527,22 +543,12 @@ class TranslationResultReplacer {
     }
   }
 
-  Future<TranslationImageDimensions?> _readImageDimensions(File file) async {
-    try {
-      final Uint8List bytes = await file.readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-      try {
-        return TranslationImageDimensions(image.width, image.height);
-      } finally {
-        image.dispose();
-        codec.dispose();
-      }
-    } catch (error, stackTrace) {
-      Log.w('读取翻译图片尺寸失败: ${file.path}', error: error, stackTrace: stackTrace);
-      return null;
-    }
+  TranslationImageDimensions? _toDimensions(ImageSizeInfo? imageSize) {
+    if (imageSize == null) return null;
+    return TranslationImageDimensions(
+      imageSize.width.round(),
+      imageSize.height.round(),
+    );
   }
 
   Future<TranslationReplacementResult> _replaceOne(
