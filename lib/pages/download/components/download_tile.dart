@@ -76,6 +76,9 @@ class DownloadedComicTile extends ComicTile {
   /// 点击翻译结果标记时执行的操作。
   final VoidCallback? onTranslationResultTap;
 
+  /// 点击 AI 翻译完成标记时执行的操作。
+  final VoidCallback? onAiTranslationMarkerTap;
+
   const DownloadedComicTile({
     super.key,
     required this.id,
@@ -101,6 +104,7 @@ class DownloadedComicTile extends ComicTile {
     required this.downloadedItem,
     this.translationResult,
     this.onTranslationResultTap,
+    this.onAiTranslationMarkerTap,
   });
 
   @override
@@ -117,6 +121,29 @@ class DownloadedComicTile extends ComicTile {
     }
     return "$authorText · $sizeText";
   }
+
+  @override
+  Widget? get descriptionSuffix => Tooltip(
+    message: downloadedItem.aiTranslationCompletedAt == null
+        ? '标记为 AI 翻译完成'.tl
+        : '取消 AI 翻译完成标记'.tl,
+    child: InkWell(
+      onTap: onAiTranslationMarkerTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: downloadedItem.aiTranslationCompletedAt == null
+                ? Colors.grey
+                : Colors.green,
+          ),
+          child: const SizedBox(width: 8, height: 8),
+        ),
+      ),
+    ),
+  );
 
   @override
   int get descriptionMaxLines => 1;

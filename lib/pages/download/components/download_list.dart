@@ -275,6 +275,21 @@ class DownloadList extends ConsumerWidget {
             isDragDisabled: pageState.isDragDisabled,
             downloadedItem: item,
             translationResult: translationResults[item.directoryPath],
+            onAiTranslationMarkerTap: () async {
+              final hasPendingTranslation =
+                  translationResults[item.directoryPath] != null;
+              if (item.aiTranslationCompletedAt == null &&
+                  hasPendingTranslation) {
+                showToast(message: '存在未处理或替换失败的翻译结果，暂不能标记完成'.tl);
+                return;
+              }
+              if (item.aiTranslationCompletedAt == null) {
+                await downloadManager.markAiTranslationCompleted(item.id);
+              } else {
+                await downloadManager.clearAiTranslationCompleted(item.id);
+              }
+              onRefresh();
+            },
             onTranslationResultTap:
                 translationResults[item.directoryPath] == null
                 ? null

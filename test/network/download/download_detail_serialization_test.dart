@@ -242,5 +242,13 @@ void main() {
     expect(row?[kDownloadSize], 45.6);
     expect(row?[kDownloadColor], 'red');
     expect(row?[kDownloadJson], contains('"downloadedEps":[0]'));
+
+    await database.updateAiTranslationCompletedAt('id', 123456);
+    final markedRow = await database.getDownloadById('id');
+    expect(markedRow?[kDownloadAiTranslationCompletedAt], 123456);
+
+    await database.updateAiTranslationCompletedAt('id', null);
+    final unmarkedRow = await database.getDownloadById('id');
+    expect(unmarkedRow?[kDownloadAiTranslationCompletedAt], isNull);
   });
 }

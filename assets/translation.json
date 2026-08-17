@@ -618,7 +618,10 @@
     "结果目录中应包含与原漫画同名的漫画目录": "結果目錄中應包含與原漫畫同名的漫畫目錄",
     "选择目录": "選擇目錄",
     "发现 @num 张翻译结果，分布在 @dirs 个目录": "發現 @num 張翻譯結果，分布在 @dirs 個目錄",
-    "翻译结果 @num": "翻譯結果 @num"
+    "翻译结果 @num": "翻譯結果 @num",
+    "标记为 AI 翻译完成": "標記為 AI 翻譯完成",
+    "取消 AI 翻译完成标记": "取消 AI 翻譯完成標記",
+    "存在未处理或替换失败的翻译结果，暂不能标记完成": "存在未處理或替換失敗的翻譯結果，暫不能標記完成"
   },
   "en_US": {
     "有可用更新": "Updates available",
@@ -1243,6 +1246,9 @@
     "结果目录中应包含与原漫画同名的漫画目录": "The result directory should contain comic folders with the same names as the originals",
     "选择目录": "Select directory",
     "发现 @num 张翻译结果，分布在 @dirs 个目录": "Found @num translation results in @dirs directories",
-    "翻译结果 @num": "Translation results @num"
+    "翻译结果 @num": "Translation results @num",
+    "标记为 AI 翻译完成": "Mark as AI translated",
+    "取消 AI 翻译完成标记": "Remove AI translation mark",
+    "存在未处理或替换失败的翻译结果，暂不能标记完成": "Cannot mark while translation results are pending or failed"
   }
 }

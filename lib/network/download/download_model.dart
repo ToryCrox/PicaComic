@@ -52,6 +52,9 @@ abstract class DownloadedItem {
   ///Color tag
   DownloadColorTag? color;
 
+  /// AI 翻译完成时间；为空表示尚未标记完成。
+  DateTime? aiTranslationCompletedAt;
+
   Map<String, dynamic> toJson();
 
   set comicSize(double? value);

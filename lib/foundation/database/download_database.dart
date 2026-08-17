@@ -23,6 +23,7 @@ const String kDownloadDirectory = 'directory';
 const String kDownloadSize = 'size';
 const String kDownloadJson = 'json';
 const String kDownloadColor = 'color';
+const String kDownloadAiTranslationCompletedAt = 'ai_translation_completed_at';
 
 /// tags 表字段常量
 const String kTagId = 'id';
@@ -86,7 +87,7 @@ class DownloadDatabase {
       _db = await databaseFactory.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
-          version: 8,
+          version: 9,
           onCreate: _onCreate,
           onUpgrade: _onUpgrade,
           onOpen: (db) async {
@@ -155,6 +156,16 @@ class DownloadDatabase {
         // column may already exist
       }
     }
+    if (oldVersion < 9) {
+      try {
+        await db.execute(
+          'ALTER TABLE $kTableDownload ADD COLUMN '
+          '$kDownloadAiTranslationCompletedAt INTEGER',
+        );
+      } catch (e) {
+        // column may already exist
+      }
+    }
   }
 
   /// 创建标签相关表
@@ -198,7 +209,8 @@ class DownloadDatabase {
         $kDownloadDirectory TEXT,
         $kDownloadSize REAL,
         $kDownloadJson TEXT,
-        $kDownloadColor TEXT
+        $kDownloadColor TEXT,
+        $kDownloadAiTranslationCompletedAt INTEGER
       )
     ''');
 
@@ -312,6 +324,20 @@ class DownloadDatabase {
     await db.update(
       kTableDownload,
       {kDownloadColor: color},
+      where: '$kDownloadId = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// 更新漫画的 AI 翻译完成时间；传入 null 表示清除标记。
+  Future<void> updateAiTranslationCompletedAt(
+    String id,
+    int? completedAt,
+  ) async {
+    final db = await _getDatabase();
+    await db.update(
+      kTableDownload,
+      {kDownloadAiTranslationCompletedAt: completedAt},
       where: '$kDownloadId = ?',
       whereArgs: [id],
     );

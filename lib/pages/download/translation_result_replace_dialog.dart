@@ -78,6 +78,13 @@ class _TranslationResultReplaceDialogState
       await FileImage(File(result.pair.destinationPath)).evict();
     }
     await downloadManager.updateComicSize(widget.comic);
+    if (summary.failureCount > 0) {
+      // 替换失败时不能保留“已完成”状态，避免卡片显示错误信息。
+      await downloadManager.clearAiTranslationCompleted(widget.comic.id);
+    } else if (summary.successCount > 0) {
+      // 跳过的图片不影响完成标记；只要实际替换的图片全部成功即可。
+      await downloadManager.markAiTranslationCompleted(widget.comic.id);
+    }
     if (!mounted) return;
     setState(() {
       _summary = summary;
@@ -89,6 +96,13 @@ class _TranslationResultReplaceDialogState
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final contentWidth = screenSize.width * 0.92 > 1200
+        ? 1200.0
+        : screenSize.width * 0.92;
+    final contentHeight = (screenSize.height - 220)
+        .clamp(360.0, 760.0)
+        .toDouble();
     final plan = _plan;
     final activePairCount = plan == null ? 0 : _activePairs(plan).length;
     final skippedPairCount = plan == null
@@ -97,8 +111,8 @@ class _TranslationResultReplaceDialogState
     return AlertDialog(
       title: Text('应用翻译结果'.tl),
       content: SizedBox(
-        width: 1000,
-        height: 620,
+        width: contentWidth,
+        height: contentHeight,
         child: _buildContent(context, plan),
       ),
       actions: [
@@ -173,23 +187,23 @@ class _TranslationResultReplaceDialogState
         ],
         const SizedBox(height: 12),
         Expanded(
-          child: ListView(
-            children: [
-              for (var index = 0; index < plan.pairs.length; index++)
-                _PairCard(
-                  pair: plan.pairs[index],
-                  skipped: _skippedPairPaths.contains(
-                    plan.pairs[index].originalPath,
-                  ),
-                  onToggleSkipped: () =>
-                      _toggleSkipped(plan.pairs[index].originalPath),
-                  originalPaths: originalPaths,
-                  translatedPaths: translatedPaths,
-                  pairIndex: index,
-                ),
-              if (plan.unmatched.isNotEmpty)
-                _UnmatchedCard(files: plan.unmatched),
-            ],
+          child: ListView.separated(
+            itemCount: plan.pairs.length + (plan.unmatched.isEmpty ? 0 : 1),
+            separatorBuilder: (_, _) => const SizedBox(height: 4),
+            itemBuilder: (_, index) {
+              if (index == plan.pairs.length) {
+                return _UnmatchedCard(files: plan.unmatched);
+              }
+              final pair = plan.pairs[index];
+              return _PairCard(
+                pair: pair,
+                skipped: _skippedPairPaths.contains(pair.originalPath),
+                onToggleSkipped: () => _toggleSkipped(pair.originalPath),
+                originalPaths: originalPaths,
+                translatedPaths: translatedPaths,
+                pairIndex: index,
+              );
+            },
           ),
         ),
       ],
@@ -290,11 +304,12 @@ class _PairCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final delta = pair.translatedSize - pair.originalSize;
     return Card(
+      margin: EdgeInsets.zero,
       color: skipped
           ? Theme.of(context).colorScheme.surfaceContainerHighest
           : null,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -310,10 +325,16 @@ class _PairCard extends StatelessWidget {
                   onPressed: onToggleSkipped,
                   icon: Icon(skipped ? Icons.restore : Icons.skip_next),
                   label: Text(skipped ? '恢复替换' : '跳过替换'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
@@ -327,7 +348,7 @@ class _PairCard extends StatelessWidget {
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(Icons.arrow_forward),
                 ),
                 Expanded(
@@ -342,7 +363,7 @@ class _PairCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               '文件大小变化：${_formatDelta(delta)}',
               style: TextStyle(color: delta > 0 ? Colors.orange : Colors.green),
@@ -388,12 +409,12 @@ class _ImageInfo extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: Image.file(
                 File(path),
-                width: 96,
-                height: 96,
+                width: 76,
+                height: 76,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const SizedBox(
-                  width: 96,
-                  height: 96,
+                  width: 76,
+                  height: 76,
                   child: Icon(Icons.broken_image),
                 ),
               ),
@@ -429,6 +450,7 @@ class _UnmatchedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       color: Theme.of(context).colorScheme.errorContainer,
       child: ExpansionTile(
         title: Text('未匹配文件 (${files.length})'),

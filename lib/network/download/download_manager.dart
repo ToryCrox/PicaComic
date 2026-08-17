@@ -671,6 +671,7 @@ class DownloadManager extends ChangeNotifier {
         () => 'DB DownloadManager: 更新漫画信息 comicId=${comic.id}, newSize=$size',
       );
       await addToDb(comic, comic.directory);
+      await clearAiTranslationCompleted(comic.id);
       return null;
     } catch (e, s) {
       Log.e("IO $e/n$s");
@@ -1182,6 +1183,8 @@ extension AddDownloadExt on DownloadManager {
         final context = await _buildLatestDownloadContext(comic);
         context.task.directory = await _resolveDownloadDirectory(comic);
         _queueManager.enqueue(context.task);
+        // 重新下载可能补充未翻译的新图片，旧的完成标记立即失效。
+        await clearAiTranslationCompleted(comic.id);
         successCount++;
       } catch (e, s) {
         failedCount++;
@@ -1503,6 +1506,7 @@ extension AddDownloadExt on DownloadManager {
     double? size,
     String? directory,
     String? color,
+    int? aiTranslationCompletedAt,
   }) {
     DownloadedItem comic;
     try {
@@ -1537,6 +1541,9 @@ extension AddDownloadExt on DownloadManager {
       if (color != null) {
         comic.color = DownloadColorTag.fromString(color);
       }
+      comic.aiTranslationCompletedAt = aiTranslationCompletedAt == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(aiTranslationCompletedAt);
       return comic;
     } catch (e, s) {
       Log.e("IO Failed to get a downloaded comic info:\n$e\n$s");
@@ -1639,6 +1646,8 @@ extension AddDownloadExt on DownloadManager {
           : (result[kDownloadSize] as int).toDouble(),
       directory: result[kDownloadDirectory] as String? ?? "",
       color: result[kDownloadColor] as String?,
+      aiTranslationCompletedAt:
+          result[kDownloadAiTranslationCompletedAt] as int?,
     );
   }
 
@@ -1667,6 +1676,8 @@ extension AddDownloadExt on DownloadManager {
             : (result[kDownloadSize] as int).toDouble(),
         directory: result[kDownloadDirectory] as String? ?? "",
         color: result[kDownloadColor] as String?,
+        aiTranslationCompletedAt:
+            result[kDownloadAiTranslationCompletedAt] as int?,
       );
       if (comic != null) {
         map[comic.id] = comic;
@@ -1731,6 +1742,8 @@ extension AddDownloadExt on DownloadManager {
                 : (e[kDownloadSize] as int).toDouble(),
             directory: e[kDownloadDirectory] as String?,
             color: e[kDownloadColor] as String?,
+            aiTranslationCompletedAt:
+                e[kDownloadAiTranslationCompletedAt] as int?,
           ),
         )
         .whereType<DownloadedItem>() // 过滤掉 null 值
@@ -2347,6 +2360,26 @@ extension AddDownloadExt on DownloadManager {
   Future<void> updateColor(String id, DownloadColorTag? color) async {
     Log.d(() => 'DB DownloadManager: 更新漫画颜色 id=$id, color=${color?.name}');
     await _db.updateDownloadColor(id, color?.name);
+    _notifyComicsChanged();
+  }
+
+  /// 手动或自动标记漫画已完成 AI 翻译。
+  Future<void> markAiTranslationCompleted(
+    String id, {
+    DateTime? completedAt,
+  }) async {
+    final time = (completedAt ?? DateTime.now()).millisecondsSinceEpoch;
+    await DownloadManager._dbLock.synchronized(() async {
+      await _db.updateAiTranslationCompletedAt(id, time);
+    });
+    _notifyComicsChanged();
+  }
+
+  /// 清除漫画的 AI 翻译完成标记。
+  Future<void> clearAiTranslationCompleted(String id) async {
+    await DownloadManager._dbLock.synchronized(() async {
+      await _db.updateAiTranslationCompletedAt(id, null);
+    });
     _notifyComicsChanged();
   }
 

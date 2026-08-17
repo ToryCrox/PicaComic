@@ -26,6 +26,9 @@ abstract class ComicTile extends StatelessWidget {
 
   Widget? buildSubDescription(BuildContext context) => null;
 
+  /// 显示在文件大小等描述文本末尾的附加控件。
+  Widget? get descriptionSuffix => null;
+
   String get title;
 
   /// 已缓存的 AI 标题译文；为空时不显示。
@@ -729,6 +732,7 @@ abstract class ComicTile extends StatelessWidget {
                     user: subTitle,
                     description: description,
                     descriptionMaxLines: descriptionMaxLines,
+                    descriptionSuffix: descriptionSuffix,
                     subDescription: buildSubDescription(context),
                     badge: badge,
                     primaryTags: primaryTags,
@@ -825,6 +829,7 @@ class _ComicDescription extends StatefulWidget {
     required this.user,
     required this.description,
     required this.descriptionMaxLines,
+    this.descriptionSuffix,
     this.subDescription,
     this.badge,
     this.maxLines = 2,
@@ -841,6 +846,7 @@ class _ComicDescription extends StatefulWidget {
   final String user;
   final String description;
   final int descriptionMaxLines;
+  final Widget? descriptionSuffix;
   final Widget? subDescription;
   final Widget? badge;
   final List<String> primaryTags;
@@ -990,14 +996,24 @@ class _ComicDescriptionState extends State<_ComicDescription> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (widget.subDescription != null) widget.subDescription!,
-                  Text(
-                    widget.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: widget.descriptionMaxLines,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.description,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: widget.descriptionMaxLines,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (widget.descriptionSuffix != null) ...[
+                        const SizedBox(width: 4),
+                        widget.descriptionSuffix!,
+                      ],
+                    ],
                   ),
                 ],
               ),
