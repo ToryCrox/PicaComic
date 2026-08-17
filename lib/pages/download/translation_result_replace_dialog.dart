@@ -15,11 +15,13 @@ class TranslationResultReplaceDialog extends StatefulWidget {
     required this.comic,
     required this.translationResultRootDirectory,
     required this.onComplete,
+    this.scanLegacyResultDirectories = false,
   });
 
   final DownloadedItem comic;
   final String translationResultRootDirectory;
   final VoidCallback onComplete;
+  final bool scanLegacyResultDirectories;
 
   @override
   State<TranslationResultReplaceDialog> createState() =>
@@ -47,6 +49,7 @@ class _TranslationResultReplaceDialogState
       final plan = await _replacer.prepare(
         widget.comic.directoryPath,
         translationResultRootDirectory: widget.translationResultRootDirectory,
+        scanLegacyResultDirectories: widget.scanLegacyResultDirectories,
       );
       if (!mounted) return;
       setState(() => _plan = plan);

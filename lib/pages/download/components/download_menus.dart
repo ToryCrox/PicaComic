@@ -402,6 +402,7 @@ Future<void> showTileContextMenu({
       .hasReplacementCandidate(
         comic.directoryPath,
         translationResultRootDirectory: translationResultRootDirectory,
+        scanLegacyResultDirectories: true,
       );
   showDesktopMenu(
     App.globalContext!,
@@ -420,6 +421,7 @@ Future<void> showTileContextMenu({
                 comic: comic,
                 translationResultRootDirectory: translationResultRootDirectory,
                 onComplete: onRefresh,
+                scanLegacyResultDirectories: true,
               ),
             );
           },

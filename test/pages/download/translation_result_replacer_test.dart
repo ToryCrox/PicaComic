@@ -158,7 +158,7 @@ void main() {
       );
     });
 
-    test('同时扫描旧 result 与自定义结果目录', () async {
+    test('自定义结果目录优先，不扫描旧 result', () async {
       await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图一');
       await _writeImage(
         path.join(comicDirectory.path, 'result', '1.png'),
@@ -188,8 +188,8 @@ void main() {
         translationResultRootDirectory: translationRoot.path,
       );
 
-      expect(plan.pairs, hasLength(2));
-      expect(plan.pairs.map((pair) => pair.baseName), containsAll(['1', '2']));
+      expect(plan.pairs, hasLength(1));
+      expect(plan.pairs.single.baseName, '2');
     });
 
     test('只使用与原漫画同名的自定义结果目录', () async {
@@ -209,6 +209,35 @@ void main() {
       );
 
       expect(plan.pairs, isEmpty);
+    });
+
+    test('自定义结果目录为空时默认不回退旧 result，右键可扫描旧 result', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '旧译图',
+      );
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      await Directory(
+        path.join(translationRoot.path, path.basename(comicDirectory.path)),
+      ).create(recursive: true);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      expect(plan.pairs, isEmpty);
+
+      final rightClickPlan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+        scanLegacyResultDirectories: true,
+      );
+      expect(rightClickPlan.pairs, hasLength(1));
     });
 
     test('批量扫描返回可替换译图摘要', () async {

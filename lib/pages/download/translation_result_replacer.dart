@@ -146,6 +146,7 @@ class TranslationResultReplacer {
     String comicDirectory, {
     bool includeDimensions = true,
     String? translationResultRootDirectory,
+    bool scanLegacyResultDirectories = false,
   }) async {
     final rootDirectory = Directory(comicDirectory);
     if (comicDirectory.isEmpty || !await rootDirectory.exists()) {
@@ -158,16 +159,6 @@ class TranslationResultReplacer {
     }
 
     final entries = <_TranslationResultDirectoryEntry>[];
-    final resultDirectories = await _findResultDirectories(rootDirectory);
-    entries.addAll(
-      resultDirectories.map(
-        (directory) => _TranslationResultDirectoryEntry(
-          translationDirectory: directory,
-          originalDirectory: directory.parent,
-        ),
-      ),
-    );
-
     final customRoot = translationResultRootDirectory?.trim() ?? '';
     if (customRoot.isNotEmpty) {
       final translationComicDirectory = Directory(
@@ -189,6 +180,22 @@ class TranslationResultReplacer {
           ),
         );
       }
+    }
+
+    // 配置自定义结果目录时，普通入口只扫描自定义目录，即使它为空也不回退
+    // 到下载漫画目录中的旧 result。右键入口会显式开启旧目录回退扫描。
+    final shouldScanLegacyResultDirectories =
+        customRoot.isEmpty || (scanLegacyResultDirectories && entries.isEmpty);
+    if (shouldScanLegacyResultDirectories) {
+      final resultDirectories = await _findResultDirectories(rootDirectory);
+      entries.addAll(
+        resultDirectories.map(
+          (directory) => _TranslationResultDirectoryEntry(
+            translationDirectory: directory,
+            originalDirectory: directory.parent,
+          ),
+        ),
+      );
     }
 
     final pairs = <TranslationReplacementPair>[];
@@ -302,12 +309,14 @@ class TranslationResultReplacer {
   Future<bool> hasReplacementCandidate(
     String comicDirectory, {
     String? translationResultRootDirectory,
+    bool scanLegacyResultDirectories = false,
   }) async {
     try {
       final plan = await prepare(
         comicDirectory,
         includeDimensions: false,
         translationResultRootDirectory: translationResultRootDirectory,
+        scanLegacyResultDirectories: scanLegacyResultDirectories,
       );
       return plan.pairs.isNotEmpty;
     } catch (error, stackTrace) {
@@ -324,6 +333,7 @@ class TranslationResultReplacer {
   Future<Map<String, TranslationResultInfo>> scanAvailability(
     Iterable<String> comicDirectories, {
     String? translationResultRootDirectory,
+    bool scanLegacyResultDirectories = false,
   }) async {
     final directories = comicDirectories
         .where((directory) => directory.trim().isNotEmpty)
@@ -341,6 +351,7 @@ class TranslationResultReplacer {
               directory,
               includeDimensions: false,
               translationResultRootDirectory: translationResultRootDirectory,
+              scanLegacyResultDirectories: scanLegacyResultDirectories,
             );
             if (plan.pairs.isEmpty) return null;
             return MapEntry(
