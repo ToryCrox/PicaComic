@@ -219,23 +219,30 @@ class TranslationResultReplacer {
     );
   }
 
-  /// 应用计划；未匹配译图或替换失败时保留中间目录，方便用户重试。
+  /// 应用计划；成功完成后递归删除所有翻译结果目录。
   ///
-  /// 未匹配原图表示该页无需翻译，不会阻止清理已经使用完的中间产物。
+  /// 替换失败时保留结果目录，方便用户重试。跳过的译图不会替换原图，
+  /// 但会随着结果目录一起删除。未匹配原图表示该页无需翻译，不会阻止
+  /// 清理已经使用完的中间产物。
   Future<TranslationReplacementSummary> apply(
-    TranslationReplacementPlan plan,
-  ) async {
+    TranslationReplacementPlan plan, {
+    Iterable<TranslationReplacementPair> skippedPairs = const [],
+  }) async {
     final results = <TranslationReplacementResult>[];
     for (final pair in plan.pairs) {
       results.add(await _replaceOne(pair));
     }
 
-    await _removeEmptyResultDirectories(plan.resultDirectories);
     final allSucceeded =
-        results.isNotEmpty && results.every((result) => result.isSuccess);
-    final resultDirectoriesRemoved = await _resultDirectoriesRemoved(
-      plan.resultDirectories,
-    );
+        (results.isNotEmpty || skippedPairs.isNotEmpty) &&
+        results.every((result) => result.isSuccess);
+    var resultDirectoriesRemoved = false;
+    if (allSucceeded) {
+      await _removeResultDirectories(plan.resultDirectories);
+      resultDirectoriesRemoved = await _resultDirectoriesRemoved(
+        plan.resultDirectories,
+      );
+    }
     final hasUnmatchedTranslation = plan.unmatched.any(
       (file) => !file.isOriginal,
     );
@@ -251,6 +258,22 @@ class TranslationResultReplacer {
       results: results,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
     );
+  }
+
+  /// 递归删除翻译结果目录及其中的其它文件。
+  Future<void> _removeResultDirectories(Set<String> resultDirectories) async {
+    for (final directoryPath in resultDirectories) {
+      final directory = Directory(directoryPath);
+      try {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      } catch (error, stackTrace) {
+        Log.w(
+          '删除翻译结果目录失败: $directoryPath',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
   }
 
   Future<bool> hasReplacementCandidate(
@@ -603,18 +626,6 @@ class TranslationResultReplacer {
           error: error,
           stackTrace: stackTrace,
         );
-      }
-    }
-  }
-
-  Future<void> _removeEmptyResultDirectories(
-    Set<String> resultDirectories,
-  ) async {
-    for (final directoryPath in resultDirectories) {
-      final directory = Directory(directoryPath);
-      if (!await directory.exists()) continue;
-      if (await directory.list(followLinks: false).isEmpty) {
-        await directory.delete();
       }
     }
   }

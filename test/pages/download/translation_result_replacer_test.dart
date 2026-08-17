@@ -249,7 +249,7 @@ void main() {
       expect(plan.pairs.map((pair) => pair.baseName), ['1', '2', '10']);
     });
 
-    test('存在未匹配图片时保留 result 与中间目录', () async {
+    test('替换完成后递归删除 result 中的其它文件', () async {
       await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
       await _writeImage(
         path.join(comicDirectory.path, 'result', '1.png'),
@@ -287,7 +287,11 @@ void main() {
         await File(
           path.join(comicDirectory.path, 'result', 'extra.png'),
         ).exists(),
-        isTrue,
+        isFalse,
+      );
+      expect(
+        await Directory(path.join(comicDirectory.path, 'result')).exists(),
+        isFalse,
       );
       expect(
         await Directory(path.join(comicDirectory.path, 'inpainted')).exists(),
@@ -340,6 +344,58 @@ void main() {
         await Directory(
           path.join(comicDirectory.path, 'manga_translator_work'),
         ).exists(),
+        isFalse,
+      );
+    });
+
+    test('应用时删除跳过项目并清理整个翻译结果目录', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图一');
+      await _writeImage(path.join(comicDirectory.path, '2.webp'), '原图二');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图一',
+      );
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '2.png'),
+        '译图二',
+      );
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+      final skippedPair = plan.pairs.firstWhere((pair) => pair.baseName == '1');
+      final activePlan = TranslationReplacementPlan(
+        comicDirectory: plan.comicDirectory,
+        resultDirectories: plan.resultDirectories,
+        pairs: plan.pairs.where((pair) => pair != skippedPair).toList(),
+        unmatched: plan.unmatched,
+      );
+
+      final summary = await replacer.apply(
+        activePlan,
+        skippedPairs: [skippedPair],
+      );
+
+      expect(summary.successCount, 1);
+      expect(
+        await File(path.join(comicDirectory.path, '1.webp')).exists(),
+        isTrue,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, 'result', '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, '2.webp')).exists(),
+        isFalse,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, '2.png')).exists(),
+        isTrue,
+      );
+      expect(
+        await Directory(path.join(comicDirectory.path, 'result')).exists(),
         isFalse,
       );
     });

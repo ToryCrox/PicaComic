@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -32,6 +33,8 @@ class _TranslationResultReplaceDialogState
   TranslationReplacementSummary? _summary;
   Object? _loadError;
   bool _isApplying = false;
+  int _appliedSkippedPairCount = 0;
+  final _skippedPairPaths = <String>{};
 
   @override
   void initState() {
@@ -55,9 +58,17 @@ class _TranslationResultReplaceDialogState
 
   Future<void> _apply() async {
     final plan = _plan;
-    if (plan == null || plan.pairs.isEmpty) return;
+    if (plan == null) return;
+    final activePlan = _activePlan(plan);
+    final skippedPairs = plan.pairs
+        .where((pair) => _skippedPairPaths.contains(pair.originalPath))
+        .toList(growable: false);
+    if (activePlan.pairs.isEmpty && skippedPairs.isEmpty) return;
     setState(() => _isApplying = true);
-    final summary = await _replacer.apply(plan);
+    final summary = await _replacer.apply(
+      activePlan,
+      skippedPairs: skippedPairs,
+    );
     for (final result in summary.results.where((result) => result.isSuccess)) {
       await FileImage(File(result.pair.originalPath)).evict();
       await FileImage(File(result.pair.translatedPath)).evict();
@@ -67,6 +78,7 @@ class _TranslationResultReplaceDialogState
     if (!mounted) return;
     setState(() {
       _summary = summary;
+      _appliedSkippedPairCount = skippedPairs.length;
       _isApplying = false;
     });
     widget.onComplete();
@@ -75,6 +87,10 @@ class _TranslationResultReplaceDialogState
   @override
   Widget build(BuildContext context) {
     final plan = _plan;
+    final activePairCount = plan == null ? 0 : _activePairs(plan).length;
+    final skippedPairCount = plan == null
+        ? 0
+        : plan.pairs.length - activePairCount;
     return AlertDialog(
       title: Text('应用翻译结果'.tl),
       content: SizedBox(
@@ -89,11 +105,18 @@ class _TranslationResultReplaceDialogState
         ),
         if (_summary == null)
           FilledButton(
-            onPressed: plan == null || plan.pairs.isEmpty || _isApplying
+            onPressed:
+                plan == null ||
+                    (activePairCount == 0 && skippedPairCount == 0) ||
+                    _isApplying
                 ? null
                 : _apply,
             child: Text(
-              _isApplying ? '处理中'.tl : '替换原图 (${plan?.pairs.length ?? 0})'.tl,
+              _isApplying
+                  ? '处理中'.tl
+                  : activePairCount > 0
+                  ? '替换原图 ($activePairCount)'.tl
+                  : '清理跳过结果 ($skippedPairCount)'.tl,
             ),
           ),
       ],
@@ -109,16 +132,33 @@ class _TranslationResultReplaceDialogState
     if (plan.pairs.isEmpty) {
       return const Center(child: Text('没有可应用的翻译图片'));
     }
-    final delta = plan.translatedTotalSize - plan.originalTotalSize;
+    final activePairs = _activePairs(plan);
+    final skippedCount = plan.pairs.length - activePairs.length;
+    final originalTotalSize = activePairs.fold(
+      0,
+      (total, pair) => total + pair.originalSize,
+    );
+    final translatedTotalSize = activePairs.fold(
+      0,
+      (total, pair) => total + pair.translatedSize,
+    );
+    final delta = translatedTotalSize - originalTotalSize;
+    final originalPaths = plan.pairs
+        .map((pair) => pair.originalPath)
+        .toList(growable: false);
+    final translatedPaths = plan.pairs
+        .map((pair) => pair.translatedPath)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '将替换 ${plan.pairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个翻译结果目录。',
+          '将替换 ${activePairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个翻译结果目录。',
         ),
+        if (skippedCount > 0) Text('已跳过 $skippedCount 张图片，可在列表中恢复。'),
         const SizedBox(height: 4),
         Text(
-          '总文件大小：${_formatSize(plan.originalTotalSize)} → ${_formatSize(plan.translatedTotalSize)}（${_formatDelta(delta)}）',
+          '总文件大小：${_formatSize(originalTotalSize)} → ${_formatSize(translatedTotalSize)}（${_formatDelta(delta)}）',
           style: TextStyle(color: delta > 0 ? Colors.orange : Colors.green),
         ),
         if (plan.unmatched.isNotEmpty) ...[
@@ -132,7 +172,18 @@ class _TranslationResultReplaceDialogState
         Expanded(
           child: ListView(
             children: [
-              ...plan.pairs.map((pair) => _PairCard(pair: pair)),
+              for (var index = 0; index < plan.pairs.length; index++)
+                _PairCard(
+                  pair: plan.pairs[index],
+                  skipped: _skippedPairPaths.contains(
+                    plan.pairs[index].originalPath,
+                  ),
+                  onToggleSkipped: () =>
+                      _toggleSkipped(plan.pairs[index].originalPath),
+                  originalPaths: originalPaths,
+                  translatedPaths: translatedPaths,
+                  pairIndex: index,
+                ),
               if (plan.unmatched.isNotEmpty)
                 _UnmatchedCard(files: plan.unmatched),
             ],
@@ -159,7 +210,11 @@ class _TranslationResultReplaceDialogState
             size: 52,
           ),
           const SizedBox(height: 12),
-          Text('成功替换 ${summary.successCount} 张，失败 ${summary.failureCount} 张。'),
+          Text(
+            '成功替换 ${summary.successCount} 张，'
+            '${_appliedSkippedPairCount > 0 ? '已删除跳过结果 $_appliedSkippedPairCount 张，' : ''}'
+            '失败 ${summary.failureCount} 张。',
+          ),
           const SizedBox(height: 8),
           Text(
             summary.intermediateDirectoriesCleaned
@@ -184,23 +239,77 @@ class _TranslationResultReplaceDialogState
       ),
     );
   }
+
+  List<TranslationReplacementPair> _activePairs(
+    TranslationReplacementPlan plan,
+  ) {
+    return plan.pairs
+        .where((pair) => !_skippedPairPaths.contains(pair.originalPath))
+        .toList(growable: false);
+  }
+
+  TranslationReplacementPlan _activePlan(TranslationReplacementPlan plan) {
+    return TranslationReplacementPlan(
+      comicDirectory: plan.comicDirectory,
+      resultDirectories: plan.resultDirectories,
+      pairs: _activePairs(plan),
+      unmatched: plan.unmatched,
+    );
+  }
+
+  void _toggleSkipped(String originalPath) {
+    setState(() {
+      if (!_skippedPairPaths.add(originalPath)) {
+        _skippedPairPaths.remove(originalPath);
+      }
+    });
+  }
 }
 
 class _PairCard extends StatelessWidget {
-  const _PairCard({required this.pair});
+  const _PairCard({
+    required this.pair,
+    required this.skipped,
+    required this.onToggleSkipped,
+    required this.originalPaths,
+    required this.translatedPaths,
+    required this.pairIndex,
+  });
 
   final TranslationReplacementPair pair;
+  final bool skipped;
+  final VoidCallback onToggleSkipped;
+  final List<String> originalPaths;
+  final List<String> translatedPaths;
+  final int pairIndex;
 
   @override
   Widget build(BuildContext context) {
     final delta = pair.translatedSize - pair.originalSize;
     return Card(
+      color: skipped
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : null,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(pair.baseName, style: Theme.of(context).textTheme.titleSmall),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    pair.baseName,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onToggleSkipped,
+                  icon: Icon(skipped ? Icons.restore : Icons.skip_next),
+                  label: Text(skipped ? '恢复替换' : '跳过替换'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -210,6 +319,8 @@ class _PairCard extends StatelessWidget {
                     path: pair.originalPath,
                     size: pair.originalSize,
                     dimensions: pair.originalDimensions,
+                    previewPaths: originalPaths,
+                    previewIndex: pairIndex,
                   ),
                 ),
                 const Padding(
@@ -222,6 +333,8 @@ class _PairCard extends StatelessWidget {
                     path: pair.translatedPath,
                     size: pair.translatedSize,
                     dimensions: pair.translatedDimensions,
+                    previewPaths: translatedPaths,
+                    previewIndex: pairIndex,
                   ),
                 ),
               ],
@@ -244,12 +357,16 @@ class _ImageInfo extends StatelessWidget {
     required this.path,
     required this.size,
     required this.dimensions,
+    required this.previewPaths,
+    required this.previewIndex,
   });
 
   final String label;
   final String path;
   final int size;
   final TranslationImageDimensions? dimensions;
+  final List<String> previewPaths;
+  final int previewIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +376,11 @@ class _ImageInfo extends StatelessWidget {
           message: '点击放大',
           child: InkWell(
             borderRadius: BorderRadius.circular(4),
-            onTap: () => _showImagePreview(context, path),
+            onTap: () => _showImagePreview(
+              context,
+              filePaths: previewPaths,
+              initialIndex: previewIndex,
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: Image.file(
@@ -333,38 +454,177 @@ String _formatSize(int bytes) {
 String _formatDelta(int bytes) =>
     '${bytes >= 0 ? '+' : ''}${_formatSize(bytes.abs())}';
 
-Future<void> _showImagePreview(BuildContext context, String filePath) {
+Future<void> _showImagePreview(
+  BuildContext context, {
+  required List<String> filePaths,
+  required int initialIndex,
+}) {
+  if (filePaths.isEmpty) return Future<void>.value();
   final size = MediaQuery.sizeOf(context);
   return showDialog<void>(
     context: context,
-    builder: (context) => Dialog(
-      child: SizedBox(
-        width: size.width * 0.9,
-        height: size.height * 0.9,
-        child: Stack(
-          children: [
-            PhotoView(
-              imageProvider: FileImage(File(filePath)),
-              minScale: PhotoViewComputedScale.contained,
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
-              loadingBuilder: (_, _) =>
-                  const Center(child: CircularProgressIndicator()),
-              errorBuilder: (_, _, _, _) => const Center(
-                child: Icon(Icons.broken_image, color: Colors.white, size: 48),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton.filled(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-                tooltip: '关闭'.tl,
-              ),
-            ),
-          ],
-        ),
-      ),
+    builder: (context) => _ImagePreviewDialog(
+      filePaths: filePaths,
+      initialIndex: initialIndex,
+      width: size.width * 0.9,
+      height: size.height * 0.9,
     ),
   );
+}
+
+class _ImagePreviewDialog extends StatefulWidget {
+  const _ImagePreviewDialog({
+    required this.filePaths,
+    required this.initialIndex,
+    required this.width,
+    required this.height,
+  });
+
+  final List<String> filePaths;
+  final int initialIndex;
+  final double width;
+  final double height;
+
+  @override
+  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
+}
+
+class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+  late final FocusNode _focusNode;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(debugLabel: 'translation-image-preview');
+    final lastIndex = widget.filePaths.length - 1;
+    _currentIndex = widget.initialIndex < 0
+        ? 0
+        : widget.initialIndex > lastIndex
+        ? lastIndex
+        : widget.initialIndex;
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filePath = widget.filePaths[_currentIndex];
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          switch (event.logicalKey) {
+            case LogicalKeyboardKey.arrowLeft:
+            case LogicalKeyboardKey.arrowUp:
+              _move(-1);
+              return KeyEventResult.handled;
+            case LogicalKeyboardKey.arrowRight:
+            case LogicalKeyboardKey.arrowDown:
+              _move(1);
+              return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Dialog(
+        child: SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: Stack(
+            children: [
+              PhotoView(
+                key: ValueKey(filePath),
+                imageProvider: FileImage(File(filePath)),
+                minScale: PhotoViewComputedScale.contained,
+                backgroundDecoration: const BoxDecoration(color: Colors.black),
+                loadingBuilder: (_, _) =>
+                    const Center(child: CircularProgressIndicator()),
+                errorBuilder: (_, _, _, _) => const Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IconButton.filled(
+                    onPressed: _currentIndex > 0 ? () => _move(-1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: '上一张'.tl,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IconButton.filled(
+                    onPressed: _currentIndex < widget.filePaths.length - 1
+                        ? () => _move(1)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: '下一张'.tl,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton.filled(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  tooltip: '关闭'.tl,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 12,
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.all(Radius.circular(16)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1}/${widget.filePaths.length}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _move(int offset) {
+    final nextIndex = _currentIndex + offset;
+    if (nextIndex < 0 || nextIndex >= widget.filePaths.length) {
+      _focusNode.requestFocus();
+      return;
+    }
+    setState(() => _currentIndex = nextIndex);
+    _focusNode.requestFocus();
+  }
 }
