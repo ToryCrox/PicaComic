@@ -676,7 +676,10 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                 top: MediaQuery.paddingOf(context).top + 10,
                 left: 56,
                 right: 20,
-                child: _buildTitle(),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: _buildTitle(),
+                ),
               ),
             if (_items.length > 1) ...[
               Positioned(
