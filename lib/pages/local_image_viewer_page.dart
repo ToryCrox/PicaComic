@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 /// 本地图片查看器中的左右对照图片。
@@ -161,6 +162,9 @@ class _NextImageIntent extends Intent {
 }
 
 class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
+  static const _comparisonModePreferenceKey =
+      'local_image_viewer_comparison_mode';
+  static bool? _comparisonModeMemory;
   static const double _minScale = 0.1;
   static const double _maxScale = 8.0;
   static const double _stepScale = 1.25;
@@ -193,6 +197,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     super.initState();
     _currentIndex = _initialIndex;
     _showRightImage = _isRightImage(_currentItem);
+    _comparisonMode = _hasComparison && _readSavedComparisonMode();
     _file = File(_activeImagePath);
     _resolveImageInfo();
   }
@@ -234,6 +239,21 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   bool _isRightImage(LocalImageViewerItem item) {
     final comparison = item.comparison;
     return comparison != null && item.imagePath == comparison.rightImagePath;
+  }
+
+  /// 读取上次使用的左右对比状态。
+  bool _readSavedComparisonMode() {
+    final memory = _comparisonModeMemory;
+    if (memory != null) return memory;
+    return _comparisonModeMemory = PrefsHelper.getBool(
+      _comparisonModePreferenceKey,
+    );
+  }
+
+  /// 保存左右对比状态。
+  void _saveComparisonMode(bool enabled) {
+    _comparisonModeMemory = enabled;
+    unawaited(PrefsHelper.setBool(_comparisonModePreferenceKey, enabled));
   }
 
   /// 当前显示图片的标题。
@@ -339,7 +359,8 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     setState(() {
       _currentIndex = index;
       _showRightImage = _isRightImage(_items[index]);
-      _comparisonMode = false;
+      _comparisonMode =
+          _items[index].comparison != null && _readSavedComparisonMode();
       _comparisonSplit = 0.5;
       _file = File(_activeImagePath);
       _imagePixelSize = null;
@@ -511,6 +532,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _comparisonMode = !_comparisonMode;
       _comparisonSplit = 0.5;
     });
+    _saveComparisonMode(_comparisonMode);
     _setDesiredScale(_fitScale(), resetPosition: true);
   }
 
@@ -806,24 +828,17 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
               ),
               child: Center(
                 child: Container(
-                  width: 2,
-                  height: double.infinity,
-                  color: Colors.transparent,
-                  child: Center(
-                    child: Container(
-                      width: 24,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white70),
-                      ),
-                      child: const Icon(
-                        Icons.drag_handle,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
+                  width: 24,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white70),
+                  ),
+                  child: const Icon(
+                    Icons.drag_indicator,
+                    color: Colors.white,
+                    size: 18,
                   ),
                 ),
               ),

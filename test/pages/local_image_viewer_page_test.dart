@@ -5,17 +5,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/pages/local_image_viewer_page.dart';
+import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late List<String> originalSettings;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await PrefsHelper.init();
     await AppTranslation.init();
   });
 
-  setUp(() {
+  setUp(() async {
+    await PrefsHelper.remove('local_image_viewer_comparison_mode');
     originalSettings = List<String>.from(appdata.settings);
     appdata.settings[50] = 'cn';
   });
@@ -201,6 +206,12 @@ void main() {
     expect(find.byTooltip('退出左右对比'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('打开对比查看器'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byTooltip('退出左右对比'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.close));
     await tester.pump(const Duration(milliseconds: 250));
   });
