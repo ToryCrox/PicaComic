@@ -82,6 +82,8 @@ void main() {
     expect(find.byIcon(Icons.chevron_right), findsOneWidget);
     expect(find.byIcon(Icons.zoom_out), findsOneWidget);
     expect(find.byIcon(Icons.zoom_in), findsOneWidget);
+    expect(find.byTooltip('切换原图和译图'), findsNothing);
+    expect(find.byTooltip('开启左右对比'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.chevron_left));
     await tester.pump();
@@ -149,5 +151,57 @@ void main() {
     await tester.pump();
     expect(find.text('扩展 P2'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('本地图片查看器支持原图译图切换和左右对比', (tester) async {
+    final missingPrefix = File(
+      '${Directory.systemTemp.path}/pica-comic-viewer-comparison-${DateTime.now().microsecondsSinceEpoch}',
+    ).path;
+    final leftPath = '$missingPrefix-left.png';
+    final rightPath = '$missingPrefix-right.png';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Center(
+              child: ElevatedButton(
+                onPressed: () => LocalImageViewerPage.open<void>(
+                  context,
+                  imagePath: leftPath,
+                  comparison: LocalImageViewerComparison(
+                    leftImagePath: leftPath,
+                    rightImagePath: rightPath,
+                    leftTitle: '原图',
+                    rightTitle: '翻译后',
+                  ),
+                ),
+                child: const Text('打开对比查看器'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开对比查看器'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byTooltip('切换原图和译图'), findsOneWidget);
+    expect(find.byTooltip('开启左右对比'), findsOneWidget);
+    expect(find.text('原图'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('切换原图和译图'));
+    await tester.pump();
+    expect(find.text('翻译后'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('开启左右对比'));
+    await tester.pump();
+    expect(find.byTooltip('退出左右对比'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump(const Duration(milliseconds: 250));
   });
 }

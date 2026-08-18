@@ -503,6 +503,7 @@ class _PairCard extends StatelessWidget {
                     skippedPairPaths: skippedPairPaths,
                     onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
+                    showTranslated: false,
                   ),
                 ),
                 const Padding(
@@ -520,6 +521,7 @@ class _PairCard extends StatelessWidget {
                     skippedPairPaths: skippedPairPaths,
                     onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
+                    showTranslated: true,
                   ),
                 ),
               ],
@@ -542,6 +544,7 @@ class _ImageInfo extends StatelessWidget {
     required this.skippedPairPaths,
     required this.onSetSkipped,
     required this.previewIndex,
+    required this.showTranslated,
   });
 
   final String label;
@@ -553,6 +556,7 @@ class _ImageInfo extends StatelessWidget {
   final Set<String> skippedPairPaths;
   final void Function(String originalPath, bool skipped) onSetSkipped;
   final int previewIndex;
+  final bool showTranslated;
 
   @override
   Widget build(BuildContext context) {
@@ -570,6 +574,7 @@ class _ImageInfo extends StatelessWidget {
               onSkippedChanged: onSetSkipped,
               initialIndex: previewIndex,
               title: label,
+              showTranslated: showTranslated,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -653,17 +658,21 @@ Future<void> _showImagePreview(
   required void Function(String originalPath, bool skipped) onSkippedChanged,
   required int initialIndex,
   required String title,
+  required bool showTranslated,
 }) {
-  if (filePaths.isEmpty) return Future<void>.value();
-  final safeIndex = initialIndex.clamp(0, filePaths.length - 1).toInt();
+  if (filePaths.isEmpty || pairs.isEmpty) return Future<void>.value();
+  final itemCount = filePaths.length < pairs.length
+      ? filePaths.length
+      : pairs.length;
+  final safeIndex = initialIndex.clamp(0, itemCount - 1).toInt();
   final gallery = [
-    for (var index = 0; index < filePaths.length; index++)
-      LocalImageViewerItem(
-        imagePath: filePaths[index],
+    for (var index = 0; index < itemCount; index++)
+      _buildPreviewItem(
+        pair: pairs[index],
+        index: index,
+        itemCount: itemCount,
         title: title,
-        subtitle:
-            '${index + 1}/${filePaths.length} · '
-            '${File(filePaths[index]).path.split(Platform.pathSeparator).last}',
+        showTranslated: showTranslated,
       ),
   ];
   return LocalImageViewerPage.open<void>(
@@ -686,6 +695,35 @@ Future<void> _showImagePreview(
         },
       );
     },
+  );
+}
+
+LocalImageViewerItem _buildPreviewItem({
+  required TranslationReplacementPair pair,
+  required int index,
+  required int itemCount,
+  required String title,
+  required bool showTranslated,
+}) {
+  final displayPath = showTranslated ? pair.translatedPath : pair.originalPath;
+  return LocalImageViewerItem(
+    imagePath: displayPath,
+    title: title,
+    subtitle:
+        '${index + 1}/$itemCount · '
+        '${File(displayPath).path.split(Platform.pathSeparator).last}',
+    comparison: LocalImageViewerComparison(
+      leftImagePath: pair.originalPath,
+      rightImagePath: pair.translatedPath,
+      leftTitle: '原图',
+      rightTitle: '翻译后',
+      leftSubtitle:
+          '${index + 1}/$itemCount · '
+          '${File(pair.originalPath).path.split(Platform.pathSeparator).last}',
+      rightSubtitle:
+          '${index + 1}/$itemCount · '
+          '${File(pair.translatedPath).path.split(Platform.pathSeparator).last}',
+    ),
   );
 }
 
