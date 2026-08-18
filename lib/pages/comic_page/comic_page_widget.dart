@@ -1320,7 +1320,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
     final titleText = adapter.title(data);
     if (titleText != null && titleText.isNotEmpty) {
-      currentTags.add(titleText.translateTagsToCN);
+      // 标题可能包含竖线等普通标点，不应按标签格式进行解析或翻译。
+      currentTags.add(titleText);
     }
 
     final tags = adapter.tags(data);

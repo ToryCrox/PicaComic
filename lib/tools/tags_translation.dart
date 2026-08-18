@@ -45,10 +45,17 @@ extension TagsTranslation on String {
   /// 对tag进行处理后进行翻译: 代表'或'的分割符'|', namespace.
   static String _translateTags(String tag) {
     if (tag.contains('|')) {
-      var splits = tag.split(' | ');
-      return enTagsTranslations[splits[0]] ??
-          enTagsTranslations[splits[1]] ??
-          tag;
+      // 标签数据中的分隔符可能带空格，也可能不带空格。不要使用固定的
+      // " | " 分隔后直接访问下标，否则普通标题中的竖线会导致越界。
+      final alternatives = tag
+          .split('|')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty);
+      for (final alternative in alternatives) {
+        final translated = enTagsTranslations[alternative];
+        if (translated != null) return translated;
+      }
+      return tag;
     } else if (tag.contains(':')) {
       var splits = tag.split(':');
       if (_haveNamespace(splits[0])) {
