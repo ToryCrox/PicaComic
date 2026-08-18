@@ -1,10 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/pages/local_image_viewer_page.dart';
 import 'package:pica_comic/pages/download/translation_result_replacer.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -199,6 +198,11 @@ class _TranslationResultReplaceDialogState
                 pair: pair,
                 skipped: _skippedPairPaths.contains(pair.originalPath),
                 onToggleSkipped: () => _toggleSkipped(pair.originalPath),
+                onShowSkipMenu: (position) => _showSkipMenu(
+                  context: context,
+                  position: position,
+                  pairIndex: index,
+                ),
                 originalPaths: originalPaths,
                 translatedPaths: translatedPaths,
                 pairIndex: index,
@@ -281,13 +285,46 @@ class _TranslationResultReplaceDialogState
       }
     });
   }
+
+  Future<void> _showSkipMenu({
+    required BuildContext context,
+    required Offset position,
+    required int pairIndex,
+  }) async {
+    final action = await showMenu<_SkipMenuAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: _SkipMenuAction.skipFromHere,
+          child: Text('跳过此图片及之后的所有图片'),
+        ),
+      ],
+    );
+    if (action != _SkipMenuAction.skipFromHere || !mounted) return;
+    final plan = _plan;
+    if (plan == null) return;
+    setState(() {
+      for (final pair in plan.pairs.skip(pairIndex)) {
+        _skippedPairPaths.add(pair.originalPath);
+      }
+    });
+  }
 }
+
+enum _SkipMenuAction { skipFromHere }
 
 class _PairCard extends StatelessWidget {
   const _PairCard({
     required this.pair,
     required this.skipped,
     required this.onToggleSkipped,
+    required this.onShowSkipMenu,
     required this.originalPaths,
     required this.translatedPaths,
     required this.pairIndex,
@@ -296,6 +333,7 @@ class _PairCard extends StatelessWidget {
   final TranslationReplacementPair pair;
   final bool skipped;
   final VoidCallback onToggleSkipped;
+  final ValueChanged<Offset> onShowSkipMenu;
   final List<String> originalPaths;
   final List<String> translatedPaths;
   final int pairIndex;
@@ -321,15 +359,26 @@ class _PairCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: onToggleSkipped,
-                  icon: Icon(skipped ? Icons.restore : Icons.skip_next),
-                  label: Text(skipped ? '恢复替换' : '跳过替换'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
+                Text(
+                  '文件大小变化：${_formatDelta(delta)}',
+                  style: TextStyle(
+                    color: delta > 0 ? Colors.orange : Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onSecondaryTapUp: (details) =>
+                      onShowSkipMenu(details.globalPosition),
+                  child: TextButton.icon(
+                    onPressed: onToggleSkipped,
+                    icon: Icon(skipped ? Icons.restore : Icons.skip_next),
+                    label: Text(skipped ? '恢复替换' : '跳过替换'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ),
               ],
@@ -362,11 +411,6 @@ class _PairCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '文件大小变化：${_formatDelta(delta)}',
-              style: TextStyle(color: delta > 0 ? Colors.orange : Colors.green),
             ),
           ],
         ),
@@ -404,6 +448,7 @@ class _ImageInfo extends StatelessWidget {
               context,
               filePaths: previewPaths,
               initialIndex: previewIndex,
+              title: label,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -483,173 +528,24 @@ Future<void> _showImagePreview(
   BuildContext context, {
   required List<String> filePaths,
   required int initialIndex,
+  required String title,
 }) {
   if (filePaths.isEmpty) return Future<void>.value();
-  final size = MediaQuery.sizeOf(context);
-  return showDialog<void>(
-    context: context,
-    builder: (context) => _ImagePreviewDialog(
-      filePaths: filePaths,
-      initialIndex: initialIndex,
-      width: size.width * 0.9,
-      height: size.height * 0.9,
-    ),
-  );
-}
-
-class _ImagePreviewDialog extends StatefulWidget {
-  const _ImagePreviewDialog({
-    required this.filePaths,
-    required this.initialIndex,
-    required this.width,
-    required this.height,
-  });
-
-  final List<String> filePaths;
-  final int initialIndex;
-  final double width;
-  final double height;
-
-  @override
-  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
-}
-
-class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
-  late final FocusNode _focusNode;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = FocusNode(debugLabel: 'translation-image-preview');
-    final lastIndex = widget.filePaths.length - 1;
-    _currentIndex = widget.initialIndex < 0
-        ? 0
-        : widget.initialIndex > lastIndex
-        ? lastIndex
-        : widget.initialIndex;
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filePath = widget.filePaths[_currentIndex];
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent || event is KeyRepeatEvent) {
-          switch (event.logicalKey) {
-            case LogicalKeyboardKey.arrowLeft:
-            case LogicalKeyboardKey.arrowUp:
-              _move(-1);
-              return KeyEventResult.handled;
-            case LogicalKeyboardKey.arrowRight:
-            case LogicalKeyboardKey.arrowDown:
-              _move(1);
-              return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Dialog(
-        child: SizedBox(
-          width: widget.width,
-          height: widget.height,
-          child: Stack(
-            children: [
-              PhotoView(
-                key: ValueKey(filePath),
-                imageProvider: FileImage(File(filePath)),
-                minScale: PhotoViewComputedScale.contained,
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
-                loadingBuilder: (_, _) =>
-                    const Center(child: CircularProgressIndicator()),
-                errorBuilder: (_, _, _, _) => const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white,
-                    size: 48,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: IconButton.filled(
-                    onPressed: _currentIndex > 0 ? () => _move(-1) : null,
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: '上一张'.tl,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 12,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: IconButton.filled(
-                    onPressed: _currentIndex < widget.filePaths.length - 1
-                        ? () => _move(1)
-                        : null,
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: '下一张'.tl,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton.filled(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                  tooltip: '关闭'.tl,
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 12,
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.all(Radius.circular(16)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: Text(
-                        '${_currentIndex + 1}/${widget.filePaths.length}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+  final safeIndex = initialIndex.clamp(0, filePaths.length - 1).toInt();
+  final gallery = [
+    for (var index = 0; index < filePaths.length; index++)
+      LocalImageViewerItem(
+        imagePath: filePaths[index],
+        title: title,
+        subtitle:
+            '${index + 1}/${filePaths.length} · '
+            '${File(filePaths[index]).path.split(Platform.pathSeparator).last}',
       ),
-    );
-  }
-
-  void _move(int offset) {
-    final nextIndex = _currentIndex + offset;
-    if (nextIndex < 0 || nextIndex >= widget.filePaths.length) {
-      _focusNode.requestFocus();
-      return;
-    }
-    setState(() => _currentIndex = nextIndex);
-    _focusNode.requestFocus();
-  }
+  ];
+  return LocalImageViewerPage.open<void>(
+    context,
+    imagePath: filePaths[safeIndex],
+    gallery: gallery,
+    initialIndex: safeIndex,
+  );
 }
