@@ -72,6 +72,41 @@ if (-not (Test-Path $destinationDir)) {
     Write-Host "Destination directory exists: OK" -ForegroundColor Green
 }
 
+# 在拷贝文件前检查程序是否正在运行。
+$applicationProcessName = "pica_comic"
+$runningProcesses = @(Get-Process -Name $applicationProcessName -ErrorAction SilentlyContinue)
+
+if ($runningProcesses.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Running $applicationProcessName process detected. Closing it before copying..." -ForegroundColor Yellow
+
+    foreach ($process in $runningProcesses) {
+        try {
+            Write-Host "Closing process $($process.Id)..." -ForegroundColor Gray
+
+            if ($process.MainWindowHandle -ne 0) {
+                [void]$process.CloseMainWindow()
+            }
+
+            if (-not $process.WaitForExit(5000)) {
+                Write-Host "Process did not exit gracefully. Forcing process termination..." -ForegroundColor Yellow
+                Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                $process.WaitForExit()
+            }
+
+            Write-Host "Process $($process.Id) closed: OK" -ForegroundColor Green
+        } catch {
+            Write-Host "ERROR: Failed to close process $($process.Id)!" -ForegroundColor Red
+            Write-Host "Please close pica_comic manually and try again." -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+    }
+} else {
+    Write-Host "No running $applicationProcessName process detected: OK" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Yellow
 Write-Host "Starting file copy..." -ForegroundColor Yellow
