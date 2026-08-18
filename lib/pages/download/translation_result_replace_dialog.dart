@@ -173,28 +173,41 @@ class _TranslationResultReplaceDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '将替换 ${activePairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个翻译结果目录。',
-        ),
-        if (skippedCount > 0) Text('已跳过 $skippedCount 张图片，可在列表中恢复。'),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FilterChip(
-              label: const Text('全部跳过'),
-              selected: _isPlanFullySkipped(plan),
-              onSelected: _isApplying
-                  ? null
-                  : (selected) => _setPlanSkipped(plan, selected),
+            Expanded(
+              child: Text(
+                '替换 ${activePairs.length} 张 · 结果目录 ${plan.resultDirectories.length} 个'
+                '${skippedCount > 0 ? ' · 已跳过 $skippedCount 张' : ''}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            FilterChip(
-              label: Text('仅显示已跳过 ($skippedCount)'),
-              selected: _showSkippedOnly,
-              onSelected: _isApplying
-                  ? null
-                  : (selected) => setState(() => _showSkippedOnly = selected),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  FilterChip(
+                    label: const Text('全部跳过'),
+                    selected: _isPlanFullySkipped(plan),
+                    onSelected: _isApplying
+                        ? null
+                        : (selected) => _setPlanSkipped(plan, selected),
+                  ),
+                  FilterChip(
+                    label: Text('仅显示已跳过 ($skippedCount)'),
+                    selected: _showSkippedOnly,
+                    onSelected: _isApplying
+                        ? null
+                        : (selected) =>
+                              setState(() => _showSkippedOnly = selected),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
