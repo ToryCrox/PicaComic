@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -36,6 +37,8 @@ class TranslationReplacementPair {
     required this.translatedSize,
     this.originalDimensions,
     this.translatedDimensions,
+    this.defaultSkipped = false,
+    this.defaultSkipReason,
   });
 
   final String originalPath;
@@ -44,6 +47,8 @@ class TranslationReplacementPair {
   final int translatedSize;
   final TranslationImageDimensions? originalDimensions;
   final TranslationImageDimensions? translatedDimensions;
+  final bool defaultSkipped;
+  final String? defaultSkipReason;
 
   String get baseName => path.basenameWithoutExtension(originalPath);
 
@@ -85,6 +90,11 @@ class TranslationReplacementPlan {
 
   int get translatedTotalSize =>
       pairs.fold(0, (total, pair) => total + pair.translatedSize);
+
+  Set<String> get defaultSkippedOriginalPaths => pairs
+      .where((pair) => pair.defaultSkipped)
+      .map((pair) => pair.originalPath)
+      .toSet();
 }
 
 /// 单张图片的替换结果。
@@ -211,6 +221,12 @@ class TranslationResultReplacer {
     var sortedPairs = pairs
         .sortedFileNameBy((pair) => pair.originalPath)
         .toList();
+    if (sortedPairs.isNotEmpty) {
+      sortedPairs = [
+        for (final pair in sortedPairs)
+          await _withDefaultSkipMetadata(pair, comicDirectory),
+      ];
+    }
     if (includeDimensions && sortedPairs.isNotEmpty) {
       final imageSizes = await ImageSizeUtils.parseImageSizes([
         for (final pair in sortedPairs) ...[
@@ -232,6 +248,8 @@ class TranslationResultReplacer {
               translatedDimensions: _toDimensions(
                 imageSizes[pair.translatedPath],
               ),
+              defaultSkipped: pair.defaultSkipped,
+              defaultSkipReason: pair.defaultSkipReason,
             ),
           )
           .toList(growable: false);
@@ -560,6 +578,83 @@ class TranslationResultReplacer {
       imageSize.width.round(),
       imageSize.height.round(),
     );
+  }
+
+  Future<TranslationReplacementPair> _withDefaultSkipMetadata(
+    TranslationReplacementPair pair,
+    String comicDirectory,
+  ) async {
+    final reason = await _defaultSkipReason(comicDirectory, pair.originalPath);
+    return TranslationReplacementPair(
+      originalPath: pair.originalPath,
+      translatedPath: pair.translatedPath,
+      originalSize: pair.originalSize,
+      translatedSize: pair.translatedSize,
+      originalDimensions: pair.originalDimensions,
+      translatedDimensions: pair.translatedDimensions,
+      defaultSkipped: reason != null,
+      defaultSkipReason: reason,
+    );
+  }
+
+  /// Manga Translator 未检测到文本时会保留 JSON 记录，但不会生成 inpainted
+  /// 图片。两个信号同时存在才预设跳过，避免把缺失或损坏的中间产物误判为未翻译。
+  Future<String?> _defaultSkipReason(
+    String comicDirectory,
+    String originalPath,
+  ) async {
+    final translatorWorkDirectory = Directory(
+      path.join(comicDirectory, _translationWorkDirectoryName),
+    );
+    if (!await translatorWorkDirectory.exists()) return null;
+
+    final baseName = path.basenameWithoutExtension(originalPath);
+    final metadataFile = File(
+      path.join(
+        translatorWorkDirectory.path,
+        'json',
+        '${baseName}_translations.json',
+      ),
+    );
+    if (!await metadataFile.exists()) return null;
+
+    try {
+      final decoded = jsonDecode(await metadataFile.readAsString());
+      if (decoded is! Map) return null;
+
+      Map? metadata;
+      if (decoded.containsKey('regions')) {
+        metadata = decoded;
+      } else {
+        for (final value in decoded.values) {
+          if (value is Map && value.containsKey('regions')) {
+            metadata = value;
+            break;
+          }
+        }
+      }
+      if (metadata == null) return null;
+
+      final regions = metadata['regions'];
+      if (regions is! List || regions.isNotEmpty) return null;
+
+      final inpaintedFile = File(
+        path.join(
+          translatorWorkDirectory.path,
+          'inpainted',
+          '${baseName}_inpainted.png',
+        ),
+      );
+      if (await inpaintedFile.exists()) return null;
+      return '未检测到可翻译文本，已默认跳过';
+    } catch (error, stackTrace) {
+      Log.w(
+        '读取 Manga Translator 翻译元数据失败: ${metadataFile.path}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
   }
 
   Future<TranslationReplacementResult> _replaceOne(

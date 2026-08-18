@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -429,6 +430,174 @@ void main() {
       );
     });
 
+    test('Manga Translator 无文本页面默认跳过，并支持混合替换', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图一');
+      await _writeImage(path.join(comicDirectory.path, '2.webp'), '原图二');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图一',
+      );
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '2.png'),
+        '译图二',
+      );
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '1',
+        regions: const [],
+      );
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '2',
+        regions: const [
+          {'text': '可翻译文本'},
+        ],
+      );
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+      final skippedPair = plan.pairs.firstWhere((pair) => pair.baseName == '1');
+      final activePlan = TranslationReplacementPlan(
+        comicDirectory: plan.comicDirectory,
+        resultDirectories: plan.resultDirectories,
+        pairs: plan.pairs
+            .where((pair) => pair != skippedPair)
+            .toList(growable: false),
+        unmatched: plan.unmatched,
+      );
+
+      expect(skippedPair.defaultSkipped, isTrue);
+      expect(skippedPair.defaultSkipReason, '未检测到可翻译文本，已默认跳过');
+      expect(plan.defaultSkippedOriginalPaths, {skippedPair.originalPath});
+      expect(
+        plan.pairs.firstWhere((pair) => pair.baseName == '2').defaultSkipped,
+        isFalse,
+      );
+
+      final summary = await replacer.apply(
+        activePlan,
+        skippedPairs: [skippedPair],
+      );
+
+      expect(summary.successCount, 1);
+      expect(summary.failureCount, 0);
+      expect(
+        await File(path.join(comicDirectory.path, '1.webp')).exists(),
+        isTrue,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, '2.webp')).exists(),
+        isFalse,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, '2.png')).readAsString(),
+        '译图二',
+      );
+      expect(
+        await File(path.join(comicDirectory.path, 'result', '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(
+          path.join(comicDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isFalse,
+      );
+    });
+
+    test('Manga Translator 有文本、存在去字图或元数据异常时不默认跳过', () async {
+      for (final name in ['1', '2', '3', '4']) {
+        await _writeImage(
+          path.join(comicDirectory.path, '$name.webp'),
+          '原图$name',
+        );
+        await _writeImage(
+          path.join(comicDirectory.path, 'result', '$name.png'),
+          '译图$name',
+        );
+      }
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '1',
+        regions: const [
+          {'text': '有文本'},
+        ],
+      );
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '2',
+        regions: const [],
+        createInpainted: true,
+      );
+      final malformedMetadata = File(
+        path.join(
+          comicDirectory.path,
+          'manga_translator_work',
+          'json',
+          '3_translations.json',
+        ),
+      );
+      await malformedMetadata.create(recursive: true);
+      await malformedMetadata.writeAsString('{');
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+
+      expect(plan.pairs, hasLength(4));
+      expect(plan.pairs.every((pair) => !pair.defaultSkipped), isTrue);
+    });
+
+    test('全部跳过时清理译图和翻译中间目录但不替换原图', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图',
+      );
+      await File(
+        path.join(comicDirectory.path, 'manga_translator_work', 'data.tmp'),
+      ).create(recursive: true);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+      final summary = await replacer.apply(
+        TranslationReplacementPlan(
+          comicDirectory: plan.comicDirectory,
+          resultDirectories: plan.resultDirectories,
+          pairs: const [],
+          unmatched: plan.unmatched,
+        ),
+        skippedPairs: plan.pairs,
+      );
+
+      expect(summary.successCount, 0);
+      expect(summary.failureCount, 0);
+      expect(summary.intermediateDirectoriesCleaned, isTrue);
+      expect(
+        await File(path.join(comicDirectory.path, '1.webp')).exists(),
+        isTrue,
+      );
+      expect(
+        await File(path.join(comicDirectory.path, '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(path.join(comicDirectory.path, 'result')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(
+          path.join(comicDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isFalse,
+      );
+    });
+
     test('忽略中间目录内嵌套的 result，避免误覆盖', () async {
       await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
       await _writeImage(
@@ -462,4 +631,28 @@ void main() {
 Future<void> _writeImage(String filePath, String contents) async {
   await File(filePath).create(recursive: true);
   await File(filePath).writeAsString(contents);
+}
+
+Future<void> _writeMangaTranslatorMetadata(
+  Directory comicDirectory,
+  String baseName, {
+  required List<Object?> regions,
+  bool createInpainted = false,
+}) async {
+  final workDirectory = path.join(comicDirectory.path, 'manga_translator_work');
+  final metadataFile = File(
+    path.join(workDirectory, 'json', '${baseName}_translations.json'),
+  );
+  await metadataFile.create(recursive: true);
+  await metadataFile.writeAsString(
+    jsonEncode({
+      '$baseName.webp': {'regions': regions},
+    }),
+  );
+  if (createInpainted) {
+    await _writeImage(
+      path.join(workDirectory, 'inpainted', '${baseName}_inpainted.png'),
+      '去字图',
+    );
+  }
 }

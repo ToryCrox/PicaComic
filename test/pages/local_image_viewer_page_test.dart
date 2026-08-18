@@ -108,4 +108,46 @@ void main() {
     expect(find.text('打开'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('本地图片查看器支持底部扩展控件并随图集切换', (tester) async {
+    final missingPrefix = File(
+      '${Directory.systemTemp.path}/pica-comic-viewer-bottom-${DateTime.now().microsecondsSinceEpoch}',
+    ).path;
+    final imagePaths = List<String>.generate(
+      2,
+      (index) => '$missingPrefix-${index + 1}.png',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Center(
+              child: ElevatedButton(
+                onPressed: () => LocalImageViewerPage.open<void>(
+                  context,
+                  imagePath: imagePaths.first,
+                  gallery: [
+                    LocalImageViewerItem(imagePath: imagePaths[0], title: 'P1'),
+                    LocalImageViewerItem(imagePath: imagePaths[1], title: 'P2'),
+                  ],
+                  bottomBuilder: (_, item, _) => Text('扩展 ${item.title}'),
+                ),
+                child: const Text('打开扩展查看器'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开扩展查看器'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('扩展 P1'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    expect(find.text('扩展 P2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

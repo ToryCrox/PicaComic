@@ -34,6 +34,7 @@ class _TranslationResultReplaceDialogState
   TranslationReplacementSummary? _summary;
   Object? _loadError;
   bool _isApplying = false;
+  bool _showSkippedOnly = false;
   int _appliedSkippedPairCount = 0;
   final _skippedPairPaths = <String>{};
 
@@ -51,7 +52,10 @@ class _TranslationResultReplaceDialogState
         scanLegacyResultDirectories: widget.scanLegacyResultDirectories,
       );
       if (!mounted) return;
-      setState(() => _plan = plan);
+      setState(() {
+        _plan = plan;
+        _skippedPairPaths.addAll(plan.defaultSkippedOriginalPaths);
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _loadError = error);
@@ -77,7 +81,7 @@ class _TranslationResultReplaceDialogState
       await FileImage(File(result.pair.destinationPath)).evict();
     }
     await downloadManager.updateComicSize(widget.comic);
-    if (summary.failureCount > 0) {
+    if (summary.failureCount > 0 || summary.successCount == 0) {
       // 替换失败时不能保留“已完成”状态，避免卡片显示错误信息。
       await downloadManager.clearAiTranslationCompleted(widget.comic.id);
     } else if (summary.successCount > 0) {
@@ -150,6 +154,7 @@ class _TranslationResultReplaceDialogState
     }
     final activePairs = _activePairs(plan);
     final skippedCount = plan.pairs.length - activePairs.length;
+    final visiblePairs = _visiblePairs(plan);
     final originalTotalSize = activePairs.fold(
       0,
       (total, pair) => total + pair.originalSize,
@@ -159,10 +164,10 @@ class _TranslationResultReplaceDialogState
       (total, pair) => total + pair.translatedSize,
     );
     final delta = translatedTotalSize - originalTotalSize;
-    final originalPaths = plan.pairs
+    final originalPaths = visiblePairs
         .map((pair) => pair.originalPath)
         .toList(growable: false);
-    final translatedPaths = plan.pairs
+    final translatedPaths = visiblePairs
         .map((pair) => pair.translatedPath)
         .toList(growable: false);
     return Column(
@@ -172,6 +177,27 @@ class _TranslationResultReplaceDialogState
           '将替换 ${activePairs.length} 张图片，扫描到 ${plan.resultDirectories.length} 个翻译结果目录。',
         ),
         if (skippedCount > 0) Text('已跳过 $skippedCount 张图片，可在列表中恢复。'),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            FilterChip(
+              label: const Text('全部跳过'),
+              selected: _isPlanFullySkipped(plan),
+              onSelected: _isApplying
+                  ? null
+                  : (selected) => _setPlanSkipped(plan, selected),
+            ),
+            FilterChip(
+              label: Text('仅显示已跳过 ($skippedCount)'),
+              selected: _showSkippedOnly,
+              onSelected: _isApplying
+                  ? null
+                  : (selected) => setState(() => _showSkippedOnly = selected),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
         Text(
           '总文件大小：${_formatSize(originalTotalSize)} → ${_formatSize(translatedTotalSize)}（${_formatDelta(delta)}）',
@@ -186,29 +212,40 @@ class _TranslationResultReplaceDialogState
         ],
         const SizedBox(height: 12),
         Expanded(
-          child: ListView.separated(
-            itemCount: plan.pairs.length + (plan.unmatched.isEmpty ? 0 : 1),
-            separatorBuilder: (_, _) => const SizedBox(height: 4),
-            itemBuilder: (_, index) {
-              if (index == plan.pairs.length) {
-                return _UnmatchedCard(files: plan.unmatched);
-              }
-              final pair = plan.pairs[index];
-              return _PairCard(
-                pair: pair,
-                skipped: _skippedPairPaths.contains(pair.originalPath),
-                onToggleSkipped: () => _toggleSkipped(pair.originalPath),
-                onShowSkipMenu: (position) => _showSkipMenu(
-                  context: context,
-                  position: position,
-                  pairIndex: index,
+          child: visiblePairs.isEmpty
+              ? Center(
+                  child: Text(_showSkippedOnly ? '没有已跳过的图片' : '没有可显示的翻译结果'),
+                )
+              : ListView.separated(
+                  itemCount:
+                      visiblePairs.length +
+                      (_showSkippedOnly || plan.unmatched.isEmpty ? 0 : 1),
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
+                  itemBuilder: (_, index) {
+                    if (!_showSkippedOnly &&
+                        index == visiblePairs.length &&
+                        plan.unmatched.isNotEmpty) {
+                      return _UnmatchedCard(files: plan.unmatched);
+                    }
+                    final pair = visiblePairs[index];
+                    return _PairCard(
+                      pair: pair,
+                      skipped: _skippedPairPaths.contains(pair.originalPath),
+                      onToggleSkipped: () => _toggleSkipped(pair.originalPath),
+                      onShowSkipMenu: (position) => _showSkipMenu(
+                        context: context,
+                        position: position,
+                        originalPath: pair.originalPath,
+                      ),
+                      originalPaths: originalPaths,
+                      translatedPaths: translatedPaths,
+                      previewPairs: visiblePairs,
+                      skippedPairPaths: _skippedPairPaths,
+                      onSetSkipped: _setSkipped,
+                      pairIndex: index,
+                    );
+                  },
                 ),
-                originalPaths: originalPaths,
-                translatedPaths: translatedPaths,
-                pairIndex: index,
-              );
-            },
-          ),
         ),
       ],
     );
@@ -269,6 +306,31 @@ class _TranslationResultReplaceDialogState
         .toList(growable: false);
   }
 
+  List<TranslationReplacementPair> _visiblePairs(
+    TranslationReplacementPlan plan,
+  ) {
+    if (!_showSkippedOnly) return plan.pairs;
+    return plan.pairs
+        .where((pair) => _skippedPairPaths.contains(pair.originalPath))
+        .toList(growable: false);
+  }
+
+  bool _isPlanFullySkipped(TranslationReplacementPlan plan) {
+    return plan.pairs.isNotEmpty &&
+        plan.pairs.every(
+          (pair) => _skippedPairPaths.contains(pair.originalPath),
+        );
+  }
+
+  void _setPlanSkipped(TranslationReplacementPlan plan, bool skipped) {
+    if (_isApplying) return;
+    setState(() {
+      for (final pair in plan.pairs) {
+        _setSkippedPath(pair.originalPath, skipped);
+      }
+    });
+  }
+
   TranslationReplacementPlan _activePlan(TranslationReplacementPlan plan) {
     return TranslationReplacementPlan(
       comicDirectory: plan.comicDirectory,
@@ -280,16 +342,27 @@ class _TranslationResultReplaceDialogState
 
   void _toggleSkipped(String originalPath) {
     setState(() {
-      if (!_skippedPairPaths.add(originalPath)) {
-        _skippedPairPaths.remove(originalPath);
-      }
+      _setSkippedPath(originalPath, !_skippedPairPaths.contains(originalPath));
     });
+  }
+
+  void _setSkipped(String originalPath, bool skipped) {
+    if (_isApplying) return;
+    setState(() => _setSkippedPath(originalPath, skipped));
+  }
+
+  void _setSkippedPath(String originalPath, bool skipped) {
+    if (skipped) {
+      _skippedPairPaths.add(originalPath);
+    } else {
+      _skippedPairPaths.remove(originalPath);
+    }
   }
 
   Future<void> _showSkipMenu({
     required BuildContext context,
     required Offset position,
-    required int pairIndex,
+    required String originalPath,
   }) async {
     final action = await showMenu<_SkipMenuAction>(
       context: context,
@@ -309,9 +382,13 @@ class _TranslationResultReplaceDialogState
     if (action != _SkipMenuAction.skipFromHere || !mounted) return;
     final plan = _plan;
     if (plan == null) return;
+    final pairIndex = plan.pairs.indexWhere(
+      (pair) => pair.originalPath == originalPath,
+    );
+    if (pairIndex < 0) return;
     setState(() {
       for (final pair in plan.pairs.skip(pairIndex)) {
-        _skippedPairPaths.add(pair.originalPath);
+        _setSkippedPath(pair.originalPath, true);
       }
     });
   }
@@ -327,6 +404,9 @@ class _PairCard extends StatelessWidget {
     required this.onShowSkipMenu,
     required this.originalPaths,
     required this.translatedPaths,
+    required this.previewPairs,
+    required this.skippedPairPaths,
+    required this.onSetSkipped,
     required this.pairIndex,
   });
 
@@ -336,6 +416,9 @@ class _PairCard extends StatelessWidget {
   final ValueChanged<Offset> onShowSkipMenu;
   final List<String> originalPaths;
   final List<String> translatedPaths;
+  final List<TranslationReplacementPair> previewPairs;
+  final Set<String> skippedPairPaths;
+  final void Function(String originalPath, bool skipped) onSetSkipped;
   final int pairIndex;
 
   @override
@@ -354,9 +437,19 @@ class _PairCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    pair.baseName,
-                    style: Theme.of(context).textTheme.titleSmall,
+                  child: Text.rich(
+                    TextSpan(
+                      text: pair.baseName,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      children: [
+                        if (pair.defaultSkipped &&
+                            pair.defaultSkipReason != null)
+                          TextSpan(
+                            text: ' · ${pair.defaultSkipReason}',
+                            style: TextStyle(color: Colors.orange.shade800),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 Text(
@@ -393,6 +486,9 @@ class _PairCard extends StatelessWidget {
                     size: pair.originalSize,
                     dimensions: pair.originalDimensions,
                     previewPaths: originalPaths,
+                    previewPairs: previewPairs,
+                    skippedPairPaths: skippedPairPaths,
+                    onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
                   ),
                 ),
@@ -407,6 +503,9 @@ class _PairCard extends StatelessWidget {
                     size: pair.translatedSize,
                     dimensions: pair.translatedDimensions,
                     previewPaths: translatedPaths,
+                    previewPairs: previewPairs,
+                    skippedPairPaths: skippedPairPaths,
+                    onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
                   ),
                 ),
@@ -426,6 +525,9 @@ class _ImageInfo extends StatelessWidget {
     required this.size,
     required this.dimensions,
     required this.previewPaths,
+    required this.previewPairs,
+    required this.skippedPairPaths,
+    required this.onSetSkipped,
     required this.previewIndex,
   });
 
@@ -434,6 +536,9 @@ class _ImageInfo extends StatelessWidget {
   final int size;
   final TranslationImageDimensions? dimensions;
   final List<String> previewPaths;
+  final List<TranslationReplacementPair> previewPairs;
+  final Set<String> skippedPairPaths;
+  final void Function(String originalPath, bool skipped) onSetSkipped;
   final int previewIndex;
 
   @override
@@ -447,6 +552,9 @@ class _ImageInfo extends StatelessWidget {
             onTap: () => _showImagePreview(
               context,
               filePaths: previewPaths,
+              pairs: previewPairs,
+              skippedPairPaths: skippedPairPaths,
+              onSkippedChanged: onSetSkipped,
               initialIndex: previewIndex,
               title: label,
             ),
@@ -527,6 +635,9 @@ String _formatDelta(int bytes) =>
 Future<void> _showImagePreview(
   BuildContext context, {
   required List<String> filePaths,
+  required List<TranslationReplacementPair> pairs,
+  required Set<String> skippedPairPaths,
+  required void Function(String originalPath, bool skipped) onSkippedChanged,
   required int initialIndex,
   required String title,
 }) {
@@ -547,5 +658,53 @@ Future<void> _showImagePreview(
     imagePath: filePaths[safeIndex],
     gallery: gallery,
     initialIndex: safeIndex,
+    bottomBuilder: (context, _, index) {
+      final pair = pairs[index];
+      return StatefulBuilder(
+        builder: (context, setLocalState) {
+          final skipped = skippedPairPaths.contains(pair.originalPath);
+          return _ViewerSkipControl(
+            skipped: skipped,
+            onChanged: (value) {
+              onSkippedChanged(pair.originalPath, value);
+              setLocalState(() {});
+            },
+          );
+        },
+      );
+    },
   );
+}
+
+class _ViewerSkipControl extends StatelessWidget {
+  const _ViewerSkipControl({required this.skipped, required this.onChanged});
+
+  final bool skipped;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            skipped ? '当前图片：跳过替换' : '当前图片：将替换',
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          Checkbox(
+            value: skipped,
+            activeColor: Colors.orange,
+            onChanged: (value) => onChanged(value == true),
+          ),
+        ],
+      ),
+    );
+  }
 }
