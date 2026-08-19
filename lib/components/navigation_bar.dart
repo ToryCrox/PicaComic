@@ -203,22 +203,6 @@ class _NaviPaneState extends State<NaviPane>
           );
           return Stack(
             children: [
-              if (value <= _kPaneModeTopBar)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: bottomBarHeight * (0 - value),
-                  child: buildBottom(),
-                ),
-              if (value <= _kPaneModeTopBar)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top:
-                      _kTopBarHeight * (0 - value) +
-                      MediaQuery.paddingOf(context).top * (1 - value),
-                  child: buildTop(),
-                ),
               Positioned(
                 left:
                     _kFoldedSideBarWidth *
@@ -249,6 +233,23 @@ class _NaviPaneState extends State<NaviPane>
                         child: Material(child: widget.pageBuilder(currentPage)),
                       ),
               ),
+              // 导航栏覆盖在页面背景之上，避免页面背景遮住窄屏导航栏内容。
+              if (value <= _kPaneModeTopBar)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottomBarHeight * (0 - value),
+                  child: buildBottom(),
+                ),
+              if (value <= _kPaneModeTopBar)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top:
+                      _kTopBarHeight * (0 - value) +
+                      MediaQuery.paddingOf(context).top * (1 - value),
+                  child: buildTop(),
+                ),
             ],
           );
         },
