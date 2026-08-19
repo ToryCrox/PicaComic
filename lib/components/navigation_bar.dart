@@ -77,6 +77,18 @@ class _NaviPaneState extends State<NaviPane>
 
   static const _kTopBarHeight = 48.0;
 
+  /// 移动端布局模式。
+  static const _kPaneModeMobile = 0.0;
+
+  /// 窄屏顶部导航布局模式。
+  static const _kPaneModeTopBar = 1.0;
+
+  /// 桌面端折叠侧栏布局模式。
+  static const _kPaneModeFoldedSidebar = 2.0;
+
+  /// 宽屏展开侧栏布局模式。
+  static const _kPaneModeExpandedSidebar = 3.0;
+
   double get bottomBarHeight =>
       _kBottomBarHeight + MediaQuery.of(context).padding.bottom;
 
@@ -88,8 +100,8 @@ class _NaviPaneState extends State<NaviPane>
   void initState() {
     controller = AnimationController(
       duration: const Duration(milliseconds: 250),
-      lowerBound: 0,
-      upperBound: 3,
+      lowerBound: _kPaneModeMobile,
+      upperBound: _kPaneModeExpandedSidebar,
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
@@ -113,15 +125,15 @@ class _NaviPaneState extends State<NaviPane>
 
   double targetFormContext(BuildContext context) {
     var width = MediaQuery.of(context).size.width;
-    double target = 0;
+    double target = _kPaneModeMobile;
     if (widget.observer.pageCount > 1) {
-      target = 1;
+      target = _kPaneModeTopBar;
     }
     if (width > changePoint) {
-      target = 2;
+      target = _kPaneModeFoldedSidebar;
     }
     if (width > changePoint2) {
-      target = 3;
+      target = _kPaneModeExpandedSidebar;
     }
     return target;
   }
@@ -138,12 +150,13 @@ class _NaviPaneState extends State<NaviPane>
           controller.stop();
         }
       }
-      if (target == 1) {
+      if (target == _kPaneModeTopBar) {
         StateController.find<NaviPaddingWidgetController>().setWithPadding(
           true,
         );
         controller.value = target;
-      } else if (controller.value == 1 && target == 0) {
+      } else if (controller.value == _kPaneModeTopBar &&
+          target == _kPaneModeMobile) {
         StateController.findOrNull<NaviPaddingWidgetController>()
             ?.setWithPadding(false);
         controller.value = target;
@@ -177,9 +190,11 @@ class _NaviPaneState extends State<NaviPane>
           final mediaQuery = MediaQuery.of(context);
           final pageTop =
               (_kTopBarHeight * ((1 - value).clamp(0, 1)) +
-                      mediaQuery.padding.top * (value == 1 ? 0 : 1))
+                      mediaQuery.padding.top *
+                          (value == _kPaneModeTopBar ? 0 : 1))
                   .toDouble();
-          final removePageTopPadding = value >= 2 || value == 0;
+          final removePageTopPadding =
+              value >= _kPaneModeFoldedSidebar || value == _kPaneModeMobile;
           final pageMediaQuery = mediaQuery.copyWith(
             padding: mediaQuery.padding.copyWith(
               top:
@@ -188,14 +203,14 @@ class _NaviPaneState extends State<NaviPane>
           );
           return Stack(
             children: [
-              if (value <= 1)
+              if (value <= _kPaneModeTopBar)
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: bottomBarHeight * (0 - value),
                   child: buildBottom(),
                 ),
-              if (value <= 1)
+              if (value <= _kPaneModeTopBar)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -205,7 +220,9 @@ class _NaviPaneState extends State<NaviPane>
                   child: buildTop(),
                 ),
               Positioned(
-                left: _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0)),
+                left:
+                    _kFoldedSideBarWidth *
+                    ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
                 top: 0,
                 bottom: 0,
                 child: buildLeft(),
@@ -215,9 +232,10 @@ class _NaviPaneState extends State<NaviPane>
                 // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
                 top: App.isWindows ? 0 : pageTop,
                 left:
-                    _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
+                    _kFoldedSideBarWidth *
+                        ((value - _kPaneModeTopBar).clamp(0, 1)) +
                     (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - 2).clamp(0, 1)),
+                        ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
                 right: 0,
                 bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
                 child: App.isWindows
@@ -312,13 +330,14 @@ class _NaviPaneState extends State<NaviPane>
       child: Container(
         width:
             _kFoldedSideBarWidth +
-            (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1)),
+            (_kSideBarWidth - _kFoldedSideBarWidth) *
+                ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
         height: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
         child: Row(
           children: [
             SizedBox(
-              width: value == 3
+              width: value == _kPaneModeExpandedSidebar
                   ? (_kSideBarWidth - paddingHorizontal * 2)
                   : (_kFoldedSideBarWidth - paddingHorizontal * 2),
               child: Column(
@@ -330,7 +349,7 @@ class _NaviPaneState extends State<NaviPane>
                     (index) => _SideNaviWidget(
                       enabled: currentPage == index,
                       entry: widget.paneItems[index],
-                      showTitle: value == 3,
+                      showTitle: value == _kPaneModeExpandedSidebar,
                       onTap: () {
                         setState(() {
                           currentPage = index;
@@ -344,7 +363,7 @@ class _NaviPaneState extends State<NaviPane>
                     widget.paneActions.length,
                     (index) => _PaneActionWidget(
                       entry: widget.paneActions[index],
-                      showTitle: value == 3,
+                      showTitle: value == _kPaneModeExpandedSidebar,
                       key: ValueKey(index + widget.paneItems.length),
                     ),
                   ),
