@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
@@ -641,21 +642,19 @@ class _EhentaiGalleriesLoader {
   static final instances = <String, _EhentaiGalleriesLoader>{};
 
   static void clean() {
-    var shouldRemove = <String>[];
-    for (var i in instances.entries) {
-      if (i.key.startsWith("search:")) {
-        var keyword = i.key.replaceFirst("search:", "");
-        if (StateController.findOrNull(
-              tag: "ehentai search page with $keyword",
-            ) ==
-            null) {
-          shouldRemove.add(i.key);
-        }
-      }
-    }
-    for (var i in shouldRemove) {
-      instances.remove(i);
-    }
+    final context = App.globalContext;
+    if (context == null) return;
+
+    final container = ProviderScope.containerOf(context, listen: false);
+    instances.removeWhere((key, _) {
+      if (!key.startsWith("search:")) return false;
+      final keyword = key.replaceFirst("search:", "");
+      final config = ComicListPageConfig(
+        pageKey: "ehentai search page with $keyword",
+        loadPage: (_) async => const Res.error("unused"),
+      );
+      return !container.exists(comicListPageLogicProvider(config));
+    });
   }
 
   _EhentaiGalleriesLoader({required this.firstPageLoader});

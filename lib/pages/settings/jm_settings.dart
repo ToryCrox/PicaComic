@@ -1,18 +1,5 @@
 part of pica_settings;
 
-class SetJmComicsOrderController extends StateController {
-  int settingsOrder;
-  SetJmComicsOrderController(this.settingsOrder);
-  late String value = appdata.settings[settingsOrder];
-
-  void set(String v) {
-    value = v;
-    appdata.settings[settingsOrder] = v;
-    appdata.writeData();
-    App.globalBack();
-  }
-}
-
 class JmSettings extends StatefulWidget {
   const JmSettings(this.popUp, {Key? key}) : super(key: key);
   final bool popUp;

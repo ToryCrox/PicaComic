@@ -71,9 +71,6 @@ class ImageFavoriteManager {
       kImageFavoriteOther: jsonEncode(favorite.otherInfo),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
     Webdav.uploadData();
-    Future.microtask(
-      () => StateController.findOrNull(tag: "me_page")?.update(),
-    );
   }
 
   static Future<List<ImageFavorite>> getAll() async {

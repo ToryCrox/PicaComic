@@ -36,11 +36,6 @@ class RatingLogic extends StateController {
   bool running = false;
 }
 
-class CommentLogic extends StateController {
-  final controller = TextEditingController();
-  bool sending = false;
-}
-
 class EhThumbnailLoader extends StatefulWidget {
   const EhThumbnailLoader({
     required this.image,

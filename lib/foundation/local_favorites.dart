@@ -440,9 +440,6 @@ class LocalFavoritesManager {
 
   void updateUI() {
     Future.microtask(
-      () => StateController.findOrNull(tag: "me page")?.update(),
-    );
-    Future.microtask(
       () => StateController.findOrNull<FavoritesPageController>()?.update(),
     );
   }

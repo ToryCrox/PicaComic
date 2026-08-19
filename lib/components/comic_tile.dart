@@ -1512,9 +1512,6 @@ class _BlockingPaneState extends State<_BlockingPane> {
       context,
       listen: false,
     ).read(blockingKeywordRevisionProvider.notifier).bump();
-    for (var c in StateController.findAll<SliverGridComicsController>()) {
-      c.update();
-    }
     context.pop();
   }
 }

@@ -462,9 +462,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
   }
 }
 
-class SliverGridComicsController extends StateController {}
-
-class SliverGridComics extends StatelessWidget {
+class SliverGridComics extends ConsumerWidget {
   const SliverGridComics({
     super.key,
     required this.comics,
@@ -479,26 +477,23 @@ class SliverGridComics extends StatelessWidget {
   final void Function()? onLastItemBuild;
 
   @override
-  Widget build(BuildContext context) {
-    return StateBuilder<SliverGridComicsController>(
-      init: SliverGridComicsController(),
-      builder: (controller) {
-        List<BaseComic> comics = [];
-        if (appdata.appSettings.fullyHideBlockedWorks) {
-          for (var comic in this.comics) {
-            if (isBlocked(comic) == null) {
-              comics.add(comic);
-            }
-          }
-        } else {
-          comics = this.comics;
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(blockingKeywordRevisionProvider);
+
+    List<BaseComic> comics = [];
+    if (appdata.appSettings.fullyHideBlockedWorks) {
+      for (var comic in this.comics) {
+        if (isBlocked(comic) == null) {
+          comics.add(comic);
         }
-        return _SliverGridComics(
-          comics: comics,
-          comicType: comicType,
-          onLastItemBuild: onLastItemBuild,
-        );
-      },
+      }
+    } else {
+      comics = this.comics;
+    }
+    return _SliverGridComics(
+      comics: comics,
+      comicType: comicType,
+      onLastItemBuild: onLastItemBuild,
     );
   }
 }
