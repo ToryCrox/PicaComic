@@ -28,8 +28,9 @@ class AllCategoryPage extends StatelessWidget {
             .where((element) => allCategories.contains(element))
             .toList();
 
-        return Material(
-          child: DefaultTabController(
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: DefaultTabController(
             length: categories.length,
             key: Key(categories.toString()),
             child: Column(

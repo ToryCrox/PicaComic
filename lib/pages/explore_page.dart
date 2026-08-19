@@ -72,6 +72,7 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   Widget build(BuildContext context) {
     Widget tabBar = Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: true,
         bottom: false,
@@ -82,73 +83,76 @@ class _ExplorePageState extends State<ExplorePage>
       ),
     );
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Column(
-            children: [
-              tabBar,
-              Expanded(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notifications) {
-                    if (notifications.metrics.axis == Axis.horizontal) {
-                      if (!showFB) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Column(
+              children: [
+                tabBar,
+                Expanded(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notifications) {
+                      if (notifications.metrics.axis == Axis.horizontal) {
+                        if (!showFB) {
+                          setState(() {
+                            showFB = true;
+                          });
+                        }
+                        return true;
+                      }
+
+                      var current = notifications.metrics.pixels;
+
+                      if ((current > location && current != 0) && showFB) {
+                        setState(() {
+                          showFB = false;
+                        });
+                      } else if ((current < location || current == 0) &&
+                          !showFB) {
                         setState(() {
                           showFB = true;
                         });
                       }
-                      return true;
-                    }
 
-                    var current = notifications.metrics.pixels;
-
-                    if ((current > location && current != 0) && showFB) {
-                      setState(() {
-                        showFB = false;
-                      });
-                    } else if ((current < location || current == 0) &&
-                        !showFB) {
-                      setState(() {
-                        showFB = true;
-                      });
-                    }
-
-                    location = current;
-                    return false;
-                  },
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeTop: true,
-                    child: TabBarView(
-                      controller: controller,
-                      children: pages.map((e) => buildBody(e)).toList(),
+                      location = current;
+                      return false;
+                    },
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: TabBarView(
+                        controller: controller,
+                        children: pages.map((e) => buildBody(e)).toList(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            reverseDuration: const Duration(milliseconds: 150),
-            child: showFB ? buildFAB() : const SizedBox(),
-            transitionBuilder: (widget, animation) {
-              var tween = Tween<Offset>(
-                begin: const Offset(0, 1),
-                end: const Offset(0, 0),
-              );
-              return SlideTransition(
-                position: tween.animate(animation),
-                child: widget,
-              );
-            },
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              reverseDuration: const Duration(milliseconds: 150),
+              child: showFB ? buildFAB() : const SizedBox(),
+              transitionBuilder: (widget, animation) {
+                var tween = Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: const Offset(0, 0),
+                );
+                return SlideTransition(
+                  position: tween.animate(animation),
+                  child: widget,
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

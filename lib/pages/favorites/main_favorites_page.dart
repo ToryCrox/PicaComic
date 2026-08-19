@@ -85,7 +85,10 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   Widget build(BuildContext context) {
     return StateBuilder<FavoritesPageController>(
       builder: (controller) {
-        return buildPage(context);
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: buildPage(context),
+        );
       },
     );
   }
@@ -170,6 +173,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
 
     if (controller.isSelectingComics) {
       return Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
         elevation: 1,
         child: SafeArea(
           top: true,
@@ -231,6 +235,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     }
 
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       elevation: 1,
       child: InkWell(
         hoverColor: Colors.transparent,
