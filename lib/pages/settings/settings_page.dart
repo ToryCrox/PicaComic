@@ -201,7 +201,10 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
       canPop.value = true;
       App.temporaryDisablePopGesture = false;
     }
-    return Material(child: buildBody());
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: buildBody(),
+    );
   }
 
   Widget buildBody() {
@@ -268,6 +271,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
 
   Widget buildLeft() {
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           SizedBox(height: MediaQuery.of(context).padding.top),
@@ -698,6 +702,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
 
     if (currentPage != -1) {
       return Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: CustomScrollView(
           primary: false,
           slivers: [

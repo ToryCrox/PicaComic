@@ -225,12 +225,18 @@ class _NaviPaneState extends State<NaviPane>
                 child: App.isWindows
                     ? MediaQuery(
                         data: pageMediaQuery,
-                        child: Material(child: widget.pageBuilder(currentPage)),
+                        child: Material(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          child: widget.pageBuilder(currentPage),
+                        ),
                       )
                     : MediaQuery.removePadding(
                         removeTop: removePageTopPadding,
                         context: context,
-                        child: Material(child: widget.pageBuilder(currentPage)),
+                        child: Material(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          child: widget.pageBuilder(currentPage),
+                        ),
                       ),
               ),
               // 导航栏覆盖在页面背景之上，避免页面背景遮住窄屏导航栏内容。
@@ -259,6 +265,7 @@ class _NaviPaneState extends State<NaviPane>
 
   Widget buildTop() {
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
         padding: const EdgeInsets.only(left: 16, right: 16),
         height: _kTopBarHeight,
@@ -286,6 +293,7 @@ class _NaviPaneState extends State<NaviPane>
 
   Widget buildBottom() {
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       textStyle: Theme.of(context).textTheme.labelSmall,
       elevation: 0,
       child: Container(
@@ -328,6 +336,7 @@ class _NaviPaneState extends State<NaviPane>
     final value = controller.value;
     const paddingHorizontal = 12.0;
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
         width:
             _kFoldedSideBarWidth +
