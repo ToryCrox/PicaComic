@@ -38,9 +38,15 @@ class TypeUtil {
   /// 转换成int
   /// 如果value是bool，则true转换成1， false为0
   static int parseInt(dynamic value, [int defaultValue = 0]) {
-    if (value == null) return defaultValue;
-    if (value == 'null') return defaultValue;
+    return parseIntOrNull(value) ?? defaultValue;
+  }
 
+  /// 转换成可空int，无法转换时返回null
+  static int? parseIntOrNull(dynamic value) {
+    if (value == null || value == 'null') return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is bool) return value ? 1 : 0;
     if (value is String) {
       try {
         return int.parse(value);
@@ -49,43 +55,61 @@ class TypeUtil {
             e.toString().contains('Invalid radix-10 number')) {
           try {
             return double.parse(value).toInt();
-          } catch (e) {
-            return defaultValue;
+          } catch (_) {
+            return null;
           }
         }
-        return defaultValue;
+        return null;
       }
     }
-    if (value is int) return value;
-    if (value is double) return value.toInt();
-    if (value is bool) return value ? 1 : 0;
-    return defaultValue;
+    return null;
   }
+
+  /// 转换成可空int，无法转换时返回null
+  static int? parseNullableInt(dynamic value) => parseIntOrNull(value);
 
   /// 解析bool类型
   /// - 如果为bool类型，则直接返回
   /// - 如果为num类型，则为0表示false，否则为true
   /// - 如果为String类型，则'true'表示true，否则转换Int类型， 判断是否为0
   static bool parseBool(dynamic value, [bool defaultValue = false]) {
-    if (value == null) return defaultValue;
+    return parseBoolOrNull(value) ?? defaultValue;
+  }
+
+  /// 转换成可空bool，无法转换时返回null
+  static bool? parseBoolOrNull(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is bool) return value;
     if (value is num) return value != 0;
     if (value is String) {
-      if (value.toLowerCase() == 'true') return true;
-      return parseInt(value) != 0;
+      final normalized = value.toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+      final parsed = parseIntOrNull(value);
+      return parsed == null ? null : parsed != 0;
     }
-    return defaultValue;
+    return null;
   }
+
+  /// 转换成可空bool，无法转换时返回null
+  static bool? parseNullableBool(dynamic value) => parseBoolOrNull(value);
 
   /// 转换成String
   /// 如果value是bool，则true转换成'1'， false为'0'
   /// 如果value是Map或List, Set，则转换成json字符串
   static String parseString(dynamic value, {String defaultValue = ''}) {
-    if (value == null) return defaultValue;
-    if (value == 'null') return defaultValue;
+    return parseStringOrNull(value) ?? defaultValue;
+  }
+
+  /// 转换成可空String，无法转换时返回null
+  static String? parseStringOrNull(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is Map || value is Iterable) return jsonEncode(value);
     return '$value';
   }
+
+  /// 转换成可空String，无法转换时返回null
+  static String? parseNullableString(dynamic value) => parseStringOrNull(value);
 
   /// 转换成String
   /// 如果value是bool，则true转换成'1'， false为'0'
@@ -115,18 +139,26 @@ class TypeUtil {
   /// 如果value是double，则直接返回
   /// 如果value是其他类型，则返回0.0
   static double parseDouble(dynamic value, [double defaultValue = 0.0]) {
-    if (value == null) return defaultValue;
+    return parseDoubleOrNull(value) ?? defaultValue;
+  }
+
+  /// 转换成可空double，无法转换时返回null
+  static double? parseDoubleOrNull(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
       try {
         return double.parse(value);
-      } catch (e) {
-        return defaultValue;
+      } catch (_) {
+        return null;
       }
     }
-    return defaultValue;
+    return null;
   }
+
+  /// 转换成可空double，无法转换时返回null
+  static double? parseNullableDouble(dynamic value) => parseDoubleOrNull(value);
 
   /// 解析list， value可以为字符串数组
   /// 如果value是字符串，则尝试解析成json数组
@@ -179,20 +211,32 @@ class TypeUtil {
     dynamic value, {
     Map<String, dynamic> defaultValue = const {},
   }) {
-    if (value == null) return defaultValue;
+    return parseMapOrNull(value) ?? defaultValue;
+  }
+
+  /// 转换成可空Map，无法转换时返回null
+  static Map<String, dynamic>? parseMapOrNull(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
       return value.map((key, value) => MapEntry(key.toString(), value));
     }
-    if (value is String && value.isNotEmpty && value != 'null') {
+    if (value is String && value.isNotEmpty) {
       try {
-        return jsonDecode(value);
-      } catch (e) {
-        return defaultValue;
+        final decoded = jsonDecode(value);
+        if (decoded is Map) {
+          return parseMapOrNull(decoded);
+        }
+      } catch (_) {
+        return null;
       }
     }
-    return defaultValue;
+    return null;
   }
+
+  /// 转换成可空Map，无法转换时返回null
+  static Map<String, dynamic>? parseNullableMap(dynamic value) =>
+      parseMapOrNull(value);
 
   /// 解析Color, 支持#ffffff, #ffffffff, 0xffffffff, 0xffffff, 0xff, 0xffffffff, 0xffffff, 0xff
   /// 如果解析失败，则返回透明色

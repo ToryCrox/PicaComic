@@ -10,10 +10,20 @@ extension ExtendedMap on Map<dynamic, dynamic> {
     return TypeUtil.parseInt(this[key], defaultValue);
   }
 
+  /// 获取可空int类型的值
+  int? optIntOrNull(String key) {
+    return TypeUtil.parseIntOrNull(this[key]);
+  }
+
   /// 获取double类型的值
   /// 如果key不存在，则返回默认值
   double optDouble(String key, [double defaultValue = 0]) {
     return TypeUtil.parseDouble(this[key], defaultValue);
+  }
+
+  /// 获取可空double类型的值
+  double? optDoubleOrNull(String key) {
+    return TypeUtil.parseDoubleOrNull(this[key]);
   }
 
   /// 获取bool类型的值
@@ -21,9 +31,19 @@ extension ExtendedMap on Map<dynamic, dynamic> {
     return TypeUtil.parseBool(this[key], defaultValue);
   }
 
+  /// 获取可空bool类型的值
+  bool? optBoolOrNull(String key) {
+    return TypeUtil.parseBoolOrNull(this[key]);
+  }
+
   /// 获取String类型的值
   String optString(String key, [String defaultValue = '']) {
     return TypeUtil.parseString(this[key], defaultValue: defaultValue);
+  }
+
+  /// 获取可空String类型的值
+  String? optStringOrNull(String key) {
+    return TypeUtil.parseStringOrNull(this[key]);
   }
 
   /// 获取List类型的值
@@ -52,6 +72,11 @@ extension ExtendedMap on Map<dynamic, dynamic> {
   /// 获取Map类型的值
   Map<String, dynamic> optMap(String key) {
     return TypeUtil.parseMap(this[key]);
+  }
+
+  /// 获取可空Map类型的值
+  Map<String, dynamic>? optMapOrNull(String key) {
+    return TypeUtil.parseMapOrNull(this[key]);
   }
 
   /// 转换成json字符串
