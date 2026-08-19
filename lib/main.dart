@@ -13,6 +13,7 @@ import 'package:pica_comic/components/window_frame.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/theme/theme_provider.dart';
 import 'package:pica_comic/init.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/pages/auth_page.dart';
@@ -169,24 +170,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  (ColorScheme, ColorScheme) _generateColorSchemes(
-    ColorScheme? light,
-    ColorScheme? dark,
-  ) {
-    Color? color;
-    if (int.parse(appdata.settings[27]) != 0) {
-      color = colors[int.parse(appdata.settings[27]) - 1];
-    } else {
-      color = light?.primary ?? Colors.blueAccent;
-    }
-    light = ColorScheme.fromSeed(seedColor: color);
-    dark = ColorScheme.fromSeed(seedColor: color, brightness: Brightness.dark);
-    if (appdata.settings[84] == "1") {
-      dark = dark.copyWith(surface: Colors.black).harmonized();
-    }
-    return (light, dark);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (forceRebuild) {
@@ -202,80 +185,76 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       canPop: false,
       child: DynamicColorBuilder(
         builder: (light, dark) {
-          var (lightColor, darkColor) = _generateColorSchemes(light, dark);
-          return MaterialApp(
-            title: 'Pica Comic',
-            debugShowCheckedModeBanner: false,
-            navigatorKey: App.navigatorKey,
-            theme: ThemeData(
-              colorScheme: lightColor,
-              useMaterial3: true,
-              fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
-                  ? appdata.appSettings.font
-                  : null,
-            ),
-            darkTheme: ThemeData(
-              colorScheme: darkColor,
-              useMaterial3: true,
-              fontFamily: (App.isDesktop && appdata.appSettings.font.isNotEmpty)
-                  ? appdata.appSettings.font
-                  : null,
-              brightness: Brightness.dark,
-            ),
-            themeMode: appdata.appSettings.darkMode == 2
-                ? ThemeMode.dark
-                : appdata.appSettings.darkMode == 1
-                ? ThemeMode.light
-                : ThemeMode.system,
-            onGenerateRoute: (settings) => AppPageRoute(
-              builder: (context) => notFirstUse
-                  ? (appdata.settings[13] == "1"
-                        ? const AuthPage()
-                        : const MainPage())
-                  : const WelcomePage(),
-            ),
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
+          return ProviderScope(
+            overrides: [
+              dynamicColorSchemesProvider.overrideWithValue(
+                DynamicColorSchemes(light: light, dark: dark),
+              ),
             ],
-            supportedLocales: const [
-              Locale('zh', 'CN'),
-              Locale('zh', 'TW'),
-              Locale('en', 'US'),
-            ],
-            scrollBehavior: fixScrollBehavior,
-            builder: (context, widget) {
-              ErrorWidget.builder = (details) {
-                Log.e(
-                  "Unhandled Exception ${details.exception}\n${details.stack}",
+            child: Consumer(
+              builder: (context, ref, child) {
+                final themeBundle = ref.watch(themeBundleProvider);
+                return MaterialApp(
+                  title: 'Pica Comic',
+                  debugShowCheckedModeBanner: false,
+                  navigatorKey: App.navigatorKey,
+                  theme: themeBundle.lightTheme,
+                  darkTheme: themeBundle.darkTheme,
+                  themeMode: themeBundle.themeMode,
+                  onGenerateRoute: (settings) => AppPageRoute(
+                    builder: (context) => notFirstUse
+                        ? (appdata.settings[13] == "1"
+                              ? const AuthPage()
+                              : const MainPage())
+                        : const WelcomePage(),
+                  ),
+                  localizationsDelegates: const [
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
+                  supportedLocales: const [
+                    Locale('zh', 'CN'),
+                    Locale('zh', 'TW'),
+                    Locale('en', 'US'),
+                  ],
+                  scrollBehavior: fixScrollBehavior,
+                  builder: (context, widget) {
+                    ErrorWidget.builder = (details) {
+                      Log.e(
+                        "Unhandled Exception ${details.exception}\n${details.stack}",
+                      );
+                      return Material(
+                        child: Center(
+                          child: Text(details.exception.toString()),
+                        ),
+                      );
+                    };
+                    if (widget != null) {
+                      widget = OverlayWidget(widget);
+                      if (App.isDesktop) {
+                        widget = Shortcuts(
+                          shortcuts: {
+                            LogicalKeySet(
+                              LogicalKeyboardKey.escape,
+                            ): VoidCallbackIntent(() {
+                              if (App.canPop) {
+                                App.globalBack();
+                              } else {
+                                App.mainNavigatorKey?.currentContext?.pop();
+                              }
+                            }),
+                          },
+                          child: WindowFrame(widget),
+                        );
+                      }
+                      return _SystemUiProvider(widget);
+                    }
+                    throw ('widget is null');
+                  },
                 );
-                return Material(
-                  child: Center(child: Text(details.exception.toString())),
-                );
-              };
-              if (widget != null) {
-                widget = OverlayWidget(widget);
-                if (App.isDesktop) {
-                  widget = Shortcuts(
-                    shortcuts: {
-                      LogicalKeySet(
-                        LogicalKeyboardKey.escape,
-                      ): VoidCallbackIntent(() {
-                        if (App.canPop) {
-                          App.globalBack();
-                        } else {
-                          App.mainNavigatorKey?.currentContext?.pop();
-                        }
-                      }),
-                    },
-                    child: WindowFrame(widget),
-                  );
-                }
-                return _SystemUiProvider(widget);
-              }
-              throw ('widget is null');
-            },
+              },
+            ),
           );
         },
       ),

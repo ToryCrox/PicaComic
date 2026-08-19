@@ -17,6 +17,7 @@ import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/pages/settings/ai_settings_page.dart';
+import 'package:pica_comic/pages/settings/theme_page.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/main.dart';
 import 'package:pica_comic/network/app_dio.dart';
@@ -342,109 +343,59 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
     return const Placeholder();
   }
 
-  Widget buildAppearanceSettings() => Column(
-    children: [
-      ListTile(
-        leading: const Icon(Icons.color_lens),
-        title: Text("主题选择".tl),
-        trailing: Select(
-          initialValue: int.parse(appdata.settings[27]),
-          values: const [
-            "dynamic",
-            "red",
-            "pink",
-            "purple",
-            "indigo",
-            "blue",
-            "cyan",
-            "teal",
-            "green",
-            "lime",
-            "yellow",
-            "amber",
-            "orange",
-          ],
-          onChange: (i) {
-            appdata.settings[27] = i.toString();
-            appdata.updateSettings();
-            MyApp.updater?.call();
-          },
-          width: 140,
+  Widget buildAppearanceSettings() {
+    return Column(
+      children: [
+        NewPageSetting(
+          icon: const Icon(Icons.palette_outlined),
+          title: "主题设置".tl,
+          onTap: () => ThemePage.open(context: context),
         ),
-      ),
-      ListTile(
-        leading: const Icon(Icons.dark_mode),
-        title: Text("深色模式".tl),
-        trailing: Select(
-          initialValue: int.parse(appdata.settings[32]),
-          values: ["跟随系统".tl, "禁用".tl, "启用".tl],
-          onChange: (i) {
-            appdata.settings[32] = i.toString();
-            appdata.updateSettings();
-            MyApp.updater?.call();
-          },
-          width: 140,
-        ),
-      ),
-      if (appdata.settings[32] == "0" || appdata.settings[32] == "2")
-        ListTile(
-          leading: const Icon(Icons.remove_red_eye),
-          title: Text("纯黑色模式".tl),
-          trailing: Switch(
-            value: appdata.settings[84] == "1",
-            onChanged: (i) {
-              setState(() {
-                appdata.settings[84] = i ? "1" : "0";
-              });
-              appdata.updateSettings();
-              MyApp.updater?.call();
-            },
-          ),
-        ),
-      if (App.isAndroid)
-        ListTile(
-          leading: const Icon(Icons.smart_screen_outlined),
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("高刷新率模式".tl),
-              const SizedBox(width: 2),
-              InkWell(
-                borderRadius: const BorderRadius.all(Radius.circular(18)),
-                onTap: () => showDialogMessage(
-                  context,
-                  "高刷新率模式".tl,
-                  "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}",
+        if (App.isAndroid)
+          ListTile(
+            leading: const Icon(Icons.smart_screen_outlined),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("高刷新率模式".tl),
+                const SizedBox(width: 2),
+                InkWell(
+                  borderRadius: const BorderRadius.all(Radius.circular(18)),
+                  onTap: () => showDialogMessage(
+                    context,
+                    "高刷新率模式".tl,
+                    "${"尝试强制设置高刷新率".tl}\n${"可能不起作用".tl}",
+                  ),
+                  child: const Icon(Icons.info_outline, size: 18),
                 ),
-                child: const Icon(Icons.info_outline, size: 18),
-              ),
-            ],
-          ),
-          trailing: Switch(
-            value: appdata.settings[38] == "1",
-            onChanged: (b) {
-              setState(() {
-                appdata.settings[38] = b ? "1" : "0";
-              });
-              appdata.updateSettings();
-              if (b) {
-                try {
-                  FlutterDisplayMode.setHighRefreshRate();
-                } catch (e) {
-                  // ignore
+              ],
+            ),
+            trailing: Switch(
+              value: appdata.settings[38] == "1",
+              onChanged: (b) {
+                setState(() {
+                  appdata.settings[38] = b ? "1" : "0";
+                });
+                appdata.updateSettings();
+                if (b) {
+                  try {
+                    FlutterDisplayMode.setHighRefreshRate();
+                  } catch (e) {
+                    // ignore
+                  }
+                } else {
+                  try {
+                    FlutterDisplayMode.setLowRefreshRate();
+                  } catch (e) {
+                    // ignore
+                  }
                 }
-              } else {
-                try {
-                  FlutterDisplayMode.setLowRefreshRate();
-                } catch (e) {
-                  // ignore
-                }
-              }
-            },
+              },
+            ),
           ),
-        ),
-    ],
-  );
+      ],
+    );
+  }
 
   Widget buildAppSettings() {
     return Column(

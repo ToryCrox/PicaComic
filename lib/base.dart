@@ -304,22 +304,6 @@ Future<void> clearAppdata() async {
 }
 
 class _Settings {
-  List<String> get _settings => appdata.settings;
-
-  /// Theme color, index of [colors] (lib/foundation/def.dart)
-  int get theme => int.parse(_settings[27]);
-
-  set theme(int value) {
-    appdata.settings[27] = value.toString();
-  }
-
-  /// Dark Mode, 0/1/2 (system/disabled/enable)
-  int get darkMode => int.parse(appdata.settings[32]);
-
-  set darkMode(int value) {
-    appdata.settings[32] = value.toString();
-  }
-
   /// 0/1 (detailed/brief)
   int get comicTileDisplayType =>
       int.parse(appdata.settings[44].split(',').first);

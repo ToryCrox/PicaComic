@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
@@ -6,6 +7,8 @@ import 'package:pica_comic/pages/main_page.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'settings/settings_page.dart';
+import 'settings/theme_page.dart';
+import 'package:pica_comic/foundation/theme/theme_provider.dart';
 
 import '../main.dart';
 import 'accounts_page.dart';
@@ -229,62 +232,30 @@ class _AppInfoState extends State<_AppInfo> with _WelcomePageComponents {
   }
 }
 
-class _AppAppearance extends StatefulWidget {
+class _AppAppearance extends ConsumerWidget with _WelcomePageComponents {
   const _AppAppearance();
 
   @override
-  State<_AppAppearance> createState() => _AppAppearanceState();
-}
-
-class _AppAppearanceState extends State<_AppAppearance>
-    with _WelcomePageComponents {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(themeSettingsProvider);
+    final modeName = switch (settings.themeMode) {
+      ThemeMode.system => "跟随系统".tl,
+      ThemeMode.light => "浅色".tl,
+      ThemeMode.dark => "深色".tl,
+    };
     return buildView(
       children: [
         buildTitle("设置App外观".tl),
-        SelectSettingWithAppdata(
-          icon: const Icon(Icons.color_lens),
-          title: "主题选择".tl,
-          options: const [
-            "dynamic",
-            "red",
-            "pink",
-            "purple",
-            "indigo",
-            "blue",
-            "cyan",
-            "teal",
-            "green",
-            "lime",
-            "yellow",
-            "amber",
-            "orange",
-          ],
-          settingsIndex: 27,
-          onChanged: () {
-            MyApp.updater?.call();
-          },
+        NewPageSetting(
+          icon: const Icon(Icons.palette_outlined),
+          title: "主题设置".tl,
+          onTap: () => ThemePage.open(context: context),
         ),
-        SelectSettingWithAppdata(
-          icon: const Icon(Icons.dark_mode),
-          title: "深色模式".tl,
-          options: ["跟随系统".tl, "禁用".tl, "启用".tl],
-          settingsIndex: 32,
-          onChanged: () {
-            MyApp.updater?.call();
-          },
+        ListTile(
+          leading: const Icon(Icons.brightness_6_outlined),
+          title: Text("当前模式".tl),
+          subtitle: Text(modeName),
         ),
-        if (appdata.settings[32] == "0" || appdata.settings[32] == "2")
-          SelectSettingWithAppdata(
-            icon: const Icon(Icons.remove_red_eye),
-            title: "纯黑色模式".tl,
-            options: ["禁用".tl, "启用".tl],
-            settingsIndex: 84,
-            onChanged: () {
-              MyApp.updater?.call();
-            },
-          ),
         SelectSetting(
           leading: const Icon(Icons.crop_square),
           title: "漫画块显示模式".tl,

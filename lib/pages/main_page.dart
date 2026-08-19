@@ -15,6 +15,7 @@ import 'explore_page.dart';
 import 'favorites/main_favorites_page.dart';
 import 'pre_search_page.dart';
 import 'settings/settings_page.dart';
+import 'settings/theme_page.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/update.dart';
@@ -263,6 +264,12 @@ class MainPageState extends State<MainPage> {
           icon: Icons.search,
           label: "搜索".tl,
           onTap: () => to(() => PreSearchPage(), preventDuplicate: true),
+        ),
+        PaneActionEntry(
+          icon: Icons.palette_outlined,
+          label: "主题设置".tl,
+          onTap: () =>
+              ThemePage.open(context: _navigatorKey?.currentContext ?? context),
         ),
         PaneActionEntry(
           icon: Icons.settings,

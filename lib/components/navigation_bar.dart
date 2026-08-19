@@ -174,6 +174,18 @@ class _NaviPaneState extends State<NaviPane>
         animation: controller,
         builder: (context, child) {
           final value = controller.value;
+          final mediaQuery = MediaQuery.of(context);
+          final pageTop =
+              (_kTopBarHeight * ((1 - value).clamp(0, 1)) +
+                      mediaQuery.padding.top * (value == 1 ? 0 : 1))
+                  .toDouble();
+          final removePageTopPadding = value >= 2 || value == 0;
+          final pageMediaQuery = mediaQuery.copyWith(
+            padding: mediaQuery.padding.copyWith(
+              top:
+                  pageTop + (removePageTopPadding ? 0 : mediaQuery.padding.top),
+            ),
+          );
           return Stack(
             children: [
               if (value <= 1)
@@ -199,20 +211,25 @@ class _NaviPaneState extends State<NaviPane>
                 child: buildLeft(),
               ),
               Positioned(
-                top:
-                    _kTopBarHeight * ((1 - value).clamp(0, 1)) +
-                    MediaQuery.of(context).padding.top * (value == 1 ? 0 : 1),
+                // Windows 的标题栏是覆盖层，页面背景从窗口顶部开始绘制；
+                // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
+                top: App.isWindows ? 0 : pageTop,
                 left:
                     _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
                     (_kSideBarWidth - _kFoldedSideBarWidth) *
                         ((value - 2).clamp(0, 1)),
                 right: 0,
                 bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
-                child: MediaQuery.removePadding(
-                  removeTop: value >= 2 || value == 0,
-                  context: context,
-                  child: Material(child: widget.pageBuilder(currentPage)),
-                ),
+                child: App.isWindows
+                    ? MediaQuery(
+                        data: pageMediaQuery,
+                        child: Material(child: widget.pageBuilder(currentPage)),
+                      )
+                    : MediaQuery.removePadding(
+                        removeTop: removePageTopPadding,
+                        context: context,
+                        child: Material(child: widget.pageBuilder(currentPage)),
+                      ),
               ),
             ],
           );
