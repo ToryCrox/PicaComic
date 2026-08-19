@@ -36,7 +36,9 @@ class _TranslationResultReplaceDialogState
   bool _isApplying = false;
   bool _showSkippedOnly = false;
   int _appliedSkippedPairCount = 0;
+  int _appliedProtectedPairCount = 0;
   final _skippedPairPaths = <String>{};
+  final _protectedPairPaths = <String>{};
 
   @override
   void initState() {
@@ -55,6 +57,12 @@ class _TranslationResultReplaceDialogState
       setState(() {
         _plan = plan;
         _skippedPairPaths.addAll(plan.defaultSkippedOriginalPaths);
+        if (plan.hasUntranslatableContent) {
+          _protectedPairPaths.addAll(
+            plan.pairs.map((pair) => pair.originalPath),
+          );
+          _skippedPairPaths.addAll(_protectedPairPaths);
+        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -65,33 +73,36 @@ class _TranslationResultReplaceDialogState
   Future<void> _apply() async {
     final plan = _plan;
     if (plan == null) return;
-    final activePlan = _activePlan(plan);
     final skippedPairs = plan.pairs
         .where((pair) => _skippedPairPaths.contains(pair.originalPath))
         .toList(growable: false);
-    if (activePlan.pairs.isEmpty && skippedPairs.isEmpty) return;
+    if (plan.pairs.isEmpty && skippedPairs.isEmpty) return;
     setState(() => _isApplying = true);
-    final summary = await _replacer.apply(
-      activePlan,
-      skippedPairs: skippedPairs,
-    );
-    for (final result in summary.results.where((result) => result.isSuccess)) {
-      await FileImage(File(result.pair.originalPath)).evict();
-      await FileImage(File(result.pair.translatedPath)).evict();
-      await FileImage(File(result.pair.destinationPath)).evict();
-    }
-    await downloadManager.updateComicSize(widget.comic);
-    if (summary.failureCount > 0 || summary.successCount == 0) {
-      // 替换失败时不能保留“已完成”状态，避免卡片显示错误信息。
-      await downloadManager.clearAiTranslationCompleted(widget.comic.id);
-    } else if (summary.successCount > 0) {
-      // 跳过的图片不影响完成标记；只要实际替换的图片全部成功即可。
-      await downloadManager.markAiTranslationCompleted(widget.comic.id);
+    final summary = await _replacer.apply(plan, skippedPairs: skippedPairs);
+    if (!summary.protectedByUntranslatableContent) {
+      for (final result in summary.results.where(
+        (result) => result.isSuccess,
+      )) {
+        await FileImage(File(result.pair.originalPath)).evict();
+        await FileImage(File(result.pair.translatedPath)).evict();
+        await FileImage(File(result.pair.destinationPath)).evict();
+      }
+      await downloadManager.updateComicSize(widget.comic);
+      if (summary.failureCount > 0 || summary.successCount == 0) {
+        // 替换失败时不能保留“已完成”状态，避免卡片显示错误信息。
+        await downloadManager.clearAiTranslationCompleted(widget.comic.id);
+      } else if (summary.successCount > 0) {
+        // 跳过的图片不影响完成标记；只要实际替换的图片全部成功即可。
+        await downloadManager.markAiTranslationCompleted(widget.comic.id);
+      }
     }
     if (!mounted) return;
     setState(() {
       _summary = summary;
-      _appliedSkippedPairCount = skippedPairs.length;
+      _appliedSkippedPairCount = skippedPairs
+          .where((pair) => !_protectedPairPaths.contains(pair.originalPath))
+          .length;
+      _appliedProtectedPairCount = summary.protectedPairCount;
       _isApplying = false;
     });
     widget.onComplete();
@@ -136,6 +147,8 @@ class _TranslationResultReplaceDialogState
                   ? '处理中'.tl
                   : activePairCount > 0
                   ? '替换原图 ($activePairCount)'.tl
+                  : plan?.hasUntranslatableContent == true
+                  ? '保护跳过并保留结果 ($skippedPairCount)'.tl
                   : '清理跳过结果 ($skippedPairCount)'.tl,
             ),
           ),
@@ -154,6 +167,7 @@ class _TranslationResultReplaceDialogState
     }
     final activePairs = _activePairs(plan);
     final skippedCount = plan.pairs.length - activePairs.length;
+    final protectedCount = _protectedPairPaths.length;
     final visiblePairs = _visiblePairs(plan);
     final originalTotalSize = activePairs.fold(
       0,
@@ -194,12 +208,12 @@ class _TranslationResultReplaceDialogState
                   FilterChip(
                     label: const Text('全部跳过'),
                     selected: _isPlanFullySkipped(plan),
-                    onSelected: _isApplying
+                    onSelected: _isApplying || plan.hasUntranslatableContent
                         ? null
                         : (selected) => _setPlanSkipped(plan, selected),
                   ),
                   FilterChip(
-                    label: Text('仅显示已跳过 ($skippedCount)'),
+                    label: Text('仅显示已跳过/保护 ($skippedCount)'),
                     selected: _showSkippedOnly,
                     onSelected: _isApplying
                         ? null
@@ -216,6 +230,19 @@ class _TranslationResultReplaceDialogState
           '总文件大小：${_formatSize(originalTotalSize)} → ${_formatSize(translatedTotalSize)}（${_formatDelta(delta)}）',
           style: TextStyle(color: delta > 0 ? Colors.orange : Colors.green),
         ),
+        if (plan.hasUntranslatableContent) ...[
+          const SizedBox(height: 4),
+          Text(
+            '检测到“无法翻译”或“我不能翻译”内容，本次整本漫画已保护跳过；'
+            '原图、译图、JSON 和中间目录均会保留。',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          if (protectedCount > 0)
+            Text(
+              '受保护图片：$protectedCount 张；无法通过跳过控件恢复替换。',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+        ],
         if (plan.unmatched.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
@@ -244,6 +271,9 @@ class _TranslationResultReplaceDialogState
                     return _PairCard(
                       pair: pair,
                       skipped: _skippedPairPaths.contains(pair.originalPath),
+                      protected: _protectedPairPaths.contains(
+                        pair.originalPath,
+                      ),
                       onToggleSkipped: () => _toggleSkipped(pair.originalPath),
                       onShowSkipMenu: (position) => _showSkipMenu(
                         context: context,
@@ -254,6 +284,7 @@ class _TranslationResultReplaceDialogState
                       translatedPaths: translatedPaths,
                       previewPairs: visiblePairs,
                       skippedPairPaths: _skippedPairPaths,
+                      protectedPairPaths: _protectedPairPaths,
                       onSetSkipped: _setSkipped,
                       pairIndex: index,
                     );
@@ -268,7 +299,10 @@ class _TranslationResultReplaceDialogState
     BuildContext context,
     TranslationReplacementSummary summary,
   ) {
-    final color = summary.failureCount == 0
+    final isProtected = summary.protectedByUntranslatableContent;
+    final color = isProtected
+        ? Theme.of(context).colorScheme.error
+        : summary.failureCount == 0
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).colorScheme.error;
     return Center(
@@ -276,19 +310,27 @@ class _TranslationResultReplaceDialogState
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            summary.failureCount == 0 ? Icons.check_circle : Icons.error,
+            isProtected
+                ? Icons.warning_amber_rounded
+                : summary.failureCount == 0
+                ? Icons.check_circle
+                : Icons.error,
             color: color,
             size: 52,
           ),
           const SizedBox(height: 12),
           Text(
-            '成功替换 ${summary.successCount} 张，'
-            '${_appliedSkippedPairCount > 0 ? '已删除跳过结果 $_appliedSkippedPairCount 张，' : ''}'
-            '失败 ${summary.failureCount} 张。',
+            isProtected
+                ? '检测到拒译内容，整本漫画保护跳过 $_appliedProtectedPairCount 张，未执行替换。'
+                : '成功替换 ${summary.successCount} 张，'
+                      '${_appliedSkippedPairCount > 0 ? '已删除跳过结果 $_appliedSkippedPairCount 张，' : ''}'
+                      '失败 ${summary.failureCount} 张。',
           ),
           const SizedBox(height: 8),
           Text(
-            summary.intermediateDirectoriesCleaned
+            isProtected
+                ? '原图、译图、JSON 和 manga_translator_work 中间目录均已保留，未更新翻译完成状态。'
+                : summary.intermediateDirectoriesCleaned
                 ? '已清理翻译结果、inpainted、mask 和 manga_translator_work 中间目录。'
                 : '保留中间目录，方便继续处理未匹配译图或替换失败的图片。',
             textAlign: TextAlign.center,
@@ -336,21 +378,12 @@ class _TranslationResultReplaceDialogState
   }
 
   void _setPlanSkipped(TranslationReplacementPlan plan, bool skipped) {
-    if (_isApplying) return;
+    if (_isApplying || plan.hasUntranslatableContent) return;
     setState(() {
       for (final pair in plan.pairs) {
         _setSkippedPath(pair.originalPath, skipped);
       }
     });
-  }
-
-  TranslationReplacementPlan _activePlan(TranslationReplacementPlan plan) {
-    return TranslationReplacementPlan(
-      comicDirectory: plan.comicDirectory,
-      resultDirectories: plan.resultDirectories,
-      pairs: _activePairs(plan),
-      unmatched: plan.unmatched,
-    );
   }
 
   void _toggleSkipped(String originalPath) {
@@ -360,11 +393,12 @@ class _TranslationResultReplaceDialogState
   }
 
   void _setSkipped(String originalPath, bool skipped) {
-    if (_isApplying) return;
+    if (_isApplying || _protectedPairPaths.contains(originalPath)) return;
     setState(() => _setSkippedPath(originalPath, skipped));
   }
 
   void _setSkippedPath(String originalPath, bool skipped) {
+    if (_protectedPairPaths.contains(originalPath)) return;
     if (skipped) {
       _skippedPairPaths.add(originalPath);
     } else {
@@ -377,6 +411,7 @@ class _TranslationResultReplaceDialogState
     required Offset position,
     required String originalPath,
   }) async {
+    if (_protectedPairPaths.contains(originalPath)) return;
     final action = await showMenu<_SkipMenuAction>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -413,24 +448,28 @@ class _PairCard extends StatelessWidget {
   const _PairCard({
     required this.pair,
     required this.skipped,
+    required this.protected,
     required this.onToggleSkipped,
     required this.onShowSkipMenu,
     required this.originalPaths,
     required this.translatedPaths,
     required this.previewPairs,
     required this.skippedPairPaths,
+    required this.protectedPairPaths,
     required this.onSetSkipped,
     required this.pairIndex,
   });
 
   final TranslationReplacementPair pair;
   final bool skipped;
+  final bool protected;
   final VoidCallback onToggleSkipped;
   final ValueChanged<Offset> onShowSkipMenu;
   final List<String> originalPaths;
   final List<String> translatedPaths;
   final List<TranslationReplacementPair> previewPairs;
   final Set<String> skippedPairPaths;
+  final Set<String> protectedPairPaths;
   final void Function(String originalPath, bool skipped) onSetSkipped;
   final int pairIndex;
 
@@ -453,8 +492,19 @@ class _PairCard extends StatelessWidget {
                   child: Text.rich(
                     TextSpan(
                       text: pair.baseName,
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: protected
+                            ? Theme.of(context).colorScheme.error
+                            : null,
+                      ),
                       children: [
+                        if (pair.hasUntranslatableContent)
+                          TextSpan(
+                            text: ' · 检测到拒译内容，整本保护跳过',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
                         if (pair.defaultSkipped &&
                             pair.defaultSkipReason != null)
                           TextSpan(
@@ -473,12 +523,25 @@ class _PairCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 GestureDetector(
-                  onSecondaryTapUp: (details) =>
-                      onShowSkipMenu(details.globalPosition),
+                  onSecondaryTapUp: protected
+                      ? null
+                      : (details) => onShowSkipMenu(details.globalPosition),
                   child: TextButton.icon(
-                    onPressed: onToggleSkipped,
-                    icon: Icon(skipped ? Icons.restore : Icons.skip_next),
-                    label: Text(skipped ? '恢复替换' : '跳过替换'),
+                    onPressed: protected ? null : onToggleSkipped,
+                    icon: Icon(
+                      protected
+                          ? Icons.lock_outline
+                          : skipped
+                          ? Icons.restore
+                          : Icons.skip_next,
+                    ),
+                    label: Text(
+                      protected
+                          ? '保护跳过'
+                          : skipped
+                          ? '恢复替换'
+                          : '跳过替换',
+                    ),
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 32),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -501,6 +564,7 @@ class _PairCard extends StatelessWidget {
                     previewPaths: originalPaths,
                     previewPairs: previewPairs,
                     skippedPairPaths: skippedPairPaths,
+                    protectedPairPaths: protectedPairPaths,
                     onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
                     showTranslated: false,
@@ -519,6 +583,7 @@ class _PairCard extends StatelessWidget {
                     previewPaths: translatedPaths,
                     previewPairs: previewPairs,
                     skippedPairPaths: skippedPairPaths,
+                    protectedPairPaths: protectedPairPaths,
                     onSetSkipped: onSetSkipped,
                     previewIndex: pairIndex,
                     showTranslated: true,
@@ -542,6 +607,7 @@ class _ImageInfo extends StatelessWidget {
     required this.previewPaths,
     required this.previewPairs,
     required this.skippedPairPaths,
+    required this.protectedPairPaths,
     required this.onSetSkipped,
     required this.previewIndex,
     required this.showTranslated,
@@ -554,6 +620,7 @@ class _ImageInfo extends StatelessWidget {
   final List<String> previewPaths;
   final List<TranslationReplacementPair> previewPairs;
   final Set<String> skippedPairPaths;
+  final Set<String> protectedPairPaths;
   final void Function(String originalPath, bool skipped) onSetSkipped;
   final int previewIndex;
   final bool showTranslated;
@@ -571,6 +638,7 @@ class _ImageInfo extends StatelessWidget {
               filePaths: previewPaths,
               pairs: previewPairs,
               skippedPairPaths: skippedPairPaths,
+              protectedPairPaths: protectedPairPaths,
               onSkippedChanged: onSetSkipped,
               initialIndex: previewIndex,
               title: label,
@@ -655,6 +723,7 @@ Future<void> _showImagePreview(
   required List<String> filePaths,
   required List<TranslationReplacementPair> pairs,
   required Set<String> skippedPairPaths,
+  required Set<String> protectedPairPaths,
   required void Function(String originalPath, bool skipped) onSkippedChanged,
   required int initialIndex,
   required String title,
@@ -687,6 +756,7 @@ Future<void> _showImagePreview(
           final skipped = skippedPairPaths.contains(pair.originalPath);
           return _ViewerSkipControl(
             skipped: skipped,
+            protected: protectedPairPaths.contains(pair.originalPath),
             onChanged: (value) {
               onSkippedChanged(pair.originalPath, value);
               setLocalState(() {});
@@ -728,10 +798,15 @@ LocalImageViewerItem _buildPreviewItem({
 }
 
 class _ViewerSkipControl extends StatelessWidget {
-  const _ViewerSkipControl({required this.skipped, required this.onChanged});
+  const _ViewerSkipControl({
+    required this.skipped,
+    required this.protected,
+    required this.onChanged,
+  });
 
   final bool skipped;
-  final ValueChanged<bool> onChanged;
+  final bool protected;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -746,13 +821,19 @@ class _ViewerSkipControl extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            skipped ? '当前图片：跳过替换' : '当前图片：将替换',
+            protected
+                ? '当前图片：保护跳过'
+                : skipped
+                ? '当前图片：跳过替换'
+                : '当前图片：将替换',
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
           Checkbox(
             value: skipped,
             activeColor: Colors.orange,
-            onChanged: (value) => onChanged(value == true),
+            onChanged: protected
+                ? null
+                : (value) => onChanged?.call(value == true),
           ),
         ],
       ),

@@ -12,6 +12,9 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/res.dart';
+import 'package:pica_comic/foundation/ui_mode.dart';
+
+const _kSearchHeaderHeight = 60.0;
 
 class _SearchPageComicList extends ComicsPage<BaseComic> {
   const _SearchPageComicList({
@@ -241,8 +244,12 @@ class _SearchResultPageState extends State<_SearchResultPage> {
             pinned: _showFab && SmoothScrollProvider.isMouseScroll,
             floating: !SmoothScrollProvider.isMouseScroll,
             delegate: _SliverAppBarDelegate(
-              minHeight: 60,
-              maxHeight: 60,
+              // 窄屏由 ComicsPage 外层 SafeArea 处理，避免重复增加顶部空间。
+              topPadding: UiMode.m1(context)
+                  ? 0
+                  : MediaQuery.paddingOf(context).top,
+              minHeight: _kSearchHeaderHeight,
+              maxHeight: _kSearchHeaderHeight,
               child: FloatingSearchBar(
                 onSearch: (s) {
                   suggestionsController.suggestions.clear();
@@ -372,11 +379,13 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     required this.child,
     required this.maxHeight,
     required this.minHeight,
+    this.topPadding = 0,
   });
 
   final double minHeight;
   final double maxHeight;
   final Widget child;
+  final double topPadding;
 
   @override
   Widget build(
@@ -384,19 +393,25 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return SizedBox.expand(child: child);
+    return SafeArea(
+      top: topPadding > 0,
+      bottom: false,
+      child: SizedBox.expand(child: child),
+    );
   }
 
   @override
-  double get maxExtent => minHeight;
+  double get maxExtent => max(maxHeight, minHeight) + topPadding;
 
   @override
-  double get minExtent => max(maxHeight, minHeight);
+  double get minExtent => minHeight + topPadding;
 
   @override
   bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
-    return maxHeight != oldDelegate.maxExtent ||
-        minHeight != oldDelegate.minExtent;
+    return oldDelegate is! _SliverAppBarDelegate ||
+        maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        topPadding != oldDelegate.topPadding;
   }
 }
 

@@ -39,6 +39,7 @@ class TranslationReplacementPair {
     this.translatedDimensions,
     this.defaultSkipped = false,
     this.defaultSkipReason,
+    this.hasUntranslatableContent = false,
   });
 
   final String originalPath;
@@ -49,6 +50,7 @@ class TranslationReplacementPair {
   final TranslationImageDimensions? translatedDimensions;
   final bool defaultSkipped;
   final String? defaultSkipReason;
+  final bool hasUntranslatableContent;
 
   String get baseName => path.basenameWithoutExtension(originalPath);
 
@@ -78,12 +80,14 @@ class TranslationReplacementPlan {
     required this.resultDirectories,
     required this.pairs,
     required this.unmatched,
+    this.untranslatableOriginalPaths = const {},
   });
 
   final String comicDirectory;
   final Set<String> resultDirectories;
   final List<TranslationReplacementPair> pairs;
   final List<TranslationUnmatchedFile> unmatched;
+  final Set<String> untranslatableOriginalPaths;
 
   int get originalTotalSize =>
       pairs.fold(0, (total, pair) => total + pair.originalSize);
@@ -95,6 +99,10 @@ class TranslationReplacementPlan {
       .where((pair) => pair.defaultSkipped)
       .map((pair) => pair.originalPath)
       .toSet();
+
+  bool get hasUntranslatableContent =>
+      untranslatableOriginalPaths.isNotEmpty ||
+      pairs.any((pair) => pair.hasUntranslatableContent);
 }
 
 /// 单张图片的替换结果。
@@ -112,10 +120,14 @@ class TranslationReplacementSummary {
   const TranslationReplacementSummary({
     required this.results,
     required this.intermediateDirectoriesCleaned,
+    this.protectedByUntranslatableContent = false,
+    this.protectedPairCount = 0,
   });
 
   final List<TranslationReplacementResult> results;
   final bool intermediateDirectoriesCleaned;
+  final bool protectedByUntranslatableContent;
+  final int protectedPairCount;
 
   int get successCount => results.where((result) => result.isSuccess).length;
 
@@ -143,6 +155,16 @@ class _TranslationResultDirectoryEntry {
   final Directory originalDirectory;
 }
 
+class _MangaTranslationMetadata {
+  const _MangaTranslationMetadata({
+    required this.defaultSkipReason,
+    required this.hasUntranslatableContent,
+  });
+
+  final String? defaultSkipReason;
+  final bool hasUntranslatableContent;
+}
+
 /// 扫描并安全应用漫画目录中的翻译结果。
 ///
 /// 旧 `result/` 目录与其父目录匹配；自定义目录按原漫画相对路径匹配，避免跨章节覆盖。
@@ -150,6 +172,7 @@ class TranslationResultReplacer {
   static const resultDirectoryName = 'result';
   static const _intermediateDirectoryNames = ['inpainted', 'mask'];
   static const _translationWorkDirectoryName = 'manga_translator_work';
+  static const _untranslatableMarkers = ['无法翻译', '我不能翻译'];
 
   /// 扫描漫画及其章节目录中的翻译结果。
   Future<TranslationReplacementPlan> prepare(
@@ -224,7 +247,7 @@ class TranslationResultReplacer {
     if (sortedPairs.isNotEmpty) {
       sortedPairs = [
         for (final pair in sortedPairs)
-          await _withDefaultSkipMetadata(pair, comicDirectory),
+          await _withTranslationMetadata(pair, comicDirectory),
       ];
     }
     if (includeDimensions && sortedPairs.isNotEmpty) {
@@ -250,6 +273,7 @@ class TranslationResultReplacer {
               ),
               defaultSkipped: pair.defaultSkipped,
               defaultSkipReason: pair.defaultSkipReason,
+              hasUntranslatableContent: pair.hasUntranslatableContent,
             ),
           )
           .toList(growable: false);
@@ -257,6 +281,10 @@ class TranslationResultReplacer {
     final sortedUnmatched = unmatched
         .sortedFileNameBy((file) => file.filePath)
         .toList();
+    final untranslatableOriginalPaths = sortedPairs
+        .where((pair) => pair.hasUntranslatableContent)
+        .map((pair) => pair.originalPath)
+        .toSet();
     return TranslationReplacementPlan(
       comicDirectory: comicDirectory,
       resultDirectories: entries
@@ -264,6 +292,7 @@ class TranslationResultReplacer {
           .toSet(),
       pairs: sortedPairs,
       unmatched: sortedUnmatched,
+      untranslatableOriginalPaths: untranslatableOriginalPaths,
     );
   }
 
@@ -276,8 +305,21 @@ class TranslationResultReplacer {
     TranslationReplacementPlan plan, {
     Iterable<TranslationReplacementPair> skippedPairs = const [],
   }) async {
+    if (plan.hasUntranslatableContent) {
+      return TranslationReplacementSummary(
+        results: const [],
+        intermediateDirectoriesCleaned: false,
+        protectedByUntranslatableContent: true,
+        protectedPairCount: plan.pairs.length,
+      );
+    }
+
+    final skippedOriginalPaths = skippedPairs
+        .map((pair) => pair.originalPath)
+        .toSet();
     final results = <TranslationReplacementResult>[];
     for (final pair in plan.pairs) {
+      if (skippedOriginalPaths.contains(pair.originalPath)) continue;
       results.add(await _replaceOne(pair));
     }
 
@@ -580,11 +622,14 @@ class TranslationResultReplacer {
     );
   }
 
-  Future<TranslationReplacementPair> _withDefaultSkipMetadata(
+  Future<TranslationReplacementPair> _withTranslationMetadata(
     TranslationReplacementPair pair,
     String comicDirectory,
   ) async {
-    final reason = await _defaultSkipReason(comicDirectory, pair.originalPath);
+    final metadata = await _readMangaTranslationMetadata(
+      comicDirectory,
+      pair.originalPath,
+    );
     return TranslationReplacementPair(
       originalPath: pair.originalPath,
       translatedPath: pair.translatedPath,
@@ -592,14 +637,18 @@ class TranslationResultReplacer {
       translatedSize: pair.translatedSize,
       originalDimensions: pair.originalDimensions,
       translatedDimensions: pair.translatedDimensions,
-      defaultSkipped: reason != null,
-      defaultSkipReason: reason,
+      defaultSkipped: metadata?.defaultSkipReason != null,
+      defaultSkipReason: metadata?.defaultSkipReason,
+      hasUntranslatableContent: metadata?.hasUntranslatableContent ?? false,
     );
   }
 
-  /// Manga Translator 未检测到文本时会保留 JSON 记录，但不会生成 inpainted
-  /// 图片。两个信号同时存在才预设跳过，避免把缺失或损坏的中间产物误判为未翻译。
-  Future<String?> _defaultSkipReason(
+  /// 读取 Manga Translator 页面元数据。
+  ///
+  /// 未检测到文本时会保留 JSON 记录，但不会生成 inpainted 图片。两个信号
+  /// 同时存在才预设跳过，避免把缺失或损坏的中间产物误判为未翻译。
+  /// 翻译结果中出现拒译文本时保护整本漫画，避免只替换部分页面。
+  Future<_MangaTranslationMetadata?> _readMangaTranslationMetadata(
     String comicDirectory,
     String originalPath,
   ) async {
@@ -636,7 +685,13 @@ class TranslationResultReplacer {
       if (metadata == null) return null;
 
       final regions = metadata['regions'];
-      if (regions is! List || regions.isNotEmpty) return null;
+      if (regions is! List) return null;
+
+      final hasUntranslatableContent = regions.any((region) {
+        if (region is! Map) return false;
+        return _containsUntranslatableText(region['translation']) ||
+            _containsUntranslatableText(region['translation_raw']);
+      });
 
       final inpaintedFile = File(
         path.join(
@@ -645,8 +700,13 @@ class TranslationResultReplacer {
           '${baseName}_inpainted.png',
         ),
       );
-      if (await inpaintedFile.exists()) return null;
-      return '未检测到可翻译文本，已默认跳过';
+      final defaultSkipReason = regions.isEmpty && !await inpaintedFile.exists()
+          ? '未检测到可翻译文本，已默认跳过'
+          : null;
+      return _MangaTranslationMetadata(
+        defaultSkipReason: defaultSkipReason,
+        hasUntranslatableContent: hasUntranslatableContent,
+      );
     } catch (error, stackTrace) {
       Log.w(
         '读取 Manga Translator 翻译元数据失败: ${metadataFile.path}',
@@ -655,6 +715,12 @@ class TranslationResultReplacer {
       );
       return null;
     }
+  }
+
+  bool _containsUntranslatableText(Object? value) {
+    final text = value?.toString();
+    if (text == null) return false;
+    return _untranslatableMarkers.any(text.contains);
   }
 
   Future<TranslationReplacementResult> _replaceOne(

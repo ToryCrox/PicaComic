@@ -551,6 +551,110 @@ void main() {
       expect(plan.pairs.every((pair) => !pair.defaultSkipped), isTrue);
     });
 
+    test('Manga Translator 检测到拒译内容时保护整本漫画', () async {
+      for (final name in ['1', '2', '3']) {
+        await _writeImage(
+          path.join(comicDirectory.path, '$name.webp'),
+          '原图$name',
+        );
+        await _writeImage(
+          path.join(comicDirectory.path, 'result', '$name.png'),
+          '译图$name',
+        );
+      }
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '1',
+        regions: const [
+          {'translation': '无法翻译︓内容涉及限制内容'},
+        ],
+      );
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '2',
+        regions: const [
+          {'translation_raw': '我不能翻译该内容'},
+        ],
+      );
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '3',
+        regions: const [
+          {'translation': '正常翻译内容'},
+        ],
+      );
+      await File(
+        path.join(comicDirectory.path, 'manga_translator_work', 'data.tmp'),
+      ).create(recursive: true);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+
+      expect(plan.hasUntranslatableContent, isTrue);
+      expect(plan.untranslatableOriginalPaths, hasLength(2));
+      expect(
+        plan.pairs
+            .firstWhere((pair) => pair.baseName == '1')
+            .hasUntranslatableContent,
+        isTrue,
+      );
+      expect(
+        plan.pairs
+            .firstWhere((pair) => pair.baseName == '2')
+            .hasUntranslatableContent,
+        isTrue,
+      );
+      expect(
+        plan.pairs
+            .firstWhere((pair) => pair.baseName == '3')
+            .hasUntranslatableContent,
+        isFalse,
+      );
+
+      final summary = await replacer.apply(plan);
+
+      expect(summary.protectedByUntranslatableContent, isTrue);
+      expect(summary.protectedPairCount, 3);
+      expect(summary.successCount, 0);
+      expect(summary.failureCount, 0);
+      expect(summary.intermediateDirectoriesCleaned, isFalse);
+      for (final name in ['1', '2', '3']) {
+        expect(
+          await File(path.join(comicDirectory.path, '$name.webp')).exists(),
+          isTrue,
+        );
+        expect(
+          await File(
+            path.join(comicDirectory.path, 'result', '$name.png'),
+          ).exists(),
+          isTrue,
+        );
+        expect(
+          await File(
+            path.join(
+              comicDirectory.path,
+              'manga_translator_work',
+              'json',
+              '${name}_translations.json',
+            ),
+          ).exists(),
+          isTrue,
+        );
+      }
+      expect(
+        await Directory(
+          path.join(comicDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isTrue,
+      );
+      expect(
+        await Directory(path.join(comicDirectory.path, 'result')).exists(),
+        isTrue,
+      );
+    });
+
     test('全部跳过时清理译图和翻译中间目录但不替换原图', () async {
       await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
       await _writeImage(

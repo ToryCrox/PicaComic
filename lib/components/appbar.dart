@@ -1,5 +1,7 @@
 part of 'components.dart';
 
+const _kAppBarHeight = 58.0;
+
 class Appbar extends StatefulWidget implements PreferredSizeWidget {
   const Appbar({
     required this.title,
@@ -110,124 +112,6 @@ class _AppbarState extends State<Appbar> {
       );
     }
     return content;
-  }
-}
-
-class SliverAppbar extends StatelessWidget {
-  const SliverAppbar({
-    super.key,
-    required this.title,
-    this.leading,
-    this.actions,
-    this.color,
-    this.radius = 0,
-  });
-
-  final Widget? leading;
-
-  final Widget title;
-
-  final List<Widget>? actions;
-
-  final Color? color;
-
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: _MySliverAppBarDelegate(
-        leading: leading,
-        title: title,
-        actions: actions,
-        topPadding: MediaQuery.of(context).padding.top,
-        color: color,
-        radius: radius,
-      ),
-    );
-  }
-}
-
-const _kAppBarHeight = 58.0;
-
-class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final Widget? leading;
-
-  final Widget title;
-
-  final List<Widget>? actions;
-
-  final double topPadding;
-
-  final Color? color;
-
-  final double radius;
-
-  _MySliverAppBarDelegate({
-    this.leading,
-    required this.title,
-    this.actions,
-    this.color,
-    required this.topPadding,
-    this.radius = 0,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(
-      child: Material(
-        color: color,
-        elevation: 0,
-        borderRadius: BorderRadius.circular(radius),
-        child: Row(
-          children: [
-            const SizedBox(width: 8),
-            leading ??
-                (Navigator.of(context).canPop()
-                    ? Tooltip(
-                        message: "返回".tl,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      )
-                    : const SizedBox()),
-            const SizedBox(width: 24),
-            Expanded(
-              child: DefaultTextStyle(
-                style: DefaultTextStyle.of(
-                  context,
-                ).style.copyWith(fontSize: 20),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                child: title,
-              ),
-            ),
-            ...?actions,
-            const SizedBox(width: 8),
-          ],
-        ).paddingTop(topPadding),
-      ),
-    );
-  }
-
-  @override
-  double get maxExtent => _kAppBarHeight + topPadding;
-
-  @override
-  double get minExtent => _kAppBarHeight + topPadding;
-
-  @override
-  bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
-    return oldDelegate is! _MySliverAppBarDelegate ||
-        leading != oldDelegate.leading ||
-        title != oldDelegate.title ||
-        actions != oldDelegate.actions;
   }
 }
 

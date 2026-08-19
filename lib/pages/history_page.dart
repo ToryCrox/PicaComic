@@ -92,7 +92,7 @@ class _HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       body: SmoothCustomScrollView(
         slivers: [
-          SliverAppbar(
+          SliverAppBar(
             title: buildTitle(),
             actions: [
               Tooltip(

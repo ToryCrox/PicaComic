@@ -239,8 +239,8 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
     return Material(child: body);
   }
 
-  SliverAppbar _buildAppbar() {
-    return SliverAppbar(
+  SliverAppBar _buildAppbar() {
+    return SliverAppBar(
       title: Text(title!),
       actions: tailing != null ? [tailing!] : null,
     );

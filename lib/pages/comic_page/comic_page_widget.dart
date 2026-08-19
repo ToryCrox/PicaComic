@@ -252,12 +252,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     Object data,
   ) {
     final titleText = adapter.title(data) ?? '';
-    return SliverAppbar(
+    return SliverAppBar(
       title: AnimatedOpacity(
         opacity: state.showAppbarTitle ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: Text(titleText),
       ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       actions: [
         IconButton(
           onPressed: () => _showMoreActions(context, adapter, data, titleText),
