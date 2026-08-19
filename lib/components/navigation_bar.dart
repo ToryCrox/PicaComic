@@ -90,7 +90,7 @@ class _NaviPaneState extends State<NaviPane>
   static const _kPaneModeExpandedSidebar = 3.0;
 
   double get bottomBarHeight =>
-      _kBottomBarHeight + MediaQuery.of(context).padding.bottom;
+      _kBottomBarHeight + MediaQuery.paddingOf(context).bottom;
 
   void onNavigatorStateChange() {
     onRebuild(context);
@@ -216,7 +216,7 @@ class _NaviPaneState extends State<NaviPane>
                   right: 0,
                   top:
                       _kTopBarHeight * (0 - value) +
-                      MediaQuery.of(context).padding.top * (1 - value),
+                      MediaQuery.paddingOf(context).top * (1 - value),
                   child: buildTop(),
                 ),
               Positioned(
@@ -288,7 +288,7 @@ class _NaviPaneState extends State<NaviPane>
       textStyle: Theme.of(context).textTheme.labelSmall,
       elevation: 0,
       child: Container(
-        height: _kBottomBarHeight + MediaQuery.of(context).padding.bottom,
+        height: _kBottomBarHeight + MediaQuery.paddingOf(context).bottom,
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
@@ -299,7 +299,7 @@ class _NaviPaneState extends State<NaviPane>
         ),
         child: Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).padding.bottom,
+            bottom: MediaQuery.paddingOf(context).bottom,
           ),
           child: Row(
             children: List<Widget>.generate(
@@ -343,7 +343,7 @@ class _NaviPaneState extends State<NaviPane>
               child: Column(
                 children: [
                   const SizedBox(height: 16),
-                  SizedBox(height: MediaQuery.of(context).padding.top),
+                  SizedBox(height: MediaQuery.paddingOf(context).top),
                   ...List<Widget>.generate(
                     widget.paneItems.length,
                     (index) => _SideNaviWidget(

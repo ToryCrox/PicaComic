@@ -72,9 +72,13 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   Widget build(BuildContext context) {
     Widget tabBar = Material(
-      child: FilledTabBar(
-        tabs: pages.map((e) => buildTab(e)).toList(),
-        controller: controller,
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: FilledTabBar(
+          tabs: pages.map((e) => buildTab(e)).toList(),
+          controller: controller,
+        ),
       ),
     );
 

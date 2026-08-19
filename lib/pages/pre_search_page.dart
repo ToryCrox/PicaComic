@@ -4,7 +4,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/pair.dart';
-import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/app_links.dart';
@@ -266,28 +265,30 @@ class PreSearchPage extends StatelessWidget {
         onPressed: search,
         child: const Icon(Icons.search),
       ),
-      body: Column(
-        children: [
-          if (UiMode.m1(context))
-            SizedBox(height: MediaQuery.of(context).padding.top),
-          Builder(
-            builder: (context) => _FloatingSearchBar(
-              supportingText: '${'搜索'.tl} / ${'链接'.tl} / ID',
-              onFinish: (s) {
-                // if (s == "") return;
-                search();
-              },
-              controller: controller,
-              onChanged: (s) {
-                findSuggestions();
-                searchController.update([1, 100]);
-              },
-              focusNode: _focusNode,
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          children: [
+            Builder(
+              builder: (context) => _FloatingSearchBar(
+                supportingText: '${'搜索'.tl} / ${'链接'.tl} / ID',
+                onFinish: (s) {
+                  // if (s == "") return;
+                  search();
+                },
+                controller: controller,
+                onChanged: (s) {
+                  findSuggestions();
+                  searchController.update([1, 100]);
+                },
+                focusNode: _focusNode,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          buildBody(context),
-        ],
+            const SizedBox(height: 8),
+            buildBody(context),
+          ],
+        ),
       ),
     );
   }

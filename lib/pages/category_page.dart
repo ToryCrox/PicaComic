@@ -34,16 +34,20 @@ class AllCategoryPage extends StatelessWidget {
             key: Key(categories.toString()),
             child: Column(
               children: [
-                FilledTabBar(
-                  tabs: categories.map((e) {
-                    String title = e;
-                    try {
-                      title = getCategoryDataWithKey(e).title;
-                    } catch (e) {
-                      //
-                    }
-                    return Tab(text: title.tl, key: Key(e));
-                  }).toList(),
+                SafeArea(
+                  top: true,
+                  bottom: false,
+                  child: FilledTabBar(
+                    tabs: categories.map((e) {
+                      String title = e;
+                      try {
+                        title = getCategoryDataWithKey(e).title;
+                      } catch (e) {
+                        //
+                      }
+                      return Tab(text: title.tl, key: Key(e));
+                    }).toList(),
+                  ),
                 ),
                 Expanded(
                   child: TabBarView(

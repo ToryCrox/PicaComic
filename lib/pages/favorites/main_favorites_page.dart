@@ -91,32 +91,27 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   }
 
   Widget buildPage(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constrains) => Stack(
-        children: [
-          Positioned(
-            top: _kSecondaryTopBarHeight,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: buildContent(context),
-          ),
-          AnimatedPositioned(
-            key: const Key("folders"),
-            duration: const Duration(milliseconds: 180),
-            left: 0,
-            right: 0,
-            bottom: controller.selectingFolder
-                ? 0
-                : constrains.maxHeight - _kSecondaryTopBarHeight,
-            child: buildFoldersList(
-              context,
-              constrains.maxHeight - _kSecondaryTopBarHeight,
+    return Column(
+      children: [
+        buildTopBar(context),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constrains) => Stack(
+              children: [
+                Positioned.fill(child: buildContent(context)),
+                AnimatedPositioned(
+                  key: const Key("folders"),
+                  duration: const Duration(milliseconds: 180),
+                  left: 0,
+                  right: 0,
+                  bottom: controller.selectingFolder ? 0 : constrains.maxHeight,
+                  child: buildFoldersList(context, constrains.maxHeight),
+                ),
+              ],
             ),
           ),
-          Positioned(top: 0, left: 0, right: 0, child: buildTopBar(context)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -176,57 +171,61 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     if (controller.isSelectingComics) {
       return Material(
         elevation: 1,
-        child: SizedBox(
-          height: _kSecondaryTopBarHeight,
-          child: Row(
-            children: [
-              Icon(Icons.rule_folder, color: iconColor),
-              const SizedBox(width: 8),
-              Text(
-                "已选择 @num 个项目".tlParams({
-                  "num": controller.selectedComics.length.toString(),
-                }),
-                style: const TextStyle(fontSize: 16),
-              ).paddingBottom(3),
-              const Spacer(),
-              Tooltip(
-                message: "全选".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.select_all),
-                  onPressed: () async {
-                    controller.selectedComics = await LocalFavoritesManager()
-                        .getAllComics(controller.current!);
-                    controller.update();
-                  },
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: SizedBox(
+            height: _kSecondaryTopBarHeight,
+            child: Row(
+              children: [
+                Icon(Icons.rule_folder, color: iconColor),
+                const SizedBox(width: 8),
+                Text(
+                  "已选择 @num 个项目".tlParams({
+                    "num": controller.selectedComics.length.toString(),
+                  }),
+                  style: const TextStyle(fontSize: 16),
+                ).paddingBottom(3),
+                const Spacer(),
+                Tooltip(
+                  message: "全选".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.select_all),
+                    onPressed: () async {
+                      controller.selectedComics = await LocalFavoritesManager()
+                          .getAllComics(controller.current!);
+                      controller.update();
+                    },
+                  ),
                 ),
-              ),
-              Tooltip(
-                message: "取消".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.deselect),
-                  onPressed: () {
-                    controller.selectedComics.clear();
-                    controller.update();
-                  },
+                Tooltip(
+                  message: "取消".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.deselect),
+                    onPressed: () {
+                      controller.selectedComics.clear();
+                      controller.update();
+                    },
+                  ),
                 ),
-              ),
-              Tooltip(
-                message: "菜单".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.more_horiz),
-                  onPressed: () {
-                    if (controller.selectedComics.length == 1) {
-                      controller
-                          .openComicMenuFuncs[controller.selectedComics[0]]
-                          ?.call();
-                    } else {
-                      multiSelectedMenu();
-                    }
-                  },
+                Tooltip(
+                  message: "菜单".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.more_horiz),
+                    onPressed: () {
+                      if (controller.selectedComics.length == 1) {
+                        controller
+                            .openComicMenuFuncs[controller.selectedComics[0]]
+                            ?.call();
+                      } else {
+                        multiSelectedMenu();
+                      }
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ).paddingHorizontal(16),
+              ],
+            ).paddingHorizontal(16),
+          ),
         ),
       );
     }
@@ -250,28 +249,34 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
             appdata.writeImplicitData();
           }
         },
-        child: SizedBox(
-          height: _kSecondaryTopBarHeight,
-          child: Row(
-            children: [
-              if (controller.isNetwork == null)
-                Icon(Icons.folder_outlined, color: iconColor)
-              else if (controller.isNetwork!)
-                Icon(Icons.folder_special, color: iconColor)
-              else
-                Icon(Icons.folder, color: iconColor),
-              const SizedBox(width: 8),
-              Text(
-                controller.current != null ? controller.current!.tl : "未选择".tl,
-                style: const TextStyle(fontSize: 16),
-              ).paddingBottom(3),
-              const Spacer(),
-              if (controller.selectingFolder)
-                const Icon(Icons.keyboard_arrow_up)
-              else
-                const Icon(Icons.keyboard_arrow_down),
-            ],
-          ).paddingHorizontal(16),
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: SizedBox(
+            height: _kSecondaryTopBarHeight,
+            child: Row(
+              children: [
+                if (controller.isNetwork == null)
+                  Icon(Icons.folder_outlined, color: iconColor)
+                else if (controller.isNetwork!)
+                  Icon(Icons.folder_special, color: iconColor)
+                else
+                  Icon(Icons.folder, color: iconColor),
+                const SizedBox(width: 8),
+                Text(
+                  controller.current != null
+                      ? controller.current!.tl
+                      : "未选择".tl,
+                  style: const TextStyle(fontSize: 16),
+                ).paddingBottom(3),
+                const Spacer(),
+                if (controller.selectingFolder)
+                  const Icon(Icons.keyboard_arrow_up)
+                else
+                  const Icon(Icons.keyboard_arrow_down),
+              ],
+            ).paddingHorizontal(16),
+          ),
         ),
       ),
     );

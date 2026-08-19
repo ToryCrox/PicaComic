@@ -46,50 +46,54 @@ class _MePageState extends State<MePage> {
         builder: (context, constrains) {
           final width = constrains.maxWidth;
           bool shouldShowTwoPanel = width > 600;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                buildHistory(context),
-                if (shouldShowTwoPanel)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            buildAccount(width),
-                            const SizedBox(height: 12),
-                            buildDownload(context, width),
-                          ],
+          return SafeArea(
+            top: true,
+            bottom: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  buildHistory(context),
+                  if (shouldShowTwoPanel)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              buildAccount(width),
+                              const SizedBox(height: 12),
+                              buildDownload(context, width),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            buildImageFavorite(context, width),
-                            const SizedBox(height: 12),
-                            buildTools(width),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              buildImageFavorite(context, width),
+                              const SizedBox(height: 12),
+                              buildTools(width),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  )
-                else ...[
-                  const SizedBox(height: 12),
-                  buildAccount(width),
-                  const SizedBox(height: 12),
-                  buildDownload(context, width),
-                  const SizedBox(height: 12),
-                  buildImageFavorite(context, width),
-                  const SizedBox(height: 12),
-                  buildTools(width),
+                      ],
+                    )
+                  else ...[
+                    const SizedBox(height: 12),
+                    buildAccount(width),
+                    const SizedBox(height: 12),
+                    buildDownload(context, width),
+                    const SizedBox(height: 12),
+                    buildImageFavorite(context, width),
+                    const SizedBox(height: 12),
+                    buildTools(width),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },

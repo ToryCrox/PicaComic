@@ -134,14 +134,19 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final isSelecting = pageState.isSelecting;
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
     final slivers = [
-      // AppBar
-      SliverPersistentHeader(
+      // 使用原生 SliverAppBar 处理 Windows 标题栏和内容的顶部安全区。
+      SliverAppBar(
         pinned: true,
-        delegate: _SliverAppBarDelegate(
-          minHeight: 56,
-          maxHeight: 56,
-          child: _buildAppBarContent(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: _buildLeading(context, pageState),
+        title: _buildTitle(context, pageState),
+        actions: isSelecting
+            ? _buildSelectionActions(context, selectedCount)
+            : _buildActions(context, pageState),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       // Tag Filter
       SliverPersistentHeader(
@@ -168,7 +173,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         },
       ),
       SliverPadding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       ),
     ];
 
@@ -279,11 +284,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     );
   }
 
-  Widget _buildAppBarContent(BuildContext context) {
-    final pageState = ref.watch(downloadPageStateProvider(_pageId));
-
+  Widget? _buildLeading(BuildContext context, DownloadPageState pageState) {
     // Check if filtering
-    bool isFiltering =
+    final isFiltering =
         pageState.isSearching ||
         pageState.keyword.isNotEmpty ||
         pageState.downloadTypeFilter != null ||
@@ -291,16 +294,15 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         pageState.tagCategoryFilter != null ||
         pageState.selectedTagIds.isNotEmpty;
 
-    Widget? leading;
     if (pageState.isSelecting) {
-      leading = IconButton(
+      return IconButton(
         onPressed: () {
           exitSelecting(ref, _pageId);
         },
         icon: const Icon(Icons.close),
       );
     } else if (isFiltering) {
-      leading = IconButton(
+      return IconButton(
         onPressed: () {
           // clear filters
           if (pageState.isSearching) setIsSearching(ref, _pageId, false);
@@ -319,33 +321,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         icon: const Icon(Icons.close),
       );
     } else if (widget.showBack) {
-      leading = IconButton(
+      return IconButton(
         onPressed: () => Navigator.maybePop(context),
         icon: const Icon(Icons.arrow_back),
       );
     }
-
-    return Material(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
-      surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-      child: Container(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-        child: Row(
-          children: [
-            if (leading != null) leading,
-            Expanded(child: _buildTitle(context, pageState)),
-            if (pageState.isSelecting)
-              ..._buildSelectionActions(
-                context,
-                ref.watch(selectedCountProvider(_pageId)),
-              )
-            else
-              ..._buildActions(context, pageState),
-          ],
-        ),
-      ),
-    );
+    return null;
   }
 
   Widget _buildTitle(BuildContext context, DownloadPageState pageState) {
