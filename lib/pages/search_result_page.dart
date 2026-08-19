@@ -33,7 +33,7 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
   final ComicType comicType;
 
   @override
-  String? get tag => "${comicType.name} search page with $keyword";
+  String get tag => "${comicType.name} search page with $keyword";
 
   @override
   String? get title => null;

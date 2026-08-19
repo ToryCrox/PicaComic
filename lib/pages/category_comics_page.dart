@@ -161,7 +161,7 @@ class _CategoryComicsList extends ComicsPage<BaseComic> {
   }
 
   @override
-  String? get tag => "$category with $param and $options";
+  String get tag => "$category with $param and $options";
 
   @override
   String? get title => null;

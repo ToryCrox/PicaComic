@@ -31,7 +31,7 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   }
 
   @override
-  String? get tag => "Network Comics Page: ${data.title}";
+  String get tag => "Network Comics Page: ${data.title}";
 
   @override
   String? get title => null;
@@ -40,7 +40,7 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   ComicType get comicType => ComicType.fromString(data.key);
 
   @override
-  List<ComicTileMenuOption>? get addonMenuOptions {
+  List<ComicTileMenuOption>? buildAddonMenuOptions(ComicListPageLogic logic) {
     return [
       if (data.addOrDelFavorite != null)
         ComicTileMenuOption("取消收藏".tl, Icons.playlist_remove_outlined, (id) {
@@ -51,7 +51,7 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
             if (res.error) {
               showToast(message: res.errorMessage!);
             } else {
-              refresh();
+              logic.refresh();
             }
           });
         }),
@@ -359,7 +359,7 @@ class _FavoriteFolder extends ComicsPage<BaseComic> {
   }
 
   @override
-  String? get tag => "Favorites Folder $folderID";
+  String get tag => "Favorites Folder $folderID";
 
   @override
   ComicType get comicType => ComicType.fromString(data.key);

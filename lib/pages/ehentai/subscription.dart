@@ -96,7 +96,7 @@ class EhSubscriptionComics extends ComicsPage<EhGalleryBrief> {
   }
 
   @override
-  String? get tag => "EhSubscriptionPage";
+  String get tag => "EhSubscriptionPage";
 
   @override
   String? get title => null;

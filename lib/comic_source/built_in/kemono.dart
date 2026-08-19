@@ -384,7 +384,7 @@ class _KemonoCreatorList extends ComicsPage<KemonoPostBrief> {
   ComicType get comicType => ComicType.kemono;
 
   @override
-  String? get tag => 'kemono_creator_${creator.service}_${creator.id}';
+  String get tag => 'kemono_creator_${creator.service}_${creator.id}';
 
   @override
   String? get title => null;

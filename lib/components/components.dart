@@ -1,5 +1,7 @@
 library components;
 
+export 'comic_list_page_logic.dart';
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
@@ -16,6 +18,7 @@ import 'package:signals/signals_flutter.dart';
 
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
+import 'package:pica_comic/components/comic_list_page_logic.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/file_utils.dart';

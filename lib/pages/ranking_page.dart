@@ -120,7 +120,7 @@ class _CustomCategoryComicsList extends ComicsPage<BaseComic> {
   }
 
   @override
-  String? get tag => "${fieldComicType.name} RankingPage with $optionValue";
+  String get tag => "${fieldComicType.name} RankingPage with $optionValue";
 
   @override
   String? get title => null;

@@ -278,9 +278,15 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
         loading = true;
       });
     } else if (data.loadPage != null) {
-      StateController.findOrNull<ComicsPageLogic>(
-        tag: tag.toString(),
-      )?.refresh();
+      refreshComicListPage(
+        context,
+        ComicListPageConfig(
+          pageKey: tag.toString(),
+          loadPage: data.loadPage!,
+          loadCache: data.loadCache,
+          onError: (message) => showToast(message: message),
+        ),
+      );
     } else {
       setState(() {
         key++;

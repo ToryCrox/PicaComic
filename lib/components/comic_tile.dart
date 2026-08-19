@@ -1508,9 +1508,10 @@ class _BlockingPaneState extends State<_BlockingPane> {
       }
     }
     appdata.writeData();
-    for (var c in StateController.findAll<ComicsPageLogic>()) {
-      c.update();
-    }
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(blockingKeywordRevisionProvider.notifier).bump();
     for (var c in StateController.findAll<SliverGridComicsController>()) {
       c.update();
     }
