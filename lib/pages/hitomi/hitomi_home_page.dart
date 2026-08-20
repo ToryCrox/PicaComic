@@ -1,123 +1,209 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/translations.dart';
-import '../../foundation/app.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
 
-class HitomiHomePageLogic extends StateController {
-  bool loading = true;
-  String? message;
-  int currentPage = 1;
-  ComicList? comics;
-  List<HitomiComicBrief> hitomiComics = [];
+part 'hitomi_home_page.g.dart';
 
-  void get(String url) async {
-    var res = await HiNetwork().getComics(url);
-    if (res.error) {
-      message = res.errorMessage!;
-    } else {
-      var parseRes = await parseIds(res.data);
-      if (parseRes) {
-        comics = res.data;
-      }
-    }
-    loading = false;
-    update();
+/// Hitomi 首页状态。
+class HitomiHomePageState {
+  const HitomiHomePageState({
+    this.loading = true,
+    this.message,
+    this.comics,
+    this.hitomiComics = const [],
+  });
+
+  final bool loading;
+  final String? message;
+  final ComicList? comics;
+  final List<HitomiComicBrief> hitomiComics;
+
+  /// 创建更新后的首页状态。
+  HitomiHomePageState copyWith({
+    bool? loading,
+    String? message,
+    ComicList? comics,
+    List<HitomiComicBrief>? hitomiComics,
+    bool clearMessage = false,
+    bool clearComics = false,
+  }) {
+    return HitomiHomePageState(
+      loading: loading ?? this.loading,
+      message: clearMessage ? null : (message ?? this.message),
+      comics: clearComics ? null : (comics ?? this.comics),
+      hitomiComics: hitomiComics ?? this.hitomiComics,
+    );
+  }
+}
+
+/// Hitomi 首页加载异常。
+class _HitomiHomePageException implements Exception {
+  const _HitomiHomePageException(this.message);
+
+  final String message;
+}
+
+/// Hitomi 首页逻辑。
+@Riverpod(keepAlive: false)
+class HitomiHomePageLogic extends _$HitomiHomePageLogic {
+  late String _url;
+  bool _loadingRequest = false;
+  int _generation = 0;
+
+  @override
+  HitomiHomePageState build(String url) {
+    _url = url;
+    final generation = ++_generation;
+    Future<void>.microtask(() => _loadInitial(url, generation));
+    return const HitomiHomePageState();
   }
 
-  void loadNextPage(String url) async {
-    var res = await HiNetwork().loadNextPage(comics!);
-    if (res.error) {
-      showToast(message: res.errorMessage!);
-    } else {
-      var parseRes = await parseIds(comics!);
-      if (parseRes) {
-        update();
-      } else {
-        showToast(message: message ?? "Error");
+  Future<void> _loadInitial(String url, int generation) async {
+    if (_loadingRequest) return;
+    _loadingRequest = true;
+    try {
+      final res = await HiNetwork().getComics(url);
+      if (!_isCurrent(generation)) return;
+      if (res.error) {
+        throw _HitomiHomePageException(res.errorMessage ?? "Error");
+      }
+
+      final parsed = await _parseIds(res.data);
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        loading: false,
+        comics: res.data,
+        hitomiComics: List.unmodifiable(parsed),
+        clearMessage: true,
+      );
+    } catch (error) {
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(loading: false, message: _messageFromError(error));
+    } finally {
+      if (_isCurrent(generation)) {
+        _loadingRequest = false;
       }
     }
   }
 
-  Future<bool> parseIds(ComicList comics) async {
+  /// 加载下一页漫画。
+  Future<void> loadNextPage() async {
+    final comics = state.comics;
+    if (comics == null || _loadingRequest || comics.toLoad >= comics.total) {
+      return;
+    }
+
+    final generation = _generation;
+    _loadingRequest = true;
+    try {
+      final res = await HiNetwork().loadNextPage(comics);
+      if (!_isCurrent(generation)) return;
+      if (res.error) {
+        showToast(message: res.errorMessage ?? "Error");
+        return;
+      }
+
+      final parsed = await _parseIds(comics);
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(
+        comics: comics,
+        hitomiComics: List.unmodifiable([...state.hitomiComics, ...parsed]),
+      );
+    } catch (error) {
+      if (_isCurrent(generation)) {
+        showToast(message: _messageFromError(error));
+      }
+    } finally {
+      if (_isCurrent(generation)) {
+        _loadingRequest = false;
+      }
+    }
+  }
+
+  Future<List<HitomiComicBrief>> _parseIds(ComicList comics) async {
     var futures = <Future<Res<HitomiComicBrief>>>[];
-    Future<bool> wait() async {
-      var result = await Future.wait(futures);
+    final result = <HitomiComicBrief>[];
+
+    Future<void> wait() async {
+      final responses = await Future.wait(futures);
       futures.clear();
-      for (var r in result) {
+      for (var r in responses) {
         if (r.error) {
-          message = r.errorMessage;
-          return false;
+          throw _HitomiHomePageException(r.errorMessage ?? "Error");
         }
-        hitomiComics.add(r.data);
+        result.add(r.data);
       }
-      return true;
     }
 
     for (var id in comics.comicIds) {
       if (futures.length >= 5) {
-        var res = await wait();
-        if (!res) return false;
+        await wait();
       }
       futures.add(HiNetwork().getComicInfoBrief(id.toString()));
     }
-    var res = await wait();
-    if (!res) return false;
+    await wait();
     comics.comicIds.clear();
-    return true;
+    return result;
   }
 
-  void refresh_() {
-    loading = true;
-    comics = null;
-    message = null;
-    currentPage = 1;
-    update();
+  /// 刷新首页数据。
+  void refresh() {
+    _generation++;
+    _loadingRequest = false;
+    state = const HitomiHomePageState();
+    Future<void>.microtask(() => _loadInitial(_url, _generation));
+  }
+
+  bool _isCurrent(int generation) {
+    return ref.mounted && generation == _generation;
+  }
+
+  String _messageFromError(Object error) {
+    if (error is _HitomiHomePageException) return error.message;
+    return error.toString();
   }
 }
 
-class HitomiHomePageComics extends StatelessWidget {
+class HitomiHomePageComics extends ConsumerWidget {
   const HitomiHomePageComics(this.url, {Key? key}) : super(key: key);
   final String url;
 
-  static void Function() refresh = () {};
-
   @override
-  Widget build(BuildContext context) {
-    return StateBuilder<HitomiHomePageLogic>(
-      tag: url,
-      init: HitomiHomePageLogic(),
-      builder: (logic) {
-        refresh = logic.refresh_;
-        if (logic.loading) {
-          logic.get(url);
-          return const Center(child: CircularProgressIndicator());
-        } else if (logic.message != null) {
-          return NetworkError(
-            message: logic.message!,
-            retry: () => logic.refresh_(),
-            withAppbar: false,
-          );
-        } else {
-          return CustomScrollView(
-            slivers: [
-              SliverGridComics(
-                comics: logic.hitomiComics,
-                comicType: ComicType.hitomi,
-                onLastItemBuild: () {
-                  logic.loadNextPage(url);
-                },
-              ),
-              if (logic.comics!.toLoad < logic.comics!.total)
-                const SliverToBoxAdapter(child: ListLoadingIndicator()),
-            ],
-          );
-        }
-      },
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(hitomiHomePageLogicProvider(url));
+    final logic = ref.read(hitomiHomePageLogicProvider(url).notifier);
+
+    if (state.loading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (state.message != null) {
+      return NetworkError(
+        message: state.message!,
+        retry: logic.refresh,
+        withAppbar: false,
+      );
+    } else {
+      return CustomScrollView(
+        slivers: [
+          SliverGridComics(
+            comics: state.hitomiComics,
+            comicType: ComicType.hitomi,
+            onLastItemBuild: () {
+              logic.loadNextPage();
+            },
+          ),
+          if (state.comics!.toLoad < state.comics!.total)
+            const SliverToBoxAdapter(child: ListLoadingIndicator()),
+        ],
+      );
+    }
   }
 }
 

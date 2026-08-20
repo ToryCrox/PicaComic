@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -7,31 +9,56 @@ import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-class AccountsPageLogic extends StateController {
-  final _reLogin = <String, bool>{};
+part 'accounts_page.g.dart';
+
+/// 账号管理页面状态。
+class AccountsPageState {
+  const AccountsPageState({this.reLogin = const {}});
+
+  final Map<String, bool> reLogin;
+
+  /// 创建更新后的页面状态。
+  AccountsPageState copyWith({Map<String, bool>? reLogin}) {
+    return AccountsPageState(reLogin: reLogin ?? this.reLogin);
+  }
 }
 
-class AccountsPage extends StatelessWidget {
+/// 账号管理页面逻辑。
+@Riverpod(keepAlive: false)
+class AccountsPageLogic extends _$AccountsPageLogic {
+  @override
+  AccountsPageState build() => const AccountsPageState();
+
+  /// 更新指定账号的重新登录状态。
+  void setRelogin(String key, bool value) {
+    final reLogin = Map<String, bool>.from(state.reLogin)..[key] = value;
+    state = state.copyWith(reLogin: Map.unmodifiable(reLogin));
+  }
+
+  /// 通知页面重新读取漫画源账号信息。
+  void refresh() {
+    state = state.copyWith(
+      reLogin: Map.unmodifiable(Map<String, bool>.from(state.reLogin)),
+    );
+  }
+}
+
+class AccountsPage extends ConsumerWidget {
   const AccountsPage({super.key});
 
-  AccountsPageLogic get logic => StateController.find<AccountsPageLogic>();
-
   @override
-  Widget build(BuildContext context) {
-    var body = StateBuilder<AccountsPageLogic>(
-      init: AccountsPageLogic(),
-      builder: (logic) {
-        return CustomScrollView(
-          slivers: [
-            SliverList(
-              delegate: SliverChildListDelegate(buildContent(context).toList()),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.only(bottom: context.padding.bottom),
-            ),
-          ],
-        );
-      },
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pageState = ref.watch(accountsPageLogicProvider);
+    final logic = ref.read(accountsPageLogicProvider.notifier);
+    final body = CustomScrollView(
+      slivers: [
+        SliverList(
+          delegate: SliverChildListDelegate(
+            buildContent(context, pageState, logic).toList(),
+          ),
+        ),
+        SliverPadding(padding: EdgeInsets.only(bottom: context.padding.bottom)),
+      ],
     );
 
     if (PopupIndicatorWidget.maybeOf(context) != null) {
@@ -44,7 +71,11 @@ class AccountsPage extends StatelessWidget {
     }
   }
 
-  Iterable<Widget> buildContent(BuildContext context) sync* {
+  Iterable<Widget> buildContent(
+    BuildContext context,
+    AccountsPageState pageState,
+    AccountsPageLogic logic,
+  ) sync* {
     var sources = ComicSource.sources.where(
       (element) => element.account != null,
     );
@@ -72,7 +103,9 @@ class AccountsPage extends StatelessWidget {
               );
               element.saveData();
             }
-            logic.update();
+            if (context.mounted) {
+              logic.refresh();
+            }
           },
         );
       }
@@ -89,7 +122,7 @@ class AccountsPage extends StatelessWidget {
           }
         }
         if (element.account!.allowReLogin) {
-          bool loading = logic._reLogin[element.key.name] == true;
+          bool loading = pageState.reLogin[element.key.name] == true;
           yield ListTile(
             title: Text("重新登录".tl),
             subtitle: Text("如果登录失效点击此处".tl),
@@ -98,17 +131,20 @@ class AccountsPage extends StatelessWidget {
                 showToast(message: "无数据".tl);
                 return;
               }
-              logic._reLogin[element.key.name] = true;
-              logic.update();
+              logic.setRelogin(element.key.name, true);
               final List account = element.data["account"];
-              var res = await element.account!.login!(account[0], account[1]);
-              if (res.error) {
-                showToast(message: res.errorMessage!);
-              } else {
-                showToast(message: "重新登录成功".tl);
+              try {
+                var res = await element.account!.login!(account[0], account[1]);
+                if (res.error) {
+                  showToast(message: res.errorMessage!);
+                } else {
+                  showToast(message: "重新登录成功".tl);
+                }
+              } finally {
+                if (context.mounted) {
+                  logic.setRelogin(element.key.name, false);
+                }
               }
-              logic._reLogin[element.key.name] = false;
-              logic.update();
             },
             trailing: loading
                 ? const SizedBox.square(
@@ -124,7 +160,7 @@ class AccountsPage extends StatelessWidget {
             element.data["account"] = null;
             element.account?.logout();
             element.saveData();
-            logic.update();
+            logic.refresh();
           },
           trailing: const Icon(Icons.logout),
         );

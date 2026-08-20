@@ -1,82 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-class CollectionPageLogic extends StateController {
-  bool isLoading = true;
-  var c1 = <ComicItemBrief>[];
-  var c2 = <ComicItemBrief>[];
-  bool status = true;
-  String? message;
+part 'collections_page.g.dart';
 
-  void change() {
-    isLoading = !isLoading;
-    update();
+/// 推荐页面数据。
+class CollectionPageState {
+  const CollectionPageState({required this.c1, required this.c2});
+
+  final List<ComicItemBrief> c1;
+  final List<ComicItemBrief> c2;
+}
+
+/// 推荐页面加载异常。
+class _CollectionPageException implements Exception {
+  const _CollectionPageException(this.message);
+
+  final String message;
+}
+
+/// 推荐页面逻辑。
+@Riverpod(keepAlive: false)
+class CollectionPageLogic extends _$CollectionPageLogic {
+  @override
+  Future<CollectionPageState> build() async {
+    final collections = await network.getCollection();
+    if (!collections.success) {
+      throw _CollectionPageException(collections.errorMessageWithoutNull);
+    }
+    final data = collections.data;
+    return CollectionPageState(
+      c1: List.unmodifiable(data.isNotEmpty ? data[0] : const []),
+      c2: List.unmodifiable(data.length > 1 ? data[1] : const []),
+    );
   }
 
-  void get() async {
-    var collections = await network.getCollection();
-    if (collections.success) {
-      c1 = collections.data[0];
-      c2 = collections.data[1];
-      change();
-    } else {
-      status = false;
-      message = collections.errorMessageWithoutNull;
-      change();
-    }
+  /// 重新加载推荐数据。
+  void refresh() {
+    ref.invalidateSelf();
   }
 }
 
-class CollectionsPage extends StatelessWidget {
+class CollectionsPage extends ConsumerWidget {
   const CollectionsPage({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pageState = ref.watch(collectionPageLogicProvider);
+    final logic = ref.read(collectionPageLogicProvider.notifier);
+
     return Scaffold(
       appBar: AppBar(title: Text("推荐".tl)),
-      body: StateBuilder<CollectionPageLogic>(
-        init: CollectionPageLogic(),
-        builder: (logic) {
-          if (logic.isLoading) {
-            network.getCollection().then((collections) {
-              if (collections.success) {
-                logic.c1 = collections.data[0];
-                logic.c2 = collections.data[1];
-                logic.change();
-              } else {
-                logic.status = false;
-                logic.change();
-              }
-            });
-            return const Center(child: CircularProgressIndicator());
-          } else if (logic.status) {
-            return CustomScrollView(
-              slivers: [
-                SliverGridComics(
-                  comics: logic.c1 + logic.c2,
-                  comicType: ComicType.picacg,
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(App.globalContext!).padding.bottom,
-                  ),
-                ),
-              ],
-            );
-          } else {
-            return NetworkError(
-              message: logic.message ?? "网络错误".tl,
-              retry: () {
-                logic.status = true;
-                logic.change();
-              },
-            );
-          }
-        },
+      body: pageState.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) => NetworkError(
+          message: error is _CollectionPageException
+              ? error.message
+              : error.toString(),
+          retry: logic.refresh,
+          withAppbar: false,
+        ),
+        data: (data) => CustomScrollView(
+          slivers: [
+            SliverGridComics(
+              comics: data.c1 + data.c2,
+              comicType: ComicType.picacg,
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(App.globalContext!).padding.bottom,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

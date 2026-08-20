@@ -892,7 +892,6 @@ class PicacgNetwork {
 
   /// 获取本子母/本子妹推荐
   Future<Res<List<List<ComicItemBrief>>>> getCollection() async {
-    var comics = <List<ComicItemBrief>>[[], []];
     var response = await get(
       "$apiUrl/collections",
       expiredTime: CacheExpiredTime.no,
@@ -900,45 +899,45 @@ class PicacgNetwork {
     if (response.error) {
       return Res(null, errorMessage: response.errorMessage);
     }
-    var res = response.data;
-    try {
-      for (int i = 0; i < res["data"]["collections"][0]["comics"].length; i++) {
-        try {
-          var si = ComicItemBrief(
-            res["data"]["collections"][0]["comics"][i]["title"] ?? "Unknown",
-            res["data"]["collections"][0]["comics"][i]["author"] ?? "Unknown",
-            res["data"]["collections"][0]["comics"][i]["totalLikes"] ?? 0,
-            res["data"]["collections"][0]["comics"][i]["thumb"]["fileServer"] +
-                "/static/" +
-                res["data"]["collections"][0]["comics"][i]["thumb"]["path"],
-            res["data"]["collections"][0]["comics"][i]["_id"],
-            [],
-            pages: res["data"]["collections"][0]["comics"][i]["pagesCount"],
-          );
-          comics[0].add(si);
-        } catch (e) {
-          //出现错误跳过
+    final data = response.data;
+    final collections = data["data"]?["collections"];
+    if (collections is! List) {
+      return const Res.error("推荐数据格式错误");
+    }
+
+    final comics = <List<ComicItemBrief>>[];
+    for (final collection in collections) {
+      final collectionComics = <ComicItemBrief>[];
+      final items = collection is Map ? collection["comics"] : null;
+      if (items is List) {
+        for (final item in items) {
+          if (item is! Map) continue;
+          try {
+            final thumb = item["thumb"];
+            final fileServer = thumb is Map ? thumb["fileServer"] : null;
+            final path = thumb is Map ? thumb["path"] : null;
+            if (fileServer is! String || path is! String) continue;
+
+            final likes = item["totalLikes"];
+            final pages = item["pagesCount"];
+            collectionComics.add(
+              ComicItemBrief(
+                item["title"]?.toString() ?? "Unknown",
+                item["author"]?.toString() ?? "Unknown",
+                likes is int ? likes : int.tryParse("$likes") ?? 0,
+                "$fileServer/static/$path",
+                item["_id"]?.toString() ?? "",
+                [],
+                pages: pages is int ? pages : int.tryParse("$pages"),
+              ),
+            );
+          } catch (_) {
+            // 单条漫画数据异常时跳过，不影响其他推荐内容。
+          }
         }
       }
-    } finally {}
-    try {
-      for (int i = 0; i < res["data"]["collections"][1]["comics"].length; i++) {
-        try {
-          var si = ComicItemBrief(
-            res["data"]["collections"][1]["comics"][i]["title"] ?? "Unknown",
-            res["data"]["collections"][1]["comics"][i]["author"] ?? "Unknown",
-            res["data"]["collections"][1]["comics"][i]["totalLikes"] ?? 0,
-            res["data"]["collections"][1]["comics"][i]["thumb"]["fileServer"] +
-                "/static/" +
-                res["data"]["collections"][1]["comics"][i]["thumb"]["path"],
-            res["data"]["collections"][1]["comics"][i]["_id"],
-            [],
-            pages: res["data"]["collections"][1]["comics"][i]["pagesCount"],
-          );
-          comics[1].add(si);
-        } finally {}
-      }
-    } finally {}
+      comics.add(collectionComics);
+    }
     return Res(comics);
   }
 

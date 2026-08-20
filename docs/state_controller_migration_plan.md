@@ -1,12 +1,12 @@
 # StateController 迁移计划
 
-更新时间：2026-08-19
+更新时间：2026-08-20
 
 ## 处理清单
 
 - [x] 清理无引用控制器和已失效的 `StateController.find` 调用
 - [x] 用 `blockingKeywordRevisionProvider` 替换 `SliverGridComicsController`
-- [ ] 迁移简单页面加载控制器
+- [x] 迁移简单页面加载控制器
 - [ ] 迁移评论与回复控制器
 - [ ] 重构 `StateWithController` 刷新机制
 - [ ] 迁移窗口、搜索和收藏页全局状态
@@ -28,10 +28,21 @@
 - 将 `SliverGridComics` 改为监听现有的 `blockingKeywordRevisionProvider`。
 - 删除 `comic_tile.dart` 中遍历所有旧控制器的刷新逻辑。
 
+### 3. 迁移简单页面加载控制器
+
+- `AccountsPageLogic` 改为 autoDispose Riverpod Notifier。
+- `CollectionPageLogic` 改为 autoDispose AsyncNotifier，页面不再在 `build` 中直接发起请求。
+- `HitomiHomePageLogic` 改为带 URL family 参数的 autoDispose Notifier，保留分页加载、重试和请求代际保护。
+- 三个页面均改用 `ConsumerWidget`，并生成对应的 Riverpod 代码。
+- 修复 Picacg 推荐接口仅返回一组集合时的越界异常，并避免错误态重复显示返回栏。
+
 ## 验证记录
 
 - `fvm dart format`：通过，修改文件无需格式调整。
 - 修改文件范围的 `fvm dart analyze`：通过，仅有原有的弃用提示。
+- 第三项修改文件范围的 `fvm dart analyze`：通过，`No issues found!`。
+- Picacg 推荐修复涉及文件的 `fvm dart analyze`：通过，保留网络方法中的 16 条原有提示。
+- 全项目 `fvm flutter test --reporter compact`：通过，72 个测试全部通过。
 - 全项目 `fvm flutter analyze`：当前报告 610 个分析问题，命令整体返回非零；本次修改文件范围未出现错误或警告，仅有原有弃用提示。
 
 ## 后续约定
