@@ -81,6 +81,7 @@ class TranslationReplacementPlan {
     required this.pairs,
     required this.unmatched,
     this.untranslatableOriginalPaths = const {},
+    this.externalComicDirectory,
   });
 
   final String comicDirectory;
@@ -88,6 +89,7 @@ class TranslationReplacementPlan {
   final List<TranslationReplacementPair> pairs;
   final List<TranslationUnmatchedFile> unmatched;
   final Set<String> untranslatableOriginalPaths;
+  final String? externalComicDirectory;
 
   int get originalTotalSize =>
       pairs.fold(0, (total, pair) => total + pair.originalSize);
@@ -120,18 +122,99 @@ class TranslationReplacementSummary {
   const TranslationReplacementSummary({
     required this.results,
     required this.intermediateDirectoriesCleaned,
+    this.skippedCount = 0,
     this.protectedByUntranslatableContent = false,
     this.protectedPairCount = 0,
   });
 
   final List<TranslationReplacementResult> results;
   final bool intermediateDirectoriesCleaned;
+  final int skippedCount;
   final bool protectedByUntranslatableContent;
   final int protectedPairCount;
 
   int get successCount => results.where((result) => result.isSuccess).length;
 
   int get failureCount => results.length - successCount;
+}
+
+/// 单本漫画在批量预览中的替换结果。
+class TranslationReplacementBatchItemSummary {
+  const TranslationReplacementBatchItemSummary({
+    required this.plan,
+    this.summary,
+    this.error,
+  });
+
+  final TranslationReplacementPlan plan;
+  final TranslationReplacementSummary? summary;
+  final Object? error;
+
+  int get successCount => summary?.successCount ?? 0;
+  int get failureCount => summary?.failureCount ?? 0;
+  int get skippedCount => summary?.skippedCount ?? 0;
+  bool get isSuccess => error == null && summary != null;
+  bool get protectedByUntranslatableContent =>
+      summary?.protectedByUntranslatableContent ?? false;
+  int get protectedPairCount =>
+      protectedByUntranslatableContent ? plan.pairs.length : 0;
+  bool get intermediateDirectoriesCleaned =>
+      summary?.intermediateDirectoriesCleaned ?? false;
+}
+
+/// 多本漫画的批量替换结果。
+class TranslationReplacementBatchSummary {
+  const TranslationReplacementBatchSummary({
+    required this.selectedCount,
+    required this.items,
+  });
+
+  final int selectedCount;
+  final List<TranslationReplacementBatchItemSummary> items;
+
+  int get successCount =>
+      items.fold(0, (total, item) => total + item.successCount);
+  int get failureCount =>
+      items.fold(0, (total, item) => total + item.failureCount);
+  int get skippedCount =>
+      items.fold(0, (total, item) => total + item.skippedCount);
+  int get protectedPairCount =>
+      items.fold(0, (total, item) => total + item.protectedPairCount);
+  int get protectedPlanCount =>
+      items.where((item) => item.protectedByUntranslatableContent).length;
+  int get failedPlanCount => items.where((item) => !item.isSuccess).length;
+  int get cleanedPlanCount =>
+      items.where((item) => item.intermediateDirectoriesCleaned).length;
+}
+
+/// 拒译结果清理汇总。
+class TranslationUntranslatableCleanupSummary {
+  const TranslationUntranslatableCleanupSummary({
+    required this.deletedPairCount,
+    required this.deletedFileCount,
+    required this.removedTranslationMapEntryCount,
+    required this.errors,
+  });
+
+  final int deletedPairCount;
+  final int deletedFileCount;
+  final int removedTranslationMapEntryCount;
+  final List<String> errors;
+
+  int get failureCount => errors.length;
+
+  TranslationUntranslatableCleanupSummary merge(
+    TranslationUntranslatableCleanupSummary other,
+  ) {
+    return TranslationUntranslatableCleanupSummary(
+      deletedPairCount: deletedPairCount + other.deletedPairCount,
+      deletedFileCount: deletedFileCount + other.deletedFileCount,
+      removedTranslationMapEntryCount:
+          removedTranslationMapEntryCount +
+          other.removedTranslationMapEntryCount,
+      errors: [...errors, ...other.errors],
+    );
+  }
 }
 
 /// 下载页显示用的翻译结果摘要。
@@ -143,6 +226,27 @@ class TranslationResultInfo {
 
   final int pairCount;
   final int resultDirectoryCount;
+}
+
+/// 多本漫画的翻译结果扫描计划。
+class TranslationReplacementBatchPlan {
+  const TranslationReplacementBatchPlan({
+    required this.selectedCount,
+    required this.plans,
+  });
+
+  final int selectedCount;
+  final List<TranslationReplacementPlan> plans;
+
+  int get noResultCount => selectedCount - plans.length;
+  int get pairCount =>
+      plans.fold(0, (total, plan) => total + plan.pairs.length);
+  int get unmatchedCount =>
+      plans.fold(0, (total, plan) => total + plan.unmatched.length);
+  int get originalTotalSize =>
+      plans.fold(0, (total, plan) => total + plan.originalTotalSize);
+  int get translatedTotalSize =>
+      plans.fold(0, (total, plan) => total + plan.translatedTotalSize);
 }
 
 class _TranslationResultDirectoryEntry {
@@ -193,11 +297,13 @@ class TranslationResultReplacer {
 
     final entries = <_TranslationResultDirectoryEntry>[];
     final customRoot = translationResultRootDirectory?.trim() ?? '';
+    String? externalComicDirectory;
     if (customRoot.isNotEmpty) {
       final translationComicDirectory = Directory(
         path.join(customRoot, path.basename(path.normalize(comicDirectory))),
       );
       if (await translationComicDirectory.exists()) {
+        externalComicDirectory = translationComicDirectory.path;
         final mirroredEntries = await _findMirroredResultDirectories(
           translationComicDirectory,
           rootDirectory,
@@ -293,6 +399,7 @@ class TranslationResultReplacer {
       pairs: sortedPairs,
       unmatched: sortedUnmatched,
       untranslatableOriginalPaths: untranslatableOriginalPaths,
+      externalComicDirectory: externalComicDirectory,
     );
   }
 
@@ -309,6 +416,7 @@ class TranslationResultReplacer {
       return TranslationReplacementSummary(
         results: const [],
         intermediateDirectoriesCleaned: false,
+        skippedCount: plan.pairs.length,
         protectedByUntranslatableContent: true,
         protectedPairCount: plan.pairs.length,
       );
@@ -347,7 +455,215 @@ class TranslationResultReplacer {
     return TranslationReplacementSummary(
       results: results,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
+      skippedCount: skippedPairs.length,
     );
+  }
+
+  /// 为多个漫画生成批量替换计划。
+  ///
+  /// 没有匹配译图的目录会从 [plans] 中排除，但 [selectedCount] 保留原始
+  /// 选中数量，方便界面提示无结果的漫画数量。
+  Future<TranslationReplacementBatchPlan> prepareBatch(
+    Iterable<String> comicDirectories, {
+    bool includeDimensions = true,
+    String? translationResultRootDirectory,
+    bool scanLegacyResultDirectories = false,
+  }) async {
+    final directories = comicDirectories
+        .where((directory) => directory.trim().isNotEmpty)
+        .toList(growable: false);
+    final plans = await Future.wait(
+      directories.map((directory) async {
+        try {
+          return await prepare(
+            directory,
+            includeDimensions: includeDimensions,
+            translationResultRootDirectory: translationResultRootDirectory,
+            scanLegacyResultDirectories: scanLegacyResultDirectories,
+          );
+        } catch (error, stackTrace) {
+          Log.w('读取批量翻译结果失败: $directory', error: error, stackTrace: stackTrace);
+          return null;
+        }
+      }),
+    );
+    return TranslationReplacementBatchPlan(
+      selectedCount: directories.length,
+      plans: plans
+          .whereType<TranslationReplacementPlan>()
+          .where((plan) => plan.pairs.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+
+  /// 顺序应用多个漫画的替换计划；单个目录失败不会阻止后续目录处理。
+  Future<TranslationReplacementBatchSummary> applyBatch(
+    TranslationReplacementBatchPlan batchPlan, {
+    Set<String> skippedOriginalPaths = const <String>{},
+  }) async {
+    final items = <TranslationReplacementBatchItemSummary>[];
+    for (final plan in batchPlan.plans) {
+      try {
+        final skippedPairs = plan.pairs
+            .where((pair) => skippedOriginalPaths.contains(pair.originalPath))
+            .toList(growable: false);
+        final summary = await apply(plan, skippedPairs: skippedPairs);
+        items.add(
+          TranslationReplacementBatchItemSummary(plan: plan, summary: summary),
+        );
+      } catch (error, stackTrace) {
+        Log.e(
+          '批量应用翻译结果失败: ${plan.comicDirectory}',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        items.add(
+          TranslationReplacementBatchItemSummary(plan: plan, error: error),
+        );
+      }
+    }
+    return TranslationReplacementBatchSummary(
+      selectedCount: batchPlan.selectedCount,
+      items: items,
+    );
+  }
+
+  /// 删除批量计划中被识别为无法翻译的页面结果。
+  Future<TranslationUntranslatableCleanupSummary>
+  removeUntranslatableResultsBatch(
+    TranslationReplacementBatchPlan batchPlan,
+  ) async {
+    var summary = const TranslationUntranslatableCleanupSummary(
+      deletedPairCount: 0,
+      deletedFileCount: 0,
+      removedTranslationMapEntryCount: 0,
+      errors: <String>[],
+    );
+    for (final plan in batchPlan.plans) {
+      summary = summary.merge(await removeUntranslatableResults(plan));
+    }
+    return summary;
+  }
+
+  /// 删除单本漫画中拒译页面的译图和当前项目生成的中间文件。
+  Future<TranslationUntranslatableCleanupSummary> removeUntranslatableResults(
+    TranslationReplacementPlan plan,
+  ) async {
+    final pairs = plan.pairs
+        .where((pair) => pair.hasUntranslatableContent)
+        .toList(growable: false);
+    if (pairs.isEmpty) {
+      return const TranslationUntranslatableCleanupSummary(
+        deletedPairCount: 0,
+        deletedFileCount: 0,
+        removedTranslationMapEntryCount: 0,
+        errors: <String>[],
+      );
+    }
+
+    final errors = <String>[];
+    final completedPairs = <TranslationReplacementPair>[];
+    var deletedFileCount = 0;
+    for (final pair in pairs) {
+      var failed = false;
+      final files = <File>[
+        File(pair.translatedPath),
+        File(
+          path.join(
+            plan.comicDirectory,
+            _translationWorkDirectoryName,
+            'json',
+            '${pair.baseName}_translations.json',
+          ),
+        ),
+        File(
+          path.join(
+            plan.comicDirectory,
+            _translationWorkDirectoryName,
+            'inpainted',
+            '${pair.baseName}_inpainted.png',
+          ),
+        ),
+      ];
+      for (final file in files) {
+        try {
+          if (await file.exists()) {
+            await file.delete();
+            deletedFileCount++;
+          }
+        } catch (error, stackTrace) {
+          failed = true;
+          errors.add('删除 ${file.path} 失败：$error');
+          Log.e('删除拒译结果失败: ${file.path}', error: error, stackTrace: stackTrace);
+        }
+      }
+      if (!failed) completedPairs.add(pair);
+    }
+
+    var removedTranslationMapEntryCount = 0;
+    final mapDirectory = plan.externalComicDirectory;
+    if (mapDirectory != null && completedPairs.isNotEmpty) {
+      final mapFile = File(path.join(mapDirectory, 'translation_map.json'));
+      if (await mapFile.exists()) {
+        try {
+          final decoded = jsonDecode(await mapFile.readAsString());
+          if (decoded is! Map) {
+            throw const FormatException('translation_map.json 顶层不是对象');
+          }
+          final translationMap = Map<String, dynamic>.from(decoded);
+          final pathsToRemove = completedPairs
+              .map((pair) => path.normalize(pair.translatedPath))
+              .toSet();
+          final keysToRemove = translationMap.keys
+              .where((key) {
+                final value = key.trim();
+                final resolved = path.isAbsolute(value)
+                    ? value
+                    : path.join(mapDirectory, value);
+                return pathsToRemove.contains(path.normalize(resolved));
+              })
+              .toList(growable: false);
+          for (final key in keysToRemove) {
+            translationMap.remove(key);
+          }
+          if (keysToRemove.isNotEmpty) {
+            await _writeTranslationMap(mapFile, translationMap);
+            removedTranslationMapEntryCount = keysToRemove.length;
+          }
+        } catch (error, stackTrace) {
+          errors.add('更新 translation_map.json 失败：$error');
+          Log.e(
+            '更新翻译映射失败: ${mapFile.path}',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    }
+    return TranslationUntranslatableCleanupSummary(
+      deletedPairCount: completedPairs.length,
+      deletedFileCount: deletedFileCount,
+      removedTranslationMapEntryCount: removedTranslationMapEntryCount,
+      errors: errors,
+    );
+  }
+
+  Future<void> _writeTranslationMap(
+    File mapFile,
+    Map<String, dynamic> translationMap,
+  ) async {
+    final temporaryFile = File(
+      '${mapFile.path}.tmp-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      await temporaryFile.writeAsString(
+        const JsonEncoder.withIndent('    ').convert(translationMap),
+      );
+      if (await mapFile.exists()) await mapFile.delete();
+      await temporaryFile.rename(mapFile.path);
+    } finally {
+      if (await temporaryFile.exists()) await temporaryFile.delete();
+    }
   }
 
   /// 递归删除翻译结果目录及其中的其它文件。

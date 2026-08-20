@@ -729,6 +729,119 @@ void main() {
         isFalse,
       );
     });
+
+    test('批量扫描保留选中数量并排除无结果漫画', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图',
+      );
+      final emptyComic = Directory(
+        path.join(temporaryDirectory.path, 'empty-comic'),
+      );
+      await emptyComic.create();
+
+      final batch = await replacer.prepareBatch([
+        comicDirectory.path,
+        emptyComic.path,
+      ], includeDimensions: false);
+
+      expect(batch.selectedCount, 2);
+      expect(batch.plans, hasLength(1));
+      expect(batch.noResultCount, 1);
+      expect(batch.pairCount, 1);
+    });
+
+    test('批量替换单目录失败时继续处理其它目录', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图一');
+      await _writeImage(
+        path.join(comicDirectory.path, 'result', '1.png'),
+        '译图一',
+      );
+      final failedComic = Directory(
+        path.join(temporaryDirectory.path, 'failed-comic'),
+      );
+      await _writeImage(path.join(failedComic.path, '2.webp'), '原图二');
+      await _writeImage(path.join(failedComic.path, 'result', '2.png'), '译图二');
+
+      final batchPlan = await replacer.prepareBatch([
+        comicDirectory.path,
+        failedComic.path,
+      ], includeDimensions: false);
+      await File(path.join(failedComic.path, 'result', '2.png')).delete();
+      final summary = await replacer.applyBatch(batchPlan);
+
+      expect(summary.items, hasLength(2));
+      expect(summary.successCount, 1);
+      expect(summary.failureCount, 1);
+      expect(
+        await File(path.join(comicDirectory.path, '1.png')).readAsString(),
+        '译图一',
+      );
+      expect(
+        await File(path.join(failedComic.path, 'result', '2.png')).exists(),
+        isFalse,
+      );
+    });
+
+    test('拒译结果清理适配外部目录并保留其它映射', () async {
+      await _writeImage(path.join(comicDirectory.path, '1.webp'), '原图');
+      await _writeMangaTranslatorMetadata(
+        comicDirectory,
+        '1',
+        regions: const [
+          {'translation': '无法翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      final externalComic = Directory(
+        path.join(translationRoot.path, path.basename(comicDirectory.path)),
+      );
+      await _writeImage(path.join(externalComic.path, '1.png'), '拒译译图');
+      await _writeImage(path.join(externalComic.path, 'normal.png'), '保留译图');
+      await File(
+        path.join(externalComic.path, 'translation_map.json'),
+      ).writeAsString(jsonEncode({'1.png': '拒译', 'normal.png': '保留'}));
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      final summary = await replacer.removeUntranslatableResults(plan);
+
+      expect(summary.deletedPairCount, 1);
+      expect(
+        await File(path.join(comicDirectory.path, '1.webp')).exists(),
+        isTrue,
+      );
+      expect(
+        await File(path.join(externalComic.path, '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await File(
+          path.join(
+            comicDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      final map =
+          jsonDecode(
+                await File(
+                  path.join(externalComic.path, 'translation_map.json'),
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      expect(map, {'normal.png': '保留'});
+    });
   });
 }
 

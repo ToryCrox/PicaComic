@@ -107,6 +107,11 @@ class DownloadList extends ConsumerWidget {
     Map<String, List<String>> userTagsMap,
     Map<String, TranslationResultInfo> translationResults,
   ) {
+    final selectedComics = pageState.isSelecting
+        ? comics
+              .where((comic) => pageState.selectedIds.contains(comic.id))
+              .toList(growable: false)
+        : const <DownloadedItem>[];
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
         childCount: comics.length,
@@ -119,6 +124,7 @@ class DownloadList extends ConsumerWidget {
           allTags,
           userTagsMap,
           translationResults,
+          selectedComics,
         ),
       ),
       gridDelegate: SliverGridDelegateWithComics(),
@@ -134,6 +140,7 @@ class DownloadList extends ConsumerWidget {
     List<TagInfo> allTags,
     Map<String, List<String>> userTagsMap,
     Map<String, TranslationResultInfo> translationResults,
+    List<DownloadedItem> selectedComics,
   ) {
     final isSelected = pageState.selectedIds.contains(item.id);
     final typeName = getComicTypeName(item);
@@ -252,6 +259,9 @@ class DownloadList extends ConsumerWidget {
               enterSelecting(ref, pageId);
             },
             onSecondaryTap: (details) async {
+              final batchComics = isSelected
+                  ? selectedComics
+                  : const <DownloadedItem>[];
               await showTileContextMenu(
                 context: context,
                 details: details,
@@ -270,6 +280,13 @@ class DownloadList extends ConsumerWidget {
                   );
                 },
                 onShowImageList: () => _goLocalComicPage(item),
+                selectedComics: batchComics,
+                onBatchComplete: isSelected
+                    ? () {
+                        exitSelecting(ref, pageId);
+                        onRefresh();
+                      }
+                    : null,
               );
             },
             isDragDisabled: pageState.isDragDisabled,
@@ -294,15 +311,16 @@ class DownloadList extends ConsumerWidget {
                 translationResults[item.directoryPath] == null
                 ? null
                 : () async {
-                    await showDialog<void>(
-                      context: context,
-                      builder: (_) => TranslationResultReplaceDialog(
-                        comic: item,
-                        translationResultRootDirectory:
-                            appdata.appSettings.translationResultDirectory,
-                        onComplete: onRefresh,
-                      ),
+                    final result = await TranslationResultReplaceDialog.show(
+                      context,
+                      comics: [item],
+                      translationResultRootDirectory:
+                          appdata.appSettings.translationResultDirectory,
+                      onComplete: onRefresh,
                     );
+                    if (result == false && context.mounted) {
+                      showToast(message: '没有可应用的翻译图片'.tl);
+                    }
                   },
           ),
         ),

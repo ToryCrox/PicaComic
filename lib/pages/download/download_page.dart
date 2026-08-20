@@ -35,6 +35,7 @@ import 'local_repository_management_page.dart';
 import 'downloading_page.dart';
 import 'components/multi_select_drag_dialog.dart';
 import 'translation_result_directory_dialog.dart';
+import 'translation_result_replace_dialog.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key, this.showBack = true});
@@ -656,6 +657,43 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             );
             selectAll(ref, _pageId, comics.map((e) => e.id).toList());
           },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              const Icon(Icons.translate),
+              const SizedBox(width: 8),
+              Text("应用选中翻译结果".tl),
+            ],
+          ),
+          onTap: () =>
+              Future.delayed(const Duration(milliseconds: 200), () async {
+                final state = ref.read(downloadPageStateProvider(_pageId));
+                if (state.selectedIds.isEmpty) return;
+                final comics = await ref.read(
+                  filteredComicsProvider(_pageId).future,
+                );
+                final selectedComics = comics
+                    .where((comic) => state.selectedIds.contains(comic.id))
+                    .toList(growable: false);
+                if (selectedComics.isEmpty) {
+                  showToast(message: '没有找到选中的漫画'.tl);
+                  return;
+                }
+                if (!context.mounted) return;
+                await TranslationResultReplaceDialog.show(
+                  context,
+                  comics: selectedComics,
+                  translationResultRootDirectory:
+                      appdata.appSettings.translationResultDirectory,
+                  scanLegacyResultDirectories: true,
+                  onComplete: () {
+                    exitSelecting(ref, _pageId);
+                    ref.invalidate(allDownloadedComicsProvider);
+                    ref.invalidate(translationResultAvailabilityProvider);
+                  },
+                );
+              }),
         ),
         PopupMenuItem(
           child: Text(

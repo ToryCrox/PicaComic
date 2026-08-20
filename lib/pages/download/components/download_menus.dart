@@ -395,34 +395,37 @@ Future<void> showTileContextMenu({
   required VoidCallback onRemoveComic,
   required VoidCallback onShowInfo,
   VoidCallback? onShowImageList,
+  List<DownloadedItem> selectedComics = const <DownloadedItem>[],
+  VoidCallback? onBatchComplete,
 }) async {
   final translationResultRootDirectory =
       appdata.appSettings.translationResultDirectory;
-  final hasTranslationResult = await TranslationResultReplacer()
-      .hasReplacementCandidate(
-        comic.directoryPath,
-        translationResultRootDirectory: translationResultRootDirectory,
-        scanLegacyResultDirectories: true,
-      );
+  final isBatch = selectedComics.isNotEmpty;
+  final targetComics = isBatch ? selectedComics : [comic];
+  final hasTranslationResult = isBatch
+      ? true
+      : await TranslationResultReplacer().hasReplacementCandidate(
+          comic.directoryPath,
+          translationResultRootDirectory: translationResultRootDirectory,
+          scanLegacyResultDirectories: true,
+        );
   showDesktopMenu(
     App.globalContext!,
     Offset(details.globalPosition.dx, details.globalPosition.dy),
     [
       if (hasTranslationResult)
         DesktopMenuEntry(
-          text: '应用翻译结果'.tl,
+          text: isBatch ? '应用选中翻译结果（${targetComics.length}）' : '应用翻译结果'.tl,
           icon: Icons.translate,
           onClick: () async {
             await Future<void>.delayed(const Duration(milliseconds: 300));
             if (!context.mounted) return;
-            await showDialog<void>(
-              context: context,
-              builder: (_) => TranslationResultReplaceDialog(
-                comic: comic,
-                translationResultRootDirectory: translationResultRootDirectory,
-                onComplete: onRefresh,
-                scanLegacyResultDirectories: true,
-              ),
+            await TranslationResultReplaceDialog.show(
+              context,
+              comics: targetComics,
+              translationResultRootDirectory: translationResultRootDirectory,
+              onComplete: onBatchComplete ?? onRefresh,
+              scanLegacyResultDirectories: true,
             );
           },
         ),
