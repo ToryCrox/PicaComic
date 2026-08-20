@@ -1,121 +1,56 @@
 part of "components.dart";
 
-void showDesktopMenu(
-  BuildContext context,
-  Offset location,
-  List<DesktopMenuEntry> entries,
-) {
-  Navigator.of(context).push(DesktopMenuRoute(entries, location));
+/// 在指定的全局坐标显示 Flutter 原生右键菜单。
+///
+/// 菜单位置使用 Navigator overlay 的坐标计算，Flutter 会根据可用空间
+/// 自动调整菜单的展开方向和屏幕边界。
+Future<T?> showContextMenu<T>({
+  required BuildContext context,
+  required Offset globalPosition,
+  required List<PopupMenuEntry<T>> items,
+}) {
+  final overlay = Navigator.of(context).overlay;
+  final renderObject = overlay?.context.findRenderObject();
+  if (renderObject is! RenderBox) {
+    return Future<T?>.value(null);
+  }
+
+  final localPosition = renderObject.globalToLocal(globalPosition);
+  final overlaySize = renderObject.size;
+
+  return showMenu<T>(
+    context: context,
+    position: RelativeRect.fromLTRB(
+      localPosition.dx,
+      localPosition.dy,
+      overlaySize.width - localPosition.dx,
+      overlaySize.height - localPosition.dy,
+    ),
+    items: items,
+  );
 }
 
-class DesktopMenuRoute<T> extends PopupRoute<T> {
-  final List<DesktopMenuEntry> entries;
-
-  final Offset location;
-
-  DesktopMenuRoute(this.entries, this.location);
-
-  @override
-  Color? get barrierColor => Colors.transparent;
-
-  @override
-  bool get barrierDismissible => true;
-
-  @override
-  String? get barrierLabel => "menu";
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    const width = 196.0;
-    final size = MediaQuery.of(context).size;
-    var left = location.dx;
-    if (left + width > size.width - 10) {
-      left = size.width - width - 10;
-    }
-    var top = location.dy;
-    var height = 16 + 32 * entries.length;
-    if (top + height > size.height - 15) {
-      top = size.height - height - 15;
-    }
-    return Stack(
+/// 构建带有统一图标占位的原生菜单项。
+PopupMenuItem<T> popupMenuItem<T>({
+  required String text,
+  IconData? icon,
+  T? value,
+  VoidCallback? onTap,
+  bool enabled = true,
+}) {
+  return PopupMenuItem<T>(
+    value: value,
+    enabled: enabled,
+    onTap: onTap,
+    child: Row(
       children: [
-        Positioned(
-          left: left,
-          top: top,
-          child: Container(
-            width: width,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-            decoration: BoxDecoration(
-              color: App.colors(context).surface,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Material(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: entries.map((e) => buildEntry(e, context)).toList(),
-              ),
-            ),
-          ),
+        SizedBox(width: 24, child: icon == null ? null : Icon(icon, size: 20)),
+        const SizedBox(width: 12),
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(text, overflow: TextOverflow.ellipsis),
         ),
       ],
-    );
-  }
-
-  Widget buildEntry(DesktopMenuEntry entry, BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(4),
-      onTap: () {
-        Navigator.of(context).pop();
-        entry.onClick();
-      },
-      child: SizedBox(
-        height: 32,
-        child: Row(
-          children: [
-            const SizedBox(width: 4),
-            if (entry.icon != null) Icon(entry.icon, size: 18),
-            const SizedBox(width: 4),
-            Text(entry.text),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 200);
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return FadeTransition(
-      opacity: animation.drive(
-        Tween<double>(begin: 0, end: 1).chain(CurveTween(curve: Curves.ease)),
-      ),
-      child: child,
-    );
-  }
-}
-
-class DesktopMenuEntry {
-  final String text;
-  final IconData? icon;
-  final void Function() onClick;
-
-  DesktopMenuEntry({required this.text, this.icon, required this.onClick});
+    ),
+  );
 }

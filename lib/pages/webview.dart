@@ -81,39 +81,37 @@ class _AppWebviewState extends State<AppWebview> {
     bool useCustomAppBar = !UiMode.m1(context) && !widget.singlePage;
 
     final actions = [
-      Tooltip(
-        message: "More",
-        child: IconButton(
-          icon: const Icon(Icons.more_horiz),
-          onPressed: () {
-            showMenu(
-              context: context,
-              position: RelativeRect.fromLTRB(
-                MediaQuery.of(context).size.width,
-                0,
-                MediaQuery.of(context).size.width,
-                0,
-              ),
-              items: [
-                PopupMenuItem(
-                  child: Text("在浏览器中打开".tl),
-                  onTap: () async =>
-                      launchUrlString((await controller?.getUrl())!.path),
-                ),
-                PopupMenuItem(
-                  child: Text("复制链接".tl),
-                  onTap: () async => Clipboard.setData(
-                    ClipboardData(text: (await controller?.getUrl())!.path),
-                  ),
-                ),
-                PopupMenuItem(
-                  child: Text("重新加载".tl),
-                  onTap: () => controller?.reload(),
-                ),
-              ],
-            );
-          },
-        ),
+      PopupMenuButton<void>(
+        tooltip: "更多".tl,
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_horiz),
+        itemBuilder: (_) => [
+          popupMenuItem<void>(
+            text: "在浏览器中打开".tl,
+            icon: Icons.open_in_browser,
+            onTap: () async {
+              final url = await controller?.getUrl();
+              if (url != null) {
+                await launchUrlString(url.path);
+              }
+            },
+          ),
+          popupMenuItem<void>(
+            text: "复制链接".tl,
+            icon: Icons.link,
+            onTap: () async {
+              final url = await controller?.getUrl();
+              if (url != null) {
+                await Clipboard.setData(ClipboardData(text: url.path));
+              }
+            },
+          ),
+          popupMenuItem<void>(
+            text: "重新加载".tl,
+            icon: Icons.refresh,
+            onTap: () => controller?.reload(),
+          ),
+        ],
       ),
     ];
 

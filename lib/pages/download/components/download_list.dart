@@ -384,13 +384,14 @@ class DownloadList extends ConsumerWidget {
     TapDownDetails details,
     Map<String, List<String>> userTagsMap,
   ) {
-    showDesktopMenu(
-      App.globalContext!,
-      Offset(details.globalPosition.dx, details.globalPosition.dy),
-      [
-        DesktopMenuEntry(
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: details.globalPosition,
+      items: [
+        popupMenuItem<void>(
           text: "管理标签".tl,
-          onClick: () async {
+          icon: Icons.label_outline,
+          onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
             final suggestedTags = [
               comic.name,
@@ -409,22 +410,25 @@ class DownloadList extends ConsumerWidget {
             }
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "复制".tl,
-          onClick: () {
+          icon: Icons.content_copy,
+          onTap: () {
             Clipboard.setData(ClipboardData(text: tag));
             showToast(message: "已复制".tl);
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "本地搜索".tl,
-          onClick: () {
+          icon: Icons.search,
+          onTap: () {
             updateKeyword(ref, pageId, tag);
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "搜索漫画".tl,
-          onClick: () {
+          icon: Icons.travel_explore,
+          onTap: () {
             String searchTag = tag;
             if (!isPrimary) {
               // 查找原始标签

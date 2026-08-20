@@ -489,47 +489,55 @@ class LocalFavoriteTile extends ComicTile {
 
   @override
   void onSecondaryTap_(TapDownDetails details) {
-    showDesktopMenu(
-      App.globalContext!,
-      Offset(details.globalPosition.dx, details.globalPosition.dy),
-      [
-        DesktopMenuEntry(
-          text: "查看".tl,
-          onClick: () =>
-              Future.delayed(const Duration(milliseconds: 200), showInfo),
-        ),
-        DesktopMenuEntry(
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: details.globalPosition,
+      items: [
+        popupMenuItem(text: "查看".tl, icon: Icons.info_outline, onTap: showInfo),
+        popupMenuItem(
           text: "阅读".tl,
-          onClick: () =>
-              Future.delayed(const Duration(milliseconds: 200), read),
+          icon: Icons.menu_book_outlined,
+          onTap: read,
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "搜索".tl,
-          onClick: () => Future.delayed(const Duration(milliseconds: 200), () {
+          icon: Icons.search,
+          onTap: () {
             if (context.mounted) {
               context.to(() => PreSearchPage(initialValue: title));
             }
-          }),
+          },
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "取消收藏".tl,
-          onClick: () {
+          icon: Icons.favorite_border,
+          onTap: () {
             LocalFavoritesManager().deleteComic(folderName, comic);
             onDelete();
           },
         ),
-        DesktopMenuEntry(text: "复制到".tl, onClick: copyTo),
-        DesktopMenuEntry(text: "编辑标签".tl, onClick: editTags),
-        DesktopMenuEntry(
+        popupMenuItem(
+          text: "复制到".tl,
+          icon: Icons.drive_file_move_outlined,
+          onTap: copyTo,
+        ),
+        popupMenuItem(
+          text: "编辑标签".tl,
+          icon: Icons.edit_outlined,
+          onTap: editTags,
+        ),
+        popupMenuItem(
           text: "下载".tl,
-          onClick: () {
+          icon: Icons.download,
+          onTap: () {
             comic.addDownload();
             showToast(message: "已添加下载任务".tl);
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "更新漫画信息".tl,
-          onClick: () {
+          icon: Icons.sync,
+          onTap: () {
             UpdateFavoritesInfoDialog.show([comic], folderName);
           },
         ),

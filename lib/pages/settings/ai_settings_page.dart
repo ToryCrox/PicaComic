@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/ai/ai.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -90,12 +91,29 @@ class _AiSettingsPageState extends State<AiSettingsPage>
               ),
               isThreeLine: true,
               trailing: PopupMenuButton<String>(
+                position: PopupMenuPosition.under,
                 onSelected: (value) => _handleProviderAction(value, provider),
                 itemBuilder: (_) => [
-                  PopupMenuItem(value: 'test', child: Text('测试连接'.tl)),
-                  PopupMenuItem(value: 'copy', child: Text('复制'.tl)),
-                  PopupMenuItem(value: 'edit', child: Text('编辑'.tl)),
-                  PopupMenuItem(value: 'delete', child: Text('删除'.tl)),
+                  popupMenuItem<String>(
+                    value: 'test',
+                    text: '测试连接'.tl,
+                    icon: Icons.network_check,
+                  ),
+                  popupMenuItem<String>(
+                    value: 'copy',
+                    text: '复制'.tl,
+                    icon: Icons.content_copy,
+                  ),
+                  popupMenuItem<String>(
+                    value: 'edit',
+                    text: '编辑'.tl,
+                    icon: Icons.edit_outlined,
+                  ),
+                  popupMenuItem<String>(
+                    value: 'delete',
+                    text: '删除'.tl,
+                    icon: Icons.delete_outline,
+                  ),
                 ],
               ),
               onTap: () => _editProvider(provider),
@@ -134,11 +152,24 @@ class _AiSettingsPageState extends State<AiSettingsPage>
               '${aiSettings.providerById(prompt.providerId)?.name ?? '未绑定服务'.tl}',
             ),
             trailing: PopupMenuButton<String>(
+              position: PopupMenuPosition.under,
               onSelected: (value) => _handlePromptAction(value, prompt),
               itemBuilder: (_) => [
-                PopupMenuItem(value: 'copy', child: Text('复制'.tl)),
-                PopupMenuItem(value: 'edit', child: Text('编辑'.tl)),
-                PopupMenuItem(value: 'delete', child: Text('删除'.tl)),
+                popupMenuItem<String>(
+                  value: 'copy',
+                  text: '复制'.tl,
+                  icon: Icons.content_copy,
+                ),
+                popupMenuItem<String>(
+                  value: 'edit',
+                  text: '编辑'.tl,
+                  icon: Icons.edit_outlined,
+                ),
+                popupMenuItem<String>(
+                  value: 'delete',
+                  text: '删除'.tl,
+                  icon: Icons.delete_outline,
+                ),
               ],
             ),
             onTap: () => _editPrompt(prompt),

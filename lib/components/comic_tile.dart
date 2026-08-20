@@ -474,44 +474,50 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   void onSecondaryTap_(TapDownDetails details) {
-    showDesktopMenu(
-      App.globalContext!,
-      Offset(details.globalPosition.dx, details.globalPosition.dy),
-      [
-        DesktopMenuEntry(
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: details.globalPosition,
+      items: [
+        popupMenuItem(
           text: "查看".tl,
-          onClick: () => Future.microtask(_openDetailWithHero),
+          icon: Icons.info_outline,
+          onTap: () => Future.microtask(_openDetailWithHero),
         ),
         if (read != null)
-          DesktopMenuEntry(
+          popupMenuItem(
             text: "阅读".tl,
-            onClick: () => Future.microtask(read!),
+            icon: Icons.menu_book_outlined,
+            onTap: () => Future.microtask(read!),
           ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "搜索".tl,
-          onClick: () => Future.microtask(() {
+          icon: Icons.search,
+          onTap: () => Future.microtask(() {
             App.mainNavigatorKey!.currentContext!.to(
               () => PreSearchPage(initialValue: title),
             );
           }),
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "本地收藏".tl,
-          onClick: () => Future.microtask(
+          icon: Icons.favorite_border,
+          onTap: () => Future.microtask(
             () => showDialog(
               context: App.globalContext!,
               builder: (context) => buildFavoriteDialog(context),
             ),
           ),
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "屏蔽".tl,
-          onClick: () => Future.microtask(showBlockPane),
+          icon: Icons.block,
+          onTap: () => Future.microtask(showBlockPane),
         ),
         if (comicID != null && comicType != null)
-          DesktopMenuEntry(
+          popupMenuItem(
             text: "打开下载目录".tl,
-            onClick: () async {
+            icon: Icons.folder_open,
+            onTap: () async {
               final downloadId = downloadManager.getDownloadIdFromComicId(
                 comicType,
                 comicID,
@@ -535,9 +541,9 @@ abstract class ComicTile extends StatelessWidget {
           ),
         if (addonMenuOptions != null)
           for (var option in addonMenuOptions!)
-            DesktopMenuEntry(
+            popupMenuItem(
               text: option.title,
-              onClick: () => option.onTap(comicID),
+              onTap: () => option.onTap(comicID),
             ),
       ],
     );

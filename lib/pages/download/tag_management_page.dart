@@ -409,6 +409,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
         ),
         actions: [
           PopupMenuButton<int>(
+            position: PopupMenuPosition.under,
             initialValue: _selectedCategory,
             icon: const Icon(Icons.filter_list),
             tooltip: "筛选分类".tl,
@@ -491,14 +492,9 @@ class _TagManagementPageState extends State<TagManagementPage> {
       child: InkWell(
         onTap: () => _onTagTap(tag),
         onSecondaryTapDown: (details) {
-          showMenu(
+          showContextMenu<String>(
             context: context,
-            position: RelativeRect.fromLTRB(
-              details.globalPosition.dx,
-              details.globalPosition.dy,
-              details.globalPosition.dx,
-              details.globalPosition.dy,
-            ),
+            globalPosition: details.globalPosition,
             items: _buildMenuItems(tag),
           ).then((value) {
             if (value != null) {
@@ -587,6 +583,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
                     ),
                   ),
                   PopupMenuButton<String>(
+                    position: PopupMenuPosition.under,
                     onSelected: (value) => _handleMenuSelection(value, tag),
                     itemBuilder: (context) => _buildMenuItems(tag),
                   ),

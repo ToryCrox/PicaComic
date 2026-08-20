@@ -253,6 +253,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   ) {
     final titleText = adapter.title(data) ?? '';
     return SliverAppBar(
+      pinned: true,
       title: AnimatedOpacity(
         opacity: state.showAppbarTitle ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
@@ -260,54 +261,42 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       actions: [
-        IconButton(
-          onPressed: () => _showMoreActions(context, adapter, data, titleText),
+        PopupMenuButton<void>(
+          tooltip: "更多".tl,
+          position: PopupMenuPosition.under,
           icon: const Icon(Icons.more_horiz),
-        ),
-      ],
-    );
-  }
-
-  // ========================================================================
-  // 更多操作菜单
-  // ========================================================================
-
-  void _showMoreActions(
-    BuildContext context,
-    ComicPageAdapter adapter,
-    Object data,
-    String title,
-  ) {
-    final width = MediaQuery.of(context).size.width;
-    final url = adapter.url(data);
-
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(width, 0, 0, 0),
-      items: [
-        PopupMenuItem(
-          child: Text("复制标题".tl),
-          onTap: () {
-            var text = title;
-            if (url != null) text += ":$url";
-            Clipboard.setData(ClipboardData(text: text));
-            showToast(message: "已复制".tl, icon: const Icon(Icons.check));
-          },
-        ),
-        if (url != null)
-          PopupMenuItem(
-            child: Text("复制链接".tl),
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: url));
-              showToast(message: "已复制".tl, icon: const Icon(Icons.check));
-            },
-          ),
-        PopupMenuItem(
-          child: Text("分享".tl),
-          onTap: () {
-            var text = title;
-            if (url != null) text += ":$url";
-            Share.share(text);
+          itemBuilder: (_) {
+            final url = adapter.url(data);
+            return [
+              popupMenuItem<void>(
+                text: "复制标题".tl,
+                icon: Icons.title,
+                onTap: () {
+                  var text = titleText;
+                  if (url != null) text += ":$url";
+                  Clipboard.setData(ClipboardData(text: text));
+                  showToast(message: "已复制".tl, icon: const Icon(Icons.check));
+                },
+              ),
+              if (url != null)
+                popupMenuItem<void>(
+                  text: "复制链接".tl,
+                  icon: Icons.link,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: url));
+                    showToast(message: "已复制".tl, icon: const Icon(Icons.check));
+                  },
+                ),
+              popupMenuItem<void>(
+                text: "分享".tl,
+                icon: Icons.share_outlined,
+                onTap: () {
+                  var text = titleText;
+                  if (url != null) text += ":$url";
+                  Share.share(text);
+                },
+              ),
+            ];
           },
         ),
       ],
@@ -1037,14 +1026,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
     return GestureDetector(
       onLongPressStart: (details) {
-        showMenu(
+        showContextMenu(
           context: App.globalContext!,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
+          globalPosition: details.globalPosition,
           items: _buildInfoCardPopMenus(text, labelText, title, key, adapter),
         );
       },
@@ -1068,14 +1052,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   }
                 },
           onSecondaryTapDown: (details) {
-            showMenu(
+            showContextMenu(
               context: App.globalContext!,
-              position: RelativeRect.fromLTRB(
-                details.globalPosition.dx,
-                details.globalPosition.dy,
-                details.globalPosition.dx,
-                details.globalPosition.dy,
-              ),
+              globalPosition: details.globalPosition,
               items: _buildInfoCardPopMenus(
                 text,
                 labelText,
@@ -1108,7 +1087,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     );
   }
 
-  List<PopupMenuEntry> _buildInfoCardPopMenus(
+  List<PopupMenuEntry<void>> _buildInfoCardPopMenus(
     String text,
     String labelText,
     bool title,
@@ -1116,31 +1095,35 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     ComicPageAdapter adapter,
   ) {
     return [
-      PopupMenuItem(
-        child: Text("复制".tl),
+      popupMenuItem<void>(
+        text: "复制".tl,
+        icon: Icons.content_copy,
         onTap: () {
           Clipboard.setData(ClipboardData(text: text));
           showToast(message: "已复制".tl);
         },
       ),
-      PopupMenuItem(
-        child: Text("复制中文".tl),
+      popupMenuItem<void>(
+        text: "复制中文".tl,
+        icon: Icons.translate,
         onTap: () {
           Clipboard.setData(ClipboardData(text: labelText));
           showToast(message: "已复制".tl);
         },
       ),
       if (!title)
-        PopupMenuItem(
-          child: Text("屏蔽".tl),
+        popupMenuItem<void>(
+          text: "屏蔽".tl,
+          icon: Icons.block,
           onTap: () {
             appdata.blockingKeyword.add(text);
             appdata.writeData();
           },
         ),
       if (!title)
-        PopupMenuItem(
-          child: Text("收藏".tl),
+        popupMenuItem<void>(
+          text: "收藏".tl,
+          icon: Icons.favorite_border,
           onTap: () {
             var res = adapter.source;
             if (adapter.source == "EHentai") res += ":$key";
@@ -1166,17 +1149,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   Widget _buildLocalTagCard(BuildContext context, String text) {
     return GestureDetector(
       onLongPressStart: (details) {
-        showMenu(
+        showContextMenu(
           context: App.globalContext!,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
+          globalPosition: details.globalPosition,
           items: [
-            PopupMenuItem(
-              child: Text("复制".tl),
+            popupMenuItem<void>(
+              text: "复制".tl,
+              icon: Icons.content_copy,
               onTap: () {
                 Clipboard.setData(ClipboardData(text: text));
                 showToast(message: "已复制".tl);

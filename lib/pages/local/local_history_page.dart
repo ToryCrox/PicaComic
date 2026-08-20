@@ -165,13 +165,17 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
     LocalComicModel model,
     TapDownDetails? details,
   ) {
-    showDesktopMenu(
-      App.globalContext!,
-      details?.globalPosition ?? Offset.zero,
-      [
-        DesktopMenuEntry(
+    final globalPosition = details?.globalPosition;
+    if (globalPosition == null) return;
+
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: globalPosition,
+      items: [
+        popupMenuItem(
           text: "查看详情".tl,
-          onClick: () async {
+          icon: Icons.info_outline,
+          onTap: () {
             App.globalTo(
               () => LocalThumbsPage(
                 dirPath: model.path,
@@ -180,16 +184,18 @@ class _LocalHistoryPageState extends State<LocalHistoryPage> {
             );
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "清除此条历史记录".tl,
-          onClick: () async {
+          icon: Icons.history_toggle_off,
+          onTap: () async {
             await LocalHistoryManager().remove(model.path);
             _loadHistory();
           },
         ),
-        DesktopMenuEntry(
+        popupMenuItem(
           text: "打开文件夹".tl,
-          onClick: () {
+          icon: Icons.folder_open,
+          onTap: () {
             FileUtils.openFileOrDirectory(model.path);
           },
         ),

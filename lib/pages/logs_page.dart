@@ -22,36 +22,29 @@ class _LogsPageState extends State<LogsPage> {
       appBar: AppBar(
         title: const Text("Logs"),
         actions: [
-          IconButton(
-            onPressed: () => setState(() {
-              final RelativeRect position = RelativeRect.fromLTRB(
-                MediaQuery.of(context).size.width,
-                MediaQuery.of(context).padding.top + kToolbarHeight,
-                0.0,
-                0.0,
-              );
-              showMenu(
-                context: context,
-                position: position,
-                items: [
-                  PopupMenuItem(
-                    child: Text("清空".tl),
-                    onTap: () => setState(() => LogManager.clear()),
-                  ),
-                  PopupMenuItem(
-                    child: Text("禁用长度限制".tl),
-                    onTap: () {
-                      LogManager.ignoreLimitation = true;
-                      showToast(message: "仅在本次运行时有效".tl);
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: Text("导出".tl),
-                    onTap: () => saveLog(LogManager().toString()),
-                  ),
-                ],
-              );
-            }),
+          PopupMenuButton<void>(
+            tooltip: "更多".tl,
+            position: PopupMenuPosition.under,
+            itemBuilder: (_) => [
+              popupMenuItem<void>(
+                text: "清空".tl,
+                icon: Icons.delete_sweep_outlined,
+                onTap: () => setState(LogManager.clear),
+              ),
+              popupMenuItem<void>(
+                text: "禁用长度限制".tl,
+                icon: Icons.all_inclusive,
+                onTap: () {
+                  LogManager.ignoreLimitation = true;
+                  showToast(message: "仅在本次运行时有效".tl);
+                },
+              ),
+              popupMenuItem<void>(
+                text: "导出".tl,
+                icon: Icons.file_download_outlined,
+                onTap: () => saveLog(LogManager().toString()),
+              ),
+            ],
             icon: const Icon(Icons.more_horiz),
           ),
         ],

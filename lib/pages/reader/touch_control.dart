@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
 
+import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/state_controller.dart';
@@ -194,23 +195,24 @@ class TapController {
 
   static void handleSecondaryTapUp(PointerDownEvent detail) {
     var logic = _currentLogic!;
-    showMenu(
+    showContextMenu(
       context: App.globalContext!,
-      position: RelativeRect.fromLTRB(
-        detail.position.dx,
-        detail.position.dy,
-        detail.position.dx,
-        detail.position.dy,
-      ),
+      globalPosition: detail.position,
       items: [
-        PopupMenuItem(
-          child: Text("设置".tl),
+        popupMenuItem<void>(
+          text: "设置".tl,
+          icon: Icons.settings_outlined,
           onTap: () => showSettings(App.globalContext!, _sessionId!),
         ),
         if (App.isDesktop)
-          PopupMenuItem(onTap: logic.fullscreen, child: Text("全屏".tl)),
-        PopupMenuItem(
-          child: Text("自动翻页".tl),
+          popupMenuItem<void>(
+            text: "全屏".tl,
+            icon: Icons.fullscreen,
+            onTap: logic.fullscreen,
+          ),
+        popupMenuItem<void>(
+          text: "自动翻页".tl,
+          icon: Icons.play_arrow,
           onTap: () {
             if (!logic.state.isFullScreen && App.isDesktop) {
               logic.fullscreen();
@@ -225,28 +227,39 @@ class TapController {
           },
         ),
         if (App.isDesktop)
-          PopupMenuItem(
+          popupMenuItem<void>(
+            text: "限制最大宽度".tl,
+            icon: Icons.width_full,
             onTap: () {
               appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
               appdata.updateSettings();
               Future.microtask(() => logic.notifySettingsChanged());
             },
-            child: Text("限制最大宽度".tl),
           ),
         if (App.isDesktop)
-          PopupMenuItem(
+          popupMenuItem<void>(
+            text: logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl,
+            icon: Icons.photo_size_select_large_outlined,
             onTap: () {
               logic.toggleShowOriginSize();
             },
-            child: Text(logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl),
           ),
-        PopupMenuItem(
+        popupMenuItem<void>(
+          text: "收藏图片".tl,
+          icon: Icons.favorite_border,
           onTap: () => logic.favoriteCurrentImage(position: detail.position),
-          child: Text("收藏图片".tl),
         ),
-        PopupMenuItem(child: Text("退出".tl), onTap: () => App.globalBack()),
+        popupMenuItem<void>(
+          text: "退出".tl,
+          icon: Icons.exit_to_app,
+          onTap: App.globalBack,
+        ),
         if (logic.readingData.hasEp)
-          PopupMenuItem(onTap: logic.openEpsView, child: Text("章节".tl)),
+          popupMenuItem<void>(
+            text: "章节".tl,
+            icon: Icons.list_alt,
+            onTap: logic.openEpsView,
+          ),
       ],
     );
   }

@@ -323,16 +323,25 @@ class FavoriteImageTile extends StatelessWidget {
   }
 
   void onSecondaryTap(TapDownDetails details, BuildContext context) {
-    showDesktopMenu(App.globalContext!, details.globalPosition, [
-      DesktopMenuEntry(text: "查看".tl, onClick: onTap),
-      DesktopMenuEntry(
-        text: "分组".tl,
-        onClick: () {
-          context.to(() => ImageFavoritesPage(filterTitle: image.title));
-        },
-      ),
-      DesktopMenuEntry(text: "删除".tl, onClick: delete),
-    ]);
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: details.globalPosition,
+      items: [
+        popupMenuItem(
+          text: "查看".tl,
+          icon: Icons.visibility_outlined,
+          onTap: onTap,
+        ),
+        popupMenuItem(
+          text: "分组".tl,
+          icon: Icons.folder_outlined,
+          onTap: () {
+            context.to(() => ImageFavoritesPage(filterTitle: image.title));
+          },
+        ),
+        popupMenuItem(text: "删除".tl, icon: Icons.delete_outline, onTap: delete),
+      ],
+    );
   }
 }
 

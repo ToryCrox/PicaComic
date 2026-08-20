@@ -339,18 +339,17 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                 : const Icon(Icons.arrow_downward),
           ),
           PopupMenuButton<String>(
+            tooltip: "更多".tl,
+            position: PopupMenuPosition.under,
             icon: const Icon(Icons.more_horiz),
-            itemBuilder: (BuildContext context) {
-              return [
-                PopupMenuItem(
-                  value: "pixiv_sort1",
-                  onTap: () {
-                    _pixivSortTap();
-                  },
-                  child: Text("整理Pixv图片".tl),
-                ),
-              ];
-            },
+            itemBuilder: (_) => [
+              popupMenuItem<String>(
+                value: "pixiv_sort1",
+                text: "整理Pixv图片".tl,
+                icon: Icons.auto_awesome,
+                onTap: _pixivSortTap,
+              ),
+            ],
           ),
           const SizedBox(width: 10),
         ],
@@ -435,13 +434,10 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
                   }
                 },
                 onSecondaryTapDown: (TapDownDetails details) {
-                  showDesktopMenu(
-                    App.globalContext!,
-                    Offset(
-                      details.globalPosition.dx,
-                      details.globalPosition.dy,
-                    ),
-                    _menuList(imageFile),
+                  showContextMenu(
+                    context: App.globalContext!,
+                    globalPosition: details.globalPosition,
+                    items: _menuList(imageFile),
                   );
                 },
                 onLongPress: () {
@@ -511,40 +507,37 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   }
 
   // 右键菜单
-  List<DesktopMenuEntry> _menuList(ImageFile imageFile) {
+  List<PopupMenuEntry<void>> _menuList(ImageFile imageFile) {
     return [
       if (widget.isEnableDelete)
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "删除".tl,
-          onClick: () {
+          icon: Icons.delete_outline,
+          onTap: () {
             _deleteImageFileList([imageFile]);
           },
         ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "选择".tl,
-        onClick: () {
+        icon: Icons.check_box_outlined,
+        onTap: () {
           setState(() {
             _isSelectedMode = true;
           });
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "复制路径",
-        onClick: () {
-          Future.delayed(const Duration(milliseconds: 200), () {
-            var path = imageFile.path;
-            Clipboard.setData(ClipboardData(text: path));
-          });
+        icon: Icons.content_copy,
+        onTap: () {
+          Clipboard.setData(ClipboardData(text: imageFile.path));
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "打开文件",
-        onClick: () {
+        icon: Icons.open_in_new,
+        onTap: () {
           OpenFile.open(imageFile.path);
-          // Future.delayed(const Duration(milliseconds: 100), () {
-          //   var path = imagePath;
-          //   Clipboard.setData(ClipboardData(text: path));
-          // });
         },
       ),
     ];

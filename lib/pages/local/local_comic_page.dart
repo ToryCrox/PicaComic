@@ -297,29 +297,34 @@ class _LocalComicPageState extends State<LocalComicPage> {
   ) {
     if (details == null) return;
     final parentPath = widget.parentPath;
-    showDesktopMenu(App.globalContext!, details.globalPosition, [
-      DesktopMenuEntry(
-        text: "查看详情".tl,
-        onClick: () async {
-          App.globalTo(
-            () => LocalThumbsPage(
-              dirPath: model.path,
-              allDirPaths: _localComics.map((e) => e.path).toList(),
-            ),
-          );
-        },
-      ),
-      DesktopMenuEntry(
-        text: "清除历史记录".tl,
-        onClick: () async {
-          await LocalHistoryManager().remove(model.path);
-          _loadLocalComics();
-        },
-      ),
-      DesktopMenuEntry(
-        text: "删除".tl,
-        onClick: () {
-          Future.delayed(const Duration(milliseconds: 0), () {
+    showContextMenu(
+      context: App.globalContext!,
+      globalPosition: details.globalPosition,
+      items: [
+        popupMenuItem(
+          text: "查看详情".tl,
+          icon: Icons.info_outline,
+          onTap: () {
+            App.globalTo(
+              () => LocalThumbsPage(
+                dirPath: model.path,
+                allDirPaths: _localComics.map((e) => e.path).toList(),
+              ),
+            );
+          },
+        ),
+        popupMenuItem(
+          text: "清除历史记录".tl,
+          icon: Icons.history_toggle_off,
+          onTap: () async {
+            await LocalHistoryManager().remove(model.path);
+            _loadLocalComics();
+          },
+        ),
+        popupMenuItem(
+          text: "删除".tl,
+          icon: Icons.delete_outline,
+          onTap: () {
             showDialog(
               context: App.globalContext!,
               builder: (context) => AlertDialog(
@@ -352,10 +357,10 @@ class _LocalComicPageState extends State<LocalComicPage> {
                 ],
               ),
             );
-          });
-        },
-      ),
-    ]);
+          },
+        ),
+      ],
+    );
   }
 }
 

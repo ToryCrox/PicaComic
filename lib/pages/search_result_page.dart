@@ -185,9 +185,25 @@ class _SearchResultPageState extends State<_SearchResultPage> {
   Widget build(BuildContext context) {
     Widget trailing;
     if (context.width < 400) {
-      trailing = Button.icon(
+      trailing = PopupMenuButton<int>(
+        tooltip: "更多".tl,
+        position: PopupMenuPosition.under,
         icon: const Icon(Icons.more_horiz),
-        onPressed: more,
+        itemBuilder: (_) => [
+          popupMenuItem<int>(
+            value: 0,
+            text: "切换源".tl,
+            icon: Icons.source_outlined,
+          ),
+          popupMenuItem<int>(value: 1, text: "搜索选项".tl, icon: Icons.tune),
+        ],
+        onSelected: (value) {
+          if (value == 0) {
+            changeSource();
+          } else if (value == 1) {
+            showSearchOptions();
+          }
+        },
       );
     } else {
       trailing = Row(
@@ -269,30 +285,6 @@ class _SearchResultPageState extends State<_SearchResultPage> {
         ),
       ),
     );
-  }
-
-  void more() {
-    showMenu(
-      context: context,
-      elevation: 2,
-      color: context.colorScheme.surface,
-      position: RelativeRect.fromLTRB(
-        MediaQuery.of(context).size.width - 48,
-        56,
-        0,
-        0,
-      ),
-      items: [
-        PopupMenuItem(value: 0, child: Text("切换源".tl)),
-        PopupMenuItem(value: 1, child: Text("搜索选项".tl)),
-      ],
-    ).then((value) {
-      if (value == 0) {
-        changeSource();
-      } else if (value == 1) {
-        showSearchOptions();
-      }
-    });
   }
 
   void changeSource() {

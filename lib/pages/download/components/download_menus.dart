@@ -74,7 +74,7 @@ void showDownloadBatchResultToast(
 }
 
 /// 显示选择模式菜单
-void showSelectingMenu({
+List<PopupMenuEntry<void>> buildSelectingMenuItems({
   required BuildContext context,
   required WidgetRef ref,
   required String pageId,
@@ -84,163 +84,152 @@ void showSelectingMenu({
   required VoidCallback onRefreshTags,
   required VoidCallback onExitSelecting,
 }) {
-  showMenu(
-    context: context,
-    position: RelativeRect.fromLTRB(
-      MediaQuery.of(context).size.width - 60,
-      50,
-      MediaQuery.of(context).size.width - 60,
-      50,
+  return [
+    popupMenuItem<void>(
+      text: "全选".tl,
+      icon: Icons.select_all,
+      onTap: () {
+        final allComics = ref.read(filteredComicsProvider(pageId));
+        allComics.whenData((comics) {
+          selectAll(ref, pageId, comics.map((e) => e.id).toList());
+        });
+      },
     ),
-    items: [
-      PopupMenuItem(
-        child: Text("全选".tl),
-        onTap: () {
-          final allComics = ref.read(filteredComicsProvider(pageId));
-          allComics.whenData((comics) {
-            selectAll(ref, pageId, comics.map((e) => e.id).toList());
-          });
-        },
-      ),
-      PopupMenuItem(
-        child: Text("删除".tl),
-        onTap: () {
-          if (selectedComics.isEmpty) return;
-          Future.delayed(const Duration(milliseconds: 200), () {
-            showDialog(
-              context: App.globalContext!,
-              builder: (context) => AlertDialog(
-                title: Text("确认删除".tl),
-                content: Text(
-                  "${"确认删除".tl} ${selectedComics.length} ${"项".tl}?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text("取消".tl),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await downloadManager.delete(
-                        selectedComics.map((e) => e.id).toList(),
-                      );
-                      onExitSelecting();
-                      onRefresh();
-                    },
-                    child: Text("确认".tl),
-                  ),
-                ],
-              ),
-            );
-          });
-        },
-      ),
-      PopupMenuItem(
-        child: Text("重新下载".tl),
-        onTap: () =>
-            Future.delayed(const Duration(milliseconds: 200), () async {
-              final result = await downloadManager.redownloadComics(
-                selectedComics,
-              );
-              showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
-              if (result.successCount > 0) {
-                onExitSelecting();
-                onRefresh();
-              }
-            }),
-      ),
-      PopupMenuItem(
-        child: Text("更新封面".tl),
-        onTap: () =>
-            Future.delayed(const Duration(milliseconds: 200), () async {
-              final result = await downloadManager.refreshComicCovers(
-                selectedComics,
-              );
-              showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
-              if (result.successCount > 0) {
-                onExitSelecting();
-                onRefresh();
-              }
-            }),
-      ),
-      PopupMenuItem(
-        child: Text("管理标签".tl),
-        onTap: () =>
-            Future.delayed(const Duration(milliseconds: 200), () async {
-              final suggestedTags = [
-                ...selectedComics.map((e) => e.name),
-                ...selectedComics.map((e) => e.subTitle),
-                ...selectedComics.expand((e) => getOriginalTags(e)),
-              ];
-
-              final result = await showDialog<bool>(
-                context: App.globalContext!,
-                builder: (context) => TagAssignmentDialog(
-                  comicIds: selectedComics.map((e) => e.id).toList(),
-                  suggestedTags: suggestedTags,
-                ),
-              );
-              if (result == true) {
-                onExitSelecting();
-                onRefreshTags();
-              }
-            }),
-      ),
-      PopupMenuItem(
-        child: Text("重命名下载目录".tl),
-        onTap: () =>
-            Future.delayed(const Duration(milliseconds: 200), () async {
-              await showDialog(
-                context: App.globalContext!,
-                builder: (context) => RenameDownloadDialog(
-                  comics: selectedComics,
-                  onComplete: () {
-                    onExitSelecting();
-                    onRefresh();
-                  },
-                ),
-              );
-            }),
-      ),
-      PopupMenuItem(
-        child: Text("查看漫画详情".tl),
-        onTap: () => Future.delayed(const Duration(milliseconds: 200), () {
-          if (selectedComics.length != 1) {
-            showToast(message: "请选择一个漫画".tl);
-          } else {
-            toComicInfoPage(selectedComics.first);
-          }
-        }),
-      ),
-      PopupMenuItem(
-        child: Text("更新漫画文件大小".tl),
-        onTap: () =>
-            Future.delayed(const Duration(milliseconds: 200), () async {
-              await showDialog(
-                context: App.globalContext!,
-                builder: (context) => UpdateSizeDialog(
-                  comics: selectedComics,
-                  onComplete: () {
-                    onExitSelecting();
-                    onRefresh();
-                  },
-                ),
-              );
-            }),
-      ),
-      PopupMenuItem(
-        child: Text("添加至本地收藏".tl),
-        onTap: () => Future.delayed(
-          const Duration(milliseconds: 200),
-          () => addToLocalFavoriteFolder(
+    popupMenuItem<void>(
+      text: "删除".tl,
+      icon: Icons.delete_outline,
+      onTap: () {
+        if (selectedComics.isEmpty) return;
+        Future.delayed(const Duration(milliseconds: 200), () {
+          showDialog(
             context: App.globalContext!,
-            comics: selectedComics,
+            builder: (context) => AlertDialog(
+              title: Text("确认删除".tl),
+              content: Text("${"确认删除".tl} ${selectedComics.length} ${"项".tl}?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("取消".tl),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await downloadManager.delete(
+                      selectedComics.map((e) => e.id).toList(),
+                    );
+                    onExitSelecting();
+                    onRefresh();
+                  },
+                  child: Text("确认".tl),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    ),
+    popupMenuItem<void>(
+      text: "重新下载".tl,
+      icon: Icons.download,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        final result = await downloadManager.redownloadComics(selectedComics);
+        showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
+        if (result.successCount > 0) {
+          onExitSelecting();
+          onRefresh();
+        }
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "更新封面".tl,
+      icon: Icons.refresh,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        final result = await downloadManager.refreshComicCovers(selectedComics);
+        showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
+        if (result.successCount > 0) {
+          onExitSelecting();
+          onRefresh();
+        }
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "管理标签".tl,
+      icon: Icons.label_outline,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        final suggestedTags = [
+          ...selectedComics.map((e) => e.name),
+          ...selectedComics.map((e) => e.subTitle),
+          ...selectedComics.expand((e) => getOriginalTags(e)),
+        ];
+
+        final result = await showDialog<bool>(
+          context: App.globalContext!,
+          builder: (context) => TagAssignmentDialog(
+            comicIds: selectedComics.map((e) => e.id).toList(),
+            suggestedTags: suggestedTags,
           ),
+        );
+        if (result == true) {
+          onExitSelecting();
+          onRefreshTags();
+        }
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "重命名下载目录".tl,
+      icon: Icons.drive_file_rename_outline,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        await showDialog(
+          context: App.globalContext!,
+          builder: (context) => RenameDownloadDialog(
+            comics: selectedComics,
+            onComplete: () {
+              onExitSelecting();
+              onRefresh();
+            },
+          ),
+        );
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "查看漫画详情".tl,
+      icon: Icons.info_outline,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () {
+        if (selectedComics.length != 1) {
+          showToast(message: "请选择一个漫画".tl);
+        } else {
+          toComicInfoPage(selectedComics.first);
+        }
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "更新漫画文件大小".tl,
+      icon: Icons.data_usage,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        await showDialog(
+          context: App.globalContext!,
+          builder: (context) => UpdateSizeDialog(
+            comics: selectedComics,
+            onComplete: () {
+              onExitSelecting();
+              onRefresh();
+            },
+          ),
+        );
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "添加至本地收藏".tl,
+      icon: Icons.favorite_border,
+      onTap: () => Future.delayed(
+        const Duration(milliseconds: 200),
+        () => addToLocalFavoriteFolder(
+          context: App.globalContext!,
+          comics: selectedComics,
         ),
       ),
-    ],
-  );
+    ),
+  ];
 }
 
 /// 构建漫画排序下拉菜单。
@@ -261,26 +250,34 @@ Widget buildComicSortMenuAnchor({required VoidCallback onChanged}) {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Text("漫画排序模式".tl),
       ),
-      ...["时间", "漫画名", "作者名", "大小"].tl.asMap().entries.map((entry) {
+      ...[
+        ("时间", Icons.schedule_outlined),
+        ("漫画名", Icons.title),
+        ("作者名", Icons.person_outline),
+        ("大小", Icons.data_usage),
+      ].asMap().entries.map((entry) {
         final value = entry.key.toString();
         return MenuItemButton(
-          leadingIcon: currentSortType == value
+          leadingIcon: Icon(entry.value.$2),
+          trailingIcon: currentSortType == value
               ? const Icon(Icons.check)
               : const SizedBox(width: 24),
           onPressed: () => updateSetting(0, value),
-          child: Text(entry.value),
+          child: Text(entry.value.$1.tl),
         );
       }),
       const Divider(height: 1),
       MenuItemButton(
-        leadingIcon: isAscending
+        leadingIcon: const Icon(Icons.arrow_upward),
+        trailingIcon: isAscending
             ? const Icon(Icons.check)
             : const SizedBox(width: 24),
         onPressed: () => updateSetting(1, "1"),
         child: Text("正序".tl),
       ),
       MenuItemButton(
-        leadingIcon: !isAscending
+        leadingIcon: const Icon(Icons.arrow_downward),
+        trailingIcon: !isAscending
             ? const Icon(Icons.check)
             : const SizedBox(width: 24),
         onPressed: () => updateSetting(1, "0"),
@@ -306,82 +303,76 @@ Widget buildComicSortMenuAnchor({required VoidCallback onChanged}) {
 }
 
 /// 显示下载类型筛选菜单
-void showDownloadTypeFilterMenu({
-  required BuildContext buttonContext,
+List<PopupMenuEntry<DownloadType?>> buildDownloadTypeFilterMenuItems({
   required WidgetRef ref,
   required String pageId,
 }) {
-  final RenderBox? renderBox = buttonContext.findRenderObject() as RenderBox?;
-  if (renderBox == null) return;
-
-  final Offset offset = renderBox.localToGlobal(Offset.zero);
-  final Size buttonSize = renderBox.size;
-  final Size screenSize = MediaQuery.of(App.globalContext!).size;
   final pageState = ref.read(downloadPageStateProvider(pageId));
 
-  showMenu<DownloadType?>(
-    context: App.globalContext!,
-    position: RelativeRect.fromLTRB(
-      offset.dx,
-      offset.dy + buttonSize.height,
-      screenSize.width - offset.dx - buttonSize.width,
-      screenSize.height - offset.dy - buttonSize.height,
-    ),
-    items: [
-      PopupMenuItem<DownloadType?>(
-        value: null,
-        child: Row(
-          children: [
-            if (pageState.downloadTypeFilter == null && !pageState.excludeLocal)
-              const Icon(Icons.check, size: 20),
-            const SizedBox(width: 8),
-            Text("全部".tl),
-          ],
-        ),
-        onTap: () {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            updateDownloadTypeFilter(ref, pageId, null);
-            updateExcludeLocal(ref, pageId, false);
-          });
-        },
-      ),
-      PopupMenuItem<DownloadType?>(
-        child: Row(
-          children: [
-            if (pageState.excludeLocal) const Icon(Icons.check, size: 20),
-            if (!pageState.excludeLocal) const SizedBox(width: 28),
-            Text("非本地".tl),
-          ],
-        ),
-        onTap: () {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            updateExcludeLocal(ref, pageId, !pageState.excludeLocal);
-          });
-        },
-      ),
-      const PopupMenuDivider(),
-      ...DownloadType.values.map((type) {
-        final typeName = getDownloadTypeName(type);
-        return PopupMenuItem<DownloadType?>(
-          value: type,
-          child: Row(
-            children: [
-              if (pageState.downloadTypeFilter == type)
-                const Icon(Icons.check, size: 20),
-              if (pageState.downloadTypeFilter != type)
-                const SizedBox(width: 28),
-              Text(typeName),
-            ],
+  return [
+    PopupMenuItem<DownloadType?>(
+      value: null,
+      child: Row(
+        children: [
+          Icon(
+            pageState.downloadTypeFilter == null && !pageState.excludeLocal
+                ? Icons.check
+                : Icons.select_all,
+            size: 20,
           ),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              updateDownloadTypeFilter(ref, pageId, type);
-            });
-          },
-        );
-      }),
-    ],
-  );
+          const SizedBox(width: 12),
+          Text("全部".tl),
+        ],
+      ),
+      onTap: () {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          updateDownloadTypeFilter(ref, pageId, null);
+          updateExcludeLocal(ref, pageId, false);
+        });
+      },
+    ),
+    PopupMenuItem<DownloadType?>(
+      child: Row(
+        children: [
+          Icon(
+            pageState.excludeLocal ? Icons.check : Icons.public_off,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Text("非本地".tl),
+        ],
+      ),
+      onTap: () {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          updateExcludeLocal(ref, pageId, !pageState.excludeLocal);
+        });
+      },
+    ),
+    const PopupMenuDivider(),
+    ...DownloadType.values.map((type) {
+      final typeName = getDownloadTypeName(type);
+      return PopupMenuItem<DownloadType?>(
+        value: type,
+        child: Row(
+          children: [
+            Icon(
+              pageState.downloadTypeFilter == type
+                  ? Icons.check
+                  : Icons.category_outlined,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(typeName),
+          ],
+        ),
+        onTap: () {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            updateDownloadTypeFilter(ref, pageId, type);
+          });
+        },
+      );
+    }),
+  ];
 }
 
 /// 显示右键菜单
@@ -409,15 +400,15 @@ Future<void> showTileContextMenu({
           translationResultRootDirectory: translationResultRootDirectory,
           scanLegacyResultDirectories: true,
         );
-  showDesktopMenu(
-    App.globalContext!,
-    Offset(details.globalPosition.dx, details.globalPosition.dy),
-    [
+  showContextMenu(
+    context: App.globalContext!,
+    globalPosition: details.globalPosition,
+    items: [
       if (hasTranslationResult)
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: isBatch ? '应用选中翻译结果（${targetComics.length}）' : '应用翻译结果'.tl,
           icon: Icons.translate,
-          onClick: () async {
+          onTap: () async {
             await Future<void>.delayed(const Duration(milliseconds: 300));
             if (!context.mounted) return;
             await TranslationResultReplaceDialog.show(
@@ -429,24 +420,27 @@ Future<void> showTileContextMenu({
             );
           },
         ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "阅读".tl,
-        onClick: () async {
+        icon: Icons.menu_book_outlined,
+        onTap: () async {
           comic.read();
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "图片列表".tl,
-        onClick: () async {
+        icon: Icons.photo_library_outlined,
+        onTap: () async {
           if (onShowImageList != null) {
             onShowImageList();
           }
         },
       ),
       if (downloadManager.canRedownload(comic))
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "重新下载".tl,
-          onClick: () async {
+          icon: Icons.download,
+          onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
             final result = await downloadManager.redownloadComics([comic]);
             showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
@@ -456,9 +450,10 @@ Future<void> showTileContextMenu({
           },
         ),
       if (downloadManager.canRefreshCover(comic))
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "更新封面".tl,
-          onClick: () async {
+          icon: Icons.refresh,
+          onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
             final result = await downloadManager.refreshComicCovers([comic]);
             showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
@@ -468,44 +463,49 @@ Future<void> showTileContextMenu({
           },
         ),
       if (comic.downloadedEps.isNotEmpty)
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "查看章节".tl,
-          onClick: () async {
+          icon: Icons.list_alt,
+          onTap: () async {
             Future.delayed(const Duration(milliseconds: 300), () {
               onShowInfo();
             });
           },
         ),
       if (comic.type != DownloadType.local)
-        DesktopMenuEntry(
+        popupMenuItem<void>(
           text: "删除".tl,
-          onClick: () {
+          icon: Icons.delete_outline,
+          onTap: () {
             showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
               downloadManager.delete([comic.id]);
               onRemoveComic();
             });
           },
         ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "删除(不包括文件)".tl,
-        onClick: () {
+        icon: Icons.delete_sweep_outlined,
+        onTap: () {
           showConfirmDialog(context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl, () {
             downloadManager.deleteWithoutFile([comic.id]);
             onRemoveComic();
           });
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "查看漫画详情".tl,
-        onClick: () {
+        icon: Icons.info_outline,
+        onTap: () {
           Future.delayed(const Duration(milliseconds: 300), () {
             toComicInfoPage(comic);
           });
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "更新文件大小".tl,
-        onClick: () async {
+        icon: Icons.data_usage,
+        onTap: () async {
           await Future.delayed(const Duration(milliseconds: 300));
           await showDialog(
             context: context,
@@ -514,9 +514,10 @@ Future<void> showTileContextMenu({
           );
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "管理标签".tl,
-        onClick: () async {
+        icon: Icons.label_outline,
+        onTap: () async {
           await Future.delayed(const Duration(milliseconds: 300));
           final suggestedTags = [
             comic.name,
@@ -535,18 +536,20 @@ Future<void> showTileContextMenu({
           }
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "复制路径".tl,
-        onClick: () async {
+        icon: Icons.content_copy,
+        onTap: () async {
           Future.delayed(const Duration(milliseconds: 300), () async {
             var path = await downloadManager.getFullDirectory(comic.id);
             Clipboard.setData(ClipboardData(text: path));
           });
         },
       ),
-      DesktopMenuEntry(
+      popupMenuItem<void>(
         text: "打开文件".tl,
-        onClick: () async {
+        icon: Icons.folder_open,
+        onTap: () async {
           var path = await downloadManager.getFullDirectory(comic.id);
           FileUtils.openFileOrDirectory(path);
         },
@@ -727,38 +730,27 @@ List<Widget> buildAppBarActions({
         ),
       ),
     if (!isSelecting)
-      Builder(
-        builder: (buttonContext) => Tooltip(
-          message: "类型筛选".tl,
-          child: IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              showDownloadTypeFilterMenu(
-                buttonContext: buttonContext,
-                ref: ref,
-                pageId: pageId,
-              );
-            },
-          ),
-        ),
+      PopupMenuButton<DownloadType?>(
+        tooltip: "类型筛选".tl,
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.filter_list),
+        itemBuilder: (_) =>
+            buildDownloadTypeFilterMenuItems(ref: ref, pageId: pageId),
       )
     else if (isSelecting)
-      Tooltip(
-        message: "更多".tl,
-        child: IconButton(
-          icon: const Icon(Icons.more_horiz),
-          onPressed: () {
-            showSelectingMenu(
-              context: context,
-              ref: ref,
-              pageId: pageId,
-              selectedComics: selectedComics,
-              getOriginalTags: getOriginalTags,
-              onRefresh: onRefresh,
-              onRefreshTags: onRefreshTags,
-              onExitSelecting: onExitSelecting,
-            );
-          },
+      PopupMenuButton<void>(
+        tooltip: "更多".tl,
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_horiz),
+        itemBuilder: (_) => buildSelectingMenuItems(
+          context: context,
+          ref: ref,
+          pageId: pageId,
+          selectedComics: selectedComics,
+          getOriginalTags: getOriginalTags,
+          onRefresh: onRefresh,
+          onRefreshTags: onRefreshTags,
+          onExitSelecting: onExitSelecting,
         ),
       ),
     if (!isSelecting)

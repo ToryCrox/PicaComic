@@ -118,54 +118,43 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     );
   }
 
-  void multiSelectedMenu() {
-    final size = MediaQuery.of(App.globalContext!).size;
-    showMenu(
-      context: App.globalContext!,
-      position: RelativeRect.fromLTRB(size.width, 0, 0, size.height),
-      items: [
-        PopupMenuItem(
-          child: Text("删除".tl),
-          onTap: () {
-            for (var comic in controller.selectedComics) {
-              LocalFavoritesManager().deleteComic(controller.current!, comic);
-            }
-            controller.selectedComics.clear();
-            controller.update();
-          },
+  List<PopupMenuEntry<void>> _buildMultiSelectedMenuItems() {
+    return [
+      popupMenuItem(
+        text: "删除".tl,
+        icon: Icons.delete_outline,
+        onTap: () {
+          for (var comic in controller.selectedComics) {
+            LocalFavoritesManager().deleteComic(controller.current!, comic);
+          }
+          controller.selectedComics.clear();
+          controller.update();
+        },
+      ),
+      popupMenuItem(
+        text: "复制到".tl,
+        icon: Icons.drive_file_move_outlined,
+        onTap: () => copyAllTo(controller.current!, controller.selectedComics),
+      ),
+      popupMenuItem(
+        text: "下载".tl,
+        icon: Icons.download,
+        onTap: () {
+          for (var comic in controller.selectedComics) {
+            downloadManager.addFavoriteDownload(comic);
+          }
+          showToast(message: "已添加下载任务".tl);
+        },
+      ),
+      popupMenuItem(
+        text: "更新漫画信息".tl,
+        icon: Icons.sync,
+        onTap: () => UpdateFavoritesInfoDialog.show(
+          controller.selectedComics,
+          controller.current!,
         ),
-        PopupMenuItem(
-          child: Text("复制到".tl),
-          onTap: () {
-            Future.delayed(
-              const Duration(milliseconds: 200),
-              () => copyAllTo(controller.current!, controller.selectedComics),
-            );
-          },
-        ),
-        PopupMenuItem(
-          child: Text("下载".tl),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 200), () {
-              var comics = controller.selectedComics;
-              for (var comic in comics) {
-                downloadManager.addFavoriteDownload(comic);
-              }
-              showToast(message: "已添加下载任务".tl);
-            });
-          },
-        ),
-        PopupMenuItem(
-          child: Text("更新漫画信息".tl),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 200), () {
-              var comics = controller.selectedComics;
-              UpdateFavoritesInfoDialog.show(comics, controller.current!);
-            });
-          },
-        ),
-      ],
-    );
+      ),
+    ];
   }
 
   Widget buildTopBar(BuildContext context) {
@@ -212,21 +201,25 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                     },
                   ),
                 ),
-                Tooltip(
-                  message: "菜单".tl,
-                  child: IconButton(
-                    icon: const Icon(Icons.more_horiz),
-                    onPressed: () {
-                      if (controller.selectedComics.length == 1) {
+                if (controller.selectedComics.length == 1)
+                  Tooltip(
+                    message: "菜单".tl,
+                    child: IconButton(
+                      icon: const Icon(Icons.more_horiz),
+                      onPressed: () {
                         controller
                             .openComicMenuFuncs[controller.selectedComics[0]]
                             ?.call();
-                      } else {
-                        multiSelectedMenu();
-                      }
-                    },
+                      },
+                    ),
+                  )
+                else
+                  PopupMenuButton<void>(
+                    tooltip: "菜单".tl,
+                    position: PopupMenuPosition.under,
+                    icon: const Icon(Icons.more_horiz),
+                    itemBuilder: (_) => _buildMultiSelectedMenuItems(),
                   ),
-                ),
               ],
             ).paddingHorizontal(16),
           ),
@@ -383,7 +376,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                   appdata.writeImplicitData();
                 },
                 onSecondaryTapUp: (details) =>
-                    _showDesktopMenu(data, details.globalPosition),
+                    _showMenu(data, details.globalPosition),
                 borderRadius: BorderRadius.circular(8),
                 child: Row(
                   children: [
@@ -520,123 +513,66 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   }
 
   void _showMenu(String folder, Offset location) {
-    showMenu(
+    showContextMenu(
       context: App.globalContext!,
-      position: RelativeRect.fromLTRB(
-        location.dx,
-        location.dy,
-        location.dx,
-        location.dy,
-      ),
       items: [
-        PopupMenuItem(
-          child: Text("删除".tl),
+        popupMenuItem(
+          text: "删除".tl,
+          icon: Icons.delete_outline,
           onTap: () {
-            App.globalBack();
             deleteFolder(folder);
           },
         ),
-        PopupMenuItem(
-          child: Text("排序".tl),
+        popupMenuItem(
+          text: "排序".tl,
+          icon: Icons.sort,
           onTap: () {
-            App.globalBack();
             App.globalTo(
               () => LocalFavoritesFolder(folder),
             ).then((value) => controller.update());
           },
         ),
-        PopupMenuItem(
-          child: Text("重命名".tl),
+        popupMenuItem(
+          text: "重命名".tl,
+          icon: Icons.drive_file_rename_outline,
           onTap: () {
-            App.globalBack();
             rename(folder);
           },
         ),
-        PopupMenuItem(
-          child: Text("检查漫画存活".tl),
+        popupMenuItem(
+          text: "检查漫画存活".tl,
+          icon: Icons.fact_check_outlined,
           onTap: () {
-            App.globalBack();
             checkFolder(folder).then((value) {
               controller.update();
             });
           },
         ),
-        PopupMenuItem(
-          child: Text("导出".tl),
+        popupMenuItem(
+          text: "导出".tl,
+          icon: Icons.file_upload_outlined,
           onTap: () {
-            App.globalBack();
             export(folder);
           },
         ),
-        PopupMenuItem(
-          child: Text("下载全部".tl),
+        popupMenuItem(
+          text: "下载全部".tl,
+          icon: Icons.download,
           onTap: () {
-            App.globalBack();
             addDownload(folder);
           },
         ),
-        PopupMenuItem(
-          child: Text("更新漫画信息".tl),
+        popupMenuItem(
+          text: "更新漫画信息".tl,
+          icon: Icons.sync,
           onTap: () async {
-            App.globalBack();
             var comics = await LocalFavoritesManager().getAllComics(folder);
             UpdateFavoritesInfoDialog.show(comics, folder);
           },
         ),
       ],
+      globalPosition: location,
     );
-  }
-
-  void _showDesktopMenu(String folder, Offset location) {
-    showDesktopMenu(App.globalContext!, location, [
-      DesktopMenuEntry(
-        text: "删除".tl,
-        onClick: () {
-          deleteFolder(folder);
-        },
-      ),
-      DesktopMenuEntry(
-        text: "排序".tl,
-        onClick: () {
-          App.globalTo(
-            () => LocalFavoritesFolder(folder),
-          ).then((value) => controller.update());
-        },
-      ),
-      DesktopMenuEntry(
-        text: "重命名".tl,
-        onClick: () {
-          rename(folder);
-        },
-      ),
-      DesktopMenuEntry(
-        text: "检查漫画存活".tl,
-        onClick: () {
-          checkFolder(folder).then((value) {
-            controller.update();
-          });
-        },
-      ),
-      DesktopMenuEntry(
-        text: "导出".tl,
-        onClick: () {
-          export(folder);
-        },
-      ),
-      DesktopMenuEntry(
-        text: "下载全部".tl,
-        onClick: () {
-          addDownload(folder);
-        },
-      ),
-      DesktopMenuEntry(
-        text: "更新漫画信息".tl,
-        onClick: () async {
-          var comics = await LocalFavoritesManager().getAllComics(folder);
-          UpdateFavoritesInfoDialog.show(comics, folder);
-        },
-      ),
-    ]);
   }
 }
 
