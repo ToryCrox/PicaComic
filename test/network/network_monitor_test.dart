@@ -149,4 +149,79 @@ void main() {
     expect(fallback.fallback, 'http1');
     expect(unknown.displayText, 'Unknown · 未知');
   });
+
+  test('网络日志可以分类、关联图片路径并合并分片', () {
+    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
+    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    addTearDown(
+      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+    );
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(networkLogControllerProvider.notifier);
+
+    NetworkLogRequestToken addImagePart(String path) {
+      final options = RequestOptions(
+        method: 'GET',
+        path: path,
+        extra: const {
+          networkRequestKindExtraKey: 'image',
+          networkTransferIdExtraKey: 'download-1',
+        },
+      );
+      final token = controller.beginRequest(options)!;
+      controller.completeResponse(
+        token,
+        Response<List<int>>(
+          requestOptions: options,
+          statusCode: 206,
+          data: List<int>.filled(4, 1),
+          headers: Headers.fromMap(const {
+            'content-type': ['image/jpeg'],
+          }),
+        ),
+      );
+      return token;
+    }
+
+    addImagePart('https://example.com/image');
+    addImagePart('https://example.com/image');
+    controller.reportArtifactReady(
+      transferId: 'download-1',
+      path: 'C:/cache/image.jpg',
+      source: NetworkArtifactSource.download,
+    );
+    controller.setRequestKindFilter(NetworkRequestKind.image);
+
+    final entries = container.read(networkLogEntriesProvider);
+    expect(entries, hasLength(1));
+    expect(entries.single.isGrouped, isTrue);
+    expect(entries.single.logs, hasLength(2));
+    expect(entries.single.artifactPath, 'C:/cache/image.jpg');
+    expect(entries.single.requestKind, NetworkRequestKind.image);
+    expect(entries.single.byteLength, 8);
+    expect(entries.single.protocolDisplayText, 'Unknown · 未知');
+  });
+
+  test('请求类型根据响应 Content-Type 兜底分类', () {
+    expect(
+      classifyNetworkResponse(
+        contentType: 'text/html; charset=utf-8',
+        url: Uri.parse('https://example.com/page'),
+      ),
+      NetworkRequestKind.html,
+    );
+    expect(
+      classifyNetworkResponse(
+        contentType: 'application/json',
+        url: Uri.parse('https://example.com/data'),
+      ),
+      NetworkRequestKind.api,
+    );
+    expect(
+      inferNetworkRequestKind(Uri.parse('https://example.com/a.webp')),
+      NetworkRequestKind.image,
+    );
+  });
 }

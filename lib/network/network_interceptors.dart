@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,7 +8,6 @@ import 'network_log.dart';
 import 'network_speed_monitor.dart';
 
 const _speedRequestIdKey = '__pica_network_speed_request_id__';
-const _networkLogTokenKey = '__pica_network_log_token__';
 
 /// 统计 Dio 请求产生的上传和下载流量。
 class NetworkSpeedInterceptor extends Interceptor {
@@ -88,16 +88,25 @@ class NetworkLogInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final zoneTransferId = Zone.current[networkTelemetryTransferZoneKey];
+    if (options.extra[networkTransferIdExtraKey] == null &&
+        zoneTransferId != null) {
+      options.extra[networkTransferIdExtraKey] = zoneTransferId.toString();
+    }
+    final zoneKind = Zone.current[networkTelemetryKindZoneKey];
+    if (options.extra[networkRequestKindExtraKey] == null && zoneKind != null) {
+      options.extra[networkRequestKindExtraKey] = zoneKind.toString();
+    }
     final token = sink.beginRequest(options);
     if (token != null) {
-      options.extra[_networkLogTokenKey] = token;
+      options.extra[networkLogTokenExtraKey] = token;
     }
     handler.next(options);
   }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    final token = response.requestOptions.extra[_networkLogTokenKey];
+    final token = response.requestOptions.extra[networkLogTokenExtraKey];
     if (token is NetworkLogRequestToken) {
       sink.completeResponse(token, response);
     }
@@ -106,7 +115,7 @@ class NetworkLogInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final token = err.requestOptions.extra[_networkLogTokenKey];
+    final token = err.requestOptions.extra[networkLogTokenExtraKey];
     if (token is NetworkLogRequestToken) {
       sink.failRequest(token, err);
     }

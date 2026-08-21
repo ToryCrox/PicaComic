@@ -10,6 +10,8 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart' show FileInfo;
 import 'package:pica_comic/foundation/pica_image_manager.dart';
+import 'package:pica_comic/network/network_log.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
@@ -335,10 +337,12 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   Future<void> _downloadImageWrapper(ImageDownloadQueueItem item) async {
     // 创建下载包装器，使用 downloadImageWithContext 替代直接调用 downloadImage
     // 这样可以将图片的上下文信息（章节索引等）安全地传递给子类，避免并发时的竞态条件
+    final transferId = 'image:$id:${item.episodeIndex}:${item.imageIndex}';
     final wrapper = _ImageDownloadWrapper(
       () => downloadImageWithContext(item),
       item.savePath,
       item.fileBaseName,
+      transferId,
       onData,
       null, // 不需要完成回调，由队列管理
     );
@@ -700,6 +704,8 @@ class _ImageDownloadWrapper {
 
   final String fileBaseName;
 
+  final String transferId;
+
   final void Function(int length)? onReceiveData;
 
   final void Function()? onFinished;
@@ -718,6 +724,7 @@ class _ImageDownloadWrapper {
     this.streamCreator,
     this.path,
     this.fileBaseName,
+    this.transferId,
     this.onReceiveData,
     this.onFinished,
   ) {
@@ -728,6 +735,7 @@ class _ImageDownloadWrapper {
     : streamCreator = null,
       path = "",
       fileBaseName = "",
+      transferId = "",
       onReceiveData = null,
       onFinished = null,
       isFinished = true;
@@ -746,39 +754,51 @@ class _ImageDownloadWrapper {
     }
 
     if (!isFinished) {
-      var stream = streamCreator!();
       try {
-        var last = 0;
-        await for (var progress in stream) {
-          if (_canceled) {
-            for (var c in completers) {
-              c.complete(this);
+        await runNetworkTelemetryContext<Future<void>>(
+          transferId: transferId,
+          requestKind: NetworkRequestKind.image,
+          action: () async {
+            final stream = streamCreator!();
+            var last = 0;
+            await for (var progress in stream) {
+              if (_canceled) {
+                for (var c in completers) {
+                  c.complete(this);
+                }
+                return;
+              }
+              onReceiveData?.call(progress.currentBytes - last);
+              last = progress.currentBytes;
+              if (progress.finished && !isFinished) {
+                var data =
+                    progress.data ?? await progress.getFile().readAsBytes();
+                if (data.isEmpty) {
+                  error = Exception("Download data is empty");
+                  return;
+                }
+                var type = detectFileType(data);
+                var finalFile = File("$path/$fileBaseName${type.ext}");
+                var tmpFile = File("${finalFile.path}.tmp");
+                if (!await tmpFile.parent.exists()) {
+                  await tmpFile.parent.create(recursive: true);
+                }
+                await tmpFile.writeAsBytes(data);
+                await tmpFile.rename(finalFile.path);
+                isFinished = true;
+                NetworkTelemetryBridge.instance.reportArtifactReady(
+                  transferId: transferId,
+                  path: finalFile.path,
+                  source: NetworkArtifactSource.download,
+                );
+                final cachingFile = progress.cachingFile;
+                if (cachingFile != null) {
+                  CacheManager().delete(cachingFile.key);
+                }
+              }
             }
-            return;
-          }
-          onReceiveData?.call(progress.currentBytes - last);
-          last = progress.currentBytes;
-          if (progress.finished && !isFinished) {
-            var data = progress.data ?? await progress.getFile().readAsBytes();
-            if (data.isEmpty) {
-              error = Exception("Download data is empty");
-              return;
-            }
-            var type = detectFileType(data);
-            var finalFile = File("$path/$fileBaseName${type.ext}");
-            var tmpFile = File("${finalFile.path}.tmp");
-            if (!await tmpFile.parent.exists()) {
-              await tmpFile.parent.create(recursive: true);
-            }
-            await tmpFile.writeAsBytes(data);
-            await tmpFile.rename(finalFile.path);
-            isFinished = true;
-            final cachingFile = progress.cachingFile;
-            if (cachingFile != null) {
-              CacheManager().delete(cachingFile.key);
-            }
-          }
-        }
+          },
+        );
       } catch (e) {
         error = e;
       }

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_interceptors.dart';
 import 'package:pica_comic/network/network_telemetry.dart';
 
@@ -84,6 +85,7 @@ class AiClient {
               receiveTimeout: const Duration(seconds: 120),
               sendTimeout: const Duration(seconds: 30),
               responseType: ResponseType.json,
+              extra: const {networkRequestKindExtraKey: 'ai'},
             ),
           )
           ..interceptors.add(NetworkSpeedInterceptor(bridge.speedMonitor))

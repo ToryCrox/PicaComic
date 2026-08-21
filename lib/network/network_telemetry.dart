@@ -28,6 +28,21 @@ class NetworkTelemetryBridge {
     _logSink = logSink;
     _speedMonitor = speedMonitor;
   }
+
+  /// 把网络响应最终生成的文件路径补充到日志。
+  void reportArtifactReady({
+    String? requestId,
+    String? transferId,
+    required String path,
+    required NetworkArtifactSource source,
+  }) {
+    _logSink?.reportArtifactReady(
+      requestId: requestId,
+      transferId: transferId,
+      path: path,
+      source: source,
+    );
+  }
 }
 
 /// 配置应用级网络监控桥接对象。
@@ -52,4 +67,12 @@ class _NoopNetworkLogSink implements NetworkLogSink {
 
   @override
   void failRequest(NetworkLogRequestToken token, DioException error) {}
+
+  @override
+  void reportArtifactReady({
+    String? requestId,
+    String? transferId,
+    required String path,
+    required NetworkArtifactSource source,
+  }) {}
 }

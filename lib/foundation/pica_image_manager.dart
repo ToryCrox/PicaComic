@@ -1,6 +1,8 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/network_log.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:dio/dio.dart';
 import 'dart:io' as io;
 import 'package:pica_comic/foundation/log.dart';
@@ -77,14 +79,29 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
       // 文件不存在，直接报错
       throw Exception('getImageFile file not found: $url');
     }
-    yield* super.getImageFile(
+    final transferId =
+        'image-cache:${DateTime.now().microsecondsSinceEpoch}:$url';
+    final requestHeaders = <String, String>{
+      ...?headers,
+      networkTelemetryTransferHeader: transferId,
+    };
+    await for (final response in super.getImageFile(
       url,
       key: key,
-      headers: headers,
+      headers: requestHeaders,
       withProgress: withProgress,
       maxHeight: maxHeight,
       maxWidth: maxWidth,
-    );
+    )) {
+      if (response is FileInfo && response.source == FileSource.Online) {
+        NetworkTelemetryBridge.instance.reportArtifactReady(
+          transferId: transferId,
+          path: response.file.path,
+          source: NetworkArtifactSource.imageCache,
+        );
+      }
+      yield response;
+    }
   }
 }
 
@@ -138,6 +155,8 @@ class PicaHttpFileService extends FileService {
       final requestMethod = config?.method ?? 'GET';
       final requestHeaders =
           config?.headers ?? Map<String, String>.from(headers ?? {});
+      final transferId =
+          'image-cache:${DateTime.now().microsecondsSinceEpoch}:$url';
 
       // Merge headers if config.headers is not null
       if (config?.headers != null && headers != null) {
@@ -156,6 +175,8 @@ class PicaHttpFileService extends FileService {
       requestHeaders.remove('isThumbnail');
       requestHeaders.remove('comicId');
       requestHeaders.remove('epId');
+      final telemetryTransferId =
+          requestHeaders.remove(networkTelemetryTransferHeader) ?? transferId;
 
       final requestData = config?.data;
 
@@ -169,6 +190,8 @@ class PicaHttpFileService extends FileService {
           extra: {
             NetworkCookieInterceptor.cookieJarKey:
                 SingleInstanceCookieJar.instance!,
+            networkRequestKindExtraKey: 'image',
+            networkTransferIdExtraKey: telemetryTransferId,
           },
         ),
       );

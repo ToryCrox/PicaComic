@@ -2,16 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../network/network_artifact_preview.dart';
 import '../network/network_log.dart';
 
 /// 网络请求详情页面。
 class NetworkLogDetailPage extends ConsumerWidget {
-  const NetworkLogDetailPage({required this.log, super.key});
+  const NetworkLogDetailPage({
+    this.log,
+    this.entry,
+    this.embedded = false,
+    super.key,
+  }) : assert(log != null || entry != null);
 
-  final NetworkLog log;
+  final NetworkLog? log;
+  final NetworkLogEntry? entry;
+  final bool embedded;
 
-  /// 以参考项目的 BottomSheet 样式打开请求详情，占屏幕高度的 90%。
+  NetworkLogEntry get displayEntry =>
+      entry ?? NetworkLogEntry(List<NetworkLog>.unmodifiable([log!]));
+
+  /// 以参考项目的 BottomSheet 样式打开请求详情。
   static Future<void> show(BuildContext context, NetworkLog log) {
+    return showEntry(context, NetworkLogEntry([log]));
+  }
+
+  /// 打开单条或合并后的网络详情。
+  static Future<void> showEntry(BuildContext context, NetworkLogEntry entry) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -24,13 +40,118 @@ class NetworkLogDetailPage extends ConsumerWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         clipBehavior: Clip.antiAliasWithSaveLayer,
-        child: NetworkLogDetailPage(log: log),
+        child: NetworkLogDetailPage(entry: entry),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final displayEntry = this.displayEntry;
+    final primary = displayEntry.primary;
+    final detail = SelectionArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: embedded ? 12 : 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSection(context, '基本信息', [
+              _buildInfoRow('Type', primary.requestKind.label),
+              _buildInfoRow('URL', primary.url),
+              _buildInfoRow('Method', primary.method),
+              _buildInfoRow('Protocol', primary.protocolInfo.displayText),
+              _buildInfoRow('Backend', primary.backend ?? 'Unknown'),
+              if (primary.contentType != null)
+                _buildInfoRow('Content-Type', primary.contentType!),
+              _buildInfoRow(
+                'Status',
+                displayEntry.statusCode?.toString() ?? 'Pending',
+                valueColor: _getStatusColor(displayEntry.statusCode),
+              ),
+              _buildInfoRow('Time', displayEntry.formattedRequestTime),
+              if (displayEntry.duration != null)
+                _buildInfoRow(
+                  'Duration',
+                  '${displayEntry.duration!.inMilliseconds} ms',
+                ),
+              if (displayEntry.byteLength > 0)
+                _buildInfoRow('Size', _formatBytes(displayEntry.byteLength)),
+              if (primary.transferId != null)
+                _buildInfoRow('Transfer ID', primary.transferId!),
+              if (displayEntry.artifactPath != null)
+                _buildInfoRow('File', displayEntry.artifactPath!),
+              if (primary.fallback != null)
+                _buildInfoRow('Fallback', primary.fallback!),
+            ]),
+            if (primary.requestKind == NetworkRequestKind.image &&
+                displayEntry.artifactPath != null)
+              _buildSection(context, '图片预览', [
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 420),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: SizedBox(
+                    height: 360,
+                    child: buildNetworkArtifactPreview(
+                      displayEntry.artifactPath!,
+                    ),
+                  ),
+                ),
+              ]),
+            if (displayEntry.isGrouped)
+              _buildSection(context, '分片请求 (${displayEntry.logs.length})', [
+                ...displayEntry.logs.map(_buildChildRequest),
+              ]),
+            if (primary.error != null)
+              _buildSection(context, '错误信息', [
+                Text(
+                  primary.error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ]),
+            _buildSection(context, '请求头 (Request Headers)', [
+              _buildHeaders(primary.requestHeaders),
+            ]),
+            if (primary.requestBody != null)
+              _buildSection(context, '请求体 (Request Body)', [
+                _buildFormattedBodyView(context, primary.requestBody!),
+              ]),
+            _buildSection(context, '响应头 (Response Headers)', [
+              _buildHeaders(primary.responseHeaders),
+            ]),
+            if (primary.responseBody != null)
+              _buildSection(context, '响应体 (Response Body)', [
+                _buildFormattedBodyView(context, primary.responseBody!),
+              ]),
+          ],
+        ),
+      ),
+    );
+
+    if (embedded) {
+      return Column(
+        children: [
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              displayEntry.isGrouped ? '请求详情 · 分片下载' : '请求详情',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: detail),
+        ],
+      );
+    }
+
     return Column(
       children: [
         AppBar(
@@ -42,58 +163,42 @@ class NetworkLogDetailPage extends ConsumerWidget {
           ),
           elevation: 0,
         ),
-        Expanded(
-          child: SelectionArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSection(context, '基本信息', [
-                    _buildInfoRow('URL', log.url),
-                    _buildInfoRow('Method', log.method),
-                    _buildInfoRow('Protocol', log.protocolInfo.displayText),
-                    _buildInfoRow('Backend', log.backend ?? 'Unknown'),
-                    _buildInfoRow(
-                      'Status',
-                      log.statusCode?.toString() ?? 'Pending',
-                      valueColor: _getStatusColor(log.statusCode),
-                    ),
-                    _buildInfoRow('Time', log.formattedRequestTime),
-                    if (log.duration != null)
-                      _buildInfoRow(
-                        'Duration',
-                        '${log.duration!.inMilliseconds} ms',
-                      ),
-                    if (log.fallback != null)
-                      _buildInfoRow('Fallback', log.fallback!),
-                  ]),
-                  if (log.error != null)
-                    _buildSection(context, '错误信息', [
-                      Text(
-                        log.error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ]),
-                  _buildSection(context, '请求头 (Request Headers)', [
-                    _buildHeaders(log.requestHeaders),
-                  ]),
-                  if (log.requestBody != null)
-                    _buildSection(context, '请求体 (Request Body)', [
-                      _buildFormattedBodyView(context, log.requestBody!),
-                    ]),
-                  _buildSection(context, '响应头 (Response Headers)', [
-                    _buildHeaders(log.responseHeaders),
-                  ]),
-                  if (log.responseBody != null)
-                    _buildSection(context, '响应体 (Response Body)', [
-                      _buildFormattedBodyView(context, log.responseBody!),
-                    ]),
-                ],
+        Expanded(child: detail),
+      ],
+    );
+  }
+
+  Widget _buildChildRequest(NetworkLog child) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 42,
+            child: Text(
+              child.method,
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: Text(
+              '${child.statusCode ?? '-'}  ${child.url}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+          Text(
+            child.protocolInfo.displayText,
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 
@@ -136,7 +241,7 @@ class NetworkLogDetailPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: 84,
             child: Text(
               '$label:',
               style: const TextStyle(
@@ -240,6 +345,12 @@ class NetworkLogDetailPage extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Color _getStatusColor(int? statusCode) {

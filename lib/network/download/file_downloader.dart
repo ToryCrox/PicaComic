@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:pica_comic/tools/extensions.dart';
 
 class FileDownloader {
@@ -10,8 +12,10 @@ class FileDownloader {
   final String savePath;
   final String? proxy;
   final int maxConcurrent;
+  final String transferId;
 
-  FileDownloader(this.url, this.savePath, this.proxy, {this.maxConcurrent = 4});
+  FileDownloader(this.url, this.savePath, this.proxy, {this.maxConcurrent = 4})
+    : transferId = 'file:${DateTime.now().microsecondsSinceEpoch}:$savePath';
 
   int _currentBytes = 0;
 
@@ -69,7 +73,13 @@ class FileDownloader {
   Future<void> _createTasks() async {
     var res = await _dio.head(
       url,
-      options: Options(extra: {'networkProxy': proxy}),
+      options: Options(
+        extra: {
+          'networkProxy': proxy,
+          networkRequestKindExtraKey: 'file',
+          networkTransferIdExtraKey: transferId,
+        },
+      ),
       cancelToken: _cancelToken,
     );
     var length = res.headers["content-length"]?.first;
@@ -123,6 +133,11 @@ class FileDownloader {
       if (_currentBytes >= _fileSize) {
         await _file!.close();
         _file = null;
+        NetworkTelemetryBridge.instance.reportArtifactReady(
+          transferId: transferId,
+          path: savePath,
+          source: NetworkArtifactSource.download,
+        );
         _reportStatus(resultStream);
         resultStream.close();
         return;
@@ -158,6 +173,12 @@ class FileDownloader {
           "but only $_currentBytes bytes downloaded.",
         );
       }
+
+      NetworkTelemetryBridge.instance.reportArtifactReady(
+        transferId: transferId,
+        path: savePath,
+        source: NetworkArtifactSource.download,
+      );
 
       resultStream.add(DownloadingStatus(_currentBytes, _fileSize, 0, true));
       resultStream.close();
@@ -207,7 +228,11 @@ class FileDownloader {
         "Accept-Encoding": "deflate, gzip",
       },
       preserveHeaderCase: true,
-      extra: {'networkProxy': proxy},
+      extra: {
+        'networkProxy': proxy,
+        networkRequestKindExtraKey: 'file',
+        networkTransferIdExtraKey: transferId,
+      },
     );
     var res = await _dio.get<ResponseBody>(
       url,

@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../foundation/app.dart';
+import '../network/network_artifact_preview.dart';
 import '../network/network_log.dart';
 import 'network_log_detail_page.dart';
 
@@ -8,8 +12,24 @@ import 'network_log_detail_page.dart';
 class NetworkLogPage extends ConsumerStatefulWidget {
   const NetworkLogPage({super.key});
 
-  /// 以参考项目的 BottomSheet 样式打开网络日志页面，占屏幕高度的 80%。
+  /// 打开网络日志面板。
   static Future<void> show(BuildContext context) {
+    if (App.isDesktop) {
+      final size = MediaQuery.sizeOf(context);
+      return showDialog<void>(
+        context: context,
+        barrierColor: Colors.black54,
+        builder: (context) => Dialog(
+          insetPadding: const EdgeInsets.all(24),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: math.min(size.width - 48, 1280),
+            height: math.min(size.height - 48, 900),
+            child: const NetworkLogPage(),
+          ),
+        ),
+      );
+    }
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -33,6 +53,7 @@ class NetworkLogPage extends ConsumerStatefulWidget {
 
 class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
   late final TextEditingController _searchController;
+  String? _selectedEntryId;
 
   @override
   void initState() {
@@ -48,99 +69,239 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
 
   @override
   Widget build(BuildContext context) {
-    final logs = ref.watch(networkLogsProvider);
-    final isCollecting = ref.watch(networkLogCollectingProvider);
+    final state = ref.watch(networkLogControllerProvider);
+    final entries = ref.watch(networkLogEntriesProvider);
+    final isDesktop = App.isDesktop;
+    final selectedEntry = entries.cast<NetworkLogEntry?>().firstWhere(
+      (entry) => entry?.id == _selectedEntryId,
+      orElse: () => null,
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: '搜索请求...',
-              border: InputBorder.none,
-              hintStyle: TextStyle(
-                color: Colors.grey.withValues(alpha: 0.7),
-                fontSize: 13,
-              ),
-              isDense: true,
-            ),
-            style: const TextStyle(fontSize: 13),
-            onChanged: (value) {
-              ref
-                  .read(networkLogControllerProvider.notifier)
-                  .setSearchQuery(value);
-            },
-          ),
-        ),
-        actions: [
-          Row(
-            children: [
-              const Text(
-                '采集',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              Transform.scale(
-                scale: 0.7,
-                child: Switch(
-                  value: isCollecting,
-                  activeThumbColor: Theme.of(context).primaryColor,
-                  onChanged: (value) => ref
-                      .read(networkLogControllerProvider.notifier)
-                      .setCollecting(value),
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            onPressed: () =>
-                ref.read(networkLogControllerProvider.notifier).clear(),
+      appBar: _buildAppBar(context, state.isCollecting, isDesktop),
+      body: Column(
+        children: [
+          _buildFilterBar(context, state.requestKindFilter),
+          Expanded(
+            child: isDesktop
+                ? _buildDesktopBody(context, entries, selectedEntry)
+                : _buildLogList(context, entries, compact: false),
           ),
         ],
       ),
-      body: logs.isEmpty
-          ? const Center(
-              child: Text(
-                '暂无请求日志',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            )
-          : ListView.separated(
-              itemCount: logs.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, thickness: 0.5),
-              itemBuilder: (context, index) =>
-                  _buildLogItem(context, logs[index]),
-            ),
     );
   }
 
-  Widget _buildLogItem(BuildContext context, NetworkLog log) {
-    final statusColor = _getStatusColor(log.statusCode);
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    bool isCollecting,
+    bool isDesktop,
+  ) {
+    return AppBar(
+      automaticallyImplyLeading: false,
+      titleSpacing: 0,
+      leading: IconButton(
+        icon: Icon(isDesktop ? Icons.close : Icons.keyboard_arrow_down),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: '搜索请求、Host 或类型...',
+            border: InputBorder.none,
+            hintStyle: TextStyle(
+              color: Colors.grey.withValues(alpha: 0.7),
+              fontSize: 13,
+            ),
+            isDense: true,
+          ),
+          style: const TextStyle(fontSize: 13),
+          onChanged: (value) => ref
+              .read(networkLogControllerProvider.notifier)
+              .setSearchQuery(value),
+        ),
+      ),
+      actions: [
+        Row(
+          children: [
+            const Text(
+              '采集',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            Transform.scale(
+              scale: 0.7,
+              child: Switch(
+                value: isCollecting,
+                activeThumbColor: Theme.of(context).primaryColor,
+                onChanged: (value) => ref
+                    .read(networkLogControllerProvider.notifier)
+                    .setCollecting(value),
+              ),
+            ),
+          ],
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, size: 20),
+          tooltip: '清空日志',
+          onPressed: () {
+            ref.read(networkLogControllerProvider.notifier).clear();
+            setState(() => _selectedEntryId = null);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar(
+    BuildContext context,
+    NetworkRequestKind? selectedKind,
+  ) {
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildFilterChip(context, 'All', null, selectedKind),
+          ...NetworkRequestKind.values.map(
+            (kind) => _buildFilterChip(context, kind.label, kind, selectedKind),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(
+    BuildContext context,
+    String label,
+    NetworkRequestKind? kind,
+    NetworkRequestKind? selectedKind,
+  ) {
+    final selected =
+        kind == selectedKind || (kind == null && selectedKind == null);
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 10)),
+        selected: selected,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        onSelected: (_) => ref
+            .read(networkLogControllerProvider.notifier)
+            .setRequestKindFilter(kind),
+      ),
+    );
+  }
+
+  Widget _buildDesktopBody(
+    BuildContext context,
+    List<NetworkLogEntry> entries,
+    NetworkLogEntry? selectedEntry,
+  ) {
+    return Row(
+      children: [
+        SizedBox(
+          width: math.min(560, MediaQuery.sizeOf(context).width * 0.46),
+          child: _buildLogList(context, entries, compact: true),
+        ),
+        VerticalDivider(
+          width: 1,
+          thickness: 1,
+          color: Theme.of(context).dividerColor,
+        ),
+        Expanded(
+          child: selectedEntry == null
+              ? const Center(
+                  child: Text(
+                    '选择一个请求查看详情',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                )
+              : NetworkLogDetailPage(entry: selectedEntry, embedded: true),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLogList(
+    BuildContext context,
+    List<NetworkLogEntry> entries, {
+    required bool compact,
+  }) {
+    if (entries.isEmpty) {
+      return const Center(
+        child: Text(
+          '暂无请求日志',
+          style: TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: entries.length,
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, thickness: 0.5),
+      itemBuilder: (context, index) =>
+          _buildLogItem(context, entries[index], compact: compact),
+    );
+  }
+
+  Widget _buildLogItem(
+    BuildContext context,
+    NetworkLogEntry entry, {
+    required bool compact,
+  }) {
+    final statusColor = _getStatusColor(entry.statusCode);
+    final selected = entry.id == _selectedEntryId;
+    final thumbnail =
+        entry.requestKind == NetworkRequestKind.image &&
+        entry.artifactPath != null;
     return InkWell(
-      onTap: () => NetworkLogDetailPage.show(context, log),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      onTap: () {
+        if (App.isDesktop) {
+          setState(() => _selectedEntryId = entry.id);
+        } else {
+          NetworkLogDetailPage.showEntry(context, entry);
+        }
+      },
+      child: Container(
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+            : null,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 12,
+          vertical: compact ? 6 : 8,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (thumbnail) ...[
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: buildNetworkArtifactPreview(
+                    entry.artifactPath!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            _buildKindBadge(context, entry.requestKind),
+            const SizedBox(width: 6),
             Container(
-              width: 50,
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              width: compact ? 42 : 50,
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 3),
               decoration: BoxDecoration(
                 color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                log.method,
+                entry.method,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 10,
@@ -149,37 +310,37 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    log.url,
-                    maxLines: 2,
+                    entry.url,
+                    maxLines: compact ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Text(
-                        log.formattedRequestTime,
+                        entry.formattedRequestTime,
                         style: const TextStyle(
                           fontSize: 10,
                           color: Colors.grey,
                         ),
                       ),
-                      if (log.duration != null) ...[
+                      if (entry.duration != null) ...[
                         const Text(
                           ' • ',
                           style: TextStyle(fontSize: 10, color: Colors.grey),
                         ),
                         Text(
-                          '${log.duration!.inMilliseconds}ms',
+                          '${entry.duration!.inMilliseconds}ms',
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.grey,
@@ -190,28 +351,44 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                         ' • ',
                         style: TextStyle(fontSize: 10, color: Colors.grey),
                       ),
-                      Text(
-                        log.protocolInfo.displayText,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
+                      Flexible(
+                        child: Text(
+                          entry.protocolDisplayText,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
+                      if (entry.isGrouped) ...[
+                        const Text(
+                          ' • ',
+                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                        Text(
+                          '${entry.logs.length} 分片',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            if (log.statusCode != null)
+            const SizedBox(width: 6),
+            if (entry.statusCode != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  log.statusCode.toString(),
+                  entry.statusCode.toString(),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -220,6 +397,34 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKindBadge(BuildContext context, NetworkRequestKind kind) {
+    final color = switch (kind) {
+      NetworkRequestKind.api => Colors.indigo,
+      NetworkRequestKind.html => Colors.orange,
+      NetworkRequestKind.image => Colors.green,
+      NetworkRequestKind.file => Colors.brown,
+      NetworkRequestKind.ai => Colors.purple,
+      NetworkRequestKind.other => Colors.grey,
+    };
+    return Container(
+      width: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        kind.label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 9,
+          color: color,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

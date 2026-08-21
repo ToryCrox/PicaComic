@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -14,6 +15,63 @@ const networkLogBodyMaxLength = 64 * 1024;
 
 /// 网络日志最多保留的条数。
 const networkLogMaxCount = 500;
+
+/// 网络请求类型标识。
+enum NetworkRequestKind { api, html, image, file, ai, other }
+
+extension NetworkRequestKindExtension on NetworkRequestKind {
+  /// 面板中显示的类型名称。
+  String get label => switch (this) {
+    NetworkRequestKind.api => 'API',
+    NetworkRequestKind.html => 'HTML',
+    NetworkRequestKind.image => 'Image',
+    NetworkRequestKind.file => 'File',
+    NetworkRequestKind.ai => 'AI',
+    NetworkRequestKind.other => 'Other',
+  };
+
+  /// 从额外参数解析请求类型。
+  static NetworkRequestKind? parse(Object? value) {
+    return switch (value?.toString().toLowerCase()) {
+      'api' => NetworkRequestKind.api,
+      'html' => NetworkRequestKind.html,
+      'image' => NetworkRequestKind.image,
+      'file' => NetworkRequestKind.file,
+      'ai' => NetworkRequestKind.ai,
+      'other' => NetworkRequestKind.other,
+      _ => null,
+    };
+  }
+}
+
+/// 网络产物来源。
+enum NetworkArtifactSource { imageCache, download, file }
+
+/// 网络产物状态。
+enum NetworkArtifactState { none, pending, ready }
+
+/// 网络监控使用的 Dio extra key。
+const networkRequestKindExtraKey = '__pica_network_request_kind__';
+const networkTransferIdExtraKey = '__pica_network_transfer_id__';
+const networkLogTokenExtraKey = '__pica_network_log_token__';
+const networkTelemetryTransferHeader = 'x-pica-network-transfer-id';
+const networkTelemetryTransferZoneKey = '__pica_network_transfer_id__';
+const networkTelemetryKindZoneKey = '__pica_network_request_kind__';
+
+/// 在当前异步调用上下文中标记一个逻辑网络传输。
+T runNetworkTelemetryContext<T>({
+  required String transferId,
+  required NetworkRequestKind requestKind,
+  required T Function() action,
+}) {
+  return runZoned(
+    action,
+    zoneValues: {
+      networkTelemetryTransferZoneKey: transferId,
+      networkTelemetryKindZoneKey: requestKind.name,
+    },
+  );
+}
 
 /// Protocol 来源。
 enum NetworkProtocolSource { actual, configured, fallback, unknown }
@@ -139,6 +197,9 @@ class NetworkLog {
     required this.url,
     required this.method,
     required this.requestTime,
+    this.requestKind = NetworkRequestKind.other,
+    this.contentType,
+    this.transferId,
     this.statusCode,
     this.duration,
     this.requestHeaders,
@@ -150,12 +211,18 @@ class NetworkLog {
     this.protocolSource = NetworkProtocolSource.unknown,
     this.backend,
     this.fallback,
+    this.artifactPath,
+    this.artifactSource,
+    this.artifactState = NetworkArtifactState.none,
   });
 
   final String id;
   final String url;
   final String method;
   final DateTime requestTime;
+  final NetworkRequestKind requestKind;
+  final String? contentType;
+  final String? transferId;
   final int? statusCode;
   final Duration? duration;
   final Map<String, dynamic>? requestHeaders;
@@ -167,9 +234,18 @@ class NetworkLog {
   final NetworkProtocolSource protocolSource;
   final String? backend;
   final String? fallback;
+  final String? artifactPath;
+  final NetworkArtifactSource? artifactSource;
+  final NetworkArtifactState artifactState;
 
   bool get isSuccess =>
       statusCode != null && statusCode! >= 200 && statusCode! < 300;
+
+  /// 响应是否可以在面板中显示图片预览。
+  bool get hasArtifact => artifactPath != null && artifactPath!.isNotEmpty;
+
+  /// 响应或请求体记录的字节数。
+  int get byteLength => responseBody?.byteLength ?? 0;
 
   String get formattedRequestTime {
     final time = requestTime;
@@ -184,6 +260,9 @@ class NetworkLog {
   );
 
   NetworkLog copyWith({
+    NetworkRequestKind? requestKind,
+    String? contentType,
+    String? transferId,
     int? statusCode,
     Duration? duration,
     Map<String, dynamic>? responseHeaders,
@@ -193,12 +272,18 @@ class NetworkLog {
     NetworkProtocolSource? protocolSource,
     String? backend,
     String? fallback,
+    String? artifactPath,
+    NetworkArtifactSource? artifactSource,
+    NetworkArtifactState? artifactState,
   }) {
     return NetworkLog(
       id: id,
       url: url,
       method: method,
       requestTime: requestTime,
+      requestKind: requestKind ?? this.requestKind,
+      contentType: contentType ?? this.contentType,
+      transferId: transferId ?? this.transferId,
       requestHeaders: requestHeaders,
       requestBody: requestBody,
       statusCode: statusCode ?? this.statusCode,
@@ -210,16 +295,26 @@ class NetworkLog {
       protocolSource: protocolSource ?? this.protocolSource,
       backend: backend ?? this.backend,
       fallback: fallback ?? this.fallback,
+      artifactPath: artifactPath ?? this.artifactPath,
+      artifactSource: artifactSource ?? this.artifactSource,
+      artifactState: artifactState ?? this.artifactState,
     );
   }
 }
 
 /// 拦截器传递给日志控制器的请求标识。
 class NetworkLogRequestToken {
-  const NetworkLogRequestToken({required this.id, required this.startedAt});
+  const NetworkLogRequestToken({
+    required this.id,
+    required this.startedAt,
+    this.explicitRequestKind,
+    this.transferId,
+  });
 
   final String id;
   final DateTime startedAt;
+  final NetworkRequestKind? explicitRequestKind;
+  final String? transferId;
 }
 
 /// 网络日志上报接口，避免网络层直接依赖 Riverpod。
@@ -229,6 +324,14 @@ abstract interface class NetworkLogSink {
   void completeResponse(NetworkLogRequestToken token, Response response);
 
   void failRequest(NetworkLogRequestToken token, DioException error);
+
+  /// 在网络请求完成写入文件后补充最终文件路径。
+  void reportArtifactReady({
+    String? requestId,
+    String? transferId,
+    required String path,
+    required NetworkArtifactSource source,
+  });
 }
 
 /// 网络日志状态。
@@ -237,11 +340,13 @@ class NetworkLogState {
     required this.logs,
     required this.searchQuery,
     required this.isCollecting,
+    required this.requestKindFilter,
   });
 
   final List<NetworkLog> logs;
   final String searchQuery;
   final bool isCollecting;
+  final NetworkRequestKind? requestKindFilter;
 
   List<NetworkLog> get filteredLogs {
     final query = searchQuery.trim().toLowerCase();
@@ -251,23 +356,103 @@ class NetworkLogState {
               .where((log) {
                 return log.url.toLowerCase().contains(query) ||
                     log.method.toLowerCase().contains(query) ||
+                    log.requestKind.label.toLowerCase().contains(query) ||
                     (log.statusCode?.toString().contains(query) ?? false) ||
-                    (log.protocol?.toLowerCase().contains(query) ?? false);
+                    (log.protocol?.toLowerCase().contains(query) ?? false) ||
+                    (log.artifactPath?.toLowerCase().contains(query) ?? false);
               })
               .toList(growable: false);
-    return List.unmodifiable(result.reversed);
+    final kind = requestKindFilter;
+    final filtered = kind == null
+        ? result
+        : result
+              .where((log) => log.requestKind == kind)
+              .toList(growable: false);
+    return List.unmodifiable(filtered.reversed);
   }
 
   NetworkLogState copyWith({
     List<NetworkLog>? logs,
     String? searchQuery,
     bool? isCollecting,
+    NetworkRequestKind? requestKindFilter,
+    bool clearRequestKindFilter = false,
   }) {
     return NetworkLogState(
       logs: logs ?? this.logs,
       searchQuery: searchQuery ?? this.searchQuery,
       isCollecting: isCollecting ?? this.isCollecting,
+      requestKindFilter: clearRequestKindFilter
+          ? null
+          : requestKindFilter ?? this.requestKindFilter,
     );
+  }
+}
+
+/// 网络面板中经过分片合并后的展示条目。
+class NetworkLogEntry {
+  const NetworkLogEntry(this.logs);
+
+  /// 同一个展示条目包含的原始请求，按最新请求在前排列。
+  final List<NetworkLog> logs;
+
+  NetworkLog get primary => logs.first;
+
+  bool get isGrouped => logs.length > 1;
+
+  String get id => primary.transferId ?? primary.id;
+
+  String get url => primary.url;
+
+  String get method => primary.method;
+
+  NetworkRequestKind get requestKind => primary.requestKind;
+
+  int? get statusCode {
+    for (final log in logs) {
+      if (log.error != null || (log.statusCode ?? 0) >= 400) {
+        return log.statusCode;
+      }
+    }
+    return primary.statusCode;
+  }
+
+  Duration? get duration {
+    if (!isGrouped) return primary.duration;
+    final start = logs
+        .map((log) => log.requestTime)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final end = logs
+        .map((log) => log.requestTime.add(log.duration ?? Duration.zero))
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    return end.difference(start);
+  }
+
+  int get byteLength => logs.fold(0, (sum, log) => sum + log.byteLength);
+
+  String get formattedRequestTime => primary.formattedRequestTime;
+
+  String get protocolDisplayText {
+    final protocols = logs.map((log) => log.protocolInfo.displayText).toSet();
+    return protocols.length == 1 ? protocols.single : 'Mixed';
+  }
+
+  String? get artifactPath {
+    for (final log in logs) {
+      if (log.artifactPath != null && log.artifactPath!.isNotEmpty) {
+        return log.artifactPath;
+      }
+    }
+    return null;
+  }
+
+  NetworkLog? get artifactLog {
+    for (final log in logs) {
+      if (log.artifactPath != null && log.artifactPath!.isNotEmpty) {
+        return log;
+      }
+    }
+    return null;
   }
 }
 
@@ -283,6 +468,7 @@ class NetworkLogController extends _$NetworkLogController
       logs: const [],
       searchQuery: '',
       isCollecting: _readCollectingSetting(),
+      requestKindFilter: null,
     );
   }
 
@@ -290,15 +476,25 @@ class NetworkLogController extends _$NetworkLogController
   NetworkLogRequestToken? beginRequest(RequestOptions options) {
     if (!state.isCollecting) return null;
     final startedAt = DateTime.now();
+    final explicitRequestKind = NetworkRequestKindExtension.parse(
+      options.extra[networkRequestKindExtraKey],
+    );
+    final requestKind =
+        explicitRequestKind ?? inferNetworkRequestKind(options.uri);
+    final transferId = options.extra[networkTransferIdExtraKey]?.toString();
     final token = NetworkLogRequestToken(
       id: '${startedAt.microsecondsSinceEpoch}-${_sequence++}',
       startedAt: startedAt,
+      explicitRequestKind: explicitRequestKind,
+      transferId: transferId,
     );
     final log = NetworkLog(
       id: token.id,
       url: options.uri.toString(),
       method: options.method,
       requestTime: startedAt,
+      requestKind: requestKind,
+      transferId: transferId,
       requestHeaders: _copyHeaders(options.headers),
       requestBody: NetworkLogBody.capture(
         options.data,
@@ -312,6 +508,7 @@ class NetworkLogController extends _$NetworkLogController
   @override
   void completeResponse(NetworkLogRequestToken token, Response response) {
     final info = protocolInfoFromResponse(response);
+    final contentType = response.headers.value(Headers.contentTypeHeader);
     _update(
       token.id,
       response.statusCode,
@@ -323,6 +520,13 @@ class NetworkLogController extends _$NetworkLogController
       ),
       null,
       info,
+      requestKind:
+          token.explicitRequestKind ??
+          classifyNetworkResponse(
+            contentType: contentType,
+            url: response.realUri,
+          ),
+      contentType: contentType,
     );
   }
 
@@ -332,6 +536,7 @@ class NetworkLogController extends _$NetworkLogController
     final info = response == null
         ? const NetworkProtocolInfo()
         : protocolInfoFromResponse(response);
+    final contentType = response?.headers.value(Headers.contentTypeHeader);
     _update(
       token.id,
       response?.statusCode,
@@ -345,6 +550,13 @@ class NetworkLogController extends _$NetworkLogController
             ),
       error.toString(),
       info,
+      requestKind:
+          token.explicitRequestKind ??
+          classifyNetworkResponse(
+            contentType: contentType,
+            url: response?.realUri ?? error.requestOptions.uri,
+          ),
+      contentType: contentType,
     );
   }
 
@@ -363,9 +575,46 @@ class NetworkLogController extends _$NetworkLogController
     state = state.copyWith(searchQuery: value);
   }
 
+  /// 设置请求类型过滤器。
+  void setRequestKindFilter(NetworkRequestKind? value) {
+    state = value == null
+        ? state.copyWith(clearRequestKindFilter: true)
+        : state.copyWith(requestKindFilter: value);
+  }
+
   /// 清空网络日志。
   void clear() {
     state = state.copyWith(logs: const []);
+  }
+
+  @override
+  void reportArtifactReady({
+    String? requestId,
+    String? transferId,
+    required String path,
+    required NetworkArtifactSource source,
+  }) {
+    if (requestId == null && transferId == null) return;
+    final ids = <String>{};
+    for (final log in state.logs) {
+      if ((requestId != null && log.id == requestId) ||
+          (transferId != null && log.transferId == transferId)) {
+        ids.add(log.id);
+      }
+    }
+    if (ids.isEmpty) return;
+    final logs = state.logs
+        .map(
+          (log) => ids.contains(log.id)
+              ? log.copyWith(
+                  artifactPath: path,
+                  artifactSource: source,
+                  artifactState: NetworkArtifactState.ready,
+                )
+              : log,
+        )
+        .toList(growable: false);
+    state = state.copyWith(logs: List.unmodifiable(logs));
   }
 
   void _append(NetworkLog log) {
@@ -383,8 +632,10 @@ class NetworkLogController extends _$NetworkLogController
     Map<String, List<String>>? headers,
     NetworkLogBody? body,
     String? error,
-    NetworkProtocolInfo info,
-  ) {
+    NetworkProtocolInfo info, {
+    required NetworkRequestKind requestKind,
+    String? contentType,
+  }) {
     final index = state.logs.indexWhere((log) => log.id == id);
     if (index < 0) return;
     final old = state.logs[index];
@@ -398,6 +649,8 @@ class NetworkLogController extends _$NetworkLogController
       protocolSource: info.source,
       backend: info.backend,
       fallback: info.fallback,
+      requestKind: requestKind,
+      contentType: contentType,
     );
     final logs = [...state.logs]..[index] = updated;
     state = state.copyWith(logs: List.unmodifiable(logs));
@@ -415,10 +668,60 @@ List<NetworkLog> networkLogs(Ref ref) {
   return ref.watch(networkLogControllerProvider).filteredLogs;
 }
 
+/// 当前过滤并合并分片后的网络面板条目。
+@riverpod
+List<NetworkLogEntry> networkLogEntries(Ref ref) {
+  final logs = ref.watch(networkLogControllerProvider).filteredLogs;
+  final grouped = <String, List<NetworkLog>>{};
+  final order = <String>[];
+  for (final log in logs) {
+    final key = log.transferId == null ? log.id : 'transfer:${log.transferId}';
+    if (!grouped.containsKey(key)) {
+      grouped[key] = <NetworkLog>[];
+      order.add(key);
+    }
+    grouped[key]!.add(log);
+  }
+  return List.unmodifiable(
+    order.map((key) => NetworkLogEntry(List.unmodifiable(grouped[key]!))),
+  );
+}
+
 /// 当前网络日志采集状态。
 @riverpod
 bool networkLogCollecting(Ref ref) {
   return ref.watch(networkLogControllerProvider).isCollecting;
+}
+
+/// 根据请求 URL 推断请求类型。
+NetworkRequestKind inferNetworkRequestKind(Uri uri) {
+  final path = uri.path.toLowerCase();
+  if (path.contains('/api/') ||
+      path.endsWith('/api') ||
+      path.contains('graphql')) {
+    return NetworkRequestKind.api;
+  }
+  if (_isImagePath(path)) return NetworkRequestKind.image;
+  if (path.endsWith('.html') || path.endsWith('.htm')) {
+    return NetworkRequestKind.html;
+  }
+  return NetworkRequestKind.other;
+}
+
+/// 根据响应类型和 URL 推断请求类型。
+NetworkRequestKind classifyNetworkResponse({
+  String? contentType,
+  required Uri url,
+}) {
+  final normalized = contentType?.toLowerCase() ?? '';
+  if (normalized.contains('text/html')) return NetworkRequestKind.html;
+  if (normalized.startsWith('image/')) return NetworkRequestKind.image;
+  if (normalized.contains('json')) return NetworkRequestKind.api;
+  return inferNetworkRequestKind(url);
+}
+
+bool _isImagePath(String path) {
+  return RegExp(r'\.(?:avif|bmp|gif|jpe?g|png|webp)(?:$|[?#])').hasMatch(path);
 }
 
 /// 将 Dio 的响应元数据转换为详情页使用的 Protocol 信息。

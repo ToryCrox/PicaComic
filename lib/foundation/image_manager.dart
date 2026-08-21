@@ -14,6 +14,8 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/network_log.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
@@ -70,6 +72,17 @@ class ImageManager {
   }
 
   ImageManager._create();
+
+  String _newImageTransferId(String key) =>
+      'image-manager:${DateTime.now().microsecondsSinceEpoch}:$key';
+
+  void _reportImageArtifact(String transferId, String path) {
+    NetworkTelemetryBridge.instance.reportArtifactReady(
+      transferId: transferId,
+      path: path,
+      source: NetworkArtifactSource.imageCache,
+    );
+  }
 
   Dio get dio => networkClientManager.mediaDio;
 
@@ -220,6 +233,7 @@ class ImageManager {
       final cachingFile = await CacheManager().openWrite(cacheKey);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
+      final transferId = _newImageTransferId(cacheKey);
       downloadController.add(DownloadProgress(0, 100, url, savePath));
       headers = headers ?? {};
       headers["User-Agent"] ??= webUA;
@@ -248,6 +262,8 @@ class ImageManager {
           extra: {
             NetworkCookieInterceptor.cookieJarKey:
                 SingleInstanceCookieJar.instance!,
+            networkRequestKindExtraKey: 'image',
+            networkTransferIdExtraKey: transferId,
           },
         ),
         cancelToken: task.cancelToken,
@@ -277,6 +293,7 @@ class ImageManager {
       var ext = getExt(dioRes);
       cachingFile.fileType = ext;
       await cachingFile.close();
+      _reportImageArtifact(transferId, savePath);
       downloadController.add(
         DownloadProgress(
           imageData.length,
@@ -356,6 +373,7 @@ class ImageManager {
     try {
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
+      final transferId = _newImageTransferId(cacheKey);
       output.add(DownloadProgress(0, 100, cacheKey, savePath));
       final readerRes = await EhNetwork().getReaderLink(
         gallery.link,
@@ -389,6 +407,7 @@ class ImageManager {
             caching,
             output,
             task.cancelToken,
+            transferId,
           );
           break;
         } catch (e) {
@@ -415,6 +434,7 @@ class ImageManager {
 
       caching.fileType = image.ext;
       await caching.close();
+      _reportImageArtifact(transferId, savePath);
       output.add(
         DownloadProgress(
           image.data.length,
@@ -755,6 +775,7 @@ class ImageManager {
     CachingFile caching,
     StreamController<DownloadProgress> output,
     CancelToken cancelToken,
+    String transferId,
   ) async {
     if (!imageUrl.isURL) throw const FormatException("Invalid EH image URL");
     if (imageUrl.contains("509.gif")) throw ImageExceedError();
@@ -768,6 +789,8 @@ class ImageManager {
         extra: {
           NetworkCookieInterceptor.cookieJarKey:
               SingleInstanceCookieJar.instance!,
+          networkRequestKindExtraKey: 'image',
+          networkTransferIdExtraKey: transferId,
         },
       ),
       cancelToken: cancelToken,
@@ -847,6 +870,7 @@ class ImageManager {
       final cachingFile = await CacheManager().openWrite(cacheKey);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
+      final transferId = _newImageTransferId(cacheKey);
       downloadController.add(DownloadProgress(0, 100, cacheKey, savePath));
 
       final gg = GG();
@@ -864,6 +888,10 @@ class ImageManager {
           headers: {
             "User-Agent": webUA,
             "Referer": "https://hitomi.la/reader/$galleryId.html",
+          },
+          extra: {
+            networkRequestKindExtraKey: 'image',
+            networkTransferIdExtraKey: transferId,
           },
         ),
         cancelToken: task.cancelToken,
@@ -896,6 +924,7 @@ class ImageManager {
       var ext = getExt(res);
       cachingFile.fileType = ext;
       await cachingFile.close();
+      _reportImageArtifact(transferId, savePath);
       downloadController.add(
         DownloadProgress(
           currentBytes,
@@ -974,6 +1003,7 @@ class ImageManager {
       final cachingFile = await CacheManager().openWrite(cacheKey);
       caching = cachingFile;
       final savePath = cachingFile.file.path;
+      final transferId = _newImageTransferId(cacheKey);
       downloadController.add(DownloadProgress(0, 1, url, savePath));
 
       var bytes = <int>[];
@@ -987,6 +1017,8 @@ class ImageManager {
             extra: {
               NetworkCookieInterceptor.cookieJarKey:
                   SingleInstanceCookieJar.instance!,
+              networkRequestKindExtraKey: 'image',
+              networkTransferIdExtraKey: transferId,
             },
           ),
           cancelToken: task.cancelToken,
@@ -1024,6 +1056,7 @@ class ImageManager {
 
       cachingFile.fileType = ext;
       await cachingFile.close();
+      _reportImageArtifact(transferId, savePath);
       progress = DownloadProgress(
         bytes.length,
         bytes.length,
@@ -1106,6 +1139,7 @@ class ImageManager {
 
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
+      final transferId = _newImageTransferId(cacheKey);
 
       var res = await dio.request<ResponseBody>(
         config?.url ?? url,
@@ -1118,6 +1152,8 @@ class ImageManager {
           extra: {
             NetworkCookieInterceptor.cookieJarKey:
                 SingleInstanceCookieJar.instance!,
+            networkRequestKindExtraKey: 'image',
+            networkTransferIdExtraKey: transferId,
           },
         ),
       );
@@ -1164,6 +1200,7 @@ class ImageManager {
       var ext = getExt(res);
       caching.fileType = ext;
       await caching.close();
+      _reportImageArtifact(transferId, savePath);
       var length = result?.length ?? imageData.length;
       final progress = DownloadProgress(
         length,
@@ -1255,6 +1292,7 @@ class ImageManager {
 
       caching = await CacheManager().openWrite(cacheKey);
       final savePath = caching.file.path;
+      final transferId = _newImageTransferId(cacheKey);
 
       var res = await dio.request<ResponseBody>(
         config?.url ?? url,
@@ -1267,6 +1305,8 @@ class ImageManager {
           extra: {
             NetworkCookieInterceptor.cookieJarKey:
                 SingleInstanceCookieJar.instance!,
+            networkRequestKindExtraKey: 'image',
+            networkTransferIdExtraKey: transferId,
           },
         ),
       );
@@ -1311,6 +1351,7 @@ class ImageManager {
       }
 
       await caching.close();
+      _reportImageArtifact(transferId, savePath);
       final progress = DownloadProgress(
         1,
         1,

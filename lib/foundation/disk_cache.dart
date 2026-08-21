@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/network_log.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 
 import '../tools/type_util.dart';
 import 'log.dart';
@@ -33,12 +35,36 @@ class DiskCache {
     Map<String, String>? headers,
     bool withProgress = false,
   }) {
-    return DiskCacheManager.instance.getFileStream(
-      url,
-      key: key,
-      headers: headers,
-      withProgress: withProgress,
+    final transferId = 'cache:${DateTime.now().microsecondsSinceEpoch}:$url';
+    final requestHeaders = <String, String>{
+      ...?headers,
+      networkTelemetryTransferHeader: transferId,
+    };
+    return _trackFileStream(
+      DiskCacheManager.instance.getFileStream(
+        url,
+        key: key,
+        headers: requestHeaders,
+        withProgress: withProgress,
+      ),
+      transferId,
     );
+  }
+
+  static Stream<FileResponse> _trackFileStream(
+    Stream<FileResponse> source,
+    String transferId,
+  ) async* {
+    await for (final response in source) {
+      if (response is FileInfo && response.source == FileSource.Online) {
+        NetworkTelemetryBridge.instance.reportArtifactReady(
+          transferId: transferId,
+          path: response.file.path,
+          source: NetworkArtifactSource.imageCache,
+        );
+      }
+      yield response;
+    }
   }
 
   /// 下载文件，并缓存到本地, 如果已经有文件，则直接返回
@@ -52,7 +78,7 @@ class DiskCache {
     }
 
     Completer<FileInfo?> completer = Completer();
-    Stream<FileResponse> stream = DiskCacheManager.instance.getFileStream(
+    Stream<FileResponse> stream = getFileStream(
       url,
       withProgress: false,
       headers: _getCacheHeader(cacheTime),
@@ -84,12 +110,23 @@ class DiskCache {
     bool force = false,
     Duration? cacheTime,
   }) async {
+    final transferId =
+        'cache-download:${DateTime.now().microsecondsSinceEpoch}:$url';
     try {
+      final requestHeaders = <String, String>{
+        ...?_getCacheHeader(cacheTime),
+        networkTelemetryTransferHeader: transferId,
+      };
       final fileInfo = await DiskCacheManager.instance.downloadFile(
         url,
         key: key,
-        authHeaders: _getCacheHeader(cacheTime),
+        authHeaders: requestHeaders,
         force: force,
+      );
+      NetworkTelemetryBridge.instance.reportArtifactReady(
+        transferId: transferId,
+        path: fileInfo.file.path,
+        source: NetworkArtifactSource.imageCache,
       );
       return HttpCacheFileInfo.fromFileInfo(fileInfo, 0);
     } catch (e) {
@@ -277,11 +314,17 @@ class CacheHttpFileService extends FileService {
       cacheControl = requestHeaders[customCacheControlHeader];
       requestHeaders.remove(customCacheControlHeader);
     }
+    final transferId = requestHeaders.remove(networkTelemetryTransferHeader);
+    final extra = <String, dynamic>{};
+    if (transferId != null) {
+      extra[networkTransferIdExtraKey] = transferId;
+    }
     final response = await networkClientManager.mediaDio.get<ResponseBody>(
       url,
       options: Options(
         responseType: ResponseType.stream,
         headers: requestHeaders,
+        extra: extra,
       ),
     );
     return DioFileServiceResponse(response, cacheControl);
