@@ -109,6 +109,7 @@ class NetworkLogDetailPage extends ConsumerWidget {
                       height: 360,
                       child: buildNetworkArtifactPreview(
                         displayEntry.artifactPath!,
+                        memCacheWidth: networkArtifactPreviewMemCacheWidth,
                       ),
                     ),
                   ),
@@ -401,7 +402,10 @@ Future<void> openNetworkImagePreview(
                     minScale: 0.2,
                     maxScale: 8,
                     child: Center(
-                      child: buildNetworkArtifactPreview(imagePath),
+                      child: buildNetworkArtifactPreview(
+                        imagePath,
+                        memCacheWidth: networkArtifactPreviewMemCacheWidth,
+                      ),
                     ),
                   ),
                 ),

@@ -240,16 +240,12 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
         onHorizontalDragUpdate: (details) {
           if (availableWidth <= 0) return;
           final minLeftWidth = math.min(280.0, availableWidth * 0.5);
-          final maxLeftWidth = math.max(
-            minLeftWidth,
-            availableWidth - 360.0,
-          );
+          final maxLeftWidth = math.max(minLeftWidth, availableWidth - 360.0);
           setState(() {
-            final targetWidth = (_desktopSplit * availableWidth) +
-                details.delta.dx;
+            final targetWidth =
+                (_desktopSplit * availableWidth) + details.delta.dx;
             _desktopSplit =
-                (targetWidth.clamp(minLeftWidth, maxLeftWidth) /
-                        availableWidth)
+                (targetWidth.clamp(minLeftWidth, maxLeftWidth) / availableWidth)
                     .toDouble();
           });
         },
@@ -327,6 +323,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                     child: buildNetworkArtifactPreview(
                       entry.artifactPath!,
                       fit: BoxFit.cover,
+                      memCacheWidth: networkArtifactThumbnailMemCacheWidth,
                     ),
                   ),
                 ),

@@ -10,6 +10,7 @@ import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/network_artifact_preview.dart';
 import 'package:pica_comic/pages/local_image_viewer_page.dart';
 
 import 'translation_result_replace_notifier.dart';
@@ -1050,10 +1051,12 @@ class _TranslationResultReplaceDialogState
                 child: ColoredBox(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: SizedBox.expand(
-                    child: Image.file(
-                      File(filePath),
+                    child: PicaImage(
+                      url: Uri.file(filePath).toString(),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Center(
+                      memCacheWidth: networkArtifactPreviewMemCacheWidth,
+                      fade: false,
+                      errorWidget: (_, _, _) => const Center(
                         child: Icon(Icons.broken_image_outlined),
                       ),
                     ),
