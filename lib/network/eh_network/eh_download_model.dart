@@ -122,7 +122,12 @@ class EhDownloadingTask extends DownloadingTask {
 
   @override
   Stream<DownloadProgress> downloadImage(String link) {
-    return ImageManager().getEhImageNew(gallery, int.parse(link));
+    return ImageManager().getEhImageNew(
+      gallery,
+      int.parse(link),
+      preferOriginal: true,
+      requireOriginal: true,
+    );
   }
 
   @override

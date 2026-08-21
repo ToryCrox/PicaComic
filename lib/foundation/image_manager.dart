@@ -26,6 +26,16 @@ import '../network/eh_network/eh_main_network.dart';
 import '../network/hitomi_network/image.dart';
 import '../network/jm_network/headers.dart';
 
+/// 构建 EH 图片缓存键，按图片质量隔离阅读图和原图。
+String buildEhImageCacheKey(
+  String galleryLink,
+  int page, {
+  required bool preferOriginal,
+}) {
+  final quality = preferOriginal ? 'original' : 'display';
+  return 'eh-image-v2|$galleryLink|$page|$quality';
+}
+
 class BadRequestException {
   final String message;
 
@@ -303,10 +313,20 @@ class ImageManager {
 
   Stream<DownloadProgress> getEhImageNew(
     final Gallery gallery,
-    final int page,
-  ) {
+    final int page, {
+    bool? preferOriginal,
+    bool requireOriginal = false,
+  }) {
+    final useOriginal =
+        requireOriginal || (preferOriginal ?? appdata.settings[29] == "1");
     final controller = StreamController<DownloadProgress>();
-    _putEhImageStream(controller: controller, gallery: gallery, page: page);
+    _putEhImageStream(
+      controller: controller,
+      gallery: gallery,
+      page: page,
+      preferOriginal: useOriginal,
+      requireOriginal: requireOriginal,
+    );
     return controller.stream;
   }
 
@@ -315,8 +335,14 @@ class ImageManager {
     required StreamController<DownloadProgress> controller,
     required Gallery gallery,
     required int page,
+    required bool preferOriginal,
+    required bool requireOriginal,
   }) async {
-    final cacheKey = "${gallery.link}$page";
+    final cacheKey = buildEhImageCacheKey(
+      gallery.link,
+      page,
+      preferOriginal: preferOriginal,
+    );
     final gid = getGalleryId(gallery.link);
     if (await _checkFileCache(controller: controller, url: cacheKey)) {
       await controller.close();
@@ -348,6 +374,8 @@ class ImageManager {
         gid,
         page,
         task.cancelToken,
+        preferOriginal: preferOriginal,
+        requireOriginal: requireOriginal,
       );
       ({Uint8List data, String ext})? image;
       Object? lastError;
@@ -376,6 +404,8 @@ class ImageManager {
             link,
             task.cancelToken,
             attempt > 0,
+            preferOriginal: preferOriginal,
+            requireOriginal: requireOriginal,
           );
         }
       }
@@ -507,6 +537,19 @@ class ImageManager {
     if (error != null) throw error;
   }
 
+  String _selectEhImageUrl({
+    required String display,
+    required String original,
+    required bool preferOriginal,
+    required bool requireOriginal,
+  }) {
+    if (preferOriginal && original.isURL) return original;
+    if (requireOriginal) {
+      throw const FormatException("EH original image URL unavailable");
+    }
+    return display;
+  }
+
   Future<({String imageUrl, String? nl, bool mpv})> _resolveEhImageLink(
     Gallery gallery,
     String readerLink,
@@ -514,6 +557,8 @@ class ImageManager {
     int page,
     CancelToken cancelToken, {
     String? nl,
+    required bool preferOriginal,
+    required bool requireOriginal,
   }) async {
     final keys = gallery.auth?["imgKey"]?.split(",");
     final isMpv =
@@ -521,6 +566,40 @@ class ImageManager {
         keys != null &&
         page > 0 &&
         page <= keys.length;
+    if (isMpv && requireOriginal) {
+      final res = await EhNetwork().request(
+        readerLink,
+        expiredTime: CacheExpiredTime.no,
+        cancelToken: cancelToken,
+      );
+      if (res.error) {
+        throw res.errorMessage ?? "Failed to load EH reader page";
+      }
+      final document = parse(res.data);
+      final display =
+          document.querySelector("div#i3 > a > img")?.attributes["src"] ?? "";
+      final original =
+          document
+              .querySelectorAll("div#i6 a")
+              .firstWhereOrNull(
+                (e) => e.text.toLowerCase().contains("original"),
+              )
+              ?.attributes["href"] ??
+          "";
+      final url = _selectEhImageUrl(
+        display: display,
+        original: original,
+        preferOriginal: true,
+        requireOriginal: true,
+      );
+      if (!url.isURL) throw Exception("Invalid EH original image URL");
+      final nextNl = document
+          .querySelector("a#loadfail")
+          ?.attributes["onclick"]
+          ?.split("'")
+          .firstWhereOrNull((e) => e.contains("-"));
+      return (imageUrl: url, nl: nextNl, mpv: false);
+    }
     if (isMpv) {
       final res = await EhNetwork().apiRequest({
         "gid": int.parse(gid),
@@ -554,10 +633,15 @@ class ImageManager {
       final json = jsonDecode(res.data) as Map<String, dynamic>;
       final i3 = json["i3"]?.toString() ?? "";
       final i6 = json["i6"]?.toString() ?? "";
-      var url = RegExp(r'src="([^"]+)"').firstMatch(i3)?.group(1) ?? "";
+      final display = RegExp(r'src="([^"]+)"').firstMatch(i3)?.group(1) ?? "";
       final origins = RegExp(r'<a href="([^"]+)"').allMatches(i6).toList();
       final original = origins.isEmpty ? "" : origins.last.group(1) ?? "";
-      if (appdata.settings[29] == "1" && original.isURL) url = original;
+      final url = _selectEhImageUrl(
+        display: display,
+        original: original,
+        preferOriginal: preferOriginal,
+        requireOriginal: requireOriginal,
+      );
       if (!url.isURL) throw Exception("Invalid EH showpage image URL");
       return (
         imageUrl: url,
@@ -581,7 +665,10 @@ class ImageManager {
               .firstWhereOrNull((e) => e.text.contains("original"))
               ?.attributes["href"] ??
           "";
-      if (appdata.settings[29] == "1" && original.isURL) url = original;
+      if (preferOriginal && original.isURL) url = original;
+      if (requireOriginal && !original.isURL) {
+        throw const FormatException("EH original image URL unavailable");
+      }
       if (!url.isURL) throw Exception("Invalid EH reader image URL");
       final nextNl = document
           .querySelector("a#loadfail")
@@ -599,8 +686,10 @@ class ImageManager {
     int page,
     ({String imageUrl, String? nl, bool mpv}) current,
     CancelToken cancelToken,
-    bool forceAuthentication,
-  ) async {
+    bool forceAuthentication, {
+    required bool preferOriginal,
+    required bool requireOriginal,
+  }) async {
     if (!forceAuthentication && current.nl != null) {
       try {
         if (current.mpv) {
@@ -611,6 +700,8 @@ class ImageManager {
             page,
             cancelToken,
             nl: current.nl,
+            preferOriginal: preferOriginal,
+            requireOriginal: requireOriginal,
           );
         }
         final value = await EhNetwork().getImageLinkWithNL(
@@ -619,6 +710,8 @@ class ImageManager {
           page,
           current.nl!,
           cancelToken: cancelToken,
+          preferOriginal: preferOriginal,
+          requireOriginal: requireOriginal,
         );
         if (value.$1.isURL) {
           return (imageUrl: value.$1, nl: value.$2, mpv: false);
@@ -635,7 +728,15 @@ class ImageManager {
       cancelToken,
       force: true,
     );
-    return _resolveEhImageLink(gallery, readerLink, gid, page, cancelToken);
+    return _resolveEhImageLink(
+      gallery,
+      readerLink,
+      gid,
+      page,
+      cancelToken,
+      preferOriginal: preferOriginal,
+      requireOriginal: requireOriginal,
+    );
   }
 
   String _ehImageKey(String readerLink) {

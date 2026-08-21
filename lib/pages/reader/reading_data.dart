@@ -244,7 +244,11 @@ class EhReadingData extends ReadingData {
   String get title => gallery.title;
 
   @override
-  String buildImageKey(int ep, int page, String url) => "${gallery.link}$page";
+  String buildImageKey(int ep, int page, String url) => buildEhImageCacheKey(
+    gallery.link,
+    page + 1,
+    preferOriginal: appdata.settings[29] == "1",
+  );
 
   @override
   FavoriteType get favoriteType => FavoriteType.ehentai;

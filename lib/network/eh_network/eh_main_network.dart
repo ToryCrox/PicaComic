@@ -1035,6 +1035,8 @@ class EhNetwork {
     int p,
     String nl, {
     CancelToken? cancelToken,
+    bool preferOriginal = false,
+    bool requireOriginal = false,
   }) async {
     var res = await request(
       "$ehBaseUrl/s/$imgKey/$gid-$p?nl=$nl",
@@ -1046,6 +1048,16 @@ class EhNetwork {
     } else {
       var document = parse(res.data);
       var image = document.querySelector("div#i3 > a > img")?.attributes["src"];
+      final original = document
+          .querySelectorAll("div#i6 a")
+          .firstWhereOrNull((e) => e.text.toLowerCase().contains("original"))
+          ?.attributes["href"];
+      if (preferOriginal && original?.isURL == true) {
+        image = original;
+      }
+      if (requireOriginal && original?.isURL != true) {
+        throw const FormatException("EH original image URL unavailable");
+      }
       var nl = document
           .querySelector("div#i6 > div > a#loadfail")
           ?.attributes["onclick"]
