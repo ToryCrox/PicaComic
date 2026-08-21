@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:html/parser.dart';
 import 'package:pica_comic/base.dart';
@@ -20,8 +19,8 @@ import 'package:pointycastle/block/modes/ecb.dart';
 
 import '../../foundation/cache_manager.dart';
 import '../../foundation/log.dart';
-import '../app_dio.dart';
-import '../http_client.dart';
+import '../cookie_jar.dart';
+import '../network_client_manager.dart';
 import '../res.dart';
 import 'headers.dart';
 import 'jm_image.dart';
@@ -35,7 +34,6 @@ extension _CachedNetwork on CachedNetwork {
     CacheExpiredTime expiredTime = CacheExpiredTime.short,
     CookieJar? cookieJar,
   }) async {
-    await setNetworkProxy();
     final key = url;
     var cache = await CacheManager().findCache(key);
     if (cache != null) {
@@ -43,11 +41,24 @@ extension _CachedNetwork on CachedNetwork {
       return CachedNetworkRes(await file.readAsString(), 200, url);
     }
     options.responseType = ResponseType.bytes;
-    var dio = logDio(options);
-    if (cookieJar != null) {
-      dio.interceptors.add(CookieManager(cookieJar));
-    }
-    var res = await dio.get<Uint8List>(url);
+    final requestOptions = Options(
+      method: 'GET',
+      headers: options.headers,
+      responseType: ResponseType.bytes,
+      sendTimeout: options.sendTimeout,
+      receiveTimeout: options.receiveTimeout,
+      followRedirects: options.followRedirects,
+      maxRedirects: options.maxRedirects,
+      validateStatus: options.validateStatus,
+      receiveDataWhenStatusError: options.receiveDataWhenStatusError,
+      extra: {
+        if (cookieJar != null) NetworkCookieInterceptor.cookieJarKey: cookieJar,
+      },
+    );
+    final res = await networkClientManager.apiDio.get<Uint8List>(
+      url,
+      options: requestOptions,
+    );
     if (res.data == null) {
       throw Exception("Empty data");
     }
@@ -94,6 +105,21 @@ class JmNetwork {
   JmNetwork.create();
 
   static JmNetwork? cache;
+
+  Options _requestOptions(
+    BaseOptions source, {
+    ValidateStatus? validateStatus,
+  }) {
+    return Options(
+      headers: source.headers,
+      responseType: source.responseType,
+      sendTimeout: source.sendTimeout,
+      receiveTimeout: source.receiveTimeout,
+      receiveDataWhenStatusError: source.receiveDataWhenStatusError,
+      validateStatus: validateStatus ?? source.validateStatus,
+      extra: {NetworkCookieInterceptor.cookieJarKey: cookieJar},
+    );
+  }
 
   static List<String> get domains => appdata.appSettings.jmApiDomains;
 
@@ -173,17 +199,19 @@ class JmNetwork {
   }
 
   Future<Res<dynamic>> getAppVersionCode() async {
-    var dio = logDio(
-      BaseOptions(
-        headers: {
-          ...getBaseHeaders(),
-          "Accept-Encoding": "gzip",
-          "user-agent": ua,
-        },
-      ),
-    );
     try {
-      var res = await dio.get("$baseUrl/static/jmapp3apk/version.json");
+      var res = await networkClientManager.apiDio.get(
+        "$baseUrl/static/jmapp3apk/version.json",
+        options: _requestOptions(
+          BaseOptions(
+            headers: {
+              ...getBaseHeaders(),
+              "Accept-Encoding": "gzip",
+              "user-agent": ua,
+            },
+          ),
+        ),
+      );
       try {
         String version = res.data['version'];
         if (version.isNotEmpty) {
@@ -203,11 +231,13 @@ class JmNetwork {
   }
 
   Future<List<String>> tryFetchAndDecrypt(String url) async {
-    var dio = Dio(
-      BaseOptions(headers: {...getBaseHeaders(), "user-agent": ua}),
-    );
     try {
-      var res = await dio.get(url);
+      var res = await networkClientManager.apiDio.get(
+        url,
+        options: _requestOptions(
+          BaseOptions(headers: {...getBaseHeaders(), "user-agent": ua}),
+        ),
+      );
       var jsonData =
           json.decode(convertData(res.data, String.fromCharCodes(domainSecret)))
               as Map<String, dynamic>;
@@ -235,10 +265,6 @@ class JmNetwork {
 
   Future<int?> selectDomain() async {
     int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var dio = Dio(getApiOptions(time, post: true));
-    dio.options.validateStatus = (status) {
-      return true;
-    };
 
     Completer<int?> completer = Completer();
     bool passed = false;
@@ -246,7 +272,14 @@ class JmNetwork {
     for (var domain in domains) {
       () async {
         try {
-          var res = await dio.post("https://$domain/login", data: "&");
+          var res = await networkClientManager.apiDio.post(
+            "https://$domain/login",
+            data: "&",
+            options: _requestOptions(
+              getApiOptions(time, post: true),
+              validateStatus: (_) => true,
+            ),
+          );
 
           if (res.statusCode == 401 && !passed) {
             passed = true;
@@ -324,13 +357,13 @@ class JmNetwork {
   /// post请求
   Future<Res<dynamic>> post(String url, String data) async {
     try {
-      await setNetworkProxy();
       int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      var dio = logDio(getApiOptions(time, post: true));
-      dio.interceptors.add(CookieManager(cookieJar));
-      var res = await dio.post(
+      var res = await networkClientManager.apiDio.post(
         url,
-        options: Options(validateStatus: (i) => i == 200 || i == 401),
+        options: _requestOptions(
+          getApiOptions(time, post: true),
+          validateStatus: (i) => i == 200 || i == 401,
+        ),
         data: data,
       );
       if (res.statusCode == 401) {
@@ -1098,12 +1131,13 @@ class JmNetwork {
   ///
   /// 此函数未使用, 因为似乎所有漫画的scramble都一样
   Future<String?> getScramble(String id) async {
-    var dio = Dio(
-      getApiOptions(DateTime.now().millisecondsSinceEpoch ~/ 1000, byte: false),
-    )..interceptors.add(LogInterceptor());
-    dio.interceptors.add(CookieManager(cookieJar));
-    var res = await dio.get(
+    var source = getApiOptions(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      byte: false,
+    );
+    var res = await networkClientManager.apiDio.get(
       "$baseUrl/chapter_view_template?id=$id&mode=vertical&page=0&app_ima_shunt=NaN&express=off",
+      options: _requestOptions(source),
     );
     var exp = RegExp(r"(?<=var scramble_id = )\w+");
     return exp.firstMatch(res.data)!.group(0);

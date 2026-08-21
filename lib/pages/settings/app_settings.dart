@@ -107,11 +107,13 @@ void setProxy(BuildContext context) {
                       appdata.settings[8] = "0";
                       appdata.writeData();
                       setNetworkProxy();
+                      unawaited(networkClientManager.applySettings());
                       App.globalBack();
                     } else {
                       appdata.settings[8] = controller.controller.text;
                       appdata.writeData();
                       setNetworkProxy();
+                      unawaited(networkClientManager.applySettings());
                       App.globalBack();
                     }
                   },

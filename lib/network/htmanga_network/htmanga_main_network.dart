@@ -7,7 +7,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
-import 'package:pica_comic/network/app_dio.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:html/parser.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
@@ -64,17 +64,21 @@ class HtmangaNetwork {
 
   ///基本的Post请求
   Future<Res<String>> post(String url, String data) async {
-    var dio = logDio(
-      BaseOptions(
-        headers: {
-          "User-Agent": webUA,
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        },
-      ),
-    );
-    dio.interceptors.add(CookieManagerSql(SingleInstanceCookieJar.instance!));
     try {
-      var res = await dio.post(url, data: data);
+      var res = await networkClientManager.apiDio.post<String>(
+        url,
+        data: data,
+        options: Options(
+          headers: {
+            "User-Agent": webUA,
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          },
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey:
+                SingleInstanceCookieJar.instance!,
+          },
+        ),
+      );
       return Res(res.data);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||

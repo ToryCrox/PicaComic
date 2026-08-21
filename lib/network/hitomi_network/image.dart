@@ -2,6 +2,7 @@ import 'package:pica_comic/foundation/def.dart';
 import 'hitomi_main_network.dart';
 import 'hitomi_models.dart';
 import 'package:dio/dio.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 
 ///获取图像url使用的一个临时的类
 ///
@@ -47,17 +48,15 @@ class GG {
       b = cacheB!;
       return;
     }
-    var dio = Dio(
-      BaseOptions(
+    var res = await networkClientManager.apiDio.get<String>(
+      "https://ltn.$baseDomain/gg.js?_=1683939645979",
+      options: Options(
         responseType: ResponseType.plain,
         headers: {
           "User-Agent": webUA,
           "Referer": "https://hitomi.la/reader/$galleryId.html",
         },
       ),
-    );
-    var res = await dio.get<String>(
-      "https://ltn.$baseDomain/gg.js?_=1683939645979",
     );
     RegExp exp = RegExp(r'(?<=case )\d+');
     Iterable<RegExpMatch> matches = exp.allMatches(res.data!);

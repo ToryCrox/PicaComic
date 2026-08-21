@@ -1,11 +1,13 @@
 library pica_settings;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
@@ -16,11 +18,13 @@ import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/pages/settings/ai_settings_page.dart';
 import 'package:pica_comic/pages/settings/theme_page.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/main.dart';
-import 'package:pica_comic/network/app_dio.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/network_config.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/pages/logs_page.dart';
 import 'package:pica_comic/tools/extensions.dart';

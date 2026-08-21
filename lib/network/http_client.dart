@@ -32,7 +32,7 @@ Future<String?> getProxy() async {
   }
   if (res == "No Proxy") return null;
   //windows上部分代理工具会将代理设置为http=127.0.0.1:8888;https=127.0.0.1:8888;ftp=127.0.0.1:7890的形式
-  //下面的代码从中提取正确的代理地址
+  //下面从其中提取正确的代理地址
   if (res.contains("https")) {
     var proxies = res.split(";");
     for (String proxy in proxies) {
@@ -42,7 +42,7 @@ Future<String?> getProxy() async {
       }
     }
   }
-  // 执行最终检查
+  //执行最终检查
   final RegExp regex = RegExp(
     r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$',
     caseSensitive: false,
@@ -105,7 +105,7 @@ class ProxyHttpOverrides extends HttpOverrides {
         r'^((25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$',
       );
       if (ipv4RegExp.hasMatch(host)) {
-        // 允许ip访问
+        //允许ip访问
         return true;
       }
       return false;

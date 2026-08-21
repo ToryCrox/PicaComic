@@ -1,5 +1,4 @@
 import 'dart:io' as io;
-
 import 'package:dio/dio.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -59,6 +58,10 @@ class CloudflareException implements DioException {
 class CloudflareInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.extra['cloudflare'] != true) {
+      handler.next(options);
+      return;
+    }
     if (options.headers['cookie'].toString().contains('cf_clearance')) {
       options.headers['user-agent'] = appdata.implicitData[3];
     }
@@ -67,6 +70,10 @@ class CloudflareInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    if (err.requestOptions.extra['cloudflare'] != true) {
+      handler.next(err);
+      return;
+    }
     if (err.response?.statusCode == 403) {
       handler.next(_check(err.response!) ?? err);
     } else {
@@ -76,6 +83,10 @@ class CloudflareInterceptor extends Interceptor {
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
+    if (response.requestOptions.extra['cloudflare'] != true) {
+      handler.next(response);
+      return;
+    }
     if (response.statusCode == 403) {
       var err = _check(response);
       if (err != null) {

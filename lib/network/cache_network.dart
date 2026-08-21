@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
-import 'package:pica_comic/network/http_client.dart';
-import 'app_dio.dart';
+import 'network_client_manager.dart';
 
 ///缓存网络请求, 仅提供get方法, 其它的没有意义
 class CachedNetwork {
@@ -18,11 +16,7 @@ class CachedNetwork {
     bool http2 = false,
     CancelToken? cancelToken,
   }) async {
-    await setNetworkProxy();
-    var fileName = md5.convert(const Utf8Encoder().convert(url)).toString();
-    if (fileName.length > 20) {
-      fileName = fileName.substring(0, 21);
-    }
+    // 保留旧参数以兼容漫画源调用方，实际请求统一使用共享 API Dio。
     final key = url;
     if (expiredTime != CacheExpiredTime.no) {
       var cache = await CacheManager().findCache(key);
@@ -32,12 +26,25 @@ class CachedNetwork {
       }
     }
     options.responseType = ResponseType.bytes;
-    var dio = log ? logDio(options, http2) : Dio(options);
-    if (cookieJar != null) {
-      dio.interceptors.add(CookieManagerSql(cookieJar));
-    }
-
-    var res = await dio.get<Uint8List>(url, cancelToken: cancelToken);
+    final requestOptions = Options(
+      method: 'GET',
+      headers: options.headers,
+      responseType: ResponseType.bytes,
+      sendTimeout: options.sendTimeout,
+      receiveTimeout: options.receiveTimeout,
+      followRedirects: options.followRedirects,
+      maxRedirects: options.maxRedirects,
+      validateStatus: options.validateStatus,
+      receiveDataWhenStatusError: options.receiveDataWhenStatusError,
+      extra: {
+        if (cookieJar != null) NetworkCookieInterceptor.cookieJarKey: cookieJar,
+      },
+    );
+    final res = await networkClientManager.apiDio.get<Uint8List>(
+      url,
+      options: requestOptions,
+      cancelToken: cancelToken,
+    );
     if (res.data == null && !url.contains("random")) {
       throw Exception("Empty data");
     }

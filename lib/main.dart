@@ -15,6 +15,7 @@ import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/theme/theme_provider.dart';
 import 'package:pica_comic/init.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/pages/auth_page.dart';
 import 'package:pica_comic/pages/comic_page/adapters_register.dart';
@@ -39,7 +40,7 @@ void main(List<String> args) {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      await init();
+      await initBase();
       registerAllComicPageAdapters();
       await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
       FlutterError.onError = (details) {
@@ -47,7 +48,7 @@ void main(List<String> args) {
       };
       notFirstUse = appdata.firstUse[3] == "1";
       setNetworkProxy();
-      runApp(const ProviderScope(child: MyApp()));
+      runApp(const ProviderScope(child: AppBootstrap()));
       if (App.isDesktop) {
         await windowManager.ensureInitialized();
         windowManager.waitUntilReadyToShow().then((_) async {
@@ -73,6 +74,51 @@ void main(List<String> args) {
       Log.e("Unhandled Exception $error\n$stack");
     },
   );
+}
+
+/// 在 ProviderScope 内完成网络客户端和应用服务初始化。
+class AppBootstrap extends ConsumerStatefulWidget {
+  const AppBootstrap({super.key});
+
+  @override
+  ConsumerState<AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends ConsumerState<AppBootstrap> {
+  late final Future<void> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await ref.read(networkClientManagerProvider).initialize();
+    await initServices();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(
+            home: Scaffold(body: Center(child: CircularProgressIndicator())),
+          );
+        }
+        if (snapshot.hasError) {
+          return MaterialApp(
+            home: Scaffold(
+              body: Center(child: Text('初始化失败: ${snapshot.error}')),
+            ),
+          );
+        }
+        return const MyApp();
+      },
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -119,6 +165,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     }
     setNetworkProxy();
+    unawaited(networkClientManager.applySettings());
     scheduleMicrotask(() {
       if (state == AppLifecycleState.hidden && enableAuth) {
         if (!AuthPage.lock && appdata.settings[13] == "1") {

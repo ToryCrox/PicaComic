@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:cookie_jar/cookie_jar.dart' as package_cookie;
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
@@ -297,5 +298,80 @@ class CookieManagerSql extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     handler.next(err);
+  }
+}
+
+/// 根据请求上的 cookieJar 配置选择 Cookie 存储。
+///
+/// 共享 Dio 不再为每个漫画源创建独立实例，因此 Cookie 存储通过
+/// RequestOptions.extra 路由，保持不同漫画源之间的 Cookie 隔离。
+class NetworkCookieInterceptor extends Interceptor {
+  static const cookieJarKey = 'cookieJar';
+
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    try {
+      final jar = options.extra[cookieJarKey];
+      final cookies = await _loadCookieHeader(jar, options.uri);
+      if (cookies.isNotEmpty) {
+        options.headers['cookie'] = cookies;
+      }
+    } catch (e, s) {
+      Log.w('Network cookie load failed: $e\n$s');
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) async {
+    await _saveCookies(
+      response.requestOptions.extra[cookieJarKey],
+      response.requestOptions.uri,
+      response.headers['set-cookie'] ?? const [],
+    );
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final response = err.response;
+    if (response != null) {
+      await _saveCookies(
+        response.requestOptions.extra[cookieJarKey],
+        response.requestOptions.uri,
+        response.headers['set-cookie'] ?? const [],
+      );
+    }
+    handler.next(err);
+  }
+
+  Future<String> _loadCookieHeader(Object? jar, Uri uri) async {
+    if (jar is CookieJarSql) {
+      return jar.loadForRequestCookieHeader(uri);
+    }
+    if (jar is package_cookie.CookieJar) {
+      final cookies = await jar.loadForRequest(uri);
+      return cookies.map((e) => '${e.name}=${e.value}').join('; ');
+    }
+    return '';
+  }
+
+  Future<void> _saveCookies(Object? jar, Uri uri, List<String> headers) async {
+    if (headers.isEmpty) return;
+    try {
+      if (jar is CookieJarSql) {
+        await jar.saveFromResponseCookieHeader(uri, headers);
+      } else if (jar is package_cookie.CookieJar) {
+        await jar.saveFromResponse(
+          uri,
+          headers.map(Cookie.fromSetCookieValue).toList(),
+        );
+      }
+    } catch (e, s) {
+      Log.w('Network cookie save failed: $e\n$s');
+    }
   }
 }

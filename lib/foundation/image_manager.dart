@@ -11,9 +11,9 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_loader/image_recombine.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
@@ -61,8 +61,7 @@ class ImageManager {
 
   ImageManager._create();
 
-  final dio = logDio(BaseOptions())
-    ..interceptors.add(CookieManagerSql(SingleInstanceCookieJar.instance!));
+  Dio get dio => networkClientManager.mediaDio;
 
   int ehgtLoading = 0;
 
@@ -233,7 +232,14 @@ class ImageManager {
       }
       var dioRes = await dio.get<ResponseBody>(
         realUrl,
-        options: Options(responseType: ResponseType.stream, headers: headers),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: headers,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey:
+                SingleInstanceCookieJar.instance!,
+          },
+        ),
         cancelToken: task.cancelToken,
       );
       if (dioRes.data == null) {
@@ -345,16 +351,10 @@ class ImageManager {
       );
       ({Uint8List data, String ext})? image;
       Object? lastError;
-      final imageDio = logDio(
-        BaseOptions(
-          headers: {"user-agent": webUA, "cookie": EhNetwork().cookiesStr},
-        ),
-      );
-
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           image = await _downloadEhImage(
-            imageDio,
+            dio,
             link.imageUrl,
             cacheKey,
             savePath,
@@ -661,7 +661,14 @@ class ImageManager {
 
     final res = await dio.get<ResponseBody>(
       imageUrl,
-      options: Options(responseType: ResponseType.stream),
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: {"user-agent": webUA, "cookie": EhNetwork().cookiesStr},
+        extra: {
+          NetworkCookieInterceptor.cookieJarKey:
+              SingleInstanceCookieJar.instance!,
+        },
+      ),
       cancelToken: cancelToken,
     );
     final body = res.data;
@@ -749,15 +756,15 @@ class ImageManager {
           break;
         }
       }
-      var dio = logDio();
-      dio.options.headers = {
-        "User-Agent": webUA,
-        "Referer": "https://hitomi.la/reader/$galleryId.html",
-      };
-
       var res = await dio.get<ResponseBody>(
         url,
-        options: Options(responseType: ResponseType.stream),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {
+            "User-Agent": webUA,
+            "Referer": "https://hitomi.la/reader/$galleryId.html",
+          },
+        ),
         cancelToken: task.cancelToken,
       );
       var stream = res.data!.stream;
@@ -868,8 +875,6 @@ class ImageManager {
       final savePath = cachingFile.file.path;
       downloadController.add(DownloadProgress(0, 1, url, savePath));
 
-      var dio = logDio();
-
       var bytes = <int>[];
       String? ext;
       try {
@@ -878,6 +883,10 @@ class ImageManager {
           options: Options(
             responseType: ResponseType.stream,
             headers: getImgHeaders(),
+            extra: {
+              NetworkCookieInterceptor.cookieJarKey:
+                  SingleInstanceCookieJar.instance!,
+            },
           ),
           cancelToken: task.cancelToken,
         );
@@ -1005,6 +1014,10 @@ class ImageManager {
           method: config?.method ?? 'GET',
           headers: config?.headers ?? {'user-agent': webUA},
           responseType: ResponseType.stream,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey:
+                SingleInstanceCookieJar.instance!,
+          },
         ),
       );
 
@@ -1150,6 +1163,10 @@ class ImageManager {
           method: config?.method ?? 'GET',
           headers: config?.headers ?? headers ?? {'user-agent': webUA},
           responseType: ResponseType.stream,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey:
+                SingleInstanceCookieJar.instance!,
+          },
         ),
       );
 

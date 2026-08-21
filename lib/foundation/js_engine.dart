@@ -8,10 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/app_dio.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:html/parser.dart' as html;
 import 'package:html/dom.dart' as dom;
-import 'package:pica_comic/network/cloudflare.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
@@ -63,15 +62,8 @@ class JsEngine with _JSEngineApi {
       return;
     }
     try {
-      _dio ??= logDio(
-        BaseOptions(
-          responseType: ResponseType.plain,
-          validateStatus: (status) => true,
-        ),
-      );
+      _dio ??= networkClientManager.apiDio;
       _cookieJar ??= SingleInstanceCookieJar.instance!;
-      _dio!.interceptors.add(CookieManagerSql(_cookieJar!));
-      _dio!.interceptors.add(CloudflareInterceptor());
       _closed = false;
       _engine = FlutterQjs();
       _engine!.dispatch();
@@ -189,6 +181,10 @@ class JsEngine with _JSEngineApi {
               ? ResponseType.bytes
               : ResponseType.plain,
           headers: headers,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey: _cookieJar!,
+            'cloudflare': true,
+          },
         ),
       );
     } catch (e) {

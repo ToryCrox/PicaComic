@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:http/http.dart' as http;
+import 'package:pica_comic/network/network_client_manager.dart';
 
 import '../tools/type_util.dart';
 import 'log.dart';
@@ -260,10 +261,7 @@ class HttpCacheFileInfo {
 class CacheHttpFileService extends FileService {
   static const customCacheControlHeader = 'custom-cache-control';
 
-  final http.Client _httpClient;
-
-  CacheHttpFileService({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+  CacheHttpFileService();
 
   @override
   Future<FileServiceResponse> get(
@@ -273,19 +271,79 @@ class CacheHttpFileService extends FileService {
     Log.d(
       'CacheHttpFileService CacheHttpFileService get, url: $url, headers: $headers',
     );
-    final req = http.Request('GET', Uri.parse(url));
-    if (headers != null) {
-      req.headers.addAll(headers);
-    }
+    final requestHeaders = <String, String>{...?headers};
     String? cacheControl;
-    if (req.headers.containsKey(customCacheControlHeader)) {
-      cacheControl = req.headers[customCacheControlHeader];
-      req.headers.remove(customCacheControlHeader);
+    if (requestHeaders.containsKey(customCacheControlHeader)) {
+      cacheControl = requestHeaders[customCacheControlHeader];
+      requestHeaders.remove(customCacheControlHeader);
     }
-    final httpResponse = await _httpClient.send(req);
-    if (cacheControl != null) {
-      httpResponse.headers[HttpHeaders.cacheControlHeader] = cacheControl;
+    final response = await networkClientManager.mediaDio.get<ResponseBody>(
+      url,
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: requestHeaders,
+      ),
+    );
+    return DioFileServiceResponse(response, cacheControl);
+  }
+}
+
+/// 使用共享媒体 Dio 的缓存文件响应。
+class DioFileServiceResponse implements FileServiceResponse {
+  DioFileServiceResponse(this._response, this._cacheControl);
+
+  final Response<ResponseBody> _response;
+  final String? _cacheControl;
+  final DateTime _receivedTime = DateTime.now();
+
+  String? _header(String name) {
+    if (name == HttpHeaders.cacheControlHeader && _cacheControl != null) {
+      return _cacheControl;
     }
-    return HttpGetResponse(httpResponse);
+    return _response.headers.value(name);
+  }
+
+  @override
+  Stream<List<int>> get content =>
+      _response.data?.stream ?? const Stream.empty();
+
+  @override
+  int? get contentLength => int.tryParse(
+    _response.headers.value(HttpHeaders.contentLengthHeader) ?? '',
+  );
+
+  @override
+  int get statusCode => _response.statusCode ?? 0;
+
+  @override
+  DateTime get validTill {
+    var duration = const Duration(days: 7);
+    final controlHeader = _header(HttpHeaders.cacheControlHeader);
+    if (controlHeader != null) {
+      for (final setting in controlHeader.split(',')) {
+        final value = setting.trim().toLowerCase();
+        if (value == 'no-cache') duration = Duration.zero;
+        if (value.startsWith('max-age=')) {
+          duration = Duration(
+            seconds: int.tryParse(value.split('=').last) ?? 0,
+          );
+        }
+      }
+    }
+    return _receivedTime.add(duration);
+  }
+
+  @override
+  String? get eTag => _header(HttpHeaders.etagHeader);
+
+  @override
+  String get fileExtension {
+    final contentType = _header(HttpHeaders.contentTypeHeader)?.toLowerCase();
+    if (contentType == null) return '';
+    if (contentType.contains('jpeg')) return '.jpg';
+    if (contentType.contains('png')) return '.png';
+    if (contentType.contains('gif')) return '.gif';
+    if (contentType.contains('webp')) return '.webp';
+    return '';
   }
 }

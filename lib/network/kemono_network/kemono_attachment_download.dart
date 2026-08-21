@@ -6,6 +6,7 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/kemono_network/models.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:path/path.dart' as Path;
 
@@ -44,8 +45,10 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
   /// 下载失败的文件列表
   final List<String> _failedFiles = [];
 
-  /// Dio 实例（用于下载）
-  Dio? _dio;
+  /// 共享媒体 Dio。
+  Dio get _dio => networkClientManager.mediaDio;
+
+  final CancelToken _cancelToken = CancelToken();
 
   KemonoAttachmentDownloadingTask({
     required this.files,
@@ -140,22 +143,16 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
 
   /// 通过 HEAD 请求获取所有文件的大小
   Future<void> _fetchFileSizes() async {
-    _dio ??= Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(minutes: 10),
-      ),
-    );
-
     int totalSize = 0;
 
     for (var file in files) {
       try {
-        final response = await _dio!.head(
+        final response = await _dio.head(
           file.fullUrl,
           options: Options(
             headers: headers, // 使用相同的 headers
           ),
+          cancelToken: _cancelToken,
         );
 
         // 从响应头获取文件大小
@@ -176,13 +173,6 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
 
   @override
   Stream<DownloadProgress> downloadImage(String link) async* {
-    _dio ??= Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(minutes: 10),
-      ),
-    );
-
     // 从 URL 中找到对应的 KemonoFile
     final file = files.firstWhere(
       (f) => f.fullUrl == link,
@@ -204,7 +194,7 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
     int lastReportedBytes = 0; // 用于追踪上次报告的字节数
 
     try {
-      await _dio!.download(
+      await _dio.download(
         link,
         savePath,
         onReceiveProgress: (count, total) {
@@ -221,6 +211,7 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
             lastReportedBytes = count;
           }
         },
+        cancelToken: _cancelToken,
       );
 
       _downloadedFiles++;
@@ -325,12 +316,8 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
 
   @override
   Future<void> stop() async {
-    // 先关闭 Dio，取消所有正在进行的请求
-    // 这样可以立即停止下载，而不用等待当前请求完成
-    _dio?.close(force: true);
-    _dio = null;
+    _cancelToken.cancel('Download stopped');
 
-    // 然后调用基类的 stop 方法
     await super.stop();
   }
 

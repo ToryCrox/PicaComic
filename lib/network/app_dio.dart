@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 import 'package:pica_comic/network/http_client.dart';
+import 'package:pica_comic/network/network_config.dart';
 import '../base.dart';
 import '../foundation/app.dart';
 
@@ -96,13 +97,17 @@ class MyLogInterceptor implements Interceptor {
     if ((response.statusCode != null && response.statusCode! < 400)) {
       Log.i(
         () =>
-            "Network Response ${response.realUri.toString()} ${response.statusCode}\n"
+            "Network Response ${response.realUri.toString()} ${response.statusCode} "
+            "[${response.extra['networkBackend'] ?? 'unknown'}/"
+            "${response.extra['networkProtocol'] ?? 'unknown'}]\n"
             "headers:\n$headers\n$content",
       );
     } else {
       Log.e(
         () =>
-            "Network Response ${response.realUri.toString()} ${response.statusCode}\n"
+            "Network Response ${response.realUri.toString()} ${response.statusCode} "
+            "[${response.extra['networkBackend'] ?? 'unknown'}/"
+            "${response.extra['networkProtocol'] ?? 'unknown'}]\n"
             "headers:\n$headers\n$content",
       );
     }
@@ -111,9 +116,11 @@ class MyLogInterceptor implements Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    options.connectTimeout = const Duration(seconds: 15);
-    options.receiveTimeout = const Duration(seconds: 15);
-    options.sendTimeout = const Duration(seconds: 15);
+    options.connectTimeout ??= const Duration(seconds: 15);
+    options.sendTimeout ??= const Duration(seconds: 15);
+    options.receiveTimeout ??= options.responseType == ResponseType.stream
+        ? const Duration(seconds: 60)
+        : const Duration(seconds: 30);
     handler.next(options);
   }
 }
@@ -121,13 +128,16 @@ class MyLogInterceptor implements Interceptor {
 class AppHttpAdapter implements HttpClientAdapter {
   HttpClientAdapter? adapter;
 
-  final bool http2;
+  final NetworkProtocol protocol;
 
-  AppHttpAdapter(this.http2);
+  AppHttpAdapter(this.protocol);
 
-  static Future<HttpClientAdapter> createAdapter(bool http2) async {
-    return http2
-        ? Http2Adapter(
+  static Future<HttpClientAdapter> createAdapter(
+    NetworkProtocol protocol,
+  ) async {
+    return protocol == NetworkProtocol.http1
+        ? IOHttpClientAdapter()
+        : Http2Adapter(
             ConnectionManager(
               idleTimeout: const Duration(seconds: 15),
               onClientCreate: (_, config) {
@@ -139,8 +149,7 @@ class AppHttpAdapter implements HttpClientAdapter {
                 }
               },
             ),
-          )
-        : IOHttpClientAdapter();
+          );
   }
 
   @override
@@ -170,11 +179,20 @@ class AppHttpAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    adapter ??= await createAdapter(http2);
+    adapter ??= await createAdapter(protocol);
     int retry = 0;
     while (true) {
       try {
         var res = await fetchOnce(o, requestStream, cancelFuture);
+        res.extra = {
+          ...res.extra,
+          'networkBackend': 'dio',
+          'networkProtocol': protocol == NetworkProtocol.http1
+              ? 'http1'
+              : protocol == NetworkProtocol.http2
+              ? 'http2'
+              : 'auto',
+        };
         return res;
       } catch (e) {
         if (e is DioException) {
@@ -185,14 +203,36 @@ class AppHttpAdapter implements HttpClientAdapter {
             }
           }
         }
+        if (!_canRetry(o, requestStream, e)) rethrow;
         Log.e("Network ${o.method} ${o.path}\n$e\nRetrying...");
         retry++;
         if (retry == 2) {
           rethrow;
         }
+        if (protocol != NetworkProtocol.http1 && adapter is Http2Adapter) {
+          adapter!.close(force: true);
+          adapter = await createAdapter(NetworkProtocol.http1);
+        }
         await Future.delayed(const Duration(seconds: 1));
       }
     }
+  }
+
+  bool _canRetry(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Object error,
+  ) {
+    if (requestStream != null) return false;
+    if (error is DioException &&
+        (error.type == DioExceptionType.cancel ||
+            error.type == DioExceptionType.badCertificate)) {
+      return false;
+    }
+    return switch (options.method.toUpperCase()) {
+      'GET' || 'HEAD' || 'OPTIONS' => true,
+      _ => false,
+    };
   }
 
   Future<ResponseBody> fetchOnce(
@@ -279,6 +319,8 @@ class AppHttpAdapter implements HttpClientAdapter {
 
 Dio logDio([BaseOptions? options, bool http2 = false]) {
   var dio = Dio(options)..interceptors.add(MyLogInterceptor());
-  dio.httpClientAdapter = AppHttpAdapter(http2);
+  dio.httpClientAdapter = AppHttpAdapter(
+    http2 ? NetworkProtocol.http2 : NetworkProtocol.http1,
+  );
   return dio;
 }

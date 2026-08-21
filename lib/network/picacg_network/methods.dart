@@ -3,13 +3,12 @@ import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'dart:convert' as convert;
 import 'package:pica_comic/network/picacg_network/headers.dart';
-import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import '../../base.dart';
 import '../../foundation/app.dart';
 import '../../foundation/log.dart';
-import '../app_dio.dart';
 import '../res.dart';
+import '../network_client_manager.dart';
 import 'models.dart';
 
 export "models.dart";
@@ -45,7 +44,6 @@ class PicacgNetwork {
       await Future.delayed(const Duration(milliseconds: 500));
       return const Res(null, errorMessage: "未登录");
     }
-    await setNetworkProxy();
     var dio = CachedNetwork();
     var options = getHeaders("get", token, url.replaceAll("$apiUrl/", ""));
     options.validateStatus = (i) => i == 200 || i == 400 || i == 401;
@@ -95,15 +93,19 @@ class PicacgNetwork {
       await Future.delayed(const Duration(milliseconds: 500));
       return const Res(null, errorMessage: "未登录");
     }
-    var dio = logDio();
-    dio.options = getHeaders("post", token, url.replaceAll("$apiUrl/", ""));
+    final baseOptions = getHeaders(
+      "post",
+      token,
+      url.replaceAll("$apiUrl/", ""),
+    );
     try {
-      await setNetworkProxy();
-      var res = await dio.post<String>(
+      var res = await networkClientManager.apiDio.post<String>(
         url,
         data: data,
         options: Options(
+          headers: baseOptions.headers,
           responseType: ResponseType.plain,
+          receiveDataWhenStatusError: true,
           validateStatus: (i) {
             return i == 200 || i == 400 || i == 401;
           },
@@ -278,8 +280,9 @@ class PicacgNetwork {
   /// 由于存在安全问题, 因此放弃
   Future<String?> init() async {
     try {
-      var dio = Dio();
-      var res = await dio.get("http://68.183.234.72/init");
+      var res = await networkClientManager.apiDio.get(
+        "http://68.183.234.72/init",
+      );
       var jsonResponse =
           convert.jsonDecode(res.toString()) as Map<String, dynamic>;
       return jsonResponse["addresses"][0];
@@ -747,10 +750,21 @@ class PicacgNetwork {
   Future<bool> uploadAvatar(String imageData) async {
     //数据仍然是json, 只有一条"avatar"数据, 数据内容为base64编码的图像, 例如{"avatar":"[在这里放图像数据]"}
     var url = "$apiUrl/users/avatar";
-    var dio = logDio();
-    dio.options = getHeaders("put", token, url.replaceAll("$apiUrl/", ""));
+    final baseOptions = getHeaders(
+      "put",
+      token,
+      url.replaceAll("$apiUrl/", ""),
+    );
     try {
-      var res = await dio.put(url, data: {"avatar": imageData});
+      var res = await networkClientManager.apiDio.put(
+        url,
+        data: {"avatar": imageData},
+        options: Options(
+          headers: baseOptions.headers,
+          responseType: baseOptions.responseType,
+          receiveDataWhenStatusError: true,
+        ),
+      );
       return res.statusCode == 200;
     } catch (e) {
       return false;
@@ -759,10 +773,21 @@ class PicacgNetwork {
 
   Future<bool> changeSlogan(String slogan) async {
     var url = "$apiUrl/users/profile";
-    var dio = logDio();
-    dio.options = getHeaders("put", token, url.replaceAll("$apiUrl/", ""));
+    final baseOptions = getHeaders(
+      "put",
+      token,
+      url.replaceAll("$apiUrl/", ""),
+    );
     try {
-      var res = await dio.put(url, data: {"slogan": slogan});
+      var res = await networkClientManager.apiDio.put(
+        url,
+        data: {"slogan": slogan},
+        options: Options(
+          headers: baseOptions.headers,
+          responseType: baseOptions.responseType,
+          receiveDataWhenStatusError: true,
+        ),
+      );
       if (res.statusCode == 200) {
         return true;
       } else {
@@ -1012,13 +1037,20 @@ class PicacgNetwork {
     String newPassword,
   ) async {
     var url = "$apiUrl/users/password";
-    var dio = logDio();
-    dio.options = getHeaders("put", token, url.replaceAll("$apiUrl/", ""));
+    final baseOptions = getHeaders(
+      "put",
+      token,
+      url.replaceAll("$apiUrl/", ""),
+    );
     try {
-      var res = await dio.put(
+      var res = await networkClientManager.apiDio.put(
         url,
         data: {"new_password": newPassword, "old_password": oldPassword},
-        options: Options(validateStatus: (i) => i == 200 || i == 400),
+        options: Options(
+          headers: baseOptions.headers,
+          responseType: baseOptions.responseType,
+          validateStatus: (i) => i == 200 || i == 400,
+        ),
       );
       if (res.statusCode == 200) {
         return const Res(true);

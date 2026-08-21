@@ -4,15 +4,14 @@ import 'package:html/dom.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/cloudflare.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/nhentai_network/tags.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
-import '../app_dio.dart';
 import 'models.dart';
 import 'package:html/parser.dart';
 
@@ -31,7 +30,7 @@ class NhentaiNetwork {
 
   String baseUrl = "https://nhentai.net";
 
-  late Dio dio;
+  Dio get dio => networkClientManager.apiDio;
 
   Future<void> init() async {
     cookieJar = SingleInstanceCookieJar.instance;
@@ -41,19 +40,6 @@ class NhentaiNetwork {
         logged = true;
       }
     }
-    dio = logDio(
-      BaseOptions(
-        headers: {
-          "Accept":
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-          "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7,en;q=0.6",
-          "Referer": "$baseUrl/",
-        },
-        validateStatus: (i) => i == 200 || i == 302,
-      ),
-    );
-    dio.interceptors.add(CookieManagerSql(cookieJar!));
-    dio.interceptors.add(CloudflareInterceptor());
   }
 
   void logout() async {
@@ -68,7 +54,21 @@ class NhentaiNetwork {
     try {
       var res = await dio.get<String>(
         url,
-        options: Options(followRedirects: false),
+        options: Options(
+          followRedirects: false,
+          headers: {
+            "Accept":
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language":
+                "zh-CN,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7,en;q=0.6",
+            "Referer": "$baseUrl/",
+          },
+          validateStatus: (i) => i == 200 || i == 302,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey: cookieJar!,
+            'cloudflare': true,
+          },
+        ),
       );
       if (res.statusCode == 302) {
         var path =
@@ -95,7 +95,13 @@ class NhentaiNetwork {
       var res = await dio.post<String>(
         url,
         data: data,
-        options: Options(headers: headers),
+        options: Options(
+          headers: headers,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey: cookieJar!,
+            'cloudflare': true,
+          },
+        ),
       );
       return Res(res.data);
     } catch (e) {

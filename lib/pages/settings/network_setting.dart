@@ -1,15 +1,45 @@
 part of pica_settings;
 
-class NetworkSettings extends StatefulWidget {
+class NetworkSettings extends ConsumerStatefulWidget {
   const NetworkSettings({super.key});
 
   @override
-  State<NetworkSettings> createState() => _NetworkSettingsState();
+  ConsumerState<NetworkSettings> createState() => _NetworkSettingsState();
 }
 
-class _NetworkSettingsState extends State<NetworkSettings> {
+class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
+  Future<void> _applyNetworkSettings() async {
+    try {
+      await ref.read(networkClientManagerProvider).applySettings();
+    } catch (e, s) {
+      Log.e('Apply network settings failed.\n$e\n$s');
+      if (mounted) {
+        showToast(message: '网络设置应用失败');
+      }
+    }
+  }
+
+  String _backendLabel(NetworkBackend backend) {
+    return switch (backend) {
+      NetworkBackend.rhttp => 'rhttp',
+      NetworkBackend.dio => 'Dio',
+    };
+  }
+
+  String _protocolLabel(NetworkProtocol protocol) {
+    return switch (protocol) {
+      NetworkProtocol.auto => '自动',
+      NetworkProtocol.http1 => 'HTTP/1.1',
+      NetworkProtocol.http2 => 'HTTP/2',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final backend = kIsWeb
+        ? NetworkBackend.dio
+        : appdata.appSettings.networkBackend;
+    final protocol = appdata.appSettings.networkProtocol;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -21,6 +51,51 @@ class _NetworkSettingsState extends State<NetworkSettings> {
           onTap: () {
             setProxy(context);
           },
+        ),
+        ListTile(
+          leading: const Icon(Icons.swap_horiz),
+          title: const Text('网络后端'),
+          subtitle: kIsWeb ? const Text('Web 平台固定使用 Dio') : null,
+          trailing: DropdownButton<NetworkBackend>(
+            value: backend,
+            onChanged: kIsWeb
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() => appdata.appSettings.networkBackend = value);
+                    appdata.updateSettings();
+                    unawaited(_applyNetworkSettings());
+                  },
+            items: NetworkBackend.values
+                .map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(_backendLabel(value)),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.http),
+          title: const Text('HTTP 协议'),
+          trailing: DropdownButton<NetworkProtocol>(
+            value: protocol,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => appdata.appSettings.networkProtocol = value);
+              appdata.updateSettings();
+              unawaited(_applyNetworkSettings());
+            },
+            items: NetworkProtocol.values
+                .map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(_protocolLabel(value)),
+                  ),
+                )
+                .toList(),
+          ),
         ),
         ListTile(
           title: Row(
@@ -56,6 +131,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
               if (value) {
                 HttpProxyServer.reload();
               }
+              unawaited(networkClientManager.applySettings());
             },
           ),
         ),

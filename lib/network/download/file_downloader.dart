@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:pica_comic/network/http_client.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/tools/extensions.dart';
 
 class FileDownloader {
@@ -19,7 +19,9 @@ class FileDownloader {
 
   late int _fileSize;
 
-  final _dio = Dio();
+  Dio get _dio => networkClientManager.mediaDio;
+
+  final CancelToken _cancelToken = CancelToken();
 
   RandomAccessFile? _file;
 
@@ -65,7 +67,11 @@ class FileDownloader {
   }
 
   Future<void> _createTasks() async {
-    var res = await _dio.head(url);
+    var res = await _dio.head(
+      url,
+      options: Options(extra: {'networkProxy': proxy}),
+      cancelToken: _cancelToken,
+    );
     var length = res.headers["content-length"]?.first;
     _fileSize = length == null ? 0 : int.parse(length);
 
@@ -97,7 +103,6 @@ class FileDownloader {
   }
 
   Stream<DownloadingStatus> start() {
-    setProxy(proxy);
     var stream = StreamController<DownloadingStatus>();
     _download(stream);
     return stream.stream;
@@ -202,8 +207,13 @@ class FileDownloader {
         "Accept-Encoding": "deflate, gzip",
       },
       preserveHeaderCase: true,
+      extra: {'networkProxy': proxy},
     );
-    var res = await _dio.get<ResponseBody>(url, options: options);
+    var res = await _dio.get<ResponseBody>(
+      url,
+      options: options,
+      cancelToken: _cancelToken,
+    );
     if (_canceled) return;
     if (res.data == null) {
       throw Exception("Failed to block $start-$end");
@@ -244,6 +254,7 @@ class FileDownloader {
 
   Future<void> stop() async {
     _canceled = true;
+    _cancelToken.cancel('Download stopped');
     await _file?.close();
     _file = null;
   }

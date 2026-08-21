@@ -1,6 +1,6 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:dio/dio.dart';
 import 'dart:io' as io;
 import 'package:pica_comic/foundation/log.dart';
@@ -89,8 +89,7 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
 }
 
 class PicaHttpFileService extends FileService {
-  final Dio _dio = logDio()
-    ..interceptors.add(CookieManagerSql(SingleInstanceCookieJar.instance!));
+  Dio get _dio => networkClientManager.mediaDio;
 
   static int _ehgtLoading = 0;
 
@@ -167,6 +166,10 @@ class PicaHttpFileService extends FileService {
           method: requestMethod,
           headers: requestHeaders,
           responseType: ResponseType.stream,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey:
+                SingleInstanceCookieJar.instance!,
+          },
         ),
       );
 

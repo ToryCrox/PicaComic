@@ -9,9 +9,9 @@ import 'package:pica_comic/comic_source/built_in/ehentai.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/res.dart';
@@ -23,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
 
 import '../../base.dart';
-import '../http_client.dart';
 
 class EhNetwork {
   factory EhNetwork() => cache == null ? (cache = EhNetwork.create()) : cache!;
@@ -175,7 +174,7 @@ class EhNetwork {
     }
   }
 
-  final apiDio = logDio(BaseOptions());
+  Dio get apiDio => networkClientManager.apiDio;
 
   ///eh APi请求
   Future<Res<String>> apiRequest(
@@ -184,7 +183,6 @@ class EhNetwork {
     CancelToken? cancelToken,
   }) async {
     await getCookies(false, ehApiUrl);
-    await setNetworkProxy();
 
     try {
       var res = await apiDio.post<String>(
@@ -224,7 +222,6 @@ class EhNetwork {
     Map<String, String>? headers,
   }) async {
     await getCookies(true, url);
-    await setNetworkProxy(); //更新代理
     var options = BaseOptions(
       connectTimeout: const Duration(seconds: 8),
       sendTimeout: const Duration(seconds: 8),
@@ -234,10 +231,21 @@ class EhNetwork {
       headers: {"user-agent": webUA, ...?headers},
     );
 
-    var dio = logDio(options)..interceptors.add(LogInterceptor());
-    dio.interceptors.add(CookieManagerSql(cookieJar));
     try {
-      var res = await dio.post<String>(url, data: data);
+      var res = await networkClientManager.apiDio.post<String>(
+        url,
+        data: data,
+        options: Options(
+          headers: options.headers,
+          sendTimeout: options.sendTimeout,
+          receiveTimeout: options.receiveTimeout,
+          followRedirects: options.followRedirects,
+          maxRedirects: options.maxRedirects,
+          validateStatus: options.validateStatus,
+          receiveDataWhenStatusError: options.receiveDataWhenStatusError,
+          extra: {NetworkCookieInterceptor.cookieJarKey: cookieJar},
+        ),
+      );
       return Res(res.data ?? "");
     } on DioException catch (e) {
       String? message;
@@ -1481,7 +1489,7 @@ class EhNetwork {
         showToast(message: 'download error ${res.dataOrNull}');
         return Res.error("Failed to get download link, ${res.data}");
       }
-      var res2 = await logDio().get<String>(link);
+      var res2 = await networkClientManager.apiDio.get<String>(link);
       document = parse(res2.data);
       var link2 = document.querySelector("a")?.attributes["href"];
       var host = Uri.parse(link).host;

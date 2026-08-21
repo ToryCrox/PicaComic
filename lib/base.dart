@@ -13,6 +13,7 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'foundation/def.dart';
+import 'network/network_config.dart';
 export 'foundation/def.dart';
 export 'package:pica_comic/network/download/download_manager.dart';
 
@@ -120,6 +121,8 @@ class Appdata {
     "2.0.11", //89 jm app version
     "auto", //90 日志级别: auto/trace/debug/info/warning/error
     "", //91 漫画翻译结果目录
+    "rhttp", //92 网络后端: rhttp/dio
+    "auto", //93 HTTP协议: auto/http1/http2
   ];
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步
@@ -441,5 +444,29 @@ class _Settings {
       appdata.settings.add('');
     }
     appdata.settings[91] = value;
+  }
+
+  /// 网络后端，默认为 rhttp。
+  NetworkBackend get networkBackend => NetworkConfigExtension.fromValue(
+    appdata.settings.length > 92 ? appdata.settings[92] : null,
+  );
+
+  set networkBackend(NetworkBackend value) {
+    while (appdata.settings.length <= 92) {
+      appdata.settings.add('');
+    }
+    appdata.settings[92] = value.value;
+  }
+
+  /// HTTP 协议偏好，默认为自动协商。
+  NetworkProtocol get networkProtocol => NetworkProtocolExtension.fromValue(
+    appdata.settings.length > 93 ? appdata.settings[93] : null,
+  );
+
+  set networkProtocol(NetworkProtocol value) {
+    while (appdata.settings.length <= 93) {
+      appdata.settings.add('');
+    }
+    appdata.settings[93] = value.value;
   }
 }

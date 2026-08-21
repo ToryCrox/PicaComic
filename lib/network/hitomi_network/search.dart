@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import '../res.dart';
 import 'hitomi_main_network.dart';
 
@@ -14,7 +15,7 @@ class HitomiSearch {
   String get baseDomain => HiNetwork().baseDomain;
   var results = <int>[];
   String? tagIndexVersion;
-  final dio = Dio();
+  Dio get dio => networkClientManager.apiDio;
   final nozomiExtension = '.nozomi';
   var indexDir = 'galleriesindex';
   var galleriesIndexDir = 'galleriesindex';

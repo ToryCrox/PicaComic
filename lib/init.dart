@@ -34,7 +34,8 @@ import 'network/nhentai_network/nhentai_main_network.dart';
 import 'tools/prefs_helper.dart';
 import 'package:logger/logger.dart';
 
-Future<void> init() async {
+/// 初始化不依赖网络客户端的基础环境。
+Future<void> initBase() async {
   try {
     await App.init();
     //LogManager.init();
@@ -77,12 +78,22 @@ Future<void> init() async {
     await checkDownloadPath();
     await _checkOldData();
 
-    await ComicSource.init();
-
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     await aiSettings.init();
+    CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
 
+    // 启动日志查看器（仅在桌面平台）
+    //await LogViewerIntegration.init();
+  } catch (e, s) {
+    Log.e("Init App initialization failed!\n$e$s");
+  }
+}
+
+/// 初始化依赖统一网络客户端的应用服务。
+Future<void> initServices() async {
+  try {
+    await ComicSource.init();
     await Future.wait([
       downloadManager.init(),
       NhentaiNetwork().init(),
@@ -91,12 +102,8 @@ Future<void> init() async {
       HistoryManager().init(),
       AppTranslation.init(),
     ]);
-    CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
-
-    // 启动日志查看器（仅在桌面平台）
-    //await LogViewerIntegration.init();
   } catch (e, s) {
-    Log.e("Init App initialization failed!\n$e$s");
+    Log.e("Init App service initialization failed!\n$e$s");
   }
 }
 

@@ -98,7 +98,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
   List? json;
 
   void load() async {
-    var dio = logDio();
+    var dio = networkClientManager.apiDio;
     var res = await dio.get<String>(
       "https://raw.githubusercontent.com/wgh136/pica_configs/master/index.json",
     );

@@ -4,9 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/res.dart';
-import 'package:pica_comic/network/cloudflare.dart';
-import '../app_dio.dart';
 import 'models.dart';
 
 export 'models.dart';
@@ -40,7 +39,7 @@ class KemonoNetwork {
   static const int pageSize = 50;
 
   /// Dio 实例
-  late Dio dio;
+  Dio get dio => networkClientManager.apiDio;
 
   /// 作者列表缓存 (creators.txt返回全量数据)
   List<KemonoCreator>? _creatorsCache;
@@ -70,21 +69,6 @@ class KemonoNetwork {
         break;
       }
     }
-
-    dio = logDio(
-      BaseOptions(
-        baseUrl: apiUrl,
-        headers: {
-          // 使用 text/css 绕过 Cloudflare/DDG 保护
-          'Accept': 'text/css',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Referer': '$baseUrl/',
-        },
-        validateStatus: (i) => i == 200 || i == 304,
-      ),
-    );
-    dio.interceptors.add(CookieManagerSql(cookieJar!));
-    dio.interceptors.add(CloudflareInterceptor());
   }
 
   /// 登出
@@ -99,7 +83,23 @@ class KemonoNetwork {
       await init();
     }
     try {
-      final res = await dio.get<String>(path);
+      final url = path.startsWith('http') ? path : '$apiUrl$path';
+      final res = await dio.get<String>(
+        url,
+        options: Options(
+          headers: {
+            // 使用 text/css 绕过 Cloudflare/DDG 保护
+            'Accept': 'text/css',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': '$baseUrl/',
+          },
+          validateStatus: (i) => i == 200 || i == 304,
+          extra: {
+            NetworkCookieInterceptor.cookieJarKey: cookieJar!,
+            'cloudflare': true,
+          },
+        ),
+      );
       return Res(res.data);
     } catch (e, s) {
       Log.e('Kemono GET error: $path\n$e\n$s');

@@ -4,6 +4,7 @@ import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:workmanager/workmanager.dart';
 import '../base.dart';
+import '../network/network_client_manager.dart';
 import '../network/picacg_network/methods.dart';
 import 'notification.dart';
 
@@ -15,24 +16,30 @@ void onStart() {
     await App.init();
     appdata = Appdata();
     await appdata.readData();
+    final networkClient = NetworkClientManager.instance;
+    await networkClient.initialize();
     var notifications = Notifications();
     await notifications.init();
-    if (picacg.data['token'] != "") {
-      var userInfo = await network.getProfile(false);
-      if (userInfo.error) {
-        return true;
-      }
-      if (userInfo.data.isPunched == false) {
-        var res = await network.punchIn();
-        if (res) {
-          notifications.sendUnimportantNotification("自动打卡", "成功签到");
+    try {
+      if (picacg.data['token'] != "") {
+        var userInfo = await network.getProfile(false);
+        if (userInfo.error) {
           return true;
         }
-      } else {
-        return true;
+        if (userInfo.data.isPunched == false) {
+          var res = await network.punchIn();
+          if (res) {
+            notifications.sendUnimportantNotification("自动打卡", "成功签到");
+            return true;
+          }
+        } else {
+          return true;
+        }
       }
+      return true;
+    } finally {
+      await networkClient.dispose();
     }
-    return true;
   });
 }
 
