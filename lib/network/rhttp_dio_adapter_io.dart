@@ -52,6 +52,7 @@ class RhttpDioAdapter implements HttpClientAdapter {
       responseBody.extra = {
         'networkBackend': 'rhttp',
         'networkProtocol': response.version.name,
+        'networkProtocolSource': 'actual',
         if (response.remoteIp != null) 'remoteIp': response.remoteIp,
       };
       return responseBody;
@@ -73,6 +74,7 @@ class RhttpDioAdapter implements HttpClientAdapter {
           responseBody.extra = {
             'networkBackend': 'rhttp',
             'networkProtocol': response.version.name,
+            'networkProtocolSource': 'fallback',
             'networkFallback': 'http1',
             if (response.remoteIp != null) 'remoteIp': response.remoteIp,
           };

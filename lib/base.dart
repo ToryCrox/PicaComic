@@ -123,6 +123,8 @@ class Appdata {
     "", //91 漫画翻译结果目录
     "rhttp", //92 网络后端: rhttp/dio
     "auto", //93 HTTP协议: auto/http1/http2
+    "0", //94 显示网速悬浮球
+    "0", //95 网络日志采集
   ];
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步
@@ -131,18 +133,20 @@ class Appdata {
     "0", // 双页模式下第一页显示单页
     "0", // 点击关闭按钮时不显示提示
     webUA, // UA
+    "16.0", // 网速悬浮球 X 坐标
+    "0.0", // 网速悬浮球 Y 坐标
   ];
 
-  void writeImplicitData() async {
+  Future<void> writeImplicitData() async {
     var s = await SharedPreferences.getInstance();
     await s.setStringList("implicitData", implicitData);
   }
 
-  void readImplicitData() async {
+  Future<void> readImplicitData() async {
     var s = await SharedPreferences.getInstance();
     var data = s.getStringList("implicitData");
     if (data == null) {
-      writeImplicitData();
+      await writeImplicitData();
       return;
     }
     for (int i = 0; i < data.length && i < implicitData.length; i++) {
@@ -237,7 +241,7 @@ class Appdata {
           firstUse[i] = st[i];
         }
       }
-      readImplicitData();
+      await readImplicitData();
       return firstUse[3] == "1";
     } catch (e) {
       return false;

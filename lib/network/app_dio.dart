@@ -7,6 +7,8 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/network/network_config.dart';
+import 'package:pica_comic/network/network_interceptors.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import '../base.dart';
 import '../foundation/app.dart';
 
@@ -181,17 +183,13 @@ class AppHttpAdapter implements HttpClientAdapter {
   ) async {
     adapter ??= await createAdapter(protocol);
     int retry = 0;
+    var usedFallback = false;
     while (true) {
       try {
         var res = await fetchOnce(o, requestStream, cancelFuture);
         res.extra = {
           ...res.extra,
-          'networkBackend': 'dio',
-          'networkProtocol': protocol == NetworkProtocol.http1
-              ? 'http1'
-              : protocol == NetworkProtocol.http2
-              ? 'http2'
-              : 'auto',
+          ..._networkMetadata(usedFallback: usedFallback),
         };
         return res;
       } catch (e) {
@@ -212,10 +210,25 @@ class AppHttpAdapter implements HttpClientAdapter {
         if (protocol != NetworkProtocol.http1 && adapter is Http2Adapter) {
           adapter!.close(force: true);
           adapter = await createAdapter(NetworkProtocol.http1);
+          usedFallback = true;
         }
         await Future.delayed(const Duration(seconds: 1));
       }
     }
+  }
+
+  Map<String, String> _networkMetadata({required bool usedFallback}) {
+    final isHttp2 = adapter is Http2Adapter;
+    return {
+      'networkBackend': 'dio',
+      'networkProtocol': isHttp2 ? 'http2' : 'http1',
+      'networkProtocolSource': usedFallback
+          ? 'fallback'
+          : isHttp2
+          ? 'actual'
+          : 'configured',
+      if (usedFallback) 'networkFallback': 'http1',
+    };
   }
 
   bool _canRetry(
@@ -318,7 +331,11 @@ class AppHttpAdapter implements HttpClientAdapter {
 }
 
 Dio logDio([BaseOptions? options, bool http2 = false]) {
-  var dio = Dio(options)..interceptors.add(MyLogInterceptor());
+  final bridge = NetworkTelemetryBridge.instance;
+  var dio = Dio(options)
+    ..interceptors.add(NetworkSpeedInterceptor(bridge.speedMonitor))
+    ..interceptors.add(NetworkLogInterceptor(bridge.logSink))
+    ..interceptors.add(MyLogInterceptor());
   dio.httpClientAdapter = AppHttpAdapter(
     http2 ? NetworkProtocol.http2 : NetworkProtocol.http1,
   );

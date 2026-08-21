@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/network_interceptors.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 
 import 'ai_models.dart';
 
@@ -33,7 +35,7 @@ class AiRequestException implements Exception {
   String toString() => message;
 }
 
-/// 独立 AI HTTP 客户端；刻意不挂载项目网络日志拦截器，避免输出密钥和正文。
+/// 独立 AI HTTP 客户端，使用应用级网络监控桥接对象上报请求详情。
 class AiClient {
   final Map<AiProtocolType, AiProtocolAdapter> _adapters;
   final AiRetryDelay _retryDelay;
@@ -73,15 +75,19 @@ class AiClient {
     if (config.apiKey.trim().isNotEmpty) {
       headers['Authorization'] = 'Bearer ${config.apiKey.trim()}';
     }
-    final dio = Dio(
-      BaseOptions(
-        headers: headers,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 120),
-        sendTimeout: const Duration(seconds: 30),
-        responseType: ResponseType.json,
-      ),
-    );
+    final bridge = NetworkTelemetryBridge.instance;
+    final dio =
+        Dio(
+            BaseOptions(
+              headers: headers,
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 120),
+              sendTimeout: const Duration(seconds: 30),
+              responseType: ResponseType.json,
+            ),
+          )
+          ..interceptors.add(NetworkSpeedInterceptor(bridge.speedMonitor))
+          ..interceptors.add(NetworkLogInterceptor(bridge.logSink));
     var retries = 0;
     while (true) {
       try {

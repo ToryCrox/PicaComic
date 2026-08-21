@@ -10,6 +10,8 @@ import 'cloudflare.dart';
 import 'cookie_jar.dart';
 import 'http_client.dart';
 import 'network_config.dart';
+import 'network_interceptors.dart';
+import 'network_telemetry.dart';
 import 'rhttp_dio_adapter.dart';
 import 'rhttp_init.dart';
 
@@ -30,6 +32,7 @@ class NetworkClientManager {
   bool _initialized = false;
   bool _rhttpAvailable = false;
   bool _disposed = false;
+  NetworkTelemetryBridge _telemetry = NetworkTelemetryBridge.instance;
 
   /// 当前实际生效的网络后端。
   NetworkBackend get effectiveBackend {
@@ -41,6 +44,11 @@ class NetworkClientManager {
 
   /// 当前配置的 HTTP 协议偏好。
   NetworkProtocol get protocol => appdata.appSettings.networkProtocol;
+
+  /// 注入 Riverpod 管理的网络监控状态。
+  void configureTelemetry(NetworkTelemetryBridge telemetry) {
+    _telemetry = telemetry;
+  }
 
   /// 初始化网络运行时和共享 Dio。
   Future<void> initialize() async {
@@ -150,6 +158,8 @@ class NetworkClientManager {
           ..httpClientAdapter = _apiAdapter
           ..interceptors.add(NetworkCookieInterceptor())
           ..interceptors.add(CloudflareInterceptor())
+          ..interceptors.add(NetworkSpeedInterceptor(_telemetry.speedMonitor))
+          ..interceptors.add(NetworkLogInterceptor(_telemetry.logSink))
           ..interceptors.add(MyLogInterceptor());
     mediaDio =
         Dio(
@@ -162,6 +172,8 @@ class NetworkClientManager {
           ..httpClientAdapter = _mediaAdapter
           ..interceptors.add(NetworkCookieInterceptor())
           ..interceptors.add(CloudflareInterceptor())
+          ..interceptors.add(NetworkSpeedInterceptor(_telemetry.speedMonitor))
+          ..interceptors.add(NetworkLogInterceptor(_telemetry.logSink))
           ..interceptors.add(MyLogInterceptor());
     _dioCreated = true;
   }
@@ -183,6 +195,7 @@ NetworkClientManager get networkClientManager => NetworkClientManager.instance;
 /// Riverpod 应用级网络管理器。
 final networkClientManagerProvider = Provider<NetworkClientManager>((ref) {
   final manager = NetworkClientManager.instance;
+  manager.configureTelemetry(ref.read(networkTelemetryBridgeProvider));
   ref.onDispose(() {
     unawaited(manager.dispose());
   });

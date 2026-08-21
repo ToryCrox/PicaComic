@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/components/network_speed_floating_ball.dart';
 import 'package:pica_comic/components/window_frame.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
@@ -278,6 +279,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       );
                     };
                     if (widget != null) {
+                      widget = NetworkSpeedWrapper(child: widget);
                       widget = OverlayWidget(widget);
                       if (App.isDesktop) {
                         widget = Shortcuts(

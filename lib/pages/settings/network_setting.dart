@@ -40,6 +40,8 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
         ? NetworkBackend.dio
         : appdata.appSettings.networkBackend;
     final protocol = appdata.appSettings.networkProtocol;
+    final showSpeedBall = ref.watch(networkSpeedBallEnabledProvider);
+    final collectNetworkLogs = ref.watch(networkLogCollectingProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -96,6 +98,34 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
                 )
                 .toList(),
           ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.speed),
+          title: const Text('显示网速悬浮球'),
+          subtitle: const Text('在应用内容上显示实时上传和下载速度'),
+          trailing: Switch(
+            value: showSpeedBall,
+            onChanged: (value) => ref
+                .read(networkMonitorSettingsProvider.notifier)
+                .setShowSpeedBall(value),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.network_check),
+          title: const Text('网络日志采集'),
+          subtitle: const Text('仅保存在内存中，单条请求体最多 64 KB'),
+          trailing: Switch(
+            value: collectNetworkLogs,
+            onChanged: (value) => ref
+                .read(networkLogControllerProvider.notifier)
+                .setCollecting(value),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.network_check),
+          title: const Text('查看网络日志'),
+          subtitle: const Text('查看应用网络请求'),
+          onTap: () => NetworkLogPage.show(context),
         ),
         ListTile(
           title: Row(
