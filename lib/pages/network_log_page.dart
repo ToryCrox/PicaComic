@@ -186,6 +186,17 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                           ),
                         ),
                       ],
+                      const Text(
+                        ' • ',
+                        style: TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                      Text(
+                        log.protocolInfo.displayText,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                   ),
                 ],
