@@ -1,11 +1,14 @@
 import 'dart:io';
-import 'dart:math' as math;
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/components/hover_scale_card.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/pages/local_image_viewer_page.dart';
 
@@ -72,9 +75,12 @@ class TranslationResultReplaceDialog extends ConsumerStatefulWidget {
 
 class _TranslationResultReplaceDialogState
     extends ConsumerState<TranslationResultReplaceDialog> {
-  static const _dialogWidth = 1200.0;
-  static const _dialogHeight = 800.0;
-  static const _thumbnailExtent = 67.2;
+  static const _dialogInset = EdgeInsets.symmetric(
+    horizontal: 48,
+    vertical: 24,
+  );
+  static const _gridMaxCrossAxisExtent = 460.0;
+  static const _gridSpacing = 8.0;
 
   late final TranslationResultReplaceRequest _request;
 
@@ -288,55 +294,128 @@ class _TranslationResultReplaceDialogState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(_provider);
-    final size = MediaQuery.sizeOf(context);
-    final width = math.min(_dialogWidth, size.width - 80);
-    final height = math.min(_dialogHeight, size.height - 160);
     final batchPlan = state.batchPlan;
     return PopScope(
       canPop: !state.operationBusy,
-      child: AlertDialog(
-        title: Row(
+      child: Dialog(
+        insetPadding: _dialogInset,
+        constraints: const BoxConstraints.expand(),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
           children: [
+            _buildHeader(state, batchPlan),
             Expanded(
-              child: Text(
-                batchPlan == null
-                    ? '翻译结果预览'
-                    : '翻译结果预览（${batchPlan.plans.length} 个目录）',
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                child: _buildContent(state),
               ),
             ),
-            if (batchPlan != null && state.loadError == null)
-              IconButton(
-                tooltip:
-                    state.operation ==
-                        TranslationResultReplaceOperation.refreshing
-                    ? '刷新中…'
-                    : '刷新预览',
-                onPressed: state.busy ? null : _refreshPlan,
-                icon:
-                    state.operation ==
-                        TranslationResultReplaceOperation.refreshing
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh),
-              ),
+            _buildFooter(state),
           ],
         ),
-        content: SizedBox(
-          width: width,
-          height: height,
-          child: _buildContent(state),
-        ),
-        actions: _buildActions(state),
       ),
+    );
+  }
+
+  Widget _buildHeader(
+    TranslationResultReplaceState state,
+    TranslationReplacementBatchPlan? batchPlan,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              batchPlan == null
+                  ? '翻译结果预览'
+                  : '翻译结果预览（${batchPlan.plans.length} 个目录）',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          if (batchPlan != null && state.loadError == null) ...[
+            FilterChip(
+              label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
+              selected: state.showSkippedOnly,
+              visualDensity: VisualDensity.compact,
+              onSelected: state.busy
+                  ? null
+                  : (selected) => ref
+                        .read(_provider.notifier)
+                        .setShowSkippedOnly(selected),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: state.busy ? null : _refreshPlan,
+              icon:
+                  state.operation ==
+                      TranslationResultReplaceOperation.refreshing
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, size: 18),
+              label: Text(
+                state.operation == TranslationResultReplaceOperation.refreshing
+                    ? '刷新中…'
+                    : '刷新预览',
+              ),
+            ),
+          ],
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: '关闭',
+            onPressed: state.operationBusy ? null : _close,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(TranslationResultReplaceState state) {
+    final actions = _buildActions(state);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(child: _buildFooterStatus(state)),
+          const SizedBox(width: 16),
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            actions[index],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterStatus(TranslationResultReplaceState state) {
+    final batchPlan = state.batchPlan;
+    final text = state.loadError != null
+        ? '翻译结果读取失败'
+        : state.operation == TranslationResultReplaceOperation.loading
+        ? '正在读取翻译结果…'
+        : batchPlan == null
+        ? ''
+        : '共 ${batchPlan.pairCount} 张 · 已跳过 ${state.totalSkippedPairCount} 张 · '
+              '待替换 ${state.replacementCount} 张';
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 
   List<Widget> _buildActions(TranslationResultReplaceState state) {
     if (state.loadError != null) {
       return [
-        TextButton(onPressed: _close, child: const Text('取消')),
         FilledButton.icon(
           onPressed: state.busy ? null : _loadPlan,
           icon: const Icon(Icons.refresh),
@@ -345,7 +424,7 @@ class _TranslationResultReplaceDialogState
       ];
     }
     if (state.operation == TranslationResultReplaceOperation.loading) {
-      return [TextButton(onPressed: _close, child: const Text('取消'))];
+      return const [];
     }
     return [
       if (state.untranslatablePairCount > 0)
@@ -363,10 +442,6 @@ class _TranslationResultReplaceDialogState
                 : '删除拒译结果（${state.untranslatablePairCount}）',
           ),
         ),
-      TextButton(
-        onPressed: state.operationBusy ? null : _close,
-        child: const Text('取消'),
-      ),
       FilledButton.icon(
         onPressed: state.busy ? null : _replaceOriginals,
         icon: state.operation == TranslationResultReplaceOperation.replacing
@@ -397,55 +472,34 @@ class _TranslationResultReplaceDialogState
         ),
       );
     }
-    if (state.loadError != null) {
+    final loadError = state.loadError;
+    if (loadError != null) {
       return Center(
-        child: Text('读取翻译结果失败：${state.loadError}', textAlign: TextAlign.center),
+        child: Text('读取翻译结果失败：$loadError', textAlign: TextAlign.center),
       );
     }
     final batchPlan = state.batchPlan;
     if (batchPlan == null) return const SizedBox.shrink();
-    final delta = batchPlan.translatedTotalSize - batchPlan.originalTotalSize;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                '选中 ${batchPlan.selectedCount} 个目录，发现 ${batchPlan.plans.length} 个可替换目录；'
-                '共匹配 ${batchPlan.pairCount} 张；总大小 '
-                '${_formatSize(batchPlan.originalTotalSize)} → '
-                '${_formatSize(batchPlan.translatedTotalSize)}（${_formatDelta(delta)}）'
-                '${batchPlan.noResultCount == 0 ? '' : '；无结果 ${batchPlan.noResultCount} 个目录'}'
-                '${batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${batchPlan.unmatchedCount} 项'}'
-                '${state.skippedPairCount == 0 ? '' : '；已跳过 ${state.skippedPairCount} 张'}'
-                '${state.protectedPairCount == 0 ? '' : '；已保护 ${state.protectedPairCount} 张'}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilterChip(
-              label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
-              selected: state.showSkippedOnly,
-              onSelected: state.busy
-                  ? null
-                  : (selected) => ref
-                        .read(_provider.notifier)
-                        .setShowSkippedOnly(selected),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 6),
+          child: _buildSummaryStats(batchPlan, state),
         ),
-        if (batchPlan.unmatchedCount > 0) ...[
-          const SizedBox(height: 8),
-          Text(
-            '未匹配文件不会参与替换；结果目录会在对应漫画处理完成后清理。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
+        if (batchPlan.unmatchedCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              '未匹配文件不会参与替换；每个目录的翻译结果全部处理完成后，对应结果目录会被清理。',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
+            ),
           ),
-        ],
-        const SizedBox(height: 8),
         Expanded(
           child: state.visiblePlans.isEmpty
               ? Center(
@@ -454,18 +508,177 @@ class _TranslationResultReplaceDialogState
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 )
-              : ListView.separated(
-                  itemCount: state.visiblePlans.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) =>
-                      _buildPlanGroup(state.visiblePlans[index], state),
+              : ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: ScrollConfiguration.of(context).dragDevices
+                        .where((kind) => kind != PointerDeviceKind.mouse)
+                        .toSet(),
+                  ),
+                  child: CustomScrollView(
+                    slivers: [
+                      for (
+                        var index = 0;
+                        index < state.visiblePlans.length;
+                        index++
+                      )
+                        ..._buildPlanSlivers(
+                          state.visiblePlans[index],
+                          state,
+                          first: index == 0,
+                        ),
+                    ],
+                  ),
                 ),
         ),
       ],
     );
   }
 
-  Widget _buildPlanGroup(
+  Widget _buildSummaryStats(
+    TranslationReplacementBatchPlan batchPlan,
+    TranslationResultReplaceState state,
+  ) {
+    final protectedPaths = state.protectedOriginalPaths;
+    final skippedCount = state.skippedOriginalPaths
+        .difference(protectedPaths)
+        .length;
+    final protectedCount = protectedPaths.length;
+    final translatedCount =
+        (batchPlan.pairCount - skippedCount - protectedCount)
+            .clamp(0, batchPlan.pairCount)
+            .toInt();
+    final theme = Theme.of(context);
+
+    return Wrap(
+      spacing: 28,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _buildSummaryStat(
+          icon: Icons.image_outlined,
+          label: '总页数',
+          value: batchPlan.pairCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryStat(
+          icon: Icons.check_circle_outline,
+          label: '已翻译',
+          value: translatedCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryStat(
+          icon: Icons.remove_circle_outline,
+          label: '已跳过',
+          value: skippedCount,
+          color: Colors.orange.shade800,
+        ),
+        _buildSummaryStat(
+          icon: Icons.shield_outlined,
+          label: '已保护',
+          value: protectedCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryFileSize(batchPlan),
+      ],
+    );
+  }
+
+  Widget _buildSummaryStat({
+    required IconData icon,
+    required String label,
+    required int value,
+    required Color color,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 8),
+        Text(label, style: textTheme.bodyMedium),
+        const SizedBox(width: 8),
+        Text(
+          '$value',
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryFileSize(TranslationReplacementBatchPlan batchPlan) {
+    final delta = batchPlan.translatedTotalSize - batchPlan.originalTotalSize;
+    final deltaColor = delta > 0 ? Colors.orange.shade800 : Colors.green;
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.storage_outlined,
+          size: 20,
+          color: textTheme.bodyMedium?.color,
+        ),
+        const SizedBox(width: 8),
+        Text('文件大小', style: textTheme.bodyMedium),
+        const SizedBox(width: 8),
+        Text(
+          '${_formatSize(batchPlan.originalTotalSize)} → '
+          '${_formatSize(batchPlan.translatedTotalSize)}',
+          style: textTheme.bodyMedium,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '(${_formatDelta(delta)})',
+          style: textTheme.bodySmall?.copyWith(color: deltaColor),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildPlanSlivers(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state, {
+    required bool first,
+  }) {
+    final visiblePairs = _visiblePairs(plan, state);
+    final collapsed = state.isPlanCollapsed(plan);
+    return [
+      if (!first)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Divider(height: 1),
+          ),
+        ),
+      SliverToBoxAdapter(child: _buildPlanHeader(plan, state)),
+      SliverToBoxAdapter(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.hardEdge,
+          child: collapsed
+              ? const SizedBox.shrink()
+              : _buildExpandedPlanContent(plan, visiblePairs, state),
+        ),
+      ),
+    ];
+  }
+
+  List<TranslationReplacementPair> _visiblePairs(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state,
+  ) {
+    if (!state.showSkippedOnly) return plan.pairs;
+    return plan.pairs
+        .where(
+          (pair) =>
+              state.isPairSkipped(pair.originalPath) ||
+              state.isPairProtected(pair.originalPath),
+        )
+        .toList(growable: false);
+  }
+
+  Widget _buildPlanHeader(
     TranslationReplacementPlan plan,
     TranslationResultReplaceState state,
   ) {
@@ -473,11 +686,7 @@ class _TranslationResultReplaceDialogState
     final comic = _comicForDirectory(plan.comicDirectory);
     final title = comic?.name.trim() ?? '';
     final groupTitle = title.isEmpty ? directoryName : title;
-    final visiblePairs = state.showSkippedOnly
-        ? plan.pairs
-              .where((pair) => state.isPairSkipped(pair.originalPath))
-              .toList(growable: false)
-        : plan.pairs;
+    final visiblePairs = _visiblePairs(plan, state);
     final subtitle = state.showSkippedOnly
         ? '$directoryName · ${visiblePairs.length} 张已跳过/保护'
         : '$directoryName · ${plan.pairs.length} 张匹配'
@@ -486,41 +695,171 @@ class _TranslationResultReplaceDialogState
     final titleColor = plan.hasUntranslatableContent
         ? Theme.of(context).colorScheme.error
         : null;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(groupTitle, style: TextStyle(color: titleColor)),
-            ),
-            const SizedBox(width: 8),
-            FilterChip(
-              label: Text(plan.hasUntranslatableContent ? '整部已保护' : '全部跳过'),
-              selected:
-                  plan.hasUntranslatableContent ||
-                  state.isPlanFullySkipped(plan),
-              onSelected: state.busy || plan.hasUntranslatableContent
-                  ? null
-                  : (selected) => ref
-                        .read(_provider.notifier)
-                        .setPlanSkipped(plan, selected),
-            ),
-          ],
-        ),
-        subtitle: Text(subtitle),
-        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+    final collapsed = state.isPlanCollapsed(plan);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          for (final pair in visiblePairs) _buildPairRow(plan, pair, state),
-          if (!state.showSkippedOnly)
-            for (final item in plan.unmatched) _buildUnmatchedRow(item),
+          Expanded(
+            child: InkWell(
+              onTap: state.busy
+                  ? null
+                  : () =>
+                        ref.read(_provider.notifier).togglePlanCollapsed(plan),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    AnimatedRotation(
+                      turns: collapsed ? -0.25 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOut,
+                      child: const Icon(Icons.expand_more, size: 20),
+                    ),
+                    const SizedBox(width: 2),
+                    _buildFolderDragHandle(plan),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            groupTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleSmall?.copyWith(color: titleColor),
+                          ),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildPlanSkipControl(plan, state),
         ],
       ),
     );
   }
 
-  Widget _buildPairRow(
+  Widget _buildPlanSkipControl(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state,
+  ) {
+    final protected = plan.hasUntranslatableContent;
+    final selected = protected || state.isPlanFullySkipped(plan);
+    final disabled = state.busy || protected;
+
+    void setSkipped(bool value) {
+      ref.read(_provider.notifier).setPlanSkipped(plan, value);
+    }
+
+    return InkWell(
+      onTap: disabled ? null : () => setSkipped(!selected),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: selected,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: disabled ? null : (value) => setSkipped(value == true),
+            ),
+            Text(protected ? '整部已保护' : '全部跳过'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedPlanContent(
+    TranslationReplacementPlan plan,
+    List<TranslationReplacementPair> visiblePairs,
+    TranslationResultReplaceState state,
+  ) {
+    final children = <Widget>[];
+    if (visiblePairs.isNotEmpty) {
+      children.add(
+        GridView.builder(
+          padding: const EdgeInsets.only(bottom: 12),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: _gridMaxCrossAxisExtent,
+            crossAxisSpacing: _gridSpacing,
+            mainAxisSpacing: _gridSpacing,
+            childAspectRatio: 1.75,
+          ),
+          itemCount: visiblePairs.length,
+          itemBuilder: (context, index) =>
+              _buildPairCard(plan, visiblePairs[index], state),
+        ),
+      );
+    }
+    if (!state.showSkippedOnly) {
+      children.addAll(
+        plan.unmatched.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildUnmatchedRow(item),
+          ),
+        ),
+      );
+    }
+    return Column(children: children);
+  }
+
+  Widget _buildFolderDragHandle(TranslationReplacementPlan plan) {
+    final directoryName = path.basename(plan.comicDirectory);
+    return DragItemWidget(
+      allowedOperations: () => [DropOperation.copy],
+      canAddItemToExistingSession: true,
+      dragItemProvider: (request) async {
+        final directoryPath = plan.comicDirectory;
+        if (directoryPath.isEmpty) return null;
+        final directory = Directory(directoryPath);
+        if (!await directory.exists()) return null;
+
+        final item = DragItem(suggestedName: directoryName);
+        item.add(Formats.fileUri(Uri.file(directory.path)));
+        return item;
+      },
+      child: DraggableWidget(
+        hitTestBehavior: HitTestBehavior.opaque,
+        isLocationDraggable: (_) => true,
+        child: Tooltip(
+          message: '拖动目录',
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              Icons.folder_outlined,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPairCard(
     TranslationReplacementPlan plan,
     TranslationReplacementPair pair,
     TranslationResultReplaceState state,
@@ -529,19 +868,19 @@ class _TranslationResultReplaceDialogState
     final ratio = pair.originalSize == 0 ? 0 : delta / pair.originalSize * 100;
     final deltaColor = delta > 0 ? Colors.orange : Colors.green;
     final initialIndex = plan.pairs.indexOf(pair);
-    final protected = state.isPairProtected(pair.originalPath);
+    final protected = plan.hasUntranslatableContent;
     final titleColor = pair.hasUntranslatableContent
         ? Theme.of(context).colorScheme.error
         : null;
-    final skipped = state.isPairSkipped(pair.originalPath);
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
+    return HoverScaleCard(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text.rich(
@@ -558,80 +897,96 @@ class _TranslationResultReplaceDialogState
                               color: Theme.of(context).colorScheme.error,
                             ),
                           ),
-                        if (pair.defaultSkipped &&
-                            pair.defaultSkipReason != null)
-                          TextSpan(
-                            text: ' · ${pair.defaultSkipReason}',
-                            style: TextStyle(color: Colors.orange.shade800),
-                          ),
                       ],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 6),
                 Text(
                   '${_formatDelta(delta)}（${ratio >= 0 ? '+' : ''}${ratio.toStringAsFixed(1)}%）',
-                  style: TextStyle(color: deltaColor),
+                  maxLines: 1,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: deltaColor),
                 ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: protected || state.busy
-                      ? null
-                      : () => ref
-                            .read(_provider.notifier)
-                            .setPairSkipped(pair.originalPath, !skipped),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: Text(
-                    protected
-                        ? '保护跳过'
-                        : skipped
-                        ? '恢复替换'
-                        : '跳过替换',
-                  ),
-                ),
-                Checkbox(
-                  value: protected || skipped,
-                  onChanged: protected || state.busy
-                      ? null
-                      : (value) => ref
-                            .read(_provider.notifier)
-                            .setPairSkipped(pair.originalPath, value == true),
-                ),
+                const SizedBox(width: 6),
+                _buildPairSkipControl(pair, state, protected),
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: _preview(
-                    plan,
-                    pair.originalPath,
-                    '原图',
-                    _detail(pair.originalDimensions, pair.originalSize),
-                    translated: false,
-                    initialIndex: initialIndex,
+            const SizedBox(height: 1),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPreviewTile(
+                      plan: plan,
+                      pair: pair,
+                      filePath: pair.originalPath,
+                      label: '原图',
+                      translated: false,
+                      initialIndex: initialIndex,
+                    ),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.arrow_forward),
-                ),
-                Expanded(
-                  child: _preview(
-                    plan,
-                    pair.translatedPath,
-                    '翻译后',
-                    _detail(pair.translatedDimensions, pair.translatedSize),
-                    translated: true,
-                    initialIndex: initialIndex,
+                  SizedBox(
+                    width: 16,
+                    child: Center(
+                      child: Icon(
+                        Icons.compare_arrows,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: _buildPreviewTile(
+                      plan: plan,
+                      pair: pair,
+                      filePath: pair.translatedPath,
+                      label: '翻译后',
+                      translated: true,
+                      initialIndex: initialIndex,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPairSkipControl(
+    TranslationReplacementPair pair,
+    TranslationResultReplaceState state,
+    bool isProtected,
+  ) {
+    final selected = isProtected || state.isPairSkipped(pair.originalPath);
+    final disabled = state.busy || isProtected;
+
+    void setSkipped(bool value) {
+      ref.read(_provider.notifier).setPairSkipped(pair.originalPath, value);
+    }
+
+    return InkWell(
+      onTap: disabled ? null : () => setSkipped(!selected),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: selected,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: disabled ? null : (value) => setSkipped(value == true),
+            ),
+            Text(isProtected ? '整部保护' : '跳过'),
           ],
         ),
       ),
@@ -651,68 +1006,119 @@ class _TranslationResultReplaceDialogState
     );
   }
 
-  Widget _preview(
-    TranslationReplacementPlan plan,
-    String filePath,
-    String label,
-    String detail, {
+  Widget _buildPreviewTile({
+    required TranslationReplacementPlan plan,
+    required TranslationReplacementPair pair,
+    required String filePath,
+    required String label,
     required bool translated,
     required int initialIndex,
   }) {
+    final detail = translated
+        ? _compactDetail(pair.translatedDimensions, pair.translatedSize)
+        : _compactDetail(pair.originalDimensions, pair.originalSize);
     return InkWell(
-      onTap: () => LocalImageViewerPage.open(
-        context,
-        imagePath: filePath,
-        title: label,
-        subtitle: detail,
-        gallery: _buildGallery(plan, translated),
-        initialIndex: initialIndex,
-        comparison: _comparisonForPair(plan.pairs[initialIndex], initialIndex),
-        bottomBuilder: (context, _, index) {
-          final pair = plan.pairs[index];
-          final protected = ref
-              .read(_provider)
-              .isPairProtected(pair.originalPath);
-          var skipped = ref.read(_provider).isPairSkipped(pair.originalPath);
-          return StatefulBuilder(
-            builder: (context, setLocalState) => _ViewerSkipControl(
-              skipped: skipped,
-              protected: protected,
-              onChanged: (value) {
-                ref
-                    .read(_provider.notifier)
-                    .setPairSkipped(pair.originalPath, value);
-                setLocalState(() => skipped = value);
-              },
-            ),
-          );
-        },
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.file(
-              File(filePath),
-              width: _thumbnailExtent,
-              height: _thumbnailExtent,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.square(
-                dimension: _thumbnailExtent,
-                child: Icon(Icons.broken_image),
+      onTap: () =>
+          _openPairViewer(plan, filePath, label, translated, initialIndex),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(
+                text: label,
+                style: Theme.of(context).textTheme.labelMedium,
+                children: pair.defaultSkipped && translated
+                    ? [
+                        TextSpan(
+                          text: ' · 默认跳过',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: Colors.orange.shade800),
+                        ),
+                      ]
+                    : const [],
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '$label\n$detail',
-              maxLines: 3,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: SizedBox.expand(
+                    child: Image.file(
+                      File(filePath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _openPairViewer(
+    TranslationReplacementPlan plan,
+    String filePath,
+    String label,
+    bool translated,
+    int initialIndex,
+  ) {
+    final originalDetail = _detail(
+      plan.pairs[initialIndex].originalDimensions,
+      plan.pairs[initialIndex].originalSize,
+    );
+    final translatedDetail = _detail(
+      plan.pairs[initialIndex].translatedDimensions,
+      plan.pairs[initialIndex].translatedSize,
+    );
+    LocalImageViewerPage.open(
+      context,
+      imagePath: filePath,
+      title: label,
+      subtitle: translated ? translatedDetail : originalDetail,
+      gallery: _buildGallery(plan, translated),
+      initialIndex: initialIndex,
+      comparison: _comparisonForPair(plan.pairs[initialIndex], initialIndex),
+      bottomBuilder: (context, _, index) {
+        final currentPair = plan.pairs[index];
+        final protected = ref
+            .read(_provider)
+            .isPairProtected(currentPair.originalPath);
+        var skipped = ref
+            .read(_provider)
+            .isPairSkipped(currentPair.originalPath);
+        return StatefulBuilder(
+          builder: (context, setLocalState) => _ViewerSkipControl(
+            skipped: skipped,
+            protected: protected,
+            onChanged: (value) {
+              if (protected) return;
+              ref
+                  .read(_provider.notifier)
+                  .setPairSkipped(currentPair.originalPath, value);
+              setLocalState(() => skipped = value);
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -754,6 +1160,13 @@ class _TranslationResultReplaceDialogState
 
   String _detail(TranslationImageDimensions? dimensions, int fileSize) {
     return '${dimensions?.toString() ?? '尺寸未知'}\n${_formatSize(fileSize)}';
+  }
+
+  String _compactDetail(TranslationImageDimensions? dimensions, int fileSize) {
+    final dimensionText = dimensions == null
+        ? '尺寸未知'
+        : '${dimensions.width}×${dimensions.height}';
+    return '$dimensionText · ${_formatSize(fileSize)}';
   }
 }
 

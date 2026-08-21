@@ -69,6 +69,29 @@ void main() {
     expect(harness.container.read(provider).isPlanFullySkipped(plan), isTrue);
   });
 
+  test('可以独立切换目录折叠状态并在刷新后保留', () async {
+    final replacer = _FakeReplacer();
+    final plan = _plan('/comic/normal');
+    final batchPlan = _batchPlan([plan]);
+    final harness = _createHarness(
+      replacer: replacer,
+      load: () async => batchPlan,
+      refresh: () async => batchPlan,
+    );
+    addTearDown(harness.container.dispose);
+    final provider = translationResultReplaceProvider(harness.request);
+    final notifier = harness.container.read(provider.notifier);
+    await notifier.load();
+
+    expect(harness.container.read(provider).isPlanCollapsed(plan), isFalse);
+    notifier.togglePlanCollapsed(plan);
+    expect(harness.container.read(provider).isPlanCollapsed(plan), isTrue);
+    await notifier.refresh();
+    expect(harness.container.read(provider).isPlanCollapsed(plan), isTrue);
+    notifier.togglePlanCollapsed(plan);
+    expect(harness.container.read(provider).isPlanCollapsed(plan), isFalse);
+  });
+
   test('替换异常后恢复 idle', () async {
     final replacer = _FakeReplacer()..applyError = StateError('替换失败');
     final plan = _batchPlan([_plan('/comic/normal')]);

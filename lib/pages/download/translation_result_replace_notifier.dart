@@ -35,6 +35,7 @@ class TranslationResultReplaceState {
     this.showSkippedOnly = false,
     this.skippedOriginalPaths = const <String>{},
     this.protectedOriginalPaths = const <String>{},
+    this.collapsedComicDirectories = const <String>{},
   });
 
   final TranslationReplacementBatchPlan? batchPlan;
@@ -43,6 +44,7 @@ class TranslationResultReplaceState {
   final bool showSkippedOnly;
   final Set<String> skippedOriginalPaths;
   final Set<String> protectedOriginalPaths;
+  final Set<String> collapsedComicDirectories;
 
   bool get operationBusy =>
       operation == TranslationResultReplaceOperation.refreshing ||
@@ -103,6 +105,10 @@ class TranslationResultReplaceState {
         );
   }
 
+  /// 返回目录是否处于折叠状态。
+  bool isPlanCollapsed(TranslationReplacementPlan plan) =>
+      collapsedComicDirectories.contains(plan.comicDirectory);
+
   TranslationResultReplaceState copyWith({
     TranslationReplacementBatchPlan? batchPlan,
     TranslationResultReplaceOperation? operation,
@@ -111,6 +117,7 @@ class TranslationResultReplaceState {
     bool? showSkippedOnly,
     Set<String>? skippedOriginalPaths,
     Set<String>? protectedOriginalPaths,
+    Set<String>? collapsedComicDirectories,
   }) {
     return TranslationResultReplaceState(
       batchPlan: batchPlan ?? this.batchPlan,
@@ -120,6 +127,8 @@ class TranslationResultReplaceState {
       skippedOriginalPaths: skippedOriginalPaths ?? this.skippedOriginalPaths,
       protectedOriginalPaths:
           protectedOriginalPaths ?? this.protectedOriginalPaths,
+      collapsedComicDirectories:
+          collapsedComicDirectories ?? this.collapsedComicDirectories,
     );
   }
 }
@@ -185,6 +194,18 @@ class TranslationResultReplace extends _$TranslationResultReplace {
   void setShowSkippedOnly(bool value) {
     if (state.busy) return;
     state = state.copyWith(showSkippedOnly: value);
+  }
+
+  /// 切换指定目录的展开/折叠状态。
+  void togglePlanCollapsed(TranslationReplacementPlan plan) {
+    if (state.busy) return;
+    final directories = Set<String>.from(state.collapsedComicDirectories);
+    if (!directories.add(plan.comicDirectory)) {
+      directories.remove(plan.comicDirectory);
+    }
+    state = state.copyWith(
+      collapsedComicDirectories: Set.unmodifiable(directories),
+    );
   }
 
   void setPairSkipped(String originalPath, bool skipped) {
@@ -283,12 +304,17 @@ class TranslationResultReplace extends _$TranslationResultReplace {
       }
     }
     skipped.addAll(protected);
+    final directories = plan.plans.map((item) => item.comicDirectory).toSet();
+    final collapsed = state.collapsedComicDirectories
+        .where(directories.contains)
+        .toSet();
     return state.copyWith(
       batchPlan: plan,
       operation: TranslationResultReplaceOperation.idle,
       clearLoadError: true,
       skippedOriginalPaths: Set.unmodifiable(skipped),
       protectedOriginalPaths: Set.unmodifiable(protected),
+      collapsedComicDirectories: Set.unmodifiable(collapsed),
     );
   }
 }

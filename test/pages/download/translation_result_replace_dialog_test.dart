@@ -46,10 +46,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('翻译结果预览（1 个目录）'), findsOneWidget);
-    expect(find.textContaining('原图\n尺寸未知'), findsOneWidget);
-    expect(find.textContaining('翻译后\n尺寸未知'), findsOneWidget);
+    expect(find.text('原图'), findsOneWidget);
+    expect(find.text('翻译后'), findsOneWidget);
+    expect(find.text('总页数'), findsOneWidget);
+    expect(find.text('已翻译'), findsOneWidget);
+    expect(find.text('文件大小'), findsOneWidget);
     expect(find.text('替换原图（1）'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.text('取消'), findsNothing);
     expect(find.byIcon(Icons.refresh), findsOneWidget);
+
+    await tester.tap(find.text('comic'));
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(find.text('原图'), findsNothing);
+
+    await tester.tap(find.text('comic'));
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(find.text('原图'), findsOneWidget);
   });
 }
 
