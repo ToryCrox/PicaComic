@@ -67,8 +67,13 @@ class NetworkLogDetailPage extends ConsumerWidget {
                 _buildInfoRow('Content-Type', primary.contentType!),
               _buildInfoRow(
                 'Status',
-                displayEntry.statusCode?.toString() ?? 'Pending',
-                valueColor: _getStatusColor(displayEntry.statusCode),
+                displayEntry.hasError
+                    ? '${displayEntry.statusCode?.toString() ?? 'HTTP'} · 应用失败'
+                    : displayEntry.statusCode?.toString() ?? 'Pending',
+                valueColor: _getStatusColor(
+                  displayEntry.statusCode,
+                  hasError: displayEntry.hasError,
+                ),
               ),
               _buildInfoRow('Time', displayEntry.formattedRequestTime),
               if (displayEntry.duration != null)
@@ -116,13 +121,15 @@ class NetworkLogDetailPage extends ConsumerWidget {
                 ),
               ]),
             if (displayEntry.isGrouped)
-              _buildSection(context, '分片请求 (${displayEntry.logs.length})', [
-                ...displayEntry.logs.map(_buildChildRequest),
-              ]),
-            if (primary.error != null)
+              _buildSection(
+                context,
+                '${displayEntry.isRangeSegmented ? '分片请求' : '关联请求'} (${displayEntry.logs.length})',
+                [...displayEntry.logs.map(_buildChildRequest)],
+              ),
+            if (displayEntry.error != null)
               _buildSection(context, '错误信息', [
                 Text(
-                  primary.error!,
+                  displayEntry.error!,
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ]),
@@ -153,7 +160,11 @@ class NetworkLogDetailPage extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.centerLeft,
             child: Text(
-              displayEntry.isGrouped ? '请求详情 · 分片下载' : '请求详情',
+              displayEntry.isGrouped
+                  ? displayEntry.isRangeSegmented
+                        ? '请求详情 · 分片下载'
+                        : '请求详情 · 关联请求'
+                  : '请求详情',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
@@ -364,7 +375,8 @@ class NetworkLogDetailPage extends ConsumerWidget {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  Color _getStatusColor(int? statusCode) {
+  Color _getStatusColor(int? statusCode, {bool hasError = false}) {
+    if (hasError) return Colors.red;
     if (statusCode == null) return Colors.grey;
     if (statusCode >= 200 && statusCode < 300) return Colors.green;
     if (statusCode >= 400) return Colors.red;

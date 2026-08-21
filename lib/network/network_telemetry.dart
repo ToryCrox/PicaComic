@@ -43,6 +43,15 @@ class NetworkTelemetryBridge {
       source: source,
     );
   }
+
+  /// 把响应读取或解析阶段发生的应用层错误补充到网络日志。
+  void reportApplicationError({
+    required NetworkLogRequestToken token,
+    required Object error,
+    NetworkLogBody? responseBody,
+  }) {
+    _logSink?.reportApplicationError(token, error, responseBody: responseBody);
+  }
 }
 
 /// 配置应用级网络监控桥接对象。
@@ -67,6 +76,13 @@ class _NoopNetworkLogSink implements NetworkLogSink {
 
   @override
   void failRequest(NetworkLogRequestToken token, DioException error) {}
+
+  @override
+  void reportApplicationError(
+    NetworkLogRequestToken token,
+    Object error, {
+    NetworkLogBody? responseBody,
+  }) {}
 
   @override
   void reportArtifactReady({

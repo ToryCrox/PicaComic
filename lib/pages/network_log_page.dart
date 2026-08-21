@@ -286,7 +286,10 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     NetworkLogEntry entry, {
     required bool compact,
   }) {
-    final statusColor = _getStatusColor(entry.statusCode);
+    final statusColor = _getStatusColor(
+      entry.statusCode,
+      hasError: entry.hasError,
+    );
     final selected = entry.id == _selectedEntryId;
     final thumbnail = entry.isImageResponse && entry.artifactPath != null;
     return InkWell(
@@ -406,7 +409,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                           style: TextStyle(fontSize: 10, color: Colors.grey),
                         ),
                         Text(
-                          '${entry.logs.length} 分片',
+                          '${entry.logs.length} ${entry.isRangeSegmented ? '分片' : '关联'}',
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.grey,
@@ -469,7 +472,8 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     );
   }
 
-  Color _getStatusColor(int? statusCode) {
+  Color _getStatusColor(int? statusCode, {bool hasError = false}) {
+    if (hasError) return Colors.red;
     if (statusCode == null) return Colors.grey;
     if (statusCode >= 200 && statusCode < 300) return Colors.green;
     if (statusCode >= 400) return Colors.red;

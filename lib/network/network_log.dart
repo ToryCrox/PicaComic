@@ -128,6 +128,17 @@ class NetworkLogBody {
     }
     if (body is Uint8List || body is List<int>) {
       final bytes = body is Uint8List ? body : Uint8List.fromList(body);
+      if (_isTextContentType(contentType)) {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        if (bytes.length > networkLogBodyMaxLength) {
+          return NetworkLogBody(
+            content: _truncateUtf8(text),
+            byteLength: bytes.length,
+            isTruncated: true,
+          );
+        }
+        return NetworkLogBody(content: text, byteLength: bytes.length);
+      }
       return NetworkLogBody(
         content: '<二进制数据，${bytes.length} bytes>',
         byteLength: bytes.length,
@@ -166,6 +177,15 @@ class NetworkLogBody {
     } catch (_) {
       return value;
     }
+  }
+
+  static bool _isTextContentType(String? contentType) {
+    final normalized = contentType?.toLowerCase() ?? '';
+    return normalized.startsWith('text/') ||
+        normalized.contains('json') ||
+        normalized.contains('xml') ||
+        normalized.contains('javascript') ||
+        normalized.contains('x-www-form-urlencoded');
   }
 
   static String _encodeJson(dynamic value) {
@@ -239,7 +259,13 @@ class NetworkLog {
   final NetworkArtifactState artifactState;
 
   bool get isSuccess =>
-      statusCode != null && statusCode! >= 200 && statusCode! < 300;
+      error == null &&
+      statusCode != null &&
+      statusCode! >= 200 &&
+      statusCode! < 300;
+
+  /// 请求是否在 HTTP 或应用层失败。
+  bool get isFailed => error != null || (statusCode ?? 0) >= 400;
 
   /// 响应是否可以在面板中显示图片预览。
   bool get hasArtifact => artifactPath != null && artifactPath!.isNotEmpty;
@@ -332,6 +358,13 @@ abstract interface class NetworkLogSink {
   void completeResponse(NetworkLogRequestToken token, Response response);
 
   void failRequest(NetworkLogRequestToken token, DioException error);
+
+  /// 响应已经收到，但业务层读取或解析响应失败。
+  void reportApplicationError(
+    NetworkLogRequestToken token,
+    Object error, {
+    NetworkLogBody? responseBody,
+  });
 
   /// 在网络请求完成写入文件后补充最终文件路径。
   void reportArtifactReady({
@@ -428,6 +461,17 @@ class NetworkLogEntry {
     return primary.statusCode;
   }
 
+  /// 合并条目中第一个应用层或 HTTP 错误。
+  String? get error {
+    for (final log in logs) {
+      if (log.error != null) return log.error;
+    }
+    return null;
+  }
+
+  /// 合并条目中是否存在失败请求。
+  bool get hasError => logs.any((log) => log.isFailed);
+
   Duration? get duration {
     if (!isGrouped) return primary.duration;
     final start = logs
@@ -448,6 +492,9 @@ class NetworkLogEntry {
     return protocols.length == 1 ? protocols.single : 'Mixed';
   }
 
+  /// 是否确实存在 HTTP Range/206 分片请求。
+  bool get isRangeSegmented => logs.any(_isRangeSegment);
+
   String? get artifactPath {
     for (final log in logs) {
       if (log.artifactPath != null && log.artifactPath!.isNotEmpty) {
@@ -464,6 +511,18 @@ class NetworkLogEntry {
       }
     }
     return null;
+  }
+
+  static bool _isRangeSegment(NetworkLog log) {
+    if (log.statusCode == 206) return true;
+    return _containsHeader(log.requestHeaders, 'range') ||
+        _containsHeader(log.responseHeaders, 'content-range');
+  }
+
+  static bool _containsHeader(Map<String, dynamic>? headers, String name) {
+    if (headers == null) return false;
+    final normalized = name.toLowerCase();
+    return headers.keys.any((key) => key.toLowerCase() == normalized);
   }
 }
 
@@ -531,11 +590,12 @@ class NetworkLogController extends _$NetworkLogController
       ),
       null,
       info,
-      requestKind: classifyNetworkResponse(
-        contentType: contentType,
-        url: response.realUri,
-        fallbackKind: token.explicitRequestKind,
-      ),
+      requestKind:
+          token.explicitRequestKind ??
+          classifyNetworkResponse(
+            contentType: contentType,
+            url: response.realUri,
+          ),
       contentType: contentType,
     );
   }
@@ -560,13 +620,30 @@ class NetworkLogController extends _$NetworkLogController
             ),
       error.toString(),
       info,
-      requestKind: classifyNetworkResponse(
-        contentType: contentType,
-        url: response?.realUri ?? error.requestOptions.uri,
-        fallbackKind: token.explicitRequestKind,
-      ),
+      requestKind:
+          token.explicitRequestKind ??
+          classifyNetworkResponse(
+            contentType: contentType,
+            url: response?.realUri ?? error.requestOptions.uri,
+          ),
       contentType: contentType,
     );
+  }
+
+  @override
+  void reportApplicationError(
+    NetworkLogRequestToken token,
+    Object error, {
+    NetworkLogBody? responseBody,
+  }) {
+    final index = state.logs.indexWhere((log) => log.id == token.id);
+    if (index < 0) return;
+    final logs = [...state.logs]
+      ..[index] = state.logs[index].copyWith(
+        error: error.toString(),
+        responseBody: responseBody,
+      );
+    state = state.copyWith(logs: List.unmodifiable(logs));
   }
 
   /// 设置是否采集网络日志。

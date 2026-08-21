@@ -85,6 +85,21 @@ class ImageManager {
     );
   }
 
+  void _reportImageRequestError(
+    RequestOptions options,
+    Object error, {
+    NetworkLogBody? responseBody,
+  }) {
+    final token = options.extra[networkLogTokenExtraKey];
+    if (token is NetworkLogRequestToken) {
+      NetworkTelemetryBridge.instance.reportApplicationError(
+        token: token,
+        error: error,
+        responseBody: responseBody,
+      );
+    }
+  }
+
   Dio get dio => networkClientManager.mediaDio;
 
   int ehgtLoading = 0;
@@ -831,37 +846,47 @@ class ImageManager {
       ),
       cancelToken: cancelToken,
     );
-    final body = res.data;
-    if (body == null) throw const FormatException("Empty EH image response");
-    final contentType = _bodyHeader(body, "content-type")?.toLowerCase();
-    if (contentType != null && !contentType.startsWith("image/")) {
-      throw FormatException("Unexpected image content type: $contentType");
-    }
-
-    final expected = body.contentLength < 0 ? null : body.contentLength;
+    String? contentType;
     final bytes = <int>[];
-    await for (final chunk in body.stream) {
-      bytes.addAll(chunk);
-      await caching.writeBytes(chunk);
-      output.add(
-        DownloadProgress(
-          bytes.length,
-          (expected ?? bytes.length) + 1,
-          cacheKey,
-          savePath,
-        ),
+    try {
+      final body = res.data;
+      if (body == null) throw const FormatException("Empty EH image response");
+      contentType = _bodyHeader(body, "content-type")?.toLowerCase();
+
+      final expected = body.contentLength < 0 ? null : body.contentLength;
+      await for (final chunk in body.stream) {
+        bytes.addAll(chunk);
+        await caching.writeBytes(chunk);
+        output.add(
+          DownloadProgress(
+            bytes.length,
+            (expected ?? bytes.length) + 1,
+            cacheKey,
+            savePath,
+          ),
+        );
+      }
+      if (bytes.isEmpty) throw const FormatException("Empty EH image data");
+      if (expected != null && expected != bytes.length) {
+        throw FormatException("Incomplete EH image: $expected/${bytes.length}");
+      }
+      if (contentType != null && !contentType.startsWith("image/")) {
+        throw FormatException("Unexpected image content type: $contentType");
+      }
+      final data = Uint8List.fromList(bytes);
+      final type = detectFileType(data);
+      if (!type.mime.startsWith("image/") || type.ext == ".") {
+        throw const FormatException("EH response is not an image");
+      }
+      return (data: data, ext: type.ext.substring(1));
+    } catch (error) {
+      _reportImageRequestError(
+        res.requestOptions,
+        error,
+        responseBody: NetworkLogBody.capture(bytes, contentType: contentType),
       );
+      rethrow;
     }
-    if (bytes.isEmpty) throw const FormatException("Empty EH image data");
-    if (expected != null && expected != bytes.length) {
-      throw FormatException("Incomplete EH image: $expected/${bytes.length}");
-    }
-    final data = Uint8List.fromList(bytes);
-    final type = detectFileType(data);
-    if (!type.mime.startsWith("image/") || type.ext == ".") {
-      throw const FormatException("EH response is not an image");
-    }
-    return (data: data, ext: type.ext.substring(1));
   }
 
   String? _bodyHeader(ResponseBody body, String name) {

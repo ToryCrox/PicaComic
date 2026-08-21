@@ -96,23 +96,15 @@ class NetworkLogInterceptor extends Interceptor {
     );
     final inferredRequestKind = inferNetworkRequestKind(options.uri);
 
-    // 下载包装器还会执行获取图片链接、鉴权等 API 请求，不能把它们
-    // 误关联到最终图片文件。只有未知 URL 或同类型请求才继承外层类型。
-    if (explicitRequestKind == null &&
+    // 下载包装器内部还会执行阅读页、鉴权和刷新链接等请求。未知 URL
+    // 不能盲目继承外层 Image 类型，否则 HTML/API 会被伪装成图片。
+    // 图片和文件下载调用方都已经显式标记类型；无显式标记时只使用 URL 推断。
+    final effectiveRequestKind = explicitRequestKind ?? inferredRequestKind;
+    final belongsToTelemetryTransfer =
+        zoneTransferId != null &&
         zoneRequestKind != null &&
-        (inferredRequestKind == NetworkRequestKind.other ||
-            inferredRequestKind == zoneRequestKind)) {
-      options.extra[networkRequestKindExtraKey] = zoneRequestKind.name;
-    }
-    final effectiveRequestKind =
-        explicitRequestKind ??
-        NetworkRequestKindExtension.parse(
-          options.extra[networkRequestKindExtraKey],
-        ) ??
-        inferredRequestKind;
-    if (zoneTransferId != null &&
-        zoneRequestKind != null &&
-        effectiveRequestKind == zoneRequestKind) {
+        effectiveRequestKind == zoneRequestKind;
+    if (belongsToTelemetryTransfer) {
       // 外层传输 ID 代表最终文件，优先于图片缓存的临时请求 ID，
       // 但不影响同一下载流程中的 API 元数据请求。
       options.extra[networkTransferIdExtraKey] = zoneTransferId.toString();

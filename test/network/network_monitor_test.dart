@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +106,13 @@ void main() {
     final binary = NetworkLogBody.capture(List<int>.filled(10, 1));
     expect(binary?.isBinary, isTrue);
     expect(binary?.byteLength, 10);
+
+    final html = NetworkLogBody.capture(
+      utf8.encode('<html><body>blocked</body></html>'),
+      contentType: 'text/html; charset=UTF-8',
+    );
+    expect(html?.isBinary, isFalse);
+    expect(html?.content, contains('blocked'));
 
     final text = NetworkLogBody.capture('a' * (networkLogBodyMaxLength + 1));
     expect(text?.isTruncated, isTrue);
@@ -257,6 +266,101 @@ void main() {
     expect(log.isImageResponse, isTrue);
   });
 
+  test('显式图片请求保留 Image 类型并记录实际 HTML 响应类型', () {
+    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
+    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    addTearDown(
+      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+    );
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(networkLogControllerProvider.notifier);
+    final options = RequestOptions(
+      method: 'GET',
+      path: 'https://example.com/image.jpg',
+      extra: const {networkRequestKindExtraKey: 'image'},
+    );
+    final token = controller.beginRequest(options)!;
+    controller.completeResponse(
+      token,
+      Response<List<int>>(
+        requestOptions: options,
+        statusCode: 200,
+        data: List<int>.filled(4, 1),
+        headers: Headers.fromMap(const {
+          'content-type': ['text/html; charset=UTF-8'],
+        }),
+      ),
+    );
+
+    final log = container.read(networkLogControllerProvider).logs.single;
+    expect(log.requestKind, NetworkRequestKind.image);
+    expect(log.contentType, 'text/html; charset=UTF-8');
+  });
+
+  test('应用层图片解析失败会回写网络日志', () {
+    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
+    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    addTearDown(
+      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+    );
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(networkLogControllerProvider.notifier);
+    final options = RequestOptions(
+      method: 'GET',
+      path: 'https://example.com/image.jpg',
+      extra: const {networkRequestKindExtraKey: 'image'},
+    );
+    final token = controller.beginRequest(options)!;
+    controller.completeResponse(
+      token,
+      Response<ResponseBody>(
+        requestOptions: options,
+        statusCode: 200,
+        headers: Headers.fromMap(const {
+          'content-type': ['text/html; charset=UTF-8'],
+        }),
+      ),
+    );
+    controller.reportApplicationError(
+      token,
+      const FormatException('Unexpected image content type: text/html'),
+      responseBody: NetworkLogBody.capture(
+        utf8.encode('<html><body>challenge</body></html>'),
+        contentType: 'text/html; charset=UTF-8',
+      ),
+    );
+
+    final log = container.read(networkLogControllerProvider).logs.single;
+    final entry = NetworkLogEntry([log]);
+    expect(log.statusCode, 200);
+    expect(log.isSuccess, isFalse);
+    expect(entry.hasError, isTrue);
+    expect(entry.error, contains('Unexpected image content type'));
+    expect(entry.primary.responseBody?.content, contains('challenge'));
+  });
+
+  test('分组条目区分 Range 分片和普通关联请求', () {
+    final request = NetworkLog(
+      id: 'range',
+      url: 'https://example.com/image.jpg',
+      method: 'GET',
+      requestTime: DateTime(2026),
+      requestHeaders: const {'Range': 'bytes=0-99'},
+    );
+    final related = NetworkLog(
+      id: 'related',
+      url: 'https://example.com/link',
+      method: 'GET',
+      requestTime: DateTime(2026),
+    );
+    expect(NetworkLogEntry([related]).isRangeSegmented, isFalse);
+    expect(NetworkLogEntry([request]).isRangeSegmented, isTrue);
+  });
+
   test('图片下载上下文不会把 api.php 关联到最终图片文件', () {
     final oldValue = appdata.settings[networkLogCollectingSettingIndex];
     appdata.settings[networkLogCollectingSettingIndex] = '1';
@@ -276,6 +380,7 @@ void main() {
         final imageOptions = RequestOptions(
           method: 'GET',
           path: 'https://example.com/image-content',
+          extra: {networkRequestKindExtraKey: 'image'},
         );
         interceptor.onRequest(imageOptions, RequestInterceptorHandler());
 
@@ -290,14 +395,25 @@ void main() {
           'image-download-1',
         );
         expect(apiOptions.extra[networkTransferIdExtraKey], isNull);
+
+        final readerOptions = RequestOptions(
+          method: 'GET',
+          path: 'https://exhentai.org/g/123456/abcdef/',
+        );
+        interceptor.onRequest(readerOptions, RequestInterceptorHandler());
+
+        expect(readerOptions.extra[networkRequestKindExtraKey], isNull);
+        expect(readerOptions.extra[networkTransferIdExtraKey], isNull);
       },
     );
 
     final logs = container.read(networkLogControllerProvider).logs;
-    expect(logs, hasLength(2));
+    expect(logs, hasLength(3));
     expect(logs.first.requestKind, NetworkRequestKind.image);
     expect(logs.first.transferId, 'image-download-1');
-    expect(logs.last.requestKind, NetworkRequestKind.api);
-    expect(logs.last.transferId, isNull);
+    expect(logs[1].requestKind, NetworkRequestKind.api);
+    expect(logs[1].transferId, isNull);
+    expect(logs[2].requestKind, NetworkRequestKind.other);
+    expect(logs[2].transferId, isNull);
   });
 }
