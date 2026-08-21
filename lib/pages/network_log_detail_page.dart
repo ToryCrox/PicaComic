@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,7 +85,7 @@ class NetworkLogDetailPage extends ConsumerWidget {
               if (primary.fallback != null)
                 _buildInfoRow('Fallback', primary.fallback!),
             ]),
-            if (primary.requestKind == NetworkRequestKind.image &&
+            if (displayEntry.isImageResponse &&
                 displayEntry.artifactPath != null)
               _buildSection(context, '图片预览', [
                 Container(
@@ -96,10 +98,18 @@ class NetworkLogDetailPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.all(8),
-                  child: SizedBox(
-                    height: 360,
-                    child: buildNetworkArtifactPreview(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => openNetworkImagePreview(
+                      context,
                       displayEntry.artifactPath!,
+                      title: primary.url,
+                    ),
+                    child: SizedBox(
+                      height: 360,
+                      child: buildNetworkArtifactPreview(
+                        displayEntry.artifactPath!,
+                      ),
                     ),
                   ),
                 ),
@@ -360,4 +370,66 @@ class NetworkLogDetailPage extends ConsumerWidget {
     if (statusCode >= 300) return Colors.orange;
     return Colors.grey;
   }
+}
+
+/// 以翻译结果预览使用的本地图片查看器打开网络产物。
+Future<void> openNetworkImagePreview(
+  BuildContext context,
+  String imagePath, {
+  String? title,
+}) {
+  final viewport = MediaQuery.sizeOf(context);
+  final width = math.min(1100.0, math.max(280.0, viewport.width - 40));
+  final height = math.min(800.0, math.max(220.0, viewport.height - 80));
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black87,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: ColoredBox(
+            color: Colors.black,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: InteractiveViewer(
+                    minScale: 0.2,
+                    maxScale: 8,
+                    child: Center(
+                      child: buildNetworkArtifactPreview(imagePath),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 12,
+                  right: 52,
+                  child: Text(
+                    title ?? '图片预览',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: IconButton(
+                    tooltip: '关闭',
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

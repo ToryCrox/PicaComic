@@ -683,8 +683,13 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   .where((e) => state.selectedIds.contains(e.id))
                   .toList();
 
+              if (selectedComics.isEmpty) return;
+              if (!context.mounted) return;
+              final overwriteExisting = await showRedownloadDialog(context);
+              if (overwriteExisting == null) return;
               final result = await downloadManager.redownloadComics(
                 selectedComics,
+                overwriteExisting: overwriteExisting,
               );
               showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
               if (result.successCount > 0) {

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/network/network_interceptors.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_monitor_settings.dart';
 import 'package:pica_comic/network/network_speed_monitor.dart';
@@ -223,5 +224,80 @@ void main() {
       inferNetworkRequestKind(Uri.parse('https://example.com/a.webp')),
       NetworkRequestKind.image,
     );
+  });
+
+  test('api.php 按响应 Content-Type 分类并保留实际 URL fallback', () {
+    final url = Uri.parse('https://exhentai.org/api.php');
+    expect(inferNetworkRequestKind(url), NetworkRequestKind.api);
+    expect(
+      classifyNetworkResponse(
+        contentType: 'text/html; charset=UTF-8',
+        url: url,
+      ),
+      NetworkRequestKind.html,
+    );
+    expect(
+      classifyNetworkResponse(contentType: 'image/jpeg', url: url),
+      NetworkRequestKind.image,
+    );
+    expect(
+      classifyNetworkResponse(contentType: null, url: url),
+      NetworkRequestKind.api,
+    );
+
+    final log = NetworkLog(
+      id: 'api-image',
+      url: 'https://exhentai.org/api.php',
+      method: 'POST',
+      requestTime: DateTime(2026),
+      requestKind: NetworkRequestKind.image,
+      contentType: 'image/jpeg',
+      artifactPath: 'C:/cache/api-response.jpg',
+    );
+    expect(log.isImageResponse, isTrue);
+  });
+
+  test('图片下载上下文不会把 api.php 关联到最终图片文件', () {
+    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
+    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    addTearDown(
+      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+    );
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(networkLogControllerProvider.notifier);
+    final interceptor = NetworkLogInterceptor(controller);
+
+    runNetworkTelemetryContext<void>(
+      transferId: 'image-download-1',
+      requestKind: NetworkRequestKind.image,
+      action: () {
+        final imageOptions = RequestOptions(
+          method: 'GET',
+          path: 'https://example.com/image-content',
+        );
+        interceptor.onRequest(imageOptions, RequestInterceptorHandler());
+
+        final apiOptions = RequestOptions(
+          method: 'POST',
+          path: 'https://exhentai.org/api.php',
+        );
+        interceptor.onRequest(apiOptions, RequestInterceptorHandler());
+
+        expect(
+          imageOptions.extra[networkTransferIdExtraKey],
+          'image-download-1',
+        );
+        expect(apiOptions.extra[networkTransferIdExtraKey], isNull);
+      },
+    );
+
+    final logs = container.read(networkLogControllerProvider).logs;
+    expect(logs, hasLength(2));
+    expect(logs.first.requestKind, NetworkRequestKind.image);
+    expect(logs.first.transferId, 'image-download-1');
+    expect(logs.last.requestKind, NetworkRequestKind.api);
+    expect(logs.last.transferId, isNull);
   });
 }

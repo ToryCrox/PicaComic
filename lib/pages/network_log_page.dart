@@ -54,6 +54,7 @@ class NetworkLogPage extends ConsumerStatefulWidget {
 class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
   late final TextEditingController _searchController;
   String? _selectedEntryId;
+  double _desktopSplit = 0.46;
 
   @override
   void initState() {
@@ -201,28 +202,64 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     List<NetworkLogEntry> entries,
     NetworkLogEntry? selectedEntry,
   ) {
-    return Row(
-      children: [
-        SizedBox(
-          width: math.min(560, MediaQuery.sizeOf(context).width * 0.46),
-          child: _buildLogList(context, entries, compact: true),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final maxLeftWidth = math.max(280.0, availableWidth - 360.0);
+        final leftWidth = (availableWidth * _desktopSplit)
+            .clamp(280.0, maxLeftWidth)
+            .toDouble();
+        return Row(
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: _buildLogList(context, entries, compact: true),
+            ),
+            _buildResizeHandle(context, availableWidth),
+            Expanded(
+              child: selectedEntry == null
+                  ? const Center(
+                      child: Text(
+                        '选择一个请求查看详情',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    )
+                  : NetworkLogDetailPage(entry: selectedEntry, embedded: true),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildResizeHandle(BuildContext context, double availableWidth) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeLeftRight,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (details) {
+          if (availableWidth <= 0) return;
+          final minLeftWidth = math.min(280.0, availableWidth * 0.5);
+          final maxLeftWidth = math.max(
+            minLeftWidth,
+            availableWidth - 360.0,
+          );
+          setState(() {
+            final targetWidth = (_desktopSplit * availableWidth) +
+                details.delta.dx;
+            _desktopSplit =
+                (targetWidth.clamp(minLeftWidth, maxLeftWidth) /
+                        availableWidth)
+                    .toDouble();
+          });
+        },
+        child: SizedBox(
+          width: 9,
+          child: Center(
+            child: Container(width: 1, color: Theme.of(context).dividerColor),
+          ),
         ),
-        VerticalDivider(
-          width: 1,
-          thickness: 1,
-          color: Theme.of(context).dividerColor,
-        ),
-        Expanded(
-          child: selectedEntry == null
-              ? const Center(
-                  child: Text(
-                    '选择一个请求查看详情',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                )
-              : NetworkLogDetailPage(entry: selectedEntry, embedded: true),
-        ),
-      ],
+      ),
     );
   }
 
@@ -255,9 +292,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
   }) {
     final statusColor = _getStatusColor(entry.statusCode);
     final selected = entry.id == _selectedEntryId;
-    final thumbnail =
-        entry.requestKind == NetworkRequestKind.image &&
-        entry.artifactPath != null;
+    final thumbnail = entry.isImageResponse && entry.artifactPath != null;
     return InkWell(
       onTap: () {
         if (App.isDesktop) {
@@ -283,9 +318,16 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                 height: 36,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: buildNetworkArtifactPreview(
-                    entry.artifactPath!,
-                    fit: BoxFit.cover,
+                  child: InkWell(
+                    onTap: () => openNetworkImagePreview(
+                      context,
+                      entry.artifactPath!,
+                      title: entry.url,
+                    ),
+                    child: buildNetworkArtifactPreview(
+                      entry.artifactPath!,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),

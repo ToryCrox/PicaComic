@@ -30,6 +30,7 @@ import '../comic_page/comic_page_adapter.dart';
 import '../comic_page/comic_page_logic.dart';
 import 'eh_comments_page.dart';
 import 'eh_gallery_page.dart' show RatingLogic, RatingWidget, EhThumbnailLoader;
+import 'eh_original_availability.dart';
 
 // ============================================================================
 // EhAdapter — E-Hentai
@@ -345,35 +346,55 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   Widget? buildMoreInfo(Gallery data, BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => _showStarRating(context, data),
-        child: SizedBox(
-          height: 30,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (int i = 0; i < (data.stars ~/ 0.5) ~/ 2; i++)
-                const Icon(Icons.star, size: 30, color: Color(0xffffbf00)),
-              if ((data.stars ~/ 0.5) % 2 == 1)
-                const Icon(Icons.star_half, size: 30, color: Color(0xffffbf00)),
-              for (
-                int i = 0;
-                i < 5 - (data.stars ~/ 0.5) ~/ 2 - (data.stars ~/ 0.5) % 2;
-                i++
-              )
-                const Icon(
-                  Icons.star_border,
-                  size: 30,
-                  color: Color(0xffffbf00),
-                ),
-              const SizedBox(width: 5),
-              if (data.rating != null) Text(data.rating!),
-            ],
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => _showStarRating(context, data),
+            child: SizedBox(
+              height: 30,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < (data.stars ~/ 0.5) ~/ 2; i++)
+                    const Icon(Icons.star, size: 30, color: Color(0xffffbf00)),
+                  if ((data.stars ~/ 0.5) % 2 == 1)
+                    const Icon(
+                      Icons.star_half,
+                      size: 30,
+                      color: Color(0xffffbf00),
+                    ),
+                  for (
+                    int i = 0;
+                    i < 5 - (data.stars ~/ 0.5) ~/ 2 - (data.stars ~/ 0.5) % 2;
+                    i++
+                  )
+                    const Icon(
+                      Icons.star_border,
+                      size: 30,
+                      color: Color(0xffffbf00),
+                    ),
+                  const SizedBox(width: 5),
+                  if (data.rating != null) Text(data.rating!),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        if (data.fileSize.isNotEmpty)
+          Text(
+            "${"文件大小".tl}: ${data.fileSize}",
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        EhOriginalAvailabilityBadge(gallery: data),
+      ],
     );
   }
 

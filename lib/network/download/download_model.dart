@@ -182,6 +182,11 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// 设置为 false 的下载任务（如临时文件下载）不会被持久化
   bool shouldSaveToDatabase = true;
 
+  /// 是否覆盖下载目录中已存在的同名文件。
+  ///
+  /// 默认为 false，重新下载时只补齐缺失图片。
+  bool overwriteExistingFiles = false;
+
   DownloadingTask(
     this.onFinish,
     this.onError,
@@ -192,10 +197,22 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   Future<void> downloadCover() async {
     final file = File(Path.join(path, 'cover.webp'));
-    if (file.existsSync()) {
+    if (file.existsSync() && !overwriteExistingFiles) {
       return;
     }
     try {
+      if (overwriteExistingFiles) {
+        try {
+          await CacheManager().delete(cover);
+        } catch (e) {
+          Log.w("DownloadingTask: 删除封面缓存失败 $cover, $e");
+        }
+        try {
+          await picaImageManager.removeFile(cover);
+        } catch (e) {
+          Log.w("DownloadingTask: 删除封面文件缓存失败 $cover, $e");
+        }
+      }
       final headers = Map<String, String>.from(this.headers);
       headers['sourceKey'] = type.toComicType().name;
       final stream = picaImageManager.getImageFile(cover, headers: headers);
@@ -344,6 +361,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       item.fileBaseName,
       transferId,
       onData,
+      overwriteExistingFiles,
       null, // 不需要完成回调，由队列管理
     );
 
@@ -562,6 +580,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       "links": convertedData,
       "directory": directory,
       "userPaused": userPaused,
+      "overwriteExistingFiles": overwriteExistingFiles,
       "finishedTasks": _downloading.entries
           .where((element) => element.value.isFinished)
           .map((e) => e.key)
@@ -597,6 +616,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       }
     }
     userPaused = map["userPaused"] ?? false;
+    overwriteExistingFiles = map["overwriteExistingFiles"] == true;
   }
 
   /// get all image links
@@ -708,6 +728,8 @@ class _ImageDownloadWrapper {
 
   final void Function(int length)? onReceiveData;
 
+  final bool overwriteExistingFiles;
+
   final void Function()? onFinished;
 
   Object? error;
@@ -726,6 +748,7 @@ class _ImageDownloadWrapper {
     this.fileBaseName,
     this.transferId,
     this.onReceiveData,
+    this.overwriteExistingFiles,
     this.onFinished,
   ) {
     listen();
@@ -737,12 +760,13 @@ class _ImageDownloadWrapper {
       fileBaseName = "",
       transferId = "",
       onReceiveData = null,
+      overwriteExistingFiles = false,
       onFinished = null,
       isFinished = true;
 
   Future<void> listen() async {
     final dir = Directory(path);
-    if (await dir.exists()) {
+    if (!overwriteExistingFiles && await dir.exists()) {
       final files = await dir.list().toList();
       final file = files.whereType<File>().toList().firstWhereOrNull(
         (e) => Path.basenameWithoutExtension(e.path) == fileBaseName,
@@ -782,6 +806,15 @@ class _ImageDownloadWrapper {
                 var tmpFile = File("${finalFile.path}.tmp");
                 if (!await tmpFile.parent.exists()) {
                   await tmpFile.parent.create(recursive: true);
+                }
+                if (overwriteExistingFiles) {
+                  final existingFiles = await tmpFile.parent.list().toList();
+                  for (final existingFile in existingFiles.whereType<File>()) {
+                    if (Path.basenameWithoutExtension(existingFile.path) ==
+                        fileBaseName) {
+                      await existingFile.delete();
+                    }
+                  }
                 }
                 await tmpFile.writeAsBytes(data);
                 await tmpFile.rename(finalFile.path);

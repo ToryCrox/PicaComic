@@ -20,6 +20,7 @@ import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/network/image_config.dart';
+import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/file_type.dart';
 
@@ -345,6 +346,41 @@ class ImageManager {
       requireOriginal: requireOriginal,
     );
     return controller.stream;
+  }
+
+  /// 检查 EH 指定页面是否提供原图链接，不下载图片内容。
+  Future<Res<bool>> checkEhOriginalAvailability(
+    Gallery gallery, {
+    int page = 1,
+  }) async {
+    final gid = getGalleryId(gallery.link);
+    final cancelToken = CancelToken();
+    try {
+      final readerRes = await EhNetwork().getReaderLink(gallery.link, page);
+      if (readerRes.error) return Res.fromErrorRes(readerRes);
+
+      final readerLink = readerRes.data;
+      await _ensureEhAuthentication(gallery, readerLink, gid, cancelToken);
+      await _resolveEhImageLink(
+        gallery,
+        readerLink,
+        gid,
+        page,
+        cancelToken,
+        preferOriginal: true,
+        requireOriginal: true,
+      );
+      return const Res(true);
+    } on FormatException catch (e) {
+      if (e.message == "EH original image URL unavailable") {
+        return const Res(false);
+      }
+      Log.w("EH 原图检测失败: $e");
+      return Res.error(e.toString());
+    } catch (e, s) {
+      Log.w("EH 原图检测失败: $e\n$s");
+      return Res.error(e.toString());
+    }
   }
 
   /// 下载 EH 图片，临时链接失效时自动刷新链接与认证。

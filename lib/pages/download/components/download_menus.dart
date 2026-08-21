@@ -73,6 +73,49 @@ void showDownloadBatchResultToast(
   );
 }
 
+/// 显示重新下载选项，并返回是否覆盖已有文件。
+Future<bool?> showRedownloadDialog(BuildContext context) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      var overwriteExisting = false;
+      return StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text("重新下载".tl),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CheckboxListTile(
+                value: overwriteExisting,
+                title: Text("覆盖已有文件".tl),
+                subtitle: Text("勾选后会重新下载并替换同名图片".tl),
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  setState(() => overwriteExisting = value ?? false);
+                },
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text("不勾选时只下载缺失图片".tl),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("取消".tl),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, overwriteExisting),
+              child: Text("确定".tl),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 /// 显示选择模式菜单
 List<PopupMenuEntry<void>> buildSelectingMenuItems({
   required BuildContext context,
@@ -132,7 +175,15 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
       text: "重新下载".tl,
       icon: Icons.download,
       onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
-        final result = await downloadManager.redownloadComics(selectedComics);
+        if (selectedComics.isEmpty) return;
+        final overwriteExisting = await showRedownloadDialog(
+          App.globalContext!,
+        );
+        if (overwriteExisting == null) return;
+        final result = await downloadManager.redownloadComics(
+          selectedComics,
+          overwriteExisting: overwriteExisting,
+        );
         showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
         if (result.successCount > 0) {
           onExitSelecting();
@@ -442,7 +493,13 @@ Future<void> showTileContextMenu({
           icon: Icons.download,
           onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
-            final result = await downloadManager.redownloadComics([comic]);
+            final overwriteExisting = await showRedownloadDialog(
+              App.globalContext!,
+            );
+            if (overwriteExisting == null) return;
+            final result = await downloadManager.redownloadComics([
+              comic,
+            ], overwriteExisting: overwriteExisting);
             showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
             if (result.successCount > 0) {
               onRefresh();

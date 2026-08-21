@@ -319,6 +319,7 @@ class CacheHttpFileService extends FileService {
     if (transferId != null) {
       extra[networkTransferIdExtraKey] = transferId;
     }
+    extra[networkRequestKindExtraKey] = NetworkRequestKind.image.name;
     final response = await networkClientManager.mediaDio.get<ResponseBody>(
       url,
       options: Options(

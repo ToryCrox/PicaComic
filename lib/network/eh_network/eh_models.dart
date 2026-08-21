@@ -145,6 +145,7 @@ class Gallery with HistoryMixin {
   List<String> thumbnails;
   String ext;
   int width;
+  String fileSize;
 
   List<String> _generateTags() {
     var res = <String>[];
@@ -184,6 +185,7 @@ class Gallery with HistoryMixin {
       "pageSize": pageSize,
       "ext": ext,
       'width': width,
+      'fileSize': fileSize,
       'thumbnails': thumbnails,
       "auth": auth,
       'comments': comments.map((comment) => comment.toJson()).toList(),
@@ -209,6 +211,7 @@ class Gallery with HistoryMixin {
       thumbnails = json.optStringList('thumbnails'),
       ext = json["ext"] ?? "jpg",
       width = json["width"] ?? 100,
+      fileSize = json["fileSize"] ?? "",
       auth = json.optMap('auth').map((k, v) => MapEntry(k, v)),
       comments = json.optList('comments', (e) => Comment.fromJson(e));
 
@@ -230,8 +233,9 @@ class Gallery with HistoryMixin {
     this.thumbnails, // unused field
     this.ext,
     this.width,
-    this.subTitle,
-  );
+    this.subTitle, [
+    this.fileSize = "",
+  ]);
 
   @override
   String get cover => coverPath;

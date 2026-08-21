@@ -1160,10 +1160,11 @@ extension AddDownloadExt on DownloadManager {
   bool canRefreshCover(DownloadedItem comic) =>
       _isNetworkDownloadedComic(comic);
 
-  /// 批量重新下载漫画，保留已有文件并补齐缺失图片。
+  /// 批量重新下载漫画，可选择覆盖已有文件或只补齐缺失图片。
   Future<DownloadBatchResult> redownloadComics(
-    List<DownloadedItem> comics,
-  ) async {
+    List<DownloadedItem> comics, {
+    bool overwriteExisting = false,
+  }) async {
     var successCount = 0;
     var skippedCount = 0;
     var failedCount = 0;
@@ -1182,6 +1183,7 @@ extension AddDownloadExt on DownloadManager {
       try {
         final context = await _buildLatestDownloadContext(comic);
         context.task.directory = await _resolveDownloadDirectory(comic);
+        context.task.overwriteExistingFiles = overwriteExisting;
         _queueManager.enqueue(context.task);
         // 重新下载可能补充未翻译的新图片，旧的完成标记立即失效。
         await clearAiTranslationCompleted(comic.id);

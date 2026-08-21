@@ -244,6 +244,14 @@ class NetworkLog {
   /// 响应是否可以在面板中显示图片预览。
   bool get hasArtifact => artifactPath != null && artifactPath!.isNotEmpty;
 
+  /// 响应内容是否为图片。
+  ///
+  /// 请求类型表达请求意图；部分 API 端点虽然返回图片，仍应保留 API
+  /// 类型，但详情页和列表仍然可以根据实际 Content-Type 显示图片预览。
+  bool get isImageResponse =>
+      requestKind == NetworkRequestKind.image ||
+      contentType?.toLowerCase().startsWith('image/') == true;
+
   /// 响应或请求体记录的字节数。
   int get byteLength => responseBody?.byteLength ?? 0;
 
@@ -408,6 +416,9 @@ class NetworkLogEntry {
 
   NetworkRequestKind get requestKind => primary.requestKind;
 
+  /// 合并条目中是否存在可以预览的图片响应。
+  bool get isImageResponse => logs.any((log) => log.isImageResponse);
+
   int? get statusCode {
     for (final log in logs) {
       if (log.error != null || (log.statusCode ?? 0) >= 400) {
@@ -520,12 +531,11 @@ class NetworkLogController extends _$NetworkLogController
       ),
       null,
       info,
-      requestKind:
-          token.explicitRequestKind ??
-          classifyNetworkResponse(
-            contentType: contentType,
-            url: response.realUri,
-          ),
+      requestKind: classifyNetworkResponse(
+        contentType: contentType,
+        url: response.realUri,
+        fallbackKind: token.explicitRequestKind,
+      ),
       contentType: contentType,
     );
   }
@@ -550,12 +560,11 @@ class NetworkLogController extends _$NetworkLogController
             ),
       error.toString(),
       info,
-      requestKind:
-          token.explicitRequestKind ??
-          classifyNetworkResponse(
-            contentType: contentType,
-            url: response?.realUri ?? error.requestOptions.uri,
-          ),
+      requestKind: classifyNetworkResponse(
+        contentType: contentType,
+        url: response?.realUri ?? error.requestOptions.uri,
+        fallbackKind: token.explicitRequestKind,
+      ),
       contentType: contentType,
     );
   }
@@ -696,9 +705,15 @@ bool networkLogCollecting(Ref ref) {
 /// 根据请求 URL 推断请求类型。
 NetworkRequestKind inferNetworkRequestKind(Uri uri) {
   final path = uri.path.toLowerCase();
+  final fileName = uri.pathSegments.isEmpty
+      ? ''
+      : uri.pathSegments.last.toLowerCase();
   if (path.contains('/api/') ||
       path.endsWith('/api') ||
-      path.contains('graphql')) {
+      path.contains('graphql') ||
+      fileName == 'api.php' ||
+      fileName == 'api.json' ||
+      fileName == 'graphql.php') {
     return NetworkRequestKind.api;
   }
   if (_isImagePath(path)) return NetworkRequestKind.image;
@@ -712,12 +727,28 @@ NetworkRequestKind inferNetworkRequestKind(Uri uri) {
 NetworkRequestKind classifyNetworkResponse({
   String? contentType,
   required Uri url,
+  NetworkRequestKind? fallbackKind,
 }) {
   final normalized = contentType?.toLowerCase() ?? '';
-  if (normalized.contains('text/html')) return NetworkRequestKind.html;
+  // Content-Type 是服务端实际返回类型，优先于 URL 名称。例如 api.php
+  // 也可能返回 Cloudflare HTML 页面，此时应显示为 HTML。
+  if (normalized.contains('text/html') ||
+      normalized.contains('application/xhtml+xml')) {
+    return NetworkRequestKind.html;
+  }
   if (normalized.startsWith('image/')) return NetworkRequestKind.image;
-  if (normalized.contains('json')) return NetworkRequestKind.api;
-  return inferNetworkRequestKind(url);
+  if (normalized.contains('json')) {
+    // AI 请求通常也是 JSON，但需要保留 AI 类型以便单独筛选。
+    if (fallbackKind == NetworkRequestKind.ai) {
+      return NetworkRequestKind.ai;
+    }
+    return NetworkRequestKind.api;
+  }
+  if (normalized.startsWith('application/octet-stream') &&
+      fallbackKind == NetworkRequestKind.file) {
+    return NetworkRequestKind.file;
+  }
+  return fallbackKind ?? inferNetworkRequestKind(url);
 }
 
 bool _isImagePath(String path) {

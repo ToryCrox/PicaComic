@@ -89,13 +89,33 @@ class NetworkLogInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final zoneTransferId = Zone.current[networkTelemetryTransferZoneKey];
-    if (options.extra[networkTransferIdExtraKey] == null &&
-        zoneTransferId != null) {
-      options.extra[networkTransferIdExtraKey] = zoneTransferId.toString();
-    }
     final zoneKind = Zone.current[networkTelemetryKindZoneKey];
-    if (options.extra[networkRequestKindExtraKey] == null && zoneKind != null) {
-      options.extra[networkRequestKindExtraKey] = zoneKind.toString();
+    final zoneRequestKind = NetworkRequestKindExtension.parse(zoneKind);
+    final explicitRequestKind = NetworkRequestKindExtension.parse(
+      options.extra[networkRequestKindExtraKey],
+    );
+    final inferredRequestKind = inferNetworkRequestKind(options.uri);
+
+    // 下载包装器还会执行获取图片链接、鉴权等 API 请求，不能把它们
+    // 误关联到最终图片文件。只有未知 URL 或同类型请求才继承外层类型。
+    if (explicitRequestKind == null &&
+        zoneRequestKind != null &&
+        (inferredRequestKind == NetworkRequestKind.other ||
+            inferredRequestKind == zoneRequestKind)) {
+      options.extra[networkRequestKindExtraKey] = zoneRequestKind.name;
+    }
+    final effectiveRequestKind =
+        explicitRequestKind ??
+        NetworkRequestKindExtension.parse(
+          options.extra[networkRequestKindExtraKey],
+        ) ??
+        inferredRequestKind;
+    if (zoneTransferId != null &&
+        zoneRequestKind != null &&
+        effectiveRequestKind == zoneRequestKind) {
+      // 外层传输 ID 代表最终文件，优先于图片缓存的临时请求 ID，
+      // 但不影响同一下载流程中的 API 元数据请求。
+      options.extra[networkTransferIdExtraKey] = zoneTransferId.toString();
     }
     final token = sink.beginRequest(options);
     if (token != null) {

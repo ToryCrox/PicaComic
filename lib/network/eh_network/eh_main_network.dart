@@ -796,6 +796,22 @@ class EhNetwork {
               .querySelector("div#gdd > table > tbody > tr > td.gdt2")
               ?.text ??
           "";
+      //文件总大小
+      var fileSize = "";
+      for (var row in document.querySelectorAll(
+        "div#gdd > table > tbody > tr",
+      )) {
+        final label = row
+            .querySelector("td.gdt1")
+            ?.text
+            .replaceAll(RegExp(r"\s+"), " ")
+            .trim()
+            .toLowerCase();
+        if (label == "file size:" || label == "file size") {
+          fileSize = row.querySelector("td.gdt2")?.text.trim() ?? "";
+          break;
+        }
+      }
       //身份认证数据
       var auth = getVariablesFromJsCode(res.data);
       var thumbnailUrls = <String>[];
@@ -912,6 +928,7 @@ class EhNetwork {
           ext,
           width,
           subTitle,
+          fileSize,
         ),
       );
     } catch (e, s) {

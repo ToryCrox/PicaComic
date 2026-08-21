@@ -37,12 +37,14 @@ void main() {
         'jpg',
         100,
         'subtitle',
+        '309.2 MiB',
       );
 
       final restored = eh.Gallery.fromJson(gallery.toJson());
       expect(restored.comments.single.content, 'content');
       expect(restored.comments.single.voteUP, isTrue);
       expect(restored.auth?['token'], 'token');
+      expect(restored.fileSize, '309.2 MiB');
     });
 
     test('JM 保留计数与收藏状态并兼容旧空字符串', () {
