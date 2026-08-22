@@ -29,6 +29,10 @@ class DownloadQueueManager {
   /// 获取正在运行的任务数量
   int get runningTasksCount => _runningTasks.length;
 
+  /// 获取当前正在运行的任务。
+  DownloadingTask? get runningTask =>
+      _runningTasks.isEmpty ? null : _runningTasks.values.first;
+
   /// 获取正在运行的任务ID集合
   Set<String> get runningTaskIds => _runningTasks.keys.toSet();
 
@@ -338,13 +342,18 @@ class DownloadQueueManager {
   }
 
   /// 暂停指定任务
-  Future<void> pauseTask(String taskId) async {
+  Future<void> pauseTask(String taskId, {bool preserveProgress = false}) async {
     // 检查是否在运行中
     final runningTask = _runningTasks[taskId];
     if (runningTask != null) {
       Log.i('DownloadQueueManager: Pausing running task $taskId');
       runningTask.userPaused = true;
-      await runningTask.stop(); // 停止下载，但不删除文件（stop 的实现已支持保留已完成章节）
+      if (preserveProgress) {
+        // 特殊暂停需要保留已完成图片和当前下载目录，恢复时只补齐缺失内容。
+        runningTask.pause();
+      } else {
+        await runningTask.stop();
+      }
       _runningTasks.remove(taskId);
       // 将任务放回等待队列首位
       _waitingQueue.addFirst(runningTask);
@@ -441,6 +450,16 @@ class DownloadQueueManager {
   /// 获取所有任务（等待 + 运行中）
   List<DownloadingTask> getAllTasks() {
     return [..._runningTasks.values, ..._waitingQueue];
+  }
+
+  /// 按任务 ID 查找下载任务。
+  DownloadingTask? findTask(String taskId) {
+    final runningTask = _runningTasks[taskId];
+    if (runningTask != null) return runningTask;
+    for (final task in _waitingQueue) {
+      if (task.id == taskId) return task;
+    }
+    return null;
   }
 
   /// 清理资源

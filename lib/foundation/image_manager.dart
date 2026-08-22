@@ -25,6 +25,7 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/file_type.dart';
 
 import '../base.dart';
+import '../network/eh_network/eh_errors.dart';
 import '../network/eh_network/eh_main_network.dart';
 import '../network/hitomi_network/image.dart';
 import '../network/jm_network/headers.dart';
@@ -463,7 +464,11 @@ class ImageManager {
           break;
         } catch (e) {
           lastError = e;
-          if (task.cancelToken.isCancelled || e is ImageExceedError) rethrow;
+          if (task.cancelToken.isCancelled ||
+              e is ImageExceedError ||
+              e is EhOriginalGpRequiredException) {
+            rethrow;
+          }
           if (attempt == 2) break;
           await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
           link = await _renewEhImageLink(
@@ -871,6 +876,10 @@ class ImageManager {
         throw FormatException("Incomplete EH image: $expected/${bytes.length}");
       }
       if (contentType != null && !contentType.startsWith("image/")) {
+        final responseText = utf8.decode(bytes, allowMalformed: true);
+        if (EhOriginalGpRequiredException.matchesResponseText(responseText)) {
+          throw const EhOriginalGpRequiredException();
+        }
         throw FormatException("Unexpected image content type: $contentType");
       }
       final data = Uint8List.fromList(bytes);

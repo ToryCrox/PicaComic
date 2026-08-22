@@ -252,7 +252,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: SizedBox(
-        height: 114,
+        height: comic.pauseReason == null ? 114 : 136,
         child: Row(
           children: [
             // 封面区域：点击导航到详情页
@@ -349,6 +349,30 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                     ),
                     const SizedBox(height: 4),
                     LinearProgressIndicator(value: value),
+                    if (comic.pauseReason != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.pause_circle_outline,
+                            size: 14,
+                            color: context.colorScheme.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              comic.pauseReason!.messageKey.tl,
+                              style: TextStyle(
+                                color: context.colorScheme.error,
+                                fontSize: 11,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 4),
                   ],
                 ),

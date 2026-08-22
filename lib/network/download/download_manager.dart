@@ -21,6 +21,7 @@ import 'package:pica_comic/network/download/download_queue_manager.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
+import 'package:pica_comic/network/eh_network/eh_errors.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/eh_network/eh_main_network.dart';
@@ -426,16 +427,36 @@ class DownloadManager extends ChangeNotifier {
 
   ///出现错误时调用此函数
   void _onError() {
-    final taskId = _queueManager.getAllTasks().isNotEmpty
-        ? _queueManager.getAllTasks().first.id
-        : 'unknown';
+    final currentTask = _queueManager.runningTask;
+    final errorTask = currentTask ?? _queueManager.getAllTasks().firstOrNull;
+    final taskId = errorTask?.id ?? 'unknown';
     Log.d(() => 'DownloadManager: 下载出错 taskId=$taskId');
+
+    if (currentTask is EhDownloadingTask &&
+        currentTask.downloadType == 0 &&
+        EhOriginalGpRequiredException.matchesError(currentTask.lastError)) {
+      currentTask.pauseReason = DownloadPauseReason.ehOriginalGpInsufficient;
+      unawaited(_pauseEhTaskForGp(currentTask));
+      return;
+    }
+
     pause();
     _error = true;
-    if (_queueManager.getAllTasks().isNotEmpty) {
-      _queueManager.onTaskError(_queueManager.getAllTasks().first.id);
+    if (errorTask != null) {
+      _queueManager.onTaskError(errorTask.id);
     }
     notifications.sendNotification("下载出错".tl, "点击查看详情".tl);
+    notifyListeners();
+  }
+
+  /// 暂停 EH GP 不足的任务，同时保留已经下载的内容。
+  Future<void> _pauseEhTaskForGp(EhDownloadingTask task) async {
+    await _queueManager.pauseTask(task.id, preserveProgress: true);
+    _queueManager.onTaskError(task.id);
+    _saveInfo();
+    if (!_queueManager.isRunning) {
+      notifications.endProgress();
+    }
     notifyListeners();
   }
 
@@ -470,6 +491,8 @@ class DownloadManager extends ChangeNotifier {
   /// 恢复指定下载任务
   void resumeTask(String id) {
     Log.d(() => 'DownloadManager: 恢复任务 id=$id');
+    final task = _queueManager.findTask(id);
+    task?.pauseReason = null;
     _queueManager.resumeTask(id);
     _saveInfo();
   }

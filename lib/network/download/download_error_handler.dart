@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:pica_comic/foundation/log.dart';
+import 'download_exceptions.dart';
 
 /// 下载错误类型
 enum DownloadErrorType {
@@ -15,6 +16,9 @@ enum DownloadErrorType {
 
   /// 用户取消
   canceled,
+
+  /// 服务端明确要求用户处理后才能继续
+  nonRetryable,
 
   /// 超时
   timeout,
@@ -56,7 +60,8 @@ class DownloadError {
     final type = _analyzeError(error);
     final canRetry =
         type != DownloadErrorType.canceled &&
-        type != DownloadErrorType.permission;
+        type != DownloadErrorType.permission &&
+        type != DownloadErrorType.nonRetryable;
 
     return DownloadError(
       type: type,
@@ -69,6 +74,10 @@ class DownloadError {
 
   /// 分析错误类型
   static DownloadErrorType _analyzeError(Object error) {
+    if (error is DownloadNonRetryableException) {
+      return DownloadErrorType.nonRetryable;
+    }
+
     final errorStr = error.toString().toLowerCase();
 
     if (errorStr.contains('cancel')) {
@@ -171,6 +180,7 @@ class RetryStrategy {
 
       case DownloadErrorType.canceled:
       case DownloadErrorType.permission:
+      case DownloadErrorType.nonRetryable:
         // 这些错误不应重试
         return RetryStrategy(config: const RetryStrategyConfig(maxRetries: 0));
 

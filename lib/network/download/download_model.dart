@@ -101,6 +101,26 @@ enum DownloadType {
   };
 }
 
+/// 下载任务的特殊暂停原因。
+enum DownloadPauseReason {
+  /// EH 单张原图下载需要 GP，但当前账号余额不足。
+  ehOriginalGpInsufficient;
+
+  /// 本地化文案键。
+  String get messageKey => switch (this) {
+    ehOriginalGpInsufficient => '已暂停：GP不足，暂无法下载原图',
+  };
+
+  /// 从持久化字段恢复暂停原因。
+  static DownloadPauseReason? fromName(Object? value) {
+    if (value is! String) return null;
+    for (final reason in DownloadPauseReason.values) {
+      if (reason.name == value) return reason;
+    }
+    return null;
+  }
+}
+
 typedef DownloadProgressCallback = void Function();
 
 typedef DownloadProgressCallbackAsync = Future<void> Function();
@@ -175,6 +195,12 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
   /// 用户手动暂停
   bool userPaused = false;
+
+  /// 自动暂停的原因；为空表示普通等待或手动暂停。
+  DownloadPauseReason? pauseReason;
+
+  /// 最近一次最终失败的原始错误，仅用于错误路由，不持久化。
+  Object? lastError;
 
   /// 是否应该保存到数据库
   ///
@@ -444,6 +470,10 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         throw StateError('No images were loaded for download');
       }
 
+      if (queue.terminalError != null) {
+        throw queue.terminalError!;
+      }
+
       if (queue.failedCount > 0) {
         // 有失败的图片，触发重试
         throw Exception('${queue.failedCount} images failed to download');
@@ -458,6 +488,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
 
       // 下载完成
       Log.i('DownloadingTask: Download completed for $id');
+      lastError = null;
       stopRecorder();
 
       // 只有当这是队列中第一个任务时才调用 onFinish
@@ -468,6 +499,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       if (currentKey != _runtimeKey) return;
 
       Log.e("Download error for $id: $e\n$s");
+      lastError = e;
 
       // 使用新的错误处理器
       final error = DownloadError.fromException(e, s);
@@ -580,6 +612,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       "links": convertedData,
       "directory": directory,
       "userPaused": userPaused,
+      "pauseReason": pauseReason?.name,
       "overwriteExistingFiles": overwriteExistingFiles,
       "finishedTasks": _downloading.entries
           .where((element) => element.value.isFinished)
@@ -616,6 +649,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       }
     }
     userPaused = map["userPaused"] ?? false;
+    pauseReason = DownloadPauseReason.fromName(map["pauseReason"]);
     overwriteExistingFiles = map["overwriteExistingFiles"] == true;
   }
 

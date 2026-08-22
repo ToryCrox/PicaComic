@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:async';
 import 'package:pica_comic/foundation/log.dart';
+import 'download_exceptions.dart';
 
 /// 图片下载队列项的状态
 enum ImageDownloadTaskState {
@@ -120,6 +121,9 @@ class ImageDownloadQueue {
   /// 完成信号（用于 await start() 等待所有任务完成）
   Completer<void>? _completer;
 
+  /// 需要立即停止重试的终止错误。
+  Object? _terminalError;
+
   /// 下载函数
   final Future<void> Function(ImageDownloadQueueItem item) downloadFunction;
 
@@ -178,6 +182,9 @@ class ImageDownloadQueue {
 
   /// 是否正在运行
   bool get isRunning => _isRunning;
+
+  /// 获取需要交给下载任务处理的终止错误。
+  Object? get terminalError => _terminalError;
 
   /// 是否全部完成
   bool get isAllCompleted => totalCount > 0 && completedCount == totalCount;
@@ -273,6 +280,7 @@ class ImageDownloadQueue {
   /// 取消所有下载
   void cancelAll() {
     _isRunning = false;
+    _terminalError = null;
 
     // 将所有正在下载的任务标记为取消
     for (var item in _downloadingItems.values) {
@@ -297,6 +305,7 @@ class ImageDownloadQueue {
     }
 
     Log.i('ImageDownloadQueue: Retrying ${_failedItems.length} failed items');
+    _terminalError = null;
 
     // 将失败的任务重新加入队列
     final failedList = _failedItems.values.toList();
@@ -392,6 +401,20 @@ class ImageDownloadQueue {
       // 检查章节是否完成
       _checkEpisodeCompleted(item.episodeIndex);
     } catch (e) {
+      if (e is DownloadNonRetryableException) {
+        Log.e('ImageDownloadQueue: Non-retryable failure for $key: $e');
+        item.state = ImageDownloadTaskState.failed;
+        item.error = e;
+        _downloadingItems.remove(key);
+        _failedItems[key] = item;
+        _terminalError ??= e;
+        // 保留等待队列和已完成项目，暂停后恢复时继续补齐剩余图片。
+        _isRunning = false;
+        onProgressUpdate?.call(completedCount, totalCount);
+        _completeAfterTerminalErrorIfIdle();
+        return;
+      }
+
       // 下载失败，检查是否可以重试
       item.retryCount++;
 
@@ -416,6 +439,7 @@ class ImageDownloadQueue {
           if (_isRunning) {
             _scheduleNext();
           }
+          _completeAfterTerminalErrorIfIdle();
         });
       } else {
         // 达到最大重试次数，标记为最终失败
@@ -436,6 +460,19 @@ class ImageDownloadQueue {
 
     // 调度下一个任务
     _scheduleNext();
+    _completeAfterTerminalErrorIfIdle();
+  }
+
+  /// 终止错误发生后，等待已经发出的请求结束，再解除任务等待。
+  void _completeAfterTerminalErrorIfIdle() {
+    if (_terminalError == null ||
+        _downloadingItems.isNotEmpty ||
+        _retryingItems.isNotEmpty) {
+      return;
+    }
+    if (_completer != null && !_completer!.isCompleted) {
+      _completer!.complete();
+    }
   }
 
   /// 检查章节是否完成
@@ -534,6 +571,7 @@ class ImageDownloadQueue {
   void clearFailed() {
     Log.i('ImageDownloadQueue: Clearing ${_failedItems.length} failed items');
     _failedItems.clear();
+    _terminalError = null;
     // 重置章节统计（只保留已完成的）
     final failedEps = <int>{};
     for (var entry in _episodeTotalCounts.entries) {

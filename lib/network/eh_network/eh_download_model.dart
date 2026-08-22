@@ -255,6 +255,7 @@ class EhDownloadingTask extends DownloadingTask {
         _downloader!.start();
       } catch (e, s) {
         Log.e("Download $e\n$s");
+        lastError = e;
         onError?.call();
         return;
       }
