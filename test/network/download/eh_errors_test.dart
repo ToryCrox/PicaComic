@@ -26,4 +26,15 @@ void main() {
 
     expect(EhOriginalGpRequiredException.matchesResponseText(html), isFalse);
   });
+
+  test('能识别图片数量限制导致的 GP 不足错误', () {
+    const html = '''
+      <html><body>
+        You have reached the image limit, and do not have sufficient GP
+        to buy a download quota.
+      </body></html>
+    ''';
+
+    expect(EhOriginalGpRequiredException.matchesResponseText(html), isTrue);
+  });
 }

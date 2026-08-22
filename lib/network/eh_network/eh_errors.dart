@@ -10,9 +10,15 @@ class EhOriginalGpRequiredException extends DownloadNonRetryableException {
         .toLowerCase()
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    return normalized.contains('original files') &&
+    final originalFilesError =
+        normalized.contains('original files') &&
         normalized.contains('requires gp') &&
         normalized.contains('do not have enough');
+    final imageLimitError =
+        normalized.contains('you have reached the image limit') &&
+        normalized.contains('do not have sufficient gp') &&
+        normalized.contains('buy a download quota');
+    return originalFilesError || imageLimitError;
   }
 
   /// 检查异常自身或其字符串描述中是否包含 EH GP 错误。
