@@ -125,6 +125,7 @@ class Appdata {
     "auto", //93 HTTP协议: auto/http1/http2
     "0", //94 显示网速悬浮球
     "0", //95 网络日志采集
+    "1", //96 下载页是否禁用拖动: 1-禁用, 0-启用
   ];
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步
@@ -420,6 +421,17 @@ class _Settings {
 
   set fullyHideBlockedWorks(bool value) {
     appdata.settings[83] = value ? "1" : "0";
+  }
+
+  /// 下载页是否禁用拖动。
+  bool get downloadPageDragDisabled =>
+      appdata.settings.length <= 96 || appdata.settings[96] == "1";
+
+  set downloadPageDragDisabled(bool value) {
+    while (appdata.settings.length <= 96) {
+      appdata.settings.add("1");
+    }
+    appdata.settings[96] = value ? "1" : "0";
   }
 
   /// cache size limit in MB

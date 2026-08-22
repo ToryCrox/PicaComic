@@ -329,7 +329,9 @@ class DownloadPageState {
 @Riverpod(keepAlive: false, name: 'downloadPageStateProvider')
 class DownloadPageStateNotifier extends _$DownloadPageStateNotifier {
   @override
-  DownloadPageState build(String pageId) => const DownloadPageState();
+  DownloadPageState build(String pageId) => DownloadPageState(
+    isDragDisabled: appdata.appSettings.downloadPageDragDisabled,
+  );
 
   void update(DownloadPageState Function(DownloadPageState) updater) {
     state = updater(state);
@@ -488,10 +490,13 @@ void updateExcludeLocal(WidgetRef ref, String pageId, bool exclude) {
 }
 
 /// 切换拖动禁用状态
-void toggleDragDisabled(WidgetRef ref, String pageId) {
+Future<void> toggleDragDisabled(WidgetRef ref, String pageId) async {
   ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    return state.copyWith(isDragDisabled: !state.isDragDisabled);
+    final isDragDisabled = !state.isDragDisabled;
+    appdata.appSettings.downloadPageDragDisabled = isDragDisabled;
+    return state.copyWith(isDragDisabled: isDragDisabled);
   });
+  await appdata.updateSettings();
 }
 
 // ============================================================================
