@@ -125,8 +125,8 @@ class EhDownloadingTask extends DownloadingTask {
     return ImageManager().getEhImageNew(
       gallery,
       int.parse(link),
-      preferOriginal: true,
-      requireOriginal: true,
+      // 每次下载页面时读取当前设置；原图不可用时允许回退到普通图。
+      preferOriginal: appdata.settings[29] == "1",
     );
   }
 
