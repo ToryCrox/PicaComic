@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/tools/translations.dart';
 import '../../foundation/image_manager.dart';
-import '../../tools/io_tools.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
@@ -122,6 +120,6 @@ class NhentaiDownloadingTask extends DownloadingTask {
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    return NhentaiDownloadedComic(comic, await getFolderSize(Directory(path)));
+    return NhentaiDownloadedComic(comic, await getStorageSize());
   }
 }

@@ -6,6 +6,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
@@ -49,12 +50,15 @@ Future<bool> exportComic(
 ]) async {
   try {
     name = sanitizeFileName(name);
+    final comicPath = await downloadManager.getFullDirectory(id);
+    final coverFile = await downloadManager.getCover(id);
     var data = ExportComicData(
       id,
       downloadManager.path!,
+      comicPath,
       name,
       epNames,
-      downloadManager.getDirectory(id),
+      await coverFile.exists() ? coverFile.path : null,
     );
     var res = await compute(runningExportComic, data);
     if (!res) {
@@ -63,7 +67,7 @@ Future<bool> exportComic(
 
     if (App.isMobile) {
       var params = SaveFileDialogParams(
-        sourceFilePath: '${data.path}$pathSep$name.zip',
+        sourceFilePath: p.join(data.outputPath, '$name.zip'),
       );
       await FlutterFileDialog.saveFile(params: params);
     } else {
@@ -74,14 +78,14 @@ Future<bool> exportComic(
       if (result != null) {
         const String mimeType = 'application/zip';
         final XFile textFile = XFile(
-          '${data.path}$pathSep$name.zip',
+          p.join(data.outputPath, '$name.zip'),
           mimeType: mimeType,
         );
         await textFile.saveTo(result.path);
       }
     }
 
-    var file = File('${data.path}$pathSep$name.zip');
+    var file = File(p.join(data.outputPath, '$name.zip'));
     file.delete();
     return true;
   } catch (e) {
@@ -95,15 +99,16 @@ Future<bool> exportComics(List<DownloadedItem> comics) async {
     for (var comic in comics) {
       var id = comic.id;
       var name = sanitizeFileName(comic.name);
-      var path = downloadManager.path;
+      var outputPath = downloadManager.path;
       var epNames = comic.eps;
       exportDatas.add(
         ExportComicData(
           id,
-          path!,
+          outputPath!,
+          comic.directoryPath,
           name,
           epNames,
-          downloadManager.getDirectory(id),
+          comic.coverPath,
         ),
       );
     }
@@ -166,24 +171,32 @@ Future<bool> exportPdf(String pdfPath) async {
 }
 
 class ExportComicData {
-  String id;
-  String path;
-  String name;
-  String directory;
-  List<String>? epNames;
+  final String id;
+  final String outputPath;
+  final String comicPath;
+  final String name;
+  final List<String>? epNames;
+  final String? coverPath;
 
-  ExportComicData(this.id, this.path, this.name, this.epNames, this.directory);
+  ExportComicData(
+    this.id,
+    this.outputPath,
+    this.comicPath,
+    this.name,
+    this.epNames,
+    this.coverPath,
+  );
 }
 
 Future<bool> runningExportComic(ExportComicData data) async {
-  final fileName = '${data.path}/${data.name}.zip';
+  final fileName = p.join(data.outputPath, '${data.name}.zip');
   try {
-    final path = Directory("${data.path}/${data.directory}");
+    final comicDirectory = Directory(data.comicPath);
     var zipFile = ZipFile.open(fileName);
     String? currentDirName;
 
-    void walk(String path) {
-      for (var entry in Directory(path).listSync()) {
+    void walk(String directoryPath) {
+      for (var entry in Directory(directoryPath).listSync()) {
         if (entry is Directory) {
           var index = int.parse(entry.name) - 1;
           currentDirName = sanitizeFileName(
@@ -191,6 +204,7 @@ Future<bool> runningExportComic(ExportComicData data) async {
           );
           walk(entry.path);
         } else {
+          if (entry is File && _isExportedCoverFile(entry.name)) continue;
           var filePathInZip = sanitizeFileName(data.name);
           if (currentDirName != null) {
             filePathInZip += "/$currentDirName";
@@ -201,7 +215,8 @@ Future<bool> runningExportComic(ExportComicData data) async {
       }
     }
 
-    walk(path.path);
+    walk(comicDirectory.path);
+    _addExportedCover(zipFile, data);
     zipFile.close();
     return true;
   } catch (e, s) {
@@ -212,18 +227,18 @@ Future<bool> runningExportComic(ExportComicData data) async {
 
 Future<bool> runningExportComics(List<ExportComicData> datas) async {
   try {
-    var result = "${datas.first.path}/comics.zip";
+    var result = p.join(datas.first.outputPath, 'comics.zip');
     if (File(result).existsSync()) {
       File(result).deleteSync();
     }
     var zipFile = ZipFile.open(result);
     for (var data in datas) {
-      final directory = Directory('${data.path}/${data.directory}');
+      final directory = Directory(data.comicPath);
 
       String? currentDirName;
 
-      void walk(String path) {
-        for (var entry in Directory(path).listSync()) {
+      void walk(String directoryPath) {
+        for (var entry in Directory(directoryPath).listSync()) {
           if (entry is Directory) {
             var index = int.parse(entry.name) - 1;
             currentDirName = sanitizeFileName(
@@ -231,6 +246,7 @@ Future<bool> runningExportComics(List<ExportComicData> datas) async {
             );
             walk(entry.path);
           } else {
+            if (entry is File && _isExportedCoverFile(entry.name)) continue;
             var filePathInZip = sanitizeFileName(data.name);
             if (currentDirName != null) {
               filePathInZip += "/$currentDirName";
@@ -242,6 +258,7 @@ Future<bool> runningExportComics(List<ExportComicData> datas) async {
       }
 
       walk(directory.path);
+      _addExportedCover(zipFile, data);
     }
     zipFile.close();
     return true;
@@ -249,6 +266,25 @@ Future<bool> runningExportComics(List<ExportComicData> datas) async {
     Log.e("IO $e\n$s");
     return false;
   }
+}
+
+bool _isExportedCoverFile(String fileName) {
+  final lowerName = fileName.toLowerCase();
+  return lowerName == 'cover.jpg' ||
+      lowerName == 'cover.jpeg' ||
+      lowerName == 'cover.png' ||
+      lowerName == 'cover.webp';
+}
+
+void _addExportedCover(ZipFile zipFile, ExportComicData data) {
+  final coverPath = data.coverPath;
+  if (coverPath == null) return;
+
+  final coverFile = File(coverPath);
+  if (!coverFile.existsSync()) return;
+
+  final archivePath = '${sanitizeFileName(data.name)}/cover.webp';
+  zipFile.addFile(archivePath, coverFile.path);
 }
 
 Future<void> eraseCache() async {

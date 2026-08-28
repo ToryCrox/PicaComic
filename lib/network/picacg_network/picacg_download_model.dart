@@ -4,11 +4,8 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
 import 'package:pica_comic/tools/extensions.dart';
-import 'package:pica_comic/tools/io_tools.dart';
 import '../download/download_manager.dart';
 import 'methods.dart';
-import 'dart:io';
-
 class DownloadedComic extends DownloadedItem {
   ComicItem comicItem;
   List<String> chapters;
@@ -216,7 +213,7 @@ class PicDownloadingTask extends DownloadingTask {
     return DownloadedComic(
       comic,
       eps,
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       downloaded,
     );
   }
@@ -240,7 +237,7 @@ class PicDownloadingTask extends DownloadingTask {
     return DownloadedComic(
       comic,
       eps,
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       downloaded,
     );
   }

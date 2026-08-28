@@ -186,6 +186,17 @@ String buildDownloadDirectoryName({
   return '$prefix$sanitizedTitle';
 }
 
+/// 生成下载漫画封面的文件名。
+///
+/// 封面文件名只依赖来源和下载 ID，不依赖漫画目录名称，因此重命名漫画目录后
+/// 无需同步移动封面文件。
+String buildDownloadCoverFileName({
+  required String sourceKey,
+  required String id,
+}) {
+  return '${sanitizeFileName(sourceKey)}_${sanitizeFileName(id)}.webp';
+}
+
 String findValidDirectoryName(String path, String directory) {
   var name = sanitizeFileName(directory);
   // var dir = Directory("$path/$name");

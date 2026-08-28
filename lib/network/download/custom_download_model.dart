@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 
-import '../../tools/io_tools.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
@@ -225,7 +222,7 @@ class CustomDownloadingTask extends DownloadingTask {
     var downloaded = (_downloadEps + previous).toSet().toList();
     downloaded.sort();
     return CustomDownloadedItem(
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       downloaded,
       id,
       comic,

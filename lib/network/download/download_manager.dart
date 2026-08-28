@@ -68,6 +68,24 @@ class DownloadManager extends ChangeNotifier {
   ///下载目录
   String? path;
 
+  /// 漫画文件的存储目录。
+  String get comicsPath => Path.join(path ?? '', 'comics');
+
+  /// 漫画封面的集中存储目录。
+  String get coversPath => Path.join(path ?? '', 'covers');
+
+  /// 获取漫画封面的完整路径。
+  ///
+  /// 封面文件名只依赖来源和下载 ID，因此漫画目录重命名不会影响封面路径。
+  String? getCoverPath(String id, DownloadType type) {
+    if (path == null) return null;
+    final fileName = buildDownloadCoverFileName(
+      sourceKey: type.name,
+      id: id,
+    );
+    return Path.join(coversPath, fileName);
+  }
+
   /// 下载队列管理器（新的队列系统）
   late final DownloadQueueManager _queueManager = DownloadQueueManager(
     maxConcurrentTasks: 1,
@@ -174,6 +192,8 @@ class DownloadManager extends ChangeNotifier {
       await dir.create(recursive: true);
       Log.d(() => 'DownloadManager: 创建下载目录 $path');
     }
+    await Directory(comicsPath).create(recursive: true);
+    await Directory(coversPath).create(recursive: true);
     if (App.isAndroid) {
       var file = File("$path/.nomedia");
       if (!file.existsSync()) {
@@ -621,6 +641,7 @@ class DownloadManager extends ChangeNotifier {
   Future<void> delete(List<String> ids) async {
     for (var id in ids) {
       Log.i("IO delete comic: $id");
+      final item = await getComicOrNull(id);
       final dirPath = await getFullDirectory(id);
       await _deleteFromDb(id);
       if (dirPath.isNotEmpty) {
@@ -639,6 +660,20 @@ class DownloadManager extends ChangeNotifier {
         }
       } else {
         Log.w("IO delete comic error: comic not found $id");
+      }
+
+      if (item != null && item.type != DownloadType.local) {
+        final coverPath = item.coverPath;
+        if (coverPath != null) {
+          try {
+            final coverFile = File(coverPath);
+            if (await coverFile.exists()) {
+              await coverFile.delete();
+            }
+          } catch (e, s) {
+            Log.e('delete comic cover error $coverPath: $e', stackTrace: s);
+          }
+        }
       }
     }
     _notifyComicsChanged();
@@ -672,7 +707,7 @@ class DownloadManager extends ChangeNotifier {
       }
 
       // 获取漫画目录的完整路径
-      final fullPath = Path.join(path ?? '', comic.directory);
+      final fullPath = Path.join(comicsPath, comic.directory);
 
       // 删除指定章节的目录（章节编号从1开始，所以需要 +1）
       if (Directory("$fullPath/${ep + 1}").existsSync()) {
@@ -681,7 +716,7 @@ class DownloadManager extends ChangeNotifier {
       }
 
       // 重新计算漫画文件大小（异步操作，不阻塞主线程）
-      var size = await Directory(fullPath).getMBSize();
+      var size = await getComicStorageSize(comic);
 
       // 从已下载章节列表中移除该章节
       comic.downloadedEps.remove(ep);
@@ -715,10 +750,8 @@ class DownloadManager extends ChangeNotifier {
     try {
       // 获取漫画目录的完整路径
       // 使用 comic.directoryPath 以支持本地漫画（其路径基于存储库，而非下载目录）
-      final dirPath = comic.directoryPath;
-
       // 异步计算目录大小（不阻塞主线程）
-      final size = await Directory(dirPath).getMBSize();
+      final size = await getComicStorageSize(comic);
 
       // 获取旧的文件大小
       final oldSize = comic.comicSize ?? 0;
@@ -743,6 +776,22 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
+  /// 获取漫画目录和集中封面的总大小，单位为 MB。
+  Future<double> getComicStorageSize(DownloadedItem comic) async {
+    final dirPath = comic.directoryPath;
+    var size = await Directory(dirPath).getMBSize();
+    if (comic.type == DownloadType.local) return size;
+
+    final coverPath = comic.coverPath;
+    if (coverPath != null) {
+      final coverFile = File(coverPath);
+      if (await coverFile.exists()) {
+        size += await coverFile.length() / 1024 / 1024;
+      }
+    }
+    return size;
+  }
+
   /// 获取漫画章节的长度, 适用于有章节的漫画
   Future<int> getEpLength(String id, int ep) async {
     final fullDirPath = await getFullDirectory(id);
@@ -764,9 +813,9 @@ class DownloadManager extends ChangeNotifier {
     final fullDirPath = await getFullDirectory(id); // 这里需要修改为同步方法或者重构调用处
     String downloadPath;
     if (ep == 0) {
-      downloadPath = "$fullDirPath/";
+      downloadPath = fullDirPath;
     } else {
-      downloadPath = "$fullDirPath/$ep/";
+      downloadPath = Path.join(fullDirPath, ep.toString());
     }
     for (var file in Directory(downloadPath).listSync()) {
       if (file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "") ==
@@ -781,9 +830,9 @@ class DownloadManager extends ChangeNotifier {
     final directory = findValidDirectoryName(path!, title);
     String downloadPath;
     if (ep == 0) {
-      downloadPath = "$path/$directory/";
+      downloadPath = Path.join(comicsPath, directory);
     } else {
-      downloadPath = "$path/$directory/$ep/";
+      downloadPath = Path.join(comicsPath, directory, ep.toString());
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) return null;
@@ -796,9 +845,9 @@ class DownloadManager extends ChangeNotifier {
     String downloadPath;
     final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/$dirName/";
+      downloadPath = Path.join(comicsPath, dirName);
     } else {
-      downloadPath = "$path/$dirName/$ep/";
+      downloadPath = Path.join(comicsPath, dirName, ep.toString());
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
@@ -811,9 +860,9 @@ class DownloadManager extends ChangeNotifier {
     String downloadPath;
     final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/$dirName/";
+      downloadPath = Path.join(comicsPath, dirName);
     } else {
-      downloadPath = "$path/$dirName/$ep/";
+      downloadPath = Path.join(comicsPath, dirName, ep.toString());
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
@@ -850,13 +899,13 @@ class DownloadManager extends ChangeNotifier {
     String downloadPath;
     final dirName = await getDirectoryName(id);
     if (ep == 0) {
-      downloadPath = "$path/$dirName/";
+      downloadPath = Path.join(comicsPath, dirName);
     } else {
-      downloadPath = "$path/$dirName/$ep/";
+      downloadPath = Path.join(comicsPath, dirName, ep.toString());
     }
     var fileName = _downloadedFileName["$id$ep$index"];
     if (fileName != null) {
-      final file = File(downloadPath + fileName);
+      final file = File(Path.join(downloadPath, fileName));
       if (await file.exists()) {
         return file;
       }
@@ -873,20 +922,34 @@ class DownloadManager extends ChangeNotifier {
     if (_downloadedFileName["$id$ep$index"] == null) {
       throw Exception("File not found");
     }
-    return File(downloadPath + _downloadedFileName["$id$ep$index"]!);
+    return File(
+      Path.join(downloadPath, _downloadedFileName["$id$ep$index"]!),
+    );
   }
 
   static final _downloadedFileName = <String, String>{};
 
   ///获取封面, 所有漫画源通用
   Future<File> getCoverAsync(String id) async {
-    final dirName = await getDirectoryName(id);
-    return File("$path/$dirName/cover.webp");
+    return getCover(id);
   }
 
   Future<File> getCover(String id) async {
-    final dirPath = await getFullDirectory(id);
-    return File("$dirPath/cover.webp");
+    final item = await getComicOrNull(id);
+    final coverPath = item?.coverPath ??
+        getCoverPath(id, item?.type ?? _inferDownloadType(id));
+    return File(coverPath ?? '');
+  }
+
+  /// 根据下载 ID 推断内置漫画源类型，用于兼容没有数据库记录的调用方。
+  DownloadType _inferDownloadType(String id) {
+    if (id.startsWith('jm')) return DownloadType.jm;
+    if (id.startsWith('hitomi')) return DownloadType.hitomi;
+    if (id.startsWith('nhentai')) return DownloadType.nhentai;
+    if (id.startsWith('Ht')) return DownloadType.htmanga;
+    if (id.contains('-')) return DownloadType.other;
+    if (id.isNum) return DownloadType.ehentai;
+    return DownloadType.picacg;
   }
 }
 
@@ -1021,7 +1084,8 @@ extension AddDownloadExt on DownloadManager {
     if (App.isWindows && path != null) {
       // 为章节目录、图片文件名和分隔符预留 60 个字符。
       const reservedPathLength = 60;
-      final pathLimitedLength = 260 - path!.length - reservedPathLength - 1;
+      final pathLimitedLength =
+          260 - comicsPath.length - reservedPathLength - 1;
       maxLength = min(maxLength, pathLimitedLength);
     }
     return buildDownloadDirectoryName(
@@ -1303,7 +1367,11 @@ extension AddDownloadExt on DownloadManager {
   ) async {
     await Directory(task.path).create(recursive: true);
 
-    final coverFile = File(Path.join(task.path, 'cover.webp'));
+    final coverPath = getCoverPath(task.id, task.type);
+    if (coverPath == null) {
+      throw StateError('Download path is not initialized');
+    }
+    final coverFile = File(coverPath);
     if (await coverFile.exists()) {
       await coverFile.delete();
     }
@@ -1824,7 +1892,7 @@ extension AddDownloadExt on DownloadManager {
     }
     return getDirectoryName(id).then((e) {
       if (e.isEmpty) return '';
-      return Path.join(path ?? '', e);
+      return Path.join(comicsPath, e);
     });
   }
 
@@ -2331,8 +2399,8 @@ extension AddDownloadExt on DownloadManager {
       }
 
       // 构建完整路径
-      final oldPath = Path.join(path!, oldDirectoryName);
-      final newPath = Path.join(path!, newDirectoryName);
+      final oldPath = Path.join(comicsPath, oldDirectoryName);
+      final newPath = Path.join(comicsPath, newDirectoryName);
 
       // 检查旧目录是否存在
       final oldDir = Directory(oldPath);

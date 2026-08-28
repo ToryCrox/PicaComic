@@ -15,6 +15,7 @@ import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
+import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'models/download_color_tag.dart';
 
@@ -66,14 +67,12 @@ abstract class DownloadedItem {
   String get directoryPath {
     final downloadPath = downloadManager.path;
     if (downloadPath == null) return '';
-    return Path.join(downloadPath, directory);
+    return Path.join(downloadManager.comicsPath, directory);
   }
 
   /// 获取封面路径
   String? get coverPath {
-    final downloadPath = downloadManager.path;
-    if (downloadPath == null) return null;
-    return Path.join(downloadPath, directory, 'cover.webp');
+    return downloadManager.getCoverPath(id, type);
   }
 }
 
@@ -151,8 +150,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   String directory = '';
 
   String get path {
-    var downloadPath = downloadManager.path!;
-    return "$downloadPath/$directory";
+    return Path.join(downloadManager.comicsPath, directory);
   }
 
   /// headers for downloading cover
@@ -222,7 +220,11 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   });
 
   Future<void> downloadCover() async {
-    final file = File(Path.join(path, 'cover.webp'));
+    final coverPath = downloadManager.getCoverPath(id, type);
+    if (coverPath == null) {
+      throw StateError('Download path is not initialized');
+    }
+    final file = File(coverPath);
     if (file.existsSync() && !overwriteExistingFiles) {
       return;
     }
@@ -256,6 +258,21 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       Log.e("Download Cover Failed: $e");
       rethrow;
     }
+  }
+
+  /// 获取漫画目录和集中封面的总大小，单位为 MB。
+  ///
+  /// 封面不在漫画目录中，因此需要单独计入下载大小。
+  Future<double> getStorageSize() async {
+    var size = await Directory(path).getMBSize();
+    final coverPath = downloadManager.getCoverPath(id, type);
+    if (coverPath != null) {
+      final coverFile = File(coverPath);
+      if (await coverFile.exists()) {
+        size += await coverFile.length() / 1024 / 1024;
+      }
+    }
+    return size;
   }
 
   /// retry when error

@@ -6,8 +6,6 @@ import 'jm_image.dart';
 import 'jm_models.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
-import 'dart:io';
-import 'package:pica_comic/tools/io_tools.dart';
 import 'jm_network.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
@@ -297,7 +295,7 @@ class JmDownloadingTask extends DownloadingTask {
     downloadEps.sort();
     return DownloadedJmComic(
       comic,
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       downloadEps,
     );
   }
@@ -321,7 +319,7 @@ class JmDownloadingTask extends DownloadingTask {
     downloadedEps.sort();
     return DownloadedJmComic(
       comic,
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       downloadedEps,
     );
   }

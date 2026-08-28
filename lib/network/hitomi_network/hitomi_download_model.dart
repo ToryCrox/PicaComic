@@ -3,10 +3,7 @@ import 'dart:convert';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import '../../base.dart';
-import '../../tools/io_tools.dart';
 import 'hitomi_models.dart';
-import 'dart:io';
-
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
 class DownloadedHitomiComic extends DownloadedItem {
@@ -149,7 +146,7 @@ class HitomiDownloadingTask extends DownloadingTask {
   FutureOr<DownloadedItem> toDownloadedItem() async {
     return DownloadedHitomiComic(
       comic,
-      await getFolderSize(Directory(path)),
+      await getStorageSize(),
       link,
       _coverPath,
     );

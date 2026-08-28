@@ -10,7 +10,6 @@ import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 import 'dart:io';
-import '../../tools/io_tools.dart';
 import 'eh_main_network.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'get_gallery_id.dart';
@@ -305,7 +304,7 @@ class EhDownloadingTask extends DownloadingTask {
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    final size = await getFolderSize(Directory(path));
+    final size = await getStorageSize();
     return DownloadedGallery(gallery, size);
   }
 }

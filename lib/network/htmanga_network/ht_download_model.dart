@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import '../../foundation/image_manager.dart';
-import '../../tools/io_tools.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
@@ -111,6 +109,6 @@ class HtDownloadingTask extends DownloadingTask {
 
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
-    return DownloadedHtComic(comic, await getFolderSize(Directory(path)));
+    return DownloadedHtComic(comic, await getStorageSize());
   }
 }
