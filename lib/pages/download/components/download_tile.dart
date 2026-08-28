@@ -70,6 +70,9 @@ class DownloadedComicTile extends ComicTile {
   /// 下载的漫画项（用于获取图片文件）
   final DownloadedItem downloadedItem;
 
+  /// 多选模式下需要一起拖出的漫画项。
+  final List<DownloadedItem>? draggedItems;
+
   /// 可替换的翻译结果摘要。
   final TranslationResultInfo? translationResult;
 
@@ -102,6 +105,7 @@ class DownloadedComicTile extends ComicTile {
     this.onRead,
     this.isDragDisabled = false,
     required this.downloadedItem,
+    this.draggedItems,
     this.translationResult,
     this.onTranslationResultTap,
     this.onAiTranslationMarkerTap,
@@ -397,9 +401,11 @@ class DownloadedComicTile extends ComicTile {
       return baseTile;
     }
 
-    // 单本漫画直接拖出下载目录；批量拖拽仍由独立对话框导出图片。
+    // 单本漫画直接拖出下载目录；多选模式下拖出全部选中的目录。
     return _DownloadedComicTileDragWrapper(
-      downloadedItem: downloadedItem,
+      downloadedItems: draggedItems == null || draggedItems!.isEmpty
+          ? [downloadedItem]
+          : draggedItems!,
       child: baseTile,
     );
   }
@@ -466,13 +472,34 @@ class DownloadedComicTile extends ComicTile {
 }
 
 class _DownloadedComicTileDragWrapper extends StatelessWidget {
-  final DownloadedItem downloadedItem;
+  final List<DownloadedItem> downloadedItems;
   final Widget child;
 
   const _DownloadedComicTileDragWrapper({
-    required this.downloadedItem,
+    required this.downloadedItems,
     required this.child,
   });
+
+  /// 构造一个代表漫画目录的拖拽项。
+  DragItem _createDragItem(DownloadedItem item) {
+    final directoryPath = item.directoryPath;
+    final dragItem = DragItem(suggestedName: path.basename(directoryPath));
+    dragItem.add(Formats.fileUri(Uri.file(directoryPath)));
+    return dragItem;
+  }
+
+  /// 获取当前仍然存在的漫画目录。
+  Future<List<DownloadedItem>> _getExistingItems() async {
+    final result = <DownloadedItem>[];
+    for (final item in downloadedItems) {
+      final directoryPath = item.directoryPath;
+      if (directoryPath.isEmpty) continue;
+      if (await Directory(directoryPath).exists()) {
+        result.add(item);
+      }
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -480,22 +507,56 @@ class _DownloadedComicTileDragWrapper extends StatelessWidget {
       allowedOperations: () => [DropOperation.copy],
       canAddItemToExistingSession: true,
       dragItemProvider: (request) async {
-        final directoryPath = downloadedItem.directoryPath;
-        if (directoryPath.isEmpty) return null;
-
-        final directory = Directory(directoryPath);
-        if (!await directory.exists()) return null;
-
-        final item = DragItem(suggestedName: path.basename(directory.path));
-        item.add(Formats.fileUri(Uri.file(directory.path)));
-        return item;
+        final items = await _getExistingItems();
+        if (items.isEmpty) return null;
+        return _createDragItem(items.first);
       },
       child: DraggableWidget(
         hitTestBehavior: HitTestBehavior.opaque,
         isLocationDraggable: (location) => true,
+        onDragConfiguration: (configuration, session) async {
+          final items = await _getExistingItems();
+          if (items.length <= 1 || configuration.items.isEmpty) {
+            return configuration;
+          }
+
+          final snapshot = configuration.items.first.image;
+          final sharedSnapshot = _RefCountingSnapshot(
+            snapshot.snapshot,
+            snapshot.rect,
+            items.length,
+          );
+          return DragConfiguration(
+            items: [
+              for (final item in items)
+                DragConfigurationItem(
+                  item: _createDragItem(item),
+                  image: sharedSnapshot,
+                ),
+            ],
+            allowedOperations: configuration.allowedOperations,
+            options: configuration.options,
+          );
+        },
         child: child,
       ),
     );
+  }
+}
+
+/// 引用计数镜像包装器，用于批量拖拽时共享镜像。
+class _RefCountingSnapshot extends TargetedWidgetSnapshot {
+  int _count;
+
+  _RefCountingSnapshot(WidgetSnapshot snapshot, Rect rect, this._count)
+    : super(snapshot, rect);
+
+  @override
+  void dispose() {
+    _count--;
+    if (_count <= 0) {
+      super.dispose();
+    }
   }
 }
 

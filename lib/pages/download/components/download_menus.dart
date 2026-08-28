@@ -9,6 +9,7 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
@@ -116,7 +117,98 @@ Future<bool?> showRedownloadDialog(BuildContext context) {
   );
 }
 
-/// 显示选择模式菜单
+/// 显示删除下载确认对话框，并返回是否删除漫画文件。
+Future<bool?> showDeleteDownloadDialog(
+  BuildContext context, {
+  required int count,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      var deleteFiles = true;
+      return StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text("确认删除".tl),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("${"确认删除".tl} $count ${"项".tl}?"),
+              CheckboxListTile(
+                value: deleteFiles,
+                title: Text("删除文件".tl),
+                subtitle: Text("同时删除漫画目录中的文件".tl),
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  setState(() => deleteFiles = value ?? false);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("取消".tl),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, deleteFiles),
+              child: Text("确认".tl),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// 根据删除文件选项删除下载记录。
+Future<void> deleteDownloadedComics(
+  List<String> ids, {
+  required bool deleteFiles,
+}) async {
+  if (deleteFiles) {
+    await downloadManager.delete(ids);
+  } else {
+    await downloadManager.deleteWithoutFile(ids);
+  }
+}
+
+/// 显示漫画颜色选择对话框。
+Future<DownloadColorTag?> showDownloadColorDialog(BuildContext context) {
+  return showDialog<DownloadColorTag>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text("选择颜色".tl),
+      children: [
+        for (var tag in DownloadColorTag.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, tag),
+            child: Row(
+              children: [
+                if (tag.color != null)
+                  Icon(Icons.circle, color: tag.color!, size: 24)
+                else
+                  const Icon(Icons.circle_outlined, size: 24),
+                const SizedBox(width: 12),
+                Text(tag.label),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+/// 解析右键菜单的操作目标。
+///
+/// 选择模式下使用当前选中项，否则使用右键所在漫画。
+List<DownloadedItem> resolveDownloadMenuTargets(
+  DownloadedItem comic,
+  List<DownloadedItem> selectedComics,
+) {
+  return selectedComics.isEmpty ? [comic] : selectedComics;
+}
+
+/// 显示选择模式菜单。
 List<PopupMenuEntry<void>> buildSelectingMenuItems({
   required BuildContext context,
   required WidgetRef ref,
@@ -143,31 +235,18 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
       icon: Icons.delete_outline,
       onTap: () {
         if (selectedComics.isEmpty) return;
-        Future.delayed(const Duration(milliseconds: 200), () {
-          showDialog(
-            context: App.globalContext!,
-            builder: (context) => AlertDialog(
-              title: Text("确认删除".tl),
-              content: Text("${"确认删除".tl} ${selectedComics.length} ${"项".tl}?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text("取消".tl),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await downloadManager.delete(
-                      selectedComics.map((e) => e.id).toList(),
-                    );
-                    onExitSelecting();
-                    onRefresh();
-                  },
-                  child: Text("确认".tl),
-                ),
-              ],
-            ),
+        Future.delayed(const Duration(milliseconds: 200), () async {
+          final deleteFiles = await showDeleteDownloadDialog(
+            App.globalContext!,
+            count: selectedComics.length,
           );
+          if (deleteFiles == null) return;
+          await deleteDownloadedComics(
+            selectedComics.map((e) => e.id).toList(),
+            deleteFiles: deleteFiles,
+          );
+          onExitSelecting();
+          onRefresh();
         });
       },
     ),
@@ -224,6 +303,20 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
           onExitSelecting();
           onRefreshTags();
         }
+      }),
+    ),
+    popupMenuItem<void>(
+      text: "标记颜色".tl,
+      icon: Icons.color_lens_outlined,
+      onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
+        final color = await showDownloadColorDialog(App.globalContext!);
+        if (color == null) return;
+        await downloadManager.batchUpdateColor(
+          selectedComics.map((e) => e.id).toList(),
+          color,
+        );
+        onExitSelecting();
+        onRefresh();
       }),
     ),
     popupMenuItem<void>(
@@ -443,7 +536,16 @@ Future<void> showTileContextMenu({
   final translationResultRootDirectory =
       appdata.appSettings.translationResultDirectory;
   final isBatch = selectedComics.isNotEmpty;
-  final targetComics = isBatch ? selectedComics : [comic];
+  final targetComics = resolveDownloadMenuTargets(comic, selectedComics);
+  String buildBatchMenuText(String text) {
+    final translatedText = text.tl;
+    return isBatch ? '$translatedText（${targetComics.length}）' : translatedText;
+  }
+
+  final canRedownloadTarget = targetComics.any(downloadManager.canRedownload);
+  final canRefreshCoverTarget = targetComics.any(
+    downloadManager.canRefreshCover,
+  );
   final hasTranslationResult = isBatch
       ? true
       : await TranslationResultReplacer().hasReplacementCandidate(
@@ -487,9 +589,9 @@ Future<void> showTileContextMenu({
           }
         },
       ),
-      if (downloadManager.canRedownload(comic))
+      if (canRedownloadTarget)
         popupMenuItem<void>(
-          text: "重新下载".tl,
+          text: buildBatchMenuText("重新下载"),
           icon: Icons.download,
           onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
@@ -498,24 +600,26 @@ Future<void> showTileContextMenu({
             );
             if (overwriteExisting == null) return;
             final result = await downloadManager.redownloadComics([
-              comic,
+              ...targetComics,
             ], overwriteExisting: overwriteExisting);
             showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
             if (result.successCount > 0) {
-              onRefresh();
+              (onBatchComplete ?? onRefresh)();
             }
           },
         ),
-      if (downloadManager.canRefreshCover(comic))
+      if (canRefreshCoverTarget)
         popupMenuItem<void>(
-          text: "更新封面".tl,
+          text: buildBatchMenuText("更新封面"),
           icon: Icons.refresh,
           onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
-            final result = await downloadManager.refreshComicCovers([comic]);
+            final result = await downloadManager.refreshComicCovers(
+              targetComics,
+            );
             showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
             if (result.successCount > 0) {
-              onRefresh();
+              (onBatchComplete ?? onRefresh)();
             }
           },
         ),
@@ -529,24 +633,21 @@ Future<void> showTileContextMenu({
             });
           },
         ),
-      if (comic.type != DownloadType.local)
-        popupMenuItem<void>(
-          text: "删除".tl,
-          icon: Icons.delete_outline,
-          onTap: () {
-            showConfirmDialog(context, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
-              downloadManager.delete([comic.id]);
-              onRemoveComic();
-            });
-          },
-        ),
       popupMenuItem<void>(
-        text: "删除(不包括文件)".tl,
-        icon: Icons.delete_sweep_outlined,
+        text: buildBatchMenuText("删除"),
+        icon: Icons.delete_outline,
         onTap: () {
-          showConfirmDialog(context, "确认删除，不包括文件".tl, "此操作无法撤销, 是否继续?".tl, () {
-            downloadManager.deleteWithoutFile([comic.id]);
-            onRemoveComic();
+          Future.delayed(const Duration(milliseconds: 200), () async {
+            final deleteFiles = await showDeleteDownloadDialog(
+              App.globalContext!,
+              count: targetComics.length,
+            );
+            if (deleteFiles == null) return;
+            await deleteDownloadedComics(
+              targetComics.map((e) => e.id).toList(),
+              deleteFiles: deleteFiles,
+            );
+            (onBatchComplete ?? onRemoveComic)();
           });
         },
       ),
@@ -560,37 +661,59 @@ Future<void> showTileContextMenu({
         },
       ),
       popupMenuItem<void>(
-        text: "更新文件大小".tl,
+        text: buildBatchMenuText("更新文件大小"),
         icon: Icons.data_usage,
         onTap: () async {
           await Future.delayed(const Duration(milliseconds: 300));
+          if (!context.mounted) return;
           await showDialog(
             context: context,
-            builder: (context) =>
-                UpdateSizeDialog(comics: [comic], onComplete: onRefresh),
+            builder: (context) => UpdateSizeDialog(
+              comics: targetComics,
+              onComplete: onBatchComplete ?? onRefresh,
+            ),
           );
         },
       ),
       popupMenuItem<void>(
-        text: "管理标签".tl,
+        text: buildBatchMenuText("管理标签"),
         icon: Icons.label_outline,
         onTap: () async {
           await Future.delayed(const Duration(milliseconds: 300));
+          if (!context.mounted) return;
           final suggestedTags = [
-            comic.name,
-            comic.subTitle,
-            ...getOriginalTags(comic),
+            ...targetComics.map((e) => e.name),
+            ...targetComics.map((e) => e.subTitle),
+            ...targetComics.expand(getOriginalTags),
           ];
           final result = await showDialog<bool>(
             context: context,
             builder: (context) => TagAssignmentDialog(
-              comicIds: [comic.id],
+              comicIds: targetComics.map((e) => e.id).toList(),
               suggestedTags: suggestedTags,
             ),
           );
           if (result == true) {
-            onRefreshTags();
+            (onBatchComplete ?? onRefreshTags)();
           }
+        },
+      ),
+      popupMenuItem<void>(
+        text: buildBatchMenuText("标记颜色"),
+        icon: Icons.color_lens_outlined,
+        onTap: () async {
+          await Future.delayed(const Duration(milliseconds: 300));
+          final color = await showDownloadColorDialog(App.globalContext!);
+          if (color == null) return;
+          if (isBatch) {
+            await downloadManager.batchUpdateColor(
+              targetComics.map((e) => e.id).toList(),
+              color,
+            );
+          } else {
+            await downloadManager.updateColor(comic.id, color);
+          }
+          (onBatchComplete ?? onRefresh)();
         },
       ),
       popupMenuItem<void>(

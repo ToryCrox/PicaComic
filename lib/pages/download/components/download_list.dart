@@ -259,7 +259,7 @@ class DownloadList extends ConsumerWidget {
               enterSelecting(ref, pageId);
             },
             onSecondaryTap: (details) async {
-              final batchComics = isSelected
+              final batchComics = pageState.isSelecting
                   ? selectedComics
                   : const <DownloadedItem>[];
               await showTileContextMenu(
@@ -281,7 +281,7 @@ class DownloadList extends ConsumerWidget {
                 },
                 onShowImageList: () => _goLocalComicPage(item),
                 selectedComics: batchComics,
-                onBatchComplete: isSelected
+                onBatchComplete: batchComics.isNotEmpty
                     ? () {
                         exitSelecting(ref, pageId);
                         onRefresh();
@@ -289,6 +289,9 @@ class DownloadList extends ConsumerWidget {
                     : null,
               );
             },
+            draggedItems: pageState.isSelecting && selectedComics.isNotEmpty
+                ? selectedComics
+                : null,
             isDragDisabled: pageState.isDragDisabled,
             downloadedItem: item,
             translationResult: translationResults[item.directoryPath],

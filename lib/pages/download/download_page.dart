@@ -3,7 +3,6 @@ import 'dart:ui';
 
 // ignore_for_file: implementation_imports
 
-import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/pages/components/download_tag_filter_panel.dart';
 import 'tag_management_page.dart' hide TagInfo;
@@ -643,30 +642,18 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         onTap: () {
           final state = ref.read(downloadPageStateProvider(_pageId));
           if (state.selectedIds.isEmpty) return;
-          Future.delayed(const Duration(milliseconds: 200), () {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text("确认删除".tl),
-                content: Text(
-                  "${"确认删除".tl} ${state.selectedIds.length} ${"项".tl}?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text("取消".tl),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await downloadManager.delete(state.selectedIds.toList());
-                      exitSelecting(ref, _pageId);
-                    },
-                    child: Text("确认".tl),
-                  ),
-                ],
-              ),
+          Future.delayed(const Duration(milliseconds: 200), () async {
+            if (!context.mounted) return;
+            final deleteFiles = await showDeleteDownloadDialog(
+              context,
+              count: state.selectedIds.length,
             );
+            if (deleteFiles == null) return;
+            await deleteDownloadedComics(
+              state.selectedIds.toList(),
+              deleteFiles: deleteFiles,
+            );
+            exitSelecting(ref, _pageId);
           });
         },
       ),
@@ -765,28 +752,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           if (state.selectedIds.isEmpty) return;
           // Delay to allow menu to close
           Future.delayed(const Duration(milliseconds: 200), () async {
-            final color = await showDialog<DownloadColorTag>(
-              context: context,
-              builder: (context) => SimpleDialog(
-                title: Text("选择颜色".tl),
-                children: [
-                  for (var tag in DownloadColorTag.values)
-                    SimpleDialogOption(
-                      onPressed: () => Navigator.pop(context, tag),
-                      child: Row(
-                        children: [
-                          if (tag.color != null)
-                            Icon(Icons.circle, color: tag.color!, size: 24)
-                          else
-                            const Icon(Icons.circle_outlined, size: 24),
-                          const SizedBox(width: 12),
-                          Text(tag.label),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            );
+            if (!context.mounted) return;
+            final color = await showDownloadColorDialog(context);
 
             if (color != null) {
               await downloadManager.batchUpdateColor(
