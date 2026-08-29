@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
+
 /// AI 服务支持的 OpenAI 协议。
 enum AiProtocolType {
   openAiChatCompletions('openai_chat_completions', 'OpenAI Chat Completions'),
@@ -57,10 +60,10 @@ class AiProviderConfig {
     reasoningEffort: clearReasoningEffort
         ? null
         : reasoningEffort ?? this.reasoningEffort,
-    maxRetries: maxRetries ?? this.maxRetries,
+    maxRetries: (maxRetries ?? this.maxRetries).clamp(0, 10).toInt(),
   );
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
     'protocol': protocol.value,
@@ -71,19 +74,50 @@ class AiProviderConfig {
     'max_retries': maxRetries,
   };
 
-  factory AiProviderConfig.fromJson(Map<String, dynamic> json) =>
+  Map<String, dynamic> toJson() => toMap();
+
+  factory AiProviderConfig.fromMap(Map<String, dynamic> map) =>
       AiProviderConfig(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        protocol: AiProtocolType.fromValue(json['protocol'] as String?),
-        baseUrl: json['base_url'] as String? ?? '',
-        apiKey: json['api_key'] as String? ?? '',
-        model: json['model'] as String? ?? '',
-        reasoningEffort: json['reasoning_effort'] as String?,
-        maxRetries: ((json['max_retries'] as num?)?.toInt() ?? 3)
-            .clamp(0, 10)
-            .toInt(),
+        id: map.optString('id'),
+        name: map.optString('name'),
+        protocol: AiProtocolType.fromValue(map.optStringOrNull('protocol')),
+        baseUrl: map.optString('base_url'),
+        apiKey: map.optString('api_key'),
+        model: map.optString('model'),
+        reasoningEffort: map.optStringOrNull('reasoning_effort'),
+        maxRetries: map.optInt('max_retries', 3).clamp(0, 10).toInt(),
       );
+
+  factory AiProviderConfig.fromJson(Map<String, dynamic> json) =>
+      AiProviderConfig.fromMap(json);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiProviderConfig &&
+          id == other.id &&
+          name == other.name &&
+          protocol == other.protocol &&
+          baseUrl == other.baseUrl &&
+          apiKey == other.apiKey &&
+          model == other.model &&
+          reasoningEffort == other.reasoningEffort &&
+          maxRetries == other.maxRetries;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    protocol,
+    baseUrl,
+    apiKey,
+    model,
+    reasoningEffort,
+    maxRetries,
+  );
+
+  @override
+  String toString() => 'AiProviderConfig${jsonEncode(toMap())}';
 }
 
 /// AI 提示词预设。
@@ -124,7 +158,7 @@ class AiPromptPreset {
     isActive: isActive ?? this.isActive,
   );
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
     'scene_id': sceneId,
@@ -134,15 +168,46 @@ class AiPromptPreset {
     'is_active': isActive,
   };
 
-  factory AiPromptPreset.fromJson(Map<String, dynamic> json) => AiPromptPreset(
-    id: json['id'] as String? ?? '',
-    name: json['name'] as String? ?? '',
-    sceneId: json['scene_id'] as String? ?? '',
-    providerId: json['provider_id'] as String? ?? '',
-    systemPrompt: json['system_prompt'] as String? ?? '',
-    userTemplate: json['user_template'] as String? ?? '',
-    isActive: json['is_active'] as bool? ?? false,
+  Map<String, dynamic> toJson() => toMap();
+
+  factory AiPromptPreset.fromMap(Map<String, dynamic> map) => AiPromptPreset(
+    id: map.optString('id'),
+    name: map.optString('name'),
+    sceneId: map.optString('scene_id'),
+    providerId: map.optString('provider_id'),
+    systemPrompt: map.optString('system_prompt'),
+    userTemplate: map.optString('user_template'),
+    isActive: map.optBool('is_active'),
   );
+
+  factory AiPromptPreset.fromJson(Map<String, dynamic> json) =>
+      AiPromptPreset.fromMap(json);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiPromptPreset &&
+          id == other.id &&
+          name == other.name &&
+          sceneId == other.sceneId &&
+          providerId == other.providerId &&
+          systemPrompt == other.systemPrompt &&
+          userTemplate == other.userTemplate &&
+          isActive == other.isActive;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    sceneId,
+    providerId,
+    systemPrompt,
+    userTemplate,
+    isActive,
+  );
+
+  @override
+  String toString() => 'AiPromptPreset${jsonEncode(toMap())}';
 }
 
 /// 当前版本支持的 AI 场景及其模板变量。
@@ -202,26 +267,61 @@ class AiSettingsDocument {
 
   const AiSettingsDocument({required this.providers, required this.prompts});
 
-  String encode() => jsonEncode({
+  AiSettingsDocument copyWith({
+    List<AiProviderConfig>? providers,
+    List<AiPromptPreset>? prompts,
+  }) => AiSettingsDocument(
+    providers: providers ?? this.providers,
+    prompts: prompts ?? this.prompts,
+  );
+
+  Map<String, dynamic> toMap() => {
     'version': 1,
     'providers': providers.map((item) => item.toJson()).toList(),
     'prompts': prompts.map((item) => item.toJson()).toList(),
-  });
+  };
 
-  factory AiSettingsDocument.decode(String raw) {
-    final json = jsonDecode(raw) as Map<String, dynamic>;
-    final providers = (json['providers'] as List<dynamic>? ?? const [])
+  Map<String, dynamic> toJson() => toMap();
+
+  String encode() => jsonEncode(toMap());
+
+  factory AiSettingsDocument.fromMap(Map<String, dynamic> json) {
+    final providers = json
+        .optDynamicList('providers')
         .whereType<Map>()
-        .map(
-          (item) => AiProviderConfig.fromJson(Map<String, dynamic>.from(item)),
-        )
+        .map((item) => AiProviderConfig.fromMap(TypeUtil.parseMap(item)))
         .toList();
-    final prompts = (json['prompts'] as List<dynamic>? ?? const [])
+    final prompts = json
+        .optDynamicList('prompts')
         .whereType<Map>()
-        .map((item) => AiPromptPreset.fromJson(Map<String, dynamic>.from(item)))
+        .map((item) => AiPromptPreset.fromMap(TypeUtil.parseMap(item)))
         .toList();
     return AiSettingsDocument(providers: providers, prompts: prompts);
   }
+
+  factory AiSettingsDocument.fromJson(Map<String, dynamic> json) =>
+      AiSettingsDocument.fromMap(json);
+
+  factory AiSettingsDocument.decode(String raw) {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
+      throw const FormatException('AI 配置根节点必须是对象');
+    }
+    return AiSettingsDocument.fromMap(TypeUtil.parseMap(decoded));
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiSettingsDocument &&
+          TypeUtil.equal(providers, other.providers) &&
+          TypeUtil.equal(prompts, other.prompts);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'AiSettingsDocument${jsonEncode(toMap())}';
 }
 
 class AiConfigurationException implements Exception {

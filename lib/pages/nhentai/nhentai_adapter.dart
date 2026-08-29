@@ -19,7 +19,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 import 'comments.dart';
 
 // ============================================================================
@@ -171,7 +170,11 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await NhentaiNetwork().favoriteComic(data.id, data.token);
-          if (res.success) data.favorite = true;
+          if (res.success) {
+            data = data.copyWith(favorite: true);
+            bridge.updateData(data);
+            bridge.updateState();
+          }
           return res;
         }
         LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
@@ -179,7 +182,11 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       },
       cancelPlatformFavorite: () async {
         var res = await NhentaiNetwork().unfavoriteComic(data.id, data.token);
-        if (res.success) data.favorite = false;
+        if (res.success) {
+          data = data.copyWith(favorite: false);
+          bridge.updateData(data);
+          bridge.updateState();
+        }
         return res;
       },
     );
@@ -201,7 +208,11 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   };
 
   @override
-  ActionFunc? onLike(NhentaiComic data, BuildContext context) => null;
+  ActionFunc? onLike(
+    NhentaiComic data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
   @override
   bool isLiked(NhentaiComic data) => false;
 
@@ -303,11 +314,11 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   FavoriteItem toLocalFavoriteItem(NhentaiComic data) =>
       FavoriteItem.fromNhentai(
         NhentaiComicBrief(
-          data.title,
-          data.cover,
-          data.id,
-          "Unknown",
-          data.tags["Tags"] ?? const <String>[],
+          title: data.title,
+          cover: data.cover,
+          id: data.id,
+          lang: "Unknown",
+          tags: data.tags["Tags"] ?? const <String>[],
         ),
       );
 }

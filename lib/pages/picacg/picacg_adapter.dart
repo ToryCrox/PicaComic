@@ -23,7 +23,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 import 'comments_page.dart';
 
 // ============================================================================
@@ -172,7 +171,9 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       cancelPlatformFavorite: () async {
         var res = await network.favouriteOrUnfavouriteComic(data.id);
         if (res) {
-          data.isFavourite = false;
+          data = data.copyWith(isFavourite: false);
+          bridge.updateData(data);
+          bridge.updateState();
           return const Res(true);
         }
         return Res.error("网络错误".tl);
@@ -181,7 +182,8 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
         if (p == 0) {
           var res = await network.favouriteOrUnfavouriteComic(data.id);
           if (res) {
-            data.isFavourite = true;
+            data = data.copyWith(isFavourite: true);
+            bridge.updateData(data);
             bridge.updateState();
             return const Res(true);
           }
@@ -208,9 +210,13 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       () => showComments(App.globalContext!, data.id);
 
   @override
-  ActionFunc? onLike(ComicItem data, BuildContext context) => () {
+  ActionFunc? onLike(
+    ComicItem data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => () {
     network.likeOrUnlikeComic(data.id);
-    data.isLiked = !data.isLiked;
+    bridge.updateData(data.copyWith(isLiked: !data.isLiked));
   };
 
   @override

@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:signals/signals.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/tools/type_util.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 
 class LocalHistory {
   final String path;
@@ -23,14 +24,19 @@ class LocalHistory {
 
   factory LocalHistory.fromMap(Map<String, dynamic> map) {
     return LocalHistory(
-      path: TypeUtil.parseString(map[kLocalHistoryPath]),
-      isReversed: TypeUtil.parseInt(map[kLocalHistoryIsReversed]),
-      pageIndex: TypeUtil.parseInt(map[kLocalHistoryPageIndex], 1),
-      time: TypeUtil.parseInt(map[kLocalHistoryTime]),
-      json: TypeUtil.parseString(map[kLocalHistoryJson]),
-      totalPages: TypeUtil.parseInt(map[kLocalHistoryTotalPages]),
+      path: map.optString(kLocalHistoryPath),
+      isReversed: map.optInt(kLocalHistoryIsReversed),
+      pageIndex: map.optInt(kLocalHistoryPageIndex, 1),
+      time: map.optInt(kLocalHistoryTime),
+      json: map.optString(kLocalHistoryJson),
+      totalPages: map.optInt(kLocalHistoryTotalPages),
     );
   }
+
+  factory LocalHistory.fromJson(Map<String, dynamic> json) =>
+      LocalHistory.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
 
   LocalHistory copyWith({
     String? path,
@@ -73,6 +79,24 @@ class LocalHistory {
     kLocalHistoryJson: json,
     kLocalHistoryTotalPages: totalPages,
   };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LocalHistory &&
+          path == other.path &&
+          isReversed == other.isReversed &&
+          pageIndex == other.pageIndex &&
+          time == other.time &&
+          json == other.json &&
+          totalPages == other.totalPages;
+
+  @override
+  int get hashCode =>
+      Object.hash(path, isReversed, pageIndex, time, json, totalPages);
+
+  @override
+  String toString() => 'LocalHistory${jsonEncode(toMap())}';
 }
 
 class LocalHistoryManager {

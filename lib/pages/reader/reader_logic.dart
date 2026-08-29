@@ -1035,12 +1035,12 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       otherInfo["url"] = state.urls[pageIndex];
 
       var favorite = ImageFavorite(
-        id,
-        image,
-        readingData.title,
-        state.currentEpisode,
-        pageIndex + 1,
-        otherInfo,
+        id: id,
+        imagePath: image,
+        title: readingData.title,
+        ep: state.currentEpisode,
+        page: pageIndex + 1,
+        otherInfo: otherInfo,
       );
       if (!(await ImageFavoriteManager.exist(
         id,

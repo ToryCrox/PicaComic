@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
@@ -5,60 +7,134 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
 class HomePageData {
-  List<HomePageItem> items;
+  final List<HomePageItem> items;
 
-  HomePageData(this.items);
+  const HomePageData({this.items = const []});
 
-  HomePageData.fromJson(Map<String, dynamic> json)
-    : items = json.optList("items", (e) => HomePageItem.fromJson(e));
+  HomePageData copyWith({List<HomePageItem>? items}) =>
+      HomePageData(items: items ?? this.items);
 
-  Map<String, dynamic> toJson() {
-    return {"items": items.map((e) => e.toJson()).toList()};
-  }
+  factory HomePageData.fromMap(Map<String, dynamic> map) => HomePageData(
+    items: map.optList('items', (item) => HomePageItem.fromMap(item)),
+  );
+
+  Map<String, dynamic> toMap() => {
+    'items': items.map((e) => e.toMap()).toList(),
+  };
+
+  factory HomePageData.fromJson(Map<String, dynamic> json) =>
+      HomePageData.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HomePageData && TypeUtil.equal(items, other.items);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'HomePageData${jsonEncode(toMap())}';
 }
 
 class HomePageItem {
-  String name;
-  String id;
-  bool category;
-  List<JmComicBrief> comics;
+  final String name;
+  final String id;
+  final bool category;
+  final List<JmComicBrief> comics;
 
-  HomePageItem(this.name, this.id, this.comics, this.category);
+  const HomePageItem({
+    this.name = '',
+    this.id = '',
+    this.comics = const [],
+    this.category = false,
+  });
 
-  HomePageItem.fromJson(Map<String, dynamic> json)
-    : name = json.optString("name"),
-      id = json.optString("id"),
-      category = json.optBool("category"),
-      comics = json.optList("comics", (e) => JmComicBrief.fromJson(e));
-
-  Map<String, dynamic> toJson() {
-    return {
-      "name": name,
-      "id": id,
-      "category": category,
-      "comics": comics.map((e) => e.toJson()).toList(),
-    };
+  HomePageItem copyWith({
+    String? name,
+    String? id,
+    List<JmComicBrief>? comics,
+    bool? category,
+  }) {
+    return HomePageItem(
+      name: name ?? this.name,
+      id: id ?? this.id,
+      comics: comics ?? this.comics,
+      category: category ?? this.category,
+    );
   }
+
+  factory HomePageItem.fromMap(Map<String, dynamic> map) => HomePageItem(
+    name: map.optString('name'),
+    id: map.optString('id'),
+    category: map.optBool('category'),
+    comics: map.optList('comics', (item) => JmComicBrief.fromMap(item)),
+  );
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'id': id,
+    'category': category,
+    'comics': comics.map((e) => e.toMap()).toList(),
+  };
+
+  factory HomePageItem.fromJson(Map<String, dynamic> json) =>
+      HomePageItem.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HomePageItem &&
+          name == other.name &&
+          id == other.id &&
+          category == other.category &&
+          TypeUtil.equal(comics, other.comics);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'HomePageItem${jsonEncode(toMap())}';
 }
 
 class JmComicBrief extends BaseComic {
   @override
-  String id;
-  String author;
-  String name;
+  final String id;
+  final String author;
+  final String name;
   @override
-  String description;
-  List<ComicCategoryInfo> categories;
+  final String description;
+  final List<ComicCategoryInfo> categories;
   @override
   List<String> get tags => categories.map((e) => e.name).toList();
 
-  JmComicBrief(
-    this.id,
-    this.author,
-    this.name,
-    this.description,
-    this.categories,
-  );
+  const JmComicBrief({
+    this.id = '',
+    this.author = '',
+    this.name = '',
+    this.description = '',
+    this.categories = const [],
+  });
+
+  JmComicBrief copyWith({
+    String? id,
+    String? author,
+    String? name,
+    String? description,
+    List<ComicCategoryInfo>? categories,
+  }) {
+    return JmComicBrief(
+      id: id ?? this.id,
+      author: author ?? this.author,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      categories: categories ?? this.categories,
+    );
+  }
 
   @override
   String get cover => getJmCoverUrl(id);
@@ -69,40 +145,76 @@ class JmComicBrief extends BaseComic {
   @override
   String get title => name;
 
-  JmComicBrief.fromJson(Map<String, dynamic> json)
-    : id = json["id"],
-      author = json["author"],
-      name = json["name"],
-      description = json["description"],
-      categories = json.optList(
-        "categories",
-        (e) => ComicCategoryInfo.fromJson(e),
-      );
+  factory JmComicBrief.fromMap(Map<String, dynamic> map) => JmComicBrief(
+    id: map.optString('id'),
+    author: map.optString('author'),
+    name: map.optString('name'),
+    description: map.optString('description'),
+    categories: map.optList(
+      'categories',
+      (item) => ComicCategoryInfo.fromMap(item),
+    ),
+  );
 
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "author": author,
-      "name": name,
-      "description": description,
-      "categories": categories.map((e) => e.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'author': author,
+    'name': name,
+    'description': description,
+    'categories': categories.map((e) => e.toMap()).toList(),
+  };
+
+  factory JmComicBrief.fromJson(Map<String, dynamic> json) =>
+      JmComicBrief.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is JmComicBrief &&
+          id == other.id &&
+          author == other.author &&
+          name == other.name &&
+          description == other.description &&
+          TypeUtil.equal(categories, other.categories);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'JmComicBrief${jsonEncode(toMap())}';
 }
 
 class ComicCategoryInfo {
-  String id;
-  String name;
+  final String id;
+  final String name;
 
-  ComicCategoryInfo(this.id, this.name);
+  const ComicCategoryInfo({this.id = '', this.name = ''});
 
-  factory ComicCategoryInfo.fromJson(Map<String, dynamic> json) {
-    return ComicCategoryInfo(json.optString("id"), json.optString("name"));
-  }
+  ComicCategoryInfo copyWith({String? id, String? name}) =>
+      ComicCategoryInfo(id: id ?? this.id, name: name ?? this.name);
 
-  Map<String, dynamic> toJson() {
-    return {"id": id, "name": name};
-  }
+  factory ComicCategoryInfo.fromMap(Map<String, dynamic> map) =>
+      ComicCategoryInfo(id: map.optString('id'), name: map.optString('name'));
+
+  Map<String, dynamic> toMap() => {'id': id, 'name': name};
+
+  factory ComicCategoryInfo.fromJson(Map<String, dynamic> json) =>
+      ComicCategoryInfo.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ComicCategoryInfo && id == other.id && name == other.name;
+
+  @override
+  int get hashCode => Object.hash(id, name);
+
+  @override
+  String toString() => 'ComicCategoryInfo${jsonEncode(toMap())}';
 }
 
 class PromoteList {
@@ -146,41 +258,77 @@ class SubCategory {
 }
 
 class JmComicInfo with HistoryMixin {
-  String name;
-  String id;
-  List<String> author;
-  String description;
-  int likes;
-  int views;
-  int comments;
+  final String name;
+  final String id;
+  final List<String> author;
+  final String description;
+  final int likes;
+  final int views;
+  final int comments;
 
   ///章节信息, 键为章节序号, 值为漫画ID
-  Map<int, String> series;
-  List<String> tags;
-  List<String> works;
-  List<String> actors;
-  List<JmComicBrief> relatedComics;
-  bool liked;
-  bool favorite;
-  List<String> epNames;
+  final Map<int, String> series;
+  final List<String> tags;
+  final List<String> works;
+  final List<String> actors;
+  final List<JmComicBrief> relatedComics;
+  final bool liked;
+  final bool favorite;
+  final List<String> epNames;
 
-  JmComicInfo(
-    this.name,
-    this.id,
-    this.author,
-    this.description,
-    this.likes,
-    this.views,
-    this.series,
-    this.tags,
-    this.works,
-    this.actors,
-    this.relatedComics,
-    this.liked,
-    this.favorite,
-    this.comments,
-    this.epNames,
-  );
+  const JmComicInfo({
+    this.name = '',
+    this.id = '',
+    this.author = const [],
+    this.description = '',
+    this.likes = 0,
+    this.views = 0,
+    this.comments = 0,
+    this.series = const {},
+    this.tags = const [],
+    this.works = const [],
+    this.actors = const [],
+    this.relatedComics = const [],
+    this.liked = false,
+    this.favorite = false,
+    this.epNames = const [],
+  });
+
+  JmComicInfo copyWith({
+    String? name,
+    String? id,
+    List<String>? author,
+    String? description,
+    int? likes,
+    int? views,
+    int? comments,
+    Map<int, String>? series,
+    List<String>? tags,
+    List<String>? works,
+    List<String>? actors,
+    List<JmComicBrief>? relatedComics,
+    bool? liked,
+    bool? favorite,
+    List<String>? epNames,
+  }) {
+    return JmComicInfo(
+      name: name ?? this.name,
+      id: id ?? this.id,
+      author: author ?? this.author,
+      description: description ?? this.description,
+      likes: likes ?? this.likes,
+      views: views ?? this.views,
+      comments: comments ?? this.comments,
+      series: series ?? this.series,
+      tags: tags ?? this.tags,
+      works: works ?? this.works,
+      actors: actors ?? this.actors,
+      relatedComics: relatedComics ?? this.relatedComics,
+      liked: liked ?? this.liked,
+      favorite: favorite ?? this.favorite,
+      epNames: epNames ?? this.epNames,
+    );
+  }
 
   static Map<String, String> seriesToJsonMap(Map<int, String> map) {
     var res = <String, String>{};
@@ -193,53 +341,64 @@ class JmComicInfo with HistoryMixin {
   static Map<int, String> jsonMapToSeries(Map<String, dynamic> map) {
     var res = <int, String>{};
     for (var i in map.entries) {
-      res[int.parse(i.key)] = i.value;
+      final key = TypeUtil.parseIntOrNull(i.key);
+      if (key != null) {
+        res[key] = TypeUtil.parseString(i.value);
+      }
     }
     return res;
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      "name": name,
-      "id": id,
-      "author": author,
-      "description": description,
-      "likes": likes,
-      "views": views,
-      "series": seriesToJsonMap(series),
-      "tags": tags,
-      "works": works,
-      "actors": actors,
-      "relatedComics": relatedComics.map((e) => e.toJson()).toList(),
-      "liked": liked,
-      "favorite": favorite,
-      "comments": comments,
-      "epNames": epNames,
-    };
-  }
+  factory JmComicInfo.fromMap(Map<String, dynamic> map) => JmComicInfo(
+    name: map.optString('name'),
+    id: map.optString('id'),
+    author: map.optStringList('author'),
+    description: map.optString('description'),
+    likes: map.optInt('likes'),
+    views: map.optInt('views'),
+    series: jsonMapToSeries(map.optMap('series')),
+    tags: map.optStringList('tags'),
+    works: map.optStringList('works'),
+    actors: map.optStringList('actors'),
+    relatedComics: map.optList(
+      'relatedComics',
+      (item) => JmComicBrief.fromMap(item),
+    ),
+    liked: map.optBool('liked'),
+    favorite: map.optBool('favorite'),
+    comments: map.optInt('comments'),
+    epNames: map.optStringList('epNames'),
+  );
 
-  JmComicInfo.fromMap(Map<String, dynamic> map)
-    : name = TypeUtil.parseString(map["name"]),
-      id = map["id"],
-      author = List<String>.from(map["author"]),
-      description = map["description"],
-      likes = TypeUtil.parseInt(map["likes"]),
-      views = TypeUtil.parseInt(map["views"]),
-      series = jsonMapToSeries(map["series"]),
-      tags = List<String>.from(map["tags"]),
-      works = List<String>.from(map["works"] ?? []),
-      actors = List<String>.from(map["actors"] ?? []),
-      relatedComics = map.optList(
-        'relatedComics',
-        (e) => JmComicBrief.fromJson(e),
-      ),
-      liked = map["liked"] is bool ? map["liked"] : false,
-      favorite = map["favorite"] is bool ? map["favorite"] : false,
-      comments = TypeUtil.parseInt(map["comments"]),
-      epNames = List.from(map["epNames"] ?? []);
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'id': id,
+    'author': author,
+    'description': description,
+    'likes': likes,
+    'views': views,
+    'series': seriesToJsonMap(series),
+    'tags': tags,
+    'works': works,
+    'actors': actors,
+    'relatedComics': relatedComics.map((e) => e.toMap()).toList(),
+    'liked': liked,
+    'favorite': favorite,
+    'comments': comments,
+    'epNames': epNames,
+  };
 
-  JmComicBrief toBrief() =>
-      JmComicBrief(id, author.firstOrNull ?? "", name, description, []);
+  factory JmComicInfo.fromJson(Map<String, dynamic> json) =>
+      JmComicInfo.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  JmComicBrief toBrief() => JmComicBrief(
+    id: id,
+    author: author.firstOrNull ?? '',
+    name: name,
+    description: description,
+  );
 
   @override
   String get cover => getJmCoverUrl(id);
@@ -255,6 +414,32 @@ class JmComicInfo with HistoryMixin {
 
   @override
   String get title => name;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is JmComicInfo &&
+          name == other.name &&
+          id == other.id &&
+          TypeUtil.equal(author, other.author) &&
+          description == other.description &&
+          likes == other.likes &&
+          views == other.views &&
+          TypeUtil.equal(series, other.series) &&
+          TypeUtil.equal(tags, other.tags) &&
+          TypeUtil.equal(works, other.works) &&
+          TypeUtil.equal(actors, other.actors) &&
+          TypeUtil.equal(relatedComics, other.relatedComics) &&
+          liked == other.liked &&
+          favorite == other.favorite &&
+          comments == other.comments &&
+          TypeUtil.equal(epNames, other.epNames);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'JmComicInfo${jsonEncode(toMap())}';
 }
 
 class Comment {

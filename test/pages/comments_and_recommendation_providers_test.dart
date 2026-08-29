@@ -417,7 +417,12 @@ class _FakeJmWeekRepository implements JmWeekRecommendationRepository {
   ) async {
     if (emptyComics) return const Res([]);
     return Res([
-      jm.JmComicBrief('$id-${type.name}', 'author', 'title', '', const []),
+      jm.JmComicBrief(
+        id: '$id-${type.name}',
+        author: 'author',
+        name: 'title',
+        categories: const [],
+      ),
     ]);
   }
 }
@@ -440,7 +445,13 @@ pica.Comment _picacgComment(String id) {
 }
 
 eh.Comment _ehComment(String id, {int score = 0}) {
-  return eh.Comment(id, 'name', id, '2026-08-29T12:00:00Z', score, null);
+  return eh.Comment(
+    id: id,
+    name: 'name',
+    content: id,
+    time: '2026-08-29T12:00:00Z',
+    score: score,
+  );
 }
 
 jm.Comment _jmComment(String content) {

@@ -128,12 +128,18 @@ class NhentaiNetwork {
         tagsRes.add(nhentaiTags[tag]!);
       }
     }
-    return NhentaiComicBrief(name, img, id, lang, tagsRes);
+    return NhentaiComicBrief(
+      title: name,
+      cover: img,
+      id: id,
+      lang: lang,
+      tags: tagsRes,
+    );
   }
 
   List<T> removeNullValue<T extends Object>(List<T?> list) {
     while (list.remove(null)) {}
-    return List.from(list);
+    return list.whereType<T>().toList();
   }
 
   Future<Res<NhentaiHomePageData>> getHomePage([int? page]) async {
@@ -340,15 +346,15 @@ class NhentaiNetwork {
 
       return Res(
         NhentaiComic(
-          id,
-          title,
-          subTitle,
-          cover,
-          tags,
-          favorite,
-          thumbnails,
-          recommendations,
-          token,
+          id: id,
+          title: title,
+          subTitle: subTitle,
+          cover: cover,
+          tags: tags,
+          favorite: favorite,
+          thumbnails: thumbnails,
+          recommendations: recommendations,
+          token: token,
         ),
       );
     } catch (e, s) {

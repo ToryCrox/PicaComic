@@ -128,7 +128,7 @@ class JmDownloadingTask extends DownloadingTask {
   @override
   Future<Map<int, List<String>>> getLinks() async {
     if (comic.series.isEmpty) {
-      comic.series[1] = id.replaceFirst("jm", "");
+      comic = comic.copyWith(series: {1: id.replaceFirst("jm", "")});
     }
     var res = <int, List<String>>{};
     var futures = <Future>[];
@@ -149,13 +149,13 @@ class JmDownloadingTask extends DownloadingTask {
   Future<void> loadImages(ImageDownloadQueue queue) async {
     // 1. 处理单章漫画的特殊情况
     if (comic.series.isEmpty) {
-      comic.series[1] = id.replaceFirst("jm", "");
+      comic = comic.copyWith(series: {1: id.replaceFirst("jm", "")});
     }
 
     links ??= {};
 
     // 2. 对要下载的章节进行排序，确保按顺序下载
-    final sortedEps = List<int>.from(_downloadEps)..sort();
+    final sortedEps = _downloadEps.toList()..sort();
 
     // 3. 逐个章节获取并入队
     for (var i in sortedEps) {
@@ -293,11 +293,7 @@ class JmDownloadingTask extends DownloadingTask {
     }
     var downloadEps = (_downloadEps + previous).toSet().toList();
     downloadEps.sort();
-    return DownloadedJmComic(
-      comic,
-      await getStorageSize(),
-      downloadEps,
-    );
+    return DownloadedJmComic(comic, await getStorageSize(), downloadEps);
   }
 
   @override
@@ -317,10 +313,6 @@ class JmDownloadingTask extends DownloadingTask {
             .toSet()
             .toList();
     downloadedEps.sort();
-    return DownloadedJmComic(
-      comic,
-      await getStorageSize(),
-      downloadedEps,
-    );
+    return DownloadedJmComic(comic, await getStorageSize(), downloadedEps);
   }
 }

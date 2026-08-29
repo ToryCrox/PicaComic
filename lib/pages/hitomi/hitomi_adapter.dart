@@ -22,7 +22,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 import 'hitomi_search.dart';
 
 // ============================================================================
@@ -219,7 +218,11 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   @override
   ActionFunc? openComments(HitomiComic data, BuildContext context) => null;
   @override
-  ActionFunc? onLike(HitomiComic data, BuildContext context) => null;
+  ActionFunc? onLike(
+    HitomiComic data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
   @override
   bool isLiked(HitomiComic data) => false;
   @override

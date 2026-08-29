@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 /// 标签分类枚举
 enum TagCategory {
@@ -35,7 +37,7 @@ class DownloadTag {
   final TagCategory category;
   final int categorySortOrder;
 
-  DownloadTag({
+  const DownloadTag({
     required this.id,
     required this.name,
     this.coverComicId,
@@ -46,23 +48,55 @@ class DownloadTag {
     this.categorySortOrder = 0,
   }) : updatedTime = updatedTime ?? createdTime;
 
+  static DateTime _parseDate(dynamic value) {
+    if (value is DateTime) return value;
+    final timestamp = TypeUtil.parseIntOrNull(value);
+    if (timestamp != null) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
+    }
+    final parsed = DateTime.tryParse(TypeUtil.parseString(value));
+    return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   /// 从数据库Map创建DownloadTag对象
   factory DownloadTag.fromMap(Map<String, Object?> map) {
     return DownloadTag(
-      id: map['id'] as int,
-      name: map['name'] as String,
-      coverComicId: map['cover_comic_id'] as String?,
-      createdTime: DateTime.fromMillisecondsSinceEpoch(
-        map['created_time'] as int,
-      ),
-      sortOrder: (map['sort_order'] as int?) ?? 0,
-      updatedTime: map['updated_time'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['updated_time'] as int)
-          : null,
-      category: TagCategory.fromValue((map['category'] as int?) ?? 0),
-      categorySortOrder: (map['category_sort_order'] as int?) ?? 0,
+      id: map.optInt('id'),
+      name: map.optString('name'),
+      coverComicId: map.optStringOrNull('cover_comic_id'),
+      createdTime: _parseDate(map['created_time']),
+      sortOrder: map.optInt('sort_order'),
+      updatedTime: map['updated_time'] == null
+          ? null
+          : _parseDate(map['updated_time']),
+      category: TagCategory.fromValue(map.optInt('category')),
+      categorySortOrder: map.optInt('category_sort_order'),
     );
   }
+
+  factory DownloadTag.fromJson(Map<String, dynamic> json) =>
+      DownloadTag.fromMap(json);
+
+  DownloadTag copyWith({
+    int? id,
+    String? name,
+    String? coverComicId,
+    DateTime? createdTime,
+    int? sortOrder,
+    DateTime? updatedTime,
+    TagCategory? category,
+    int? categorySortOrder,
+    bool clearCoverComicId = false,
+  }) => DownloadTag(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    coverComicId: clearCoverComicId ? null : coverComicId ?? this.coverComicId,
+    createdTime: createdTime ?? this.createdTime,
+    sortOrder: sortOrder ?? this.sortOrder,
+    updatedTime: updatedTime ?? this.updatedTime,
+    category: category ?? this.category,
+    categorySortOrder: categorySortOrder ?? this.categorySortOrder,
+  );
 
   /// 转换为Map用于数据库操作
   Map<String, Object?> toMap() {
@@ -77,6 +111,8 @@ class DownloadTag {
       'category_sort_order': categorySortOrder,
     };
   }
+
+  Map<String, dynamic> toJson() => toMap();
 
   @override
   String toString() =>

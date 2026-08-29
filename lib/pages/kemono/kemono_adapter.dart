@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -23,7 +20,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 
 // ============================================================================
 // KemonoAdapter
@@ -159,18 +155,14 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     }
 
     final comicData = ComicInfoData(
-      data.title,
-      data.userName,
-      data.cover,
-      data.content,
-      tags(data) ?? {},
-      null,
-      data.imageUrls,
-      null,
-      0,
-      null,
-      comicType.name,
-      data.target,
+      title: data.title,
+      subTitle: data.userName,
+      cover: data.cover,
+      description: data.content,
+      tags: tags(data) ?? {},
+      thumbnails: data.imageUrls,
+      sourceKey: comicType.name,
+      comicId: data.target,
     );
     downloadManager.addCustomDownload(comicData, [0]);
     showToast(message: "已加入下载队列".tl);
@@ -212,7 +204,11 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   @override
   ActionFunc? openComments(KemonoPost data, BuildContext context) => null;
   @override
-  ActionFunc? onLike(KemonoPost data, BuildContext context) => null;
+  ActionFunc? onLike(
+    KemonoPost data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
   @override
   bool isLiked(KemonoPost data) => false;
   @override

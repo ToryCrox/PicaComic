@@ -47,18 +47,18 @@ class NhentaiDownloadedComic extends DownloadedItem {
     : comic = json['comic'] != null
           ? NhentaiComic.fromMap(Map<String, dynamic>.from(json['comic']))
           : NhentaiComic(
-              (json['comicID'] as String).replaceFirst(RegExp(r'^nhentai'), ''),
-              json['title'] ?? '',
-              json['subTitle'] ?? '',
-              json['cover'] ?? '',
-              {
+              id: (json['comicID'] as String).replaceFirst(
+                RegExp(r'^nhentai'),
+                '',
+              ),
+              title: json['title'] ?? '',
+              subTitle: json['subTitle'] ?? '',
+              cover: json['cover'] ?? '',
+              tags: {
                 if (json['tags'] != null)
                   'Tags': List<String>.from(json['tags']),
               },
-              false,
-              const [],
-              const [],
-              '',
+              token: '',
             ),
       size = json["size"],
       color = DownloadColorTag.fromString(json["color"]);

@@ -162,7 +162,15 @@ class HtmangaNetwork {
           }
           var pages = int.parse(pagesStr);
           try {
-            comics.add(HtComicBrief(name, time, image, id, pages));
+            comics.add(
+              HtComicBrief(
+                name: name,
+                time: time,
+                image: image,
+                id: id,
+                pages: pages,
+              ),
+            );
           } finally {}
         }
         comicsRes.add(comics);
@@ -170,7 +178,7 @@ class HtmangaNetwork {
       if (comicsRes.length != titleRes.length) {
         throw Exception("漫画块数量和标题数量不相等");
       }
-      return Res(HtHomePageData(comicsRes, titleRes));
+      return Res(HtHomePageData(comics: comicsRes, links: titleRes));
     } catch (e, s) {
       Log.e("Data Analyze $e\n$s");
       return Res(null, errorMessage: "解析失败: $e");
@@ -240,7 +248,15 @@ class HtmangaNetwork {
             }
           }
           var pages = pagesStr == "" ? 0 : int.parse(pagesStr);
-          comics.add(HtComicBrief(name, time, image, id, pages));
+          comics.add(
+            HtComicBrief(
+              name: name,
+              time: time,
+              image: image,
+              id: id,
+              pages: pages,
+            ),
+          );
         } catch (e) {
           continue;
         }
@@ -334,17 +350,17 @@ class HtmangaNetwork {
       );
       return Res(
         HtComicInfo(
-          id,
-          coverPath,
-          name,
-          category,
-          pages,
-          tags,
-          description,
-          uploader,
-          avatar,
-          uploadNum,
-          photos,
+          id: id,
+          coverPath: coverPath,
+          name: name,
+          category: category,
+          pages: pages,
+          tags: tags,
+          description: description,
+          uploader: uploader,
+          avatar: avatar,
+          uploadNum: uploadNum,
+          thumbnails: photos,
         ),
       );
     } catch (e, s) {
@@ -486,7 +502,14 @@ class HtmangaNetwork {
             .attributes["onclick"]!;
         var favoriteId = RegExp(r"(?<=del-id-)[0-9]+").firstMatch(delUrl)![0];
         comics.add(
-          HtComicBrief(name, time, cover, id, pages, favoriteId: favoriteId),
+          HtComicBrief(
+            name: name,
+            time: time,
+            image: cover,
+            id: id,
+            pages: pages,
+            favoriteId: favoriteId,
+          ),
         );
       }
       int pages;

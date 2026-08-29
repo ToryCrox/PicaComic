@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:pica_comic/tools/prefs_helper.dart';
+import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 /// 存储库信息
 class RepositoryInfo {
@@ -12,20 +14,44 @@ class RepositoryInfo {
   final String path;
 
   /// 存储库标题（可更改，用于显示）
-  String title;
+  final String title;
 
-  RepositoryInfo({required this.name, required this.path, String? title})
+  const RepositoryInfo({required this.name, required this.path, String? title})
     : title = title ?? name;
 
   Map<String, dynamic> toMap() => {'name': name, 'path': path, 'title': title};
 
-  factory RepositoryInfo.fromMap(Map<String, dynamic> map) {
-    return RepositoryInfo(
-      name: map['name'] as String,
-      path: map['path'] as String,
-      title: map['title'] as String?,
-    );
-  }
+  RepositoryInfo copyWith({String? name, String? path, String? title}) =>
+      RepositoryInfo(
+        name: name ?? this.name,
+        path: path ?? this.path,
+        title: title ?? this.title,
+      );
+
+  factory RepositoryInfo.fromMap(Map<String, dynamic> map) => RepositoryInfo(
+    name: map.optString('name'),
+    path: map.optString('path'),
+    title: map.optStringOrNull('title'),
+  );
+
+  factory RepositoryInfo.fromJson(Map<String, dynamic> json) =>
+      RepositoryInfo.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RepositoryInfo &&
+          name == other.name &&
+          path == other.path &&
+          title == other.title;
+
+  @override
+  int get hashCode => Object.hash(name, path, title);
+
+  @override
+  String toString() => 'RepositoryInfo${TypeUtil.parseString(toMap())}';
 }
 
 /// 本地漫画存储库管理器

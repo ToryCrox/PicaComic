@@ -19,6 +19,8 @@ import 'package:pica_comic/network/nhentai_network/models.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
 import 'package:pica_comic/pages/favorites/main_favorites_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
+import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 import 'dart:io';
@@ -102,13 +104,13 @@ final class FavoriteType {
 }
 
 class FavoriteItem {
-  String name;
-  String author;
-  FavoriteType type;
-  List<String> tags;
-  String target;
-  String coverPath;
-  String time = getCurTime();
+  final String name;
+  final String author;
+  final FavoriteType type;
+  final List<String> tags;
+  final String target;
+  final String coverPath;
+  final String time;
 
   bool get available {
     if (type.key <= 6 && type.key >= 0) {
@@ -134,32 +136,37 @@ class FavoriteItem {
     required this.coverPath,
     required this.author,
     required this.type,
-    required this.tags,
-  });
+    required List<String> tags,
+    String? time,
+  }) : tags = tags.toList(),
+       time = time ?? getCurTime();
 
   FavoriteItem.fromPicacg(ComicItemBrief comic)
     : name = comic.title,
       author = comic.author,
       type = FavoriteType.picacg,
-      tags = comic.tags,
+      tags = comic.tags.toList(),
       target = comic.id,
-      coverPath = comic.path;
+      coverPath = comic.path,
+      time = getCurTime();
 
   FavoriteItem.fromEhentai(EhGalleryBrief comic)
     : name = comic.title,
       author = comic.uploader,
       type = FavoriteType.ehentai,
-      tags = comic.tags,
+      tags = comic.tags.toList(),
       target = comic.link,
-      coverPath = comic.coverPath;
+      coverPath = comic.coverPath,
+      time = getCurTime();
 
   FavoriteItem.fromJmComic(JmComicBrief comic)
     : name = comic.name,
       author = comic.author,
       type = FavoriteType.jm,
-      tags = [],
+      tags = const [],
       target = comic.id,
-      coverPath = getJmCoverUrl(comic.id);
+      coverPath = getJmCoverUrl(comic.id),
+      time = getCurTime();
 
   FavoriteItem.fromHitomi(HitomiComicBrief comic)
     : name = comic.name,
@@ -170,60 +177,103 @@ class FavoriteItem {
         (index) => comic.tagList[index].name,
       ),
       target = comic.link,
-      coverPath = comic.cover;
+      coverPath = comic.cover,
+      time = getCurTime();
 
   FavoriteItem.fromHtcomic(HtComicBrief comic)
     : name = comic.name,
       author = "${comic.pages}Pages",
       type = FavoriteType.htmanga,
-      tags = [],
+      tags = const [],
       target = comic.id,
-      coverPath = comic.image;
+      coverPath = comic.image,
+      time = getCurTime();
 
   FavoriteItem.fromNhentai(NhentaiComicBrief comic)
     : name = comic.title,
       author = "",
       type = FavoriteType.nhentai,
-      tags = comic.tags,
+      tags = comic.tags.toList(),
       target = comic.id,
-      coverPath = comic.cover;
+      coverPath = comic.cover,
+      time = getCurTime();
 
   FavoriteItem.custom(CustomComic comic)
     : name = comic.title,
       author = comic.subTitle,
       type = FavoriteType(comic.sourceKey.hashCode),
-      tags = comic.tags,
+      tags = comic.tags.toList(),
       target = comic.id,
-      coverPath = comic.cover;
+      coverPath = comic.cover,
+      time = getCurTime();
 
-  Map<String, dynamic> toJson() => {
-    "name": name,
-    "author": author,
-    "type": type.key,
-    "tags": tags,
-    "target": target,
-    "coverPath": coverPath,
-    "time": time,
+  /// 创建更新后的本地收藏快照。
+  FavoriteItem copyWith({
+    String? name,
+    String? author,
+    FavoriteType? type,
+    List<String>? tags,
+    String? target,
+    String? coverPath,
+    String? time,
+  }) => FavoriteItem(
+    name: name ?? this.name,
+    author: author ?? this.author,
+    type: type ?? this.type,
+    tags: tags ?? this.tags,
+    target: target ?? this.target,
+    coverPath: coverPath ?? this.coverPath,
+    time: time ?? this.time,
+  );
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'author': author,
+    'type': type.key,
+    'tags': tags,
+    'target': target,
+    'coverPath': coverPath,
+    'time': time,
   };
 
-  FavoriteItem.fromJson(Map<String, dynamic> json)
-    : name = json["name"],
-      author = json["author"],
-      type = FavoriteType(json["type"]),
-      tags = List<String>.from(json["tags"]),
-      target = json["target"],
-      coverPath = json["coverPath"],
-      time = json["time"];
+  Map<String, dynamic> toJson() => toMap();
 
-  FavoriteItem.fromRow(Map row)
-    : name = row["name"],
-      author = row["author"],
-      type = FavoriteType(row["type"]),
-      tags = (row["tags"] as String).split(","),
-      target = row["target"],
-      coverPath = row["cover_path"],
-      time = row["time"] {
-    tags.remove("");
+  Map<String, dynamic> toRow() => {
+    'name': name,
+    'author': author,
+    'type': type.key,
+    'tags': tags.join(','),
+    'target': target,
+    'cover_path': coverPath,
+    'time': time,
+  };
+
+  factory FavoriteItem.fromMap(Map<String, dynamic> map) => FavoriteItem(
+    name: map.optString('name'),
+    author: map.optString('author'),
+    type: FavoriteType(map.optInt('type')),
+    tags: map.optStringList('tags'),
+    target: map.optString('target'),
+    coverPath: map.optString('coverPath'),
+    time: map.optStringOrNull('time'),
+  );
+
+  factory FavoriteItem.fromJson(Map<String, dynamic> json) =>
+      FavoriteItem.fromMap(json);
+
+  factory FavoriteItem.fromRow(Map row) {
+    final tags = TypeUtil.parseString(
+      row['tags'],
+    ).split(',').where((tag) => tag.isNotEmpty).toList();
+    return FavoriteItem(
+      name: TypeUtil.parseString(row['name']),
+      author: TypeUtil.parseString(row['author']),
+      type: FavoriteType(TypeUtil.parseInt(row['type'])),
+      tags: tags,
+      target: TypeUtil.parseString(row['target']),
+      coverPath: TypeUtil.parseString(row['cover_path']),
+      time: TypeUtil.parseStringOrNull(row['time']),
+    );
   }
 
   factory FavoriteItem.fromBaseComic(BaseComic comic) {
@@ -281,21 +331,65 @@ class FavoriteItemWithFolderInfo {
 }
 
 class FolderSync {
-  String folderName;
-  String time = getCurTime();
-  String key;
-  String syncData; // 内容是 json, 存一下选中的文件夹 folderId
-  FolderSync(this.folderName, this.key, this.syncData);
+  final String folderName;
+  final String time;
+  final String key;
+  final String syncData; // 内容是 json, 存一下选中的文件夹 folderId
 
-  Map<String, dynamic> get syncDataObj => jsonDecode(syncData);
+  FolderSync({
+    required this.folderName,
+    required this.key,
+    required this.syncData,
+    String? time,
+  }) : time = time ?? getCurTime();
 
-  factory FolderSync.fromMap(Map<String, dynamic> map) {
-    return FolderSync(
-      map[kFolderSyncName],
-      map[kFolderSyncKey],
-      map[kFolderSyncData],
-    );
-  }
+  Map<String, dynamic> get syncDataObj => TypeUtil.parseMap(syncData);
+
+  FolderSync copyWith({
+    String? folderName,
+    String? time,
+    String? key,
+    String? syncData,
+  }) => FolderSync(
+    folderName: folderName ?? this.folderName,
+    time: time ?? this.time,
+    key: key ?? this.key,
+    syncData: syncData ?? this.syncData,
+  );
+
+  factory FolderSync.fromMap(Map<String, dynamic> map) => FolderSync(
+    folderName: map.optString(kFolderSyncName),
+    time: map.optStringOrNull(kFolderSyncTime),
+    key: map.optString(kFolderSyncKey),
+    syncData: map.optString(kFolderSyncData),
+  );
+
+  Map<String, dynamic> toMap() => {
+    kFolderSyncName: folderName,
+    kFolderSyncTime: time,
+    kFolderSyncKey: key,
+    kFolderSyncData: syncData,
+  };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  factory FolderSync.fromJson(Map<String, dynamic> json) =>
+      FolderSync.fromMap(json);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FolderSync &&
+          folderName == other.folderName &&
+          time == other.time &&
+          key == other.key &&
+          syncData == other.syncData;
+
+  @override
+  int get hashCode => Object.hash(folderName, time, key, syncData);
+
+  @override
+  String toString() => 'FolderSync${toMap()}';
 }
 
 extension SQL on String {

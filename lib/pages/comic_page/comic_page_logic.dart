@@ -157,6 +157,12 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   bool? get favoriteOnPlatform => state.favoriteOnPlatform;
 
   @override
+  void updateData(Object data) {
+    _data = data;
+    ref.notifyListeners();
+  }
+
+  @override
   void updateState() {
     ref.notifyListeners();
   }

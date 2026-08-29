@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
@@ -25,7 +26,7 @@ class CacheRecord {
 
   File get file => File(filePath);
 
-  CacheRecord({
+  const CacheRecord({
     required this.key,
     required this.dir,
     required this.name,
@@ -33,16 +34,34 @@ class CacheRecord {
     this.type,
   });
 
+  CacheRecord copyWith({
+    String? key,
+    String? dir,
+    String? name,
+    int? expires,
+    String? type,
+    bool clearType = false,
+  }) => CacheRecord(
+    key: key ?? this.key,
+    dir: dir ?? this.dir,
+    name: name ?? this.name,
+    expires: expires ?? this.expires,
+    type: clearType ? null : type ?? this.type,
+  );
+
   /// 从数据库查询结果创建CacheRecord对象
   factory CacheRecord.fromMap(Map<String, dynamic> map) {
     return CacheRecord(
-      key: TypeUtil.parseString(map[CacheManager.columnKey]),
-      dir: TypeUtil.parseString(map[CacheManager.columnDir]),
-      name: TypeUtil.parseString(map[CacheManager.columnName]),
-      expires: TypeUtil.parseInt(map[CacheManager.columnExpires]),
-      type: TypeUtil.parseString(map[CacheManager.columnType]),
+      key: map.optString(CacheManager.columnKey),
+      dir: map.optString(CacheManager.columnDir),
+      name: map.optString(CacheManager.columnName),
+      expires: map.optInt(CacheManager.columnExpires),
+      type: map.optStringOrNull(CacheManager.columnType),
     );
   }
+
+  factory CacheRecord.fromJson(Map<String, dynamic> json) =>
+      CacheRecord.fromMap(json);
 
   /// 转换为数据库插入用的Map
   Map<String, dynamic> toMap() {
@@ -54,6 +73,24 @@ class CacheRecord {
       CacheManager.columnType: type,
     };
   }
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CacheRecord &&
+          key == other.key &&
+          dir == other.dir &&
+          name == other.name &&
+          expires == other.expires &&
+          type == other.type;
+
+  @override
+  int get hashCode => Object.hash(key, dir, name, expires, type);
+
+  @override
+  String toString() => 'CacheRecord${jsonEncode(toMap())}';
 }
 
 class CacheManager {

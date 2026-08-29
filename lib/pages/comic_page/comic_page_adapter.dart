@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
-import '../../network/download/models/download_tag.dart';
 import '../../network/download/download_model.dart';
 import '../../network/res.dart';
 
@@ -19,6 +18,7 @@ abstract class ComicPageBridge {
   bool get favorite;
   set favorite(bool value);
   bool? get favoriteOnPlatform;
+  void updateData(Object data);
   void updateState();
 }
 
@@ -97,7 +97,7 @@ abstract class ComicPageAdapter<T extends Object> {
   void download(T data, BuildContext context);
   void openFavoritePanel(T data, ComicPageBridge bridge, BuildContext context);
   ActionFunc? openComments(T data, BuildContext context);
-  ActionFunc? onLike(T data, BuildContext context);
+  ActionFunc? onLike(T data, ComicPageBridge bridge, BuildContext context);
   bool isLiked(T data);
   ActionFunc? searchSimilar(T data, BuildContext context);
   void onTagTapped(String tag, String key, T data, BuildContext context);

@@ -520,10 +520,9 @@ class ImageManager {
     bool force = false,
   }) async {
     _throwIfCancelled(callerToken);
-    gallery.auth ??= {};
     bool valid() =>
-        gallery.auth!["showKey"]?.isNotEmpty == true ||
-        gallery.auth!["mpvKey"]?.isNotEmpty == true;
+        gallery.auth["showKey"]?.isNotEmpty == true ||
+        gallery.auth["mpvKey"]?.isNotEmpty == true;
     if (!force && valid()) return;
 
     final running = _ehAuthenticationTasks[gid];
@@ -569,9 +568,9 @@ class ImageManager {
           ? null
           : RegExp(r'showkey="(.*?)"').firstMatch(showScript.text)?.group(1);
       if (showKey?.isNotEmpty == true) {
-        gallery.auth!["showKey"] = showKey!;
-        gallery.auth!.remove("mpvKey");
-        gallery.auth!.remove("imgKey");
+        gallery.auth["showKey"] = showKey!;
+        gallery.auth.remove("mpvKey");
+        gallery.auth.remove("imgKey");
         return;
       }
 
@@ -591,9 +590,9 @@ class ImageManager {
         throw Exception("Invalid EH MPV authentication");
       }
       final list = jsonDecode(listText) as List<dynamic>;
-      gallery.auth!["mpvKey"] = mpvKey;
-      gallery.auth!["imgKey"] = list.map((e) => e["k"]).join(",");
-      gallery.auth!.remove("showKey");
+      gallery.auth["mpvKey"] = mpvKey;
+      gallery.auth["imgKey"] = list.map((e) => e["k"]).join(",");
+      gallery.auth.remove("showKey");
       Log.d(() => "ImageManager: EH authentication loaded gid=$gid");
     } catch (_) {
       _clearEhAuthentication(gallery);
@@ -602,10 +601,9 @@ class ImageManager {
   }
 
   void _clearEhAuthentication(Gallery gallery) {
-    gallery.auth ??= {};
-    gallery.auth!.remove("showKey");
-    gallery.auth!.remove("mpvKey");
-    gallery.auth!.remove("imgKey");
+    gallery.auth.remove("showKey");
+    gallery.auth.remove("mpvKey");
+    gallery.auth.remove("imgKey");
   }
 
   void _throwIfCancelled(CancelToken cancelToken) {
@@ -636,9 +634,9 @@ class ImageManager {
     required bool preferOriginal,
     required bool requireOriginal,
   }) async {
-    final keys = gallery.auth?["imgKey"]?.split(",");
+    final keys = gallery.auth["imgKey"]?.split(",");
     final isMpv =
-        gallery.auth?["mpvKey"] != null &&
+        gallery.auth["mpvKey"] != null &&
         keys != null &&
         page > 0 &&
         page <= keys.length;
@@ -682,7 +680,7 @@ class ImageManager {
         "imgkey": keys[page - 1],
         "method": "imagedispatch",
         "page": page,
-        "mpvkey": gallery.auth!["mpvKey"],
+        "mpvkey": gallery.auth["mpvKey"],
         if (nl != null) "nl": nl,
       }, cancelToken: cancelToken);
       if (res.error) throw res.errorMessage ?? "EH imagedispatch failed";
@@ -703,7 +701,7 @@ class ImageManager {
         "imgkey": _ehImageKey(readerLink),
         "method": "showpage",
         "page": page,
-        "showkey": gallery.auth!["showKey"],
+        "showkey": gallery.auth["showKey"],
       }, cancelToken: cancelToken);
       if (res.error) throw res.errorMessage ?? "EH showpage failed";
       final json = jsonDecode(res.data) as Map<String, dynamic>;

@@ -19,7 +19,6 @@ import '../../foundation/ui_mode.dart';
 import '../../tools/tags_translation.dart';
 import '../../tools/translations.dart';
 import '../download/tag_assignment_dialog.dart';
-import '../favorites/local_favorites.dart';
 import '../image_favorites.dart';
 import '../reader/comic_reading_page.dart';
 import '../settings/ai_settings_page.dart';
@@ -563,7 +562,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   () => adapter.download(data, context),
                 ),
               ..._buildExtraActions(adapter, data, state, screenWidth),
-              ..._buildLikeAction(adapter, data),
+              ..._buildLikeAction(adapter, notifier, data),
               ..._buildCommentsAction(adapter, data),
               ..._buildSearchSimilarAction(adapter, data),
               ..._buildAutoPageTurnAction(
@@ -659,8 +658,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 点赞按钮
   // ========================================================================
 
-  List<Widget> _buildLikeAction(ComicPageAdapter adapter, Object data) {
-    final onLike = adapter.onLike(data, context);
+  List<Widget> _buildLikeAction(
+    ComicPageAdapter adapter,
+    ComicPageBridge bridge,
+    Object data,
+  ) {
+    final onLike = adapter.onLike(data, bridge, context);
     if (onLike == null) return [];
     return [
       _buildActionItem(

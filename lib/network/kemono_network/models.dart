@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 
 /// 去除HTML标签
 String stripHtml(String html) {
@@ -34,6 +37,27 @@ class KemonoFile {
       path: json.optString('path'),
     );
   }
+
+  Map<String, dynamic> toMap() => {'name': name, 'path': path};
+
+  factory KemonoFile.fromMap(Map<String, dynamic> map) =>
+      KemonoFile(name: map.optString('name'), path: map.optString('path'));
+
+  Map<String, dynamic> toJson() => toMap();
+
+  KemonoFile copyWith({String? name, String? path}) =>
+      KemonoFile(name: name ?? this.name, path: path ?? this.path);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is KemonoFile && name == other.name && path == other.path;
+
+  @override
+  int get hashCode => Object.hash(name, path);
+
+  @override
+  String toString() => 'KemonoFile${jsonEncode(toMap())}';
 
   /// 获取缩略图 URL
   String get thumbnailUrl => 'https://img.kemono.cr/thumbnail/data$path';
@@ -127,16 +151,15 @@ class KemonoPostBrief extends BaseComic {
     }
 
     String userId = json.optString('user');
-    String userName = json['user_name']?.toString() ?? '';
+    String userName = json.optString('user_name');
 
     // Discord data uses 'author' object
     if (json['author'] is Map) {
-      final author = json['author'] as Map;
-      if (userId.isEmpty) userId = author['id']?.toString() ?? '';
-      if (userName.isEmpty) userName = author['username']?.toString() ?? '';
+      final author = TypeUtil.parseMap(json['author']);
+      if (userId.isEmpty) userId = author.optString('id');
+      if (userName.isEmpty) userName = author.optString('username');
     }
 
-    if (userId.isEmpty) userId = json['user']?.toString() ?? '';
     if (userName.isEmpty) userName = userId;
 
     return KemonoPostBrief(
@@ -168,13 +191,14 @@ class KemonoPostBrief extends BaseComic {
 }
 
 /// Kemono 图集详情
+@immutable
 class KemonoPost with HistoryMixin {
   /// 图集ID
   final String id;
 
   /// 图集标题
   @override
-  String title;
+  final String title;
 
   /// 服务类型 (patreon/fanbox/fantia等)
   final String service;
@@ -183,7 +207,7 @@ class KemonoPost with HistoryMixin {
   final String userId;
 
   /// 作者名称
-  String userName;
+  final String userName;
 
   /// 主文件
   final KemonoFile? file;
@@ -203,7 +227,7 @@ class KemonoPost with HistoryMixin {
   /// 嵌入内容 (视频等)
   final List<Map<String, dynamic>> embeds;
 
-  KemonoPost({
+  const KemonoPost({
     required this.id,
     required this.title,
     required this.service,
@@ -217,49 +241,75 @@ class KemonoPost with HistoryMixin {
     required this.embeds,
   });
 
+  KemonoPost copyWith({
+    String? id,
+    String? title,
+    String? service,
+    String? userId,
+    String? userName,
+    KemonoFile? file,
+    List<KemonoFile>? attachments,
+    String? content,
+    DateTime? published,
+    DateTime? added,
+    List<Map<String, dynamic>>? embeds,
+    bool clearFile = false,
+    bool clearPublished = false,
+    bool clearAdded = false,
+  }) => KemonoPost(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    service: service ?? this.service,
+    userId: userId ?? this.userId,
+    userName: userName ?? this.userName,
+    file: clearFile ? null : file ?? this.file,
+    attachments: attachments ?? this.attachments,
+    content: content ?? this.content,
+    published: clearPublished ? null : published ?? this.published,
+    added: clearAdded ? null : added ?? this.added,
+    embeds: embeds ?? this.embeds,
+  );
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value is num) {
+      final timestamp = value.abs() < 100000000000 ? value * 1000 : value;
+      return DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
+    }
+    if (value is String && value.isNotEmpty) {
+      final numeric = num.tryParse(value);
+      if (numeric != null) return _parseDate(numeric);
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  static KemonoFile? _parseFile(dynamic value) {
+    if (value is! Map) return null;
+    final file = KemonoFile.fromJson(value);
+    return file.path.isEmpty ? null : file;
+  }
+
+  static List<KemonoFile> _parseAttachments(dynamic value) {
+    return TypeUtil.parseDynamicList(
+      value,
+    ).map(_parseFile).whereType<KemonoFile>().toList(growable: false);
+  }
+
   /// 从 JSON Map 创建 KemonoPost
   factory KemonoPost.fromJson(Map<dynamic, dynamic> json) {
-    final fileJson = json['file'];
-    KemonoFile? file;
-    if (fileJson is Map &&
-        fileJson['path'] != null &&
-        (fileJson['path'] as String).isNotEmpty) {
-      file = KemonoFile.fromJson(fileJson);
-    }
-
-    final attachmentsList = json.optDynamicList('attachments');
-    final attachments = <KemonoFile>[];
-    for (var item in attachmentsList) {
-      if (item is Map &&
-          item['path'] != null &&
-          (item['path'] as String).isNotEmpty) {
-        attachments.add(KemonoFile.fromJson(item));
-      }
-    }
+    var file = _parseFile(json['file']);
+    final attachments = _parseAttachments(json['attachments']);
 
     if (file == null && attachments.isNotEmpty && attachments.first.isImage) {
       file = attachments.first;
     }
 
-    DateTime? published;
-    final publishedStr = json.optString('published');
-    if (publishedStr.isNotEmpty) {
-      published = DateTime.tryParse(publishedStr);
-    }
+    final published = _parseDate(json['published']);
+    final added = _parseDate(json['added']);
 
-    DateTime? added;
-    final addedStr = json.optString('added');
-    if (addedStr.isNotEmpty) {
-      added = DateTime.tryParse(addedStr);
-    }
-
-    final embedsList = json.optDynamicList('embeds');
-    final embeds = <Map<String, dynamic>>[];
-    for (var item in embedsList) {
-      if (item is Map) {
-        embeds.add(Map<String, dynamic>.from(item));
-      }
-    }
+    final embeds = TypeUtil.parseDynamicList(
+      json['embeds'],
+    ).whereType<Map>().map(TypeUtil.parseMap).toList(growable: false);
 
     String title = json.optString('title');
     if (title.isEmpty) {
@@ -268,11 +318,11 @@ class KemonoPost with HistoryMixin {
     }
 
     String userId = json.optString('user');
-    String userName = json['user_name']?.toString() ?? '';
+    String userName = json.optString('user_name');
     if (json['author'] is Map) {
-      final author = json['author'] as Map;
-      if (userId.isEmpty) userId = author['id']?.toString() ?? '';
-      if (userName.isEmpty) userName = author['username']?.toString() ?? '';
+      final author = TypeUtil.parseMap(json['author']);
+      if (userId.isEmpty) userId = author.optString('id');
+      if (userName.isEmpty) userName = author.optString('username');
     }
 
     // 如果 userName 仍为空，回退使用 userId
@@ -296,6 +346,25 @@ class KemonoPost with HistoryMixin {
       embeds: embeds,
     );
   }
+
+  factory KemonoPost.fromMap(Map<String, dynamic> map) =>
+      KemonoPost.fromJson(map);
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'title': title,
+    'service': service,
+    'user': userId,
+    'user_name': userName,
+    'file': file?.toMap(),
+    'attachments': attachments.map((item) => item.toMap()).toList(),
+    'content': content,
+    'published': published?.toIso8601String(),
+    'added': added?.toIso8601String(),
+    'embeds': embeds,
+  };
+
+  Map<String, dynamic> toJson() => toMap();
 
   /// 获取所有图片URL列表 (用于阅读器)
   List<String> get imageUrls {
@@ -351,6 +420,28 @@ class KemonoPost with HistoryMixin {
 
   @override
   String get target => '$service/$userId/$id';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is KemonoPost &&
+          id == other.id &&
+          title == other.title &&
+          service == other.service &&
+          userId == other.userId &&
+          userName == other.userName &&
+          file == other.file &&
+          TypeUtil.equal(attachments, other.attachments) &&
+          content == other.content &&
+          published == other.published &&
+          added == other.added &&
+          TypeUtil.equal(embeds, other.embeds);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'KemonoPost${jsonEncode(toMap())}';
 }
 
 /// Kemono 作者简要信息

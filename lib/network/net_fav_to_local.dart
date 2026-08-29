@@ -119,7 +119,7 @@ Future startConvert<T extends Object>(
   // 是否同步网络收藏
   if (agreeSync) {
     LocalFavoritesManager().insertFolderSync(
-      FolderSync(name, key, jsonEncode(syncData)),
+      FolderSync(folderName: name, key: key, syncData: jsonEncode(syncData)),
     );
   }
   int order = 0;
@@ -184,6 +184,7 @@ void startFolderSync<T extends Object>(
         ", 上次更新时间: ".tl +
         folderSync.time,
   );
-  folderSync.time = getCurTime();
-  LocalFavoritesManager().updateFolderSyncTime(folderSync);
+  LocalFavoritesManager().updateFolderSyncTime(
+    folderSync.copyWith(time: getCurTime()),
+  );
 }

@@ -17,27 +17,36 @@ void main() {
   group('详情模型序列化', () {
     test('E-Hentai 保留评论数据', () {
       final gallery = eh.Gallery(
-        'title',
-        'Manga',
-        'time',
-        'uploader',
-        4.5,
-        '4.5',
-        'cover',
-        {
+        title: 'title',
+        type: 'Manga',
+        time: 'time',
+        uploader: 'uploader',
+        stars: 4.5,
+        rating: '4.5',
+        coverPath: 'cover',
+        tags: {
           'artist': ['author'],
         },
-        [eh.Comment('1', 'name', 'content', 'time', 2, true)],
-        {'gid': '1', 'token': 'token'},
-        true,
-        'https://e-hentai.org/g/1/token/',
-        '10',
-        10,
-        const ['thumb'],
-        'jpg',
-        100,
-        'subtitle',
-        '309.2 MiB',
+        comments: const [
+          eh.Comment(
+            id: '1',
+            name: 'name',
+            content: 'content',
+            time: 'time',
+            score: 2,
+            voteUP: true,
+          ),
+        ],
+        auth: {'gid': '1', 'token': 'token'},
+        favorite: true,
+        link: 'https://e-hentai.org/g/1/token/',
+        maxPage: '10',
+        pageSize: 10,
+        thumbnails: const ['thumb'],
+        ext: 'jpg',
+        width: 100,
+        subTitle: 'subtitle',
+        fileSize: '309.2 MiB',
       );
 
       final restored = eh.Gallery.fromJson(gallery.toJson());
@@ -49,21 +58,21 @@ void main() {
 
     test('JM 保留计数与收藏状态并兼容旧空字符串', () {
       final comic = JmComicInfo(
-        'name',
-        '1',
-        ['author'],
-        'description',
-        12,
-        34,
-        {1: '1'},
-        ['tag'],
-        ['work'],
-        ['actor'],
-        const [],
-        true,
-        true,
-        56,
-        ['EP1'],
+        name: 'name',
+        id: '1',
+        author: const ['author'],
+        description: 'description',
+        likes: 12,
+        views: 34,
+        series: const {1: '1'},
+        tags: const ['tag'],
+        works: const ['work'],
+        actors: const ['actor'],
+        relatedComics: const [],
+        liked: true,
+        favorite: true,
+        comments: 56,
+        epNames: const ['EP1'],
       );
       final restored = JmComicInfo.fromMap(comic.toJson());
       expect((restored.likes, restored.views, restored.comments), (12, 34, 56));
@@ -82,19 +91,28 @@ void main() {
 
     test('Hitomi 保留标签、关联漫画、分组和封面', () {
       final comic = HitomiComic(
-        '1',
-        'name',
-        [2],
-        'manga',
-        ['artist'],
-        'chinese',
-        [Tag('series', '/series')],
-        [Tag('character', '/character')],
-        [Tag('tag', '/tag')],
-        'time',
-        [HitomiFile('1.jpg', 'hash', true, false, 100, 100, '1')],
-        ['group'],
-        'cover',
+        id: '1',
+        name: 'name',
+        related: const [2],
+        type: 'manga',
+        artists: const ['artist'],
+        lang: 'chinese',
+        parodys: const [Tag(name: 'series', link: '/series')],
+        characters: const [Tag(name: 'character', link: '/character')],
+        tags: const [Tag(name: 'tag', link: '/tag')],
+        time: 'time',
+        files: const [
+          HitomiFile(
+            name: '1.jpg',
+            hash: 'hash',
+            hasWebp: true,
+            height: 100,
+            width: 100,
+            galleryId: '1',
+          ),
+        ],
+        group: const ['group'],
+        cover: 'cover',
       );
       final restored = HitomiComic.fromMap(comic.toMap());
       expect(restored.related, [2]);
@@ -107,19 +125,25 @@ void main() {
 
     test('Nhentai 下载记录保存完整详情并兼容旧摘要', () {
       final comic = NhentaiComic(
-        '1',
-        'title',
-        'subtitle',
-        'cover',
-        {
+        id: '1',
+        title: 'title',
+        subTitle: 'subtitle',
+        cover: 'cover',
+        tags: {
           'Tags': ['tag'],
         },
-        true,
-        ['thumb'],
-        const [
-          NhentaiComicBrief('rec', 'rec-cover', '2', 'en', ['tag']),
+        favorite: true,
+        thumbnails: const ['thumb'],
+        recommendations: const [
+          NhentaiComicBrief(
+            title: 'rec',
+            cover: 'rec-cover',
+            id: '2',
+            lang: 'en',
+            tags: ['tag'],
+          ),
         ],
-        'token',
+        token: 'token',
       );
       final restored = NhentaiDownloadedComic.fromJson(
         NhentaiDownloadedComic(comic, 1.5).toJson(),
@@ -141,28 +165,27 @@ void main() {
 
     test('通用下载记录保存详情字段并兼容旧扁平结构', () {
       const suggestion = ComicInfoSuggestion(
-        'suggestion',
-        'sub',
-        'cover2',
-        '2',
-        ['tag2'],
-        'description2',
+        title: 'suggestion',
+        subTitle: 'sub',
+        cover: 'cover2',
+        id: '2',
+        tags: ['tag2'],
+        description: 'description2',
       );
       const comic = ComicInfoData(
-        'title',
-        'subtitle',
-        'cover',
-        'description',
-        {
+        title: 'title',
+        subTitle: 'subtitle',
+        cover: 'cover',
+        description: 'description',
+        tags: {
           'Group': ['tag'],
         },
-        {'1': 'EP1'},
-        ['thumb'],
-        null,
-        2,
-        [suggestion],
-        'source',
-        '1',
+        chapters: const {'1': 'EP1'},
+        thumbnails: const ['thumb'],
+        thumbnailMaxPage: 2,
+        suggestions: const [suggestion],
+        sourceKey: 'source',
+        comicId: '1',
         subId: 'sub-id',
       );
       final item = CustomDownloadedItem(1, [0], 'source-1', comic, 'Source');

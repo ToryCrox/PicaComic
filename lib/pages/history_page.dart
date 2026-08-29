@@ -158,14 +158,13 @@ class _HistoryPageState extends State<HistoryPage> {
         i,
       ) {
         final comic = ComicItemBrief(
-          comics_[i].title,
-          comics_[i].subtitle,
-          0,
-          comics_[i].cover != ""
+          title: comics_[i].title,
+          author: comics_[i].subtitle,
+          path: comics_[i].cover != ""
               ? comics_[i].cover
               : getJmCoverUrl(comics_[i].target),
-          comics_[i].target,
-          [],
+          id: comics_[i].target,
+          tags: const [],
         );
         return NormalComicTile(
           key: Key(comics_[i].target),

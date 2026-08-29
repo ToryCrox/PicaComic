@@ -13,6 +13,7 @@ import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/tools/type_util.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
@@ -79,10 +80,7 @@ class DownloadManager extends ChangeNotifier {
   /// 封面文件名只依赖来源和下载 ID，因此漫画目录重命名不会影响封面路径。
   String? getCoverPath(String id, DownloadType type) {
     if (path == null) return null;
-    final fileName = buildDownloadCoverFileName(
-      sourceKey: type.name,
-      id: id,
-    );
+    final fileName = buildDownloadCoverFileName(sourceKey: type.name, id: id);
     return Path.join(coversPath, fileName);
   }
 
@@ -585,9 +583,9 @@ class DownloadManager extends ChangeNotifier {
 
     // 同步更新或新增 Signal
     final newItem = LocalFavoriteItem(
-      path,
-      sortOrder,
-      DateTime.now().millisecondsSinceEpoch,
+      path: path,
+      sortOrder: sortOrder,
+      time: DateTime.now().millisecondsSinceEpoch,
     );
     if (localFavoriteCache.containsKey(path)) {
       localFavoriteCache[path]!.value = newItem;
@@ -603,10 +601,8 @@ class DownloadManager extends ChangeNotifier {
     if (localFavoriteCache.containsKey(path)) {
       final oldItem = localFavoriteCache[path]!.value;
       if (oldItem != null) {
-        localFavoriteCache[path]!.value = LocalFavoriteItem(
-          path,
-          sortOrder,
-          oldItem.time,
+        localFavoriteCache[path]!.value = oldItem.copyWith(
+          sortOrder: sortOrder,
         );
       } else {
         _enqueueFavoriteQuery(path);
@@ -922,9 +918,7 @@ class DownloadManager extends ChangeNotifier {
     if (_downloadedFileName["$id$ep$index"] == null) {
       throw Exception("File not found");
     }
-    return File(
-      Path.join(downloadPath, _downloadedFileName["$id$ep$index"]!),
-    );
+    return File(Path.join(downloadPath, _downloadedFileName["$id$ep$index"]!));
   }
 
   static final _downloadedFileName = <String, String>{};
@@ -936,7 +930,8 @@ class DownloadManager extends ChangeNotifier {
 
   Future<File> getCover(String id) async {
     final item = await getComicOrNull(id);
-    final coverPath = item?.coverPath ??
+    final coverPath =
+        item?.coverPath ??
         getCoverPath(id, item?.type ?? _inferDownloadType(id));
     return File(coverPath ?? '');
   }
@@ -2519,13 +2514,24 @@ class LocalFavoriteItem {
   final int sortOrder;
   final int time;
 
-  LocalFavoriteItem(this.path, this.sortOrder, this.time);
+  const LocalFavoriteItem({
+    required this.path,
+    required this.sortOrder,
+    required this.time,
+  });
+
+  LocalFavoriteItem copyWith({String? path, int? sortOrder, int? time}) =>
+      LocalFavoriteItem(
+        path: path ?? this.path,
+        sortOrder: sortOrder ?? this.sortOrder,
+        time: time ?? this.time,
+      );
 
   factory LocalFavoriteItem.fromMap(Map<String, dynamic> map) {
     return LocalFavoriteItem(
-      TypeUtil.parseString(map[kLocalFavoritePath]),
-      TypeUtil.parseInt(map[kLocalFavoriteSortOrder]),
-      TypeUtil.parseInt(map[kLocalFavoriteTime]),
+      path: map.optString(kLocalFavoritePath),
+      sortOrder: map.optInt(kLocalFavoriteSortOrder),
+      time: map.optInt(kLocalFavoriteTime),
     );
   }
 
@@ -2536,4 +2542,23 @@ class LocalFavoriteItem {
       kLocalFavoriteTime: time,
     };
   }
+
+  factory LocalFavoriteItem.fromJson(Map<String, dynamic> json) =>
+      LocalFavoriteItem.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LocalFavoriteItem &&
+          path == other.path &&
+          sortOrder == other.sortOrder &&
+          time == other.time;
+
+  @override
+  int get hashCode => Object.hash(path, sortOrder, time);
+
+  @override
+  String toString() => 'LocalFavoriteItem${toMap()}';
 }

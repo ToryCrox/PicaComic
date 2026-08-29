@@ -13,6 +13,7 @@ import 'package:pica_comic/foundation/app.dart';
 import '../foundation/history.dart';
 import '../foundation/log.dart';
 import '../tools/extensions.dart';
+import '../tools/map_extension.dart';
 import '../tools/type_util.dart';
 import '../base.dart';
 import '../network/base_comic.dart';
@@ -169,7 +170,7 @@ class ComicSource {
   Future<void> loadData() async {
     var file = File("${App.dataPath}/comic_source/$key.data");
     if (await file.exists()) {
-      data = Map.from(jsonDecode(await file.readAsString()));
+      data = TypeUtil.parseMap(jsonDecode(await file.readAsString()));
     }
   }
 
@@ -482,22 +483,71 @@ class ComicInfoSuggestion extends BaseComic {
   @override
   final String description;
 
-  const ComicInfoSuggestion(
-    this.title,
-    this.subTitle,
-    this.cover,
-    this.id,
-    this.tags,
-    this.description,
+  const ComicInfoSuggestion({
+    this.title = '',
+    this.subTitle = '',
+    this.cover = '',
+    this.id = '',
+    this.tags = const [],
+    this.description = '',
+  });
+
+  ComicInfoSuggestion copyWith({
+    String? title,
+    String? subTitle,
+    String? cover,
+    String? id,
+    List<String>? tags,
+    String? description,
+  }) => ComicInfoSuggestion(
+    title: title ?? this.title,
+    subTitle: subTitle ?? this.subTitle,
+    cover: cover ?? this.cover,
+    id: id ?? this.id,
+    tags: tags ?? this.tags,
+    description: description ?? this.description,
   );
 
-  ComicInfoSuggestion.fromJson(Map<String, dynamic> json)
-    : title = json["title"],
-      subTitle = json["subTitle"] ?? "",
-      cover = json["cover"],
-      id = json["id"],
-      tags = List<String>.from(json["tags"] ?? []),
-      description = json["description"] ?? "";
+  factory ComicInfoSuggestion.fromMap(Map<String, dynamic> map) =>
+      ComicInfoSuggestion(
+        title: map.optString('title'),
+        subTitle: map.optString('subTitle'),
+        cover: map.optString('cover'),
+        id: map.optString('id'),
+        tags: map.optStringList('tags'),
+        description: map.optString('description'),
+      );
+
+  Map<String, dynamic> toMap() => {
+    'title': title,
+    'subTitle': subTitle,
+    'cover': cover,
+    'id': id,
+    'tags': tags,
+    'description': description,
+  };
+
+  factory ComicInfoSuggestion.fromJson(Map<String, dynamic> json) =>
+      ComicInfoSuggestion.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ComicInfoSuggestion &&
+          title == other.title &&
+          subTitle == other.subTitle &&
+          cover == other.cover &&
+          id == other.id &&
+          TypeUtil.equal(tags, other.tags) &&
+          description == other.description;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'ComicInfoSuggestion${jsonEncode(toMap())}';
 }
 
 class ComicInfoData with HistoryMixin {
@@ -534,24 +584,68 @@ class ComicInfoData with HistoryMixin {
 
   final String? subId;
 
-  const ComicInfoData(
-    this.title,
+  const ComicInfoData({
+    this.title = '',
     this.subTitle,
-    this.cover,
+    this.cover = '',
     this.description,
-    this.tags,
+    this.tags = const {},
     this.chapters,
     this.thumbnails,
     this.thumbnailLoader,
-    this.thumbnailMaxPage,
+    this.thumbnailMaxPage = 0,
     this.suggestions,
-    this.sourceKey,
-    this.comicId, {
+    this.sourceKey = '',
+    this.comicId = '',
     this.isFavorite,
     this.subId,
   });
 
-  Map<String, dynamic> toJson() {
+  ComicInfoData copyWith({
+    String? title,
+    String? subTitle,
+    String? cover,
+    String? description,
+    Map<String, List<String>>? tags,
+    Map<String, String>? chapters,
+    List<String>? thumbnails,
+    Future<Res<List<String>>> Function(String id, int page)? thumbnailLoader,
+    int? thumbnailMaxPage,
+    List<BaseComic>? suggestions,
+    String? sourceKey,
+    String? comicId,
+    bool? isFavorite,
+    String? subId,
+    bool clearSubTitle = false,
+    bool clearDescription = false,
+    bool clearChapters = false,
+    bool clearThumbnails = false,
+    bool clearThumbnailLoader = false,
+    bool clearSuggestions = false,
+    bool clearIsFavorite = false,
+    bool clearSubId = false,
+  }) {
+    return ComicInfoData(
+      title: title ?? this.title,
+      subTitle: clearSubTitle ? null : subTitle ?? this.subTitle,
+      cover: cover ?? this.cover,
+      description: clearDescription ? null : description ?? this.description,
+      tags: tags ?? this.tags,
+      chapters: clearChapters ? null : chapters ?? this.chapters,
+      thumbnails: clearThumbnails ? null : thumbnails ?? this.thumbnails,
+      thumbnailLoader: clearThumbnailLoader
+          ? null
+          : thumbnailLoader ?? this.thumbnailLoader,
+      thumbnailMaxPage: thumbnailMaxPage ?? this.thumbnailMaxPage,
+      suggestions: clearSuggestions ? null : suggestions ?? this.suggestions,
+      sourceKey: sourceKey ?? this.sourceKey,
+      comicId: comicId ?? this.comicId,
+      isFavorite: clearIsFavorite ? null : isFavorite ?? this.isFavorite,
+      subId: clearSubId ? null : subId ?? this.subId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
     return {
       "title": title,
       "subTitle": subTitle,
@@ -580,47 +674,79 @@ class ComicInfoData with HistoryMixin {
     };
   }
 
+  Map<String, dynamic> toJson() => toMap();
+
   static Map<String, List<String>> _generateMap(Map<String, dynamic> map) {
-    var res = <String, List<String>>{};
+    final res = <String, List<String>>{};
     map.forEach((key, value) {
-      res[key] = List<String>.from(value);
+      res[key] = TypeUtil.parseStringList(value);
     });
     return res;
   }
 
-  ComicInfoData.fromJson(Map<String, dynamic> json)
-    : title = json["title"],
-      subTitle = json["subTitle"],
-      cover = json["cover"],
-      description = json["description"],
-      tags = _generateMap(Map<String, dynamic>.from(json["tags"] ?? {})),
-      chapters = json["chapters"] == null
+  factory ComicInfoData.fromMap(Map<String, dynamic> map) {
+    final chaptersMap = map.optMapOrNull('chapters');
+    final suggestionsValue = map['suggestions'];
+    return ComicInfoData(
+      title: map.optString('title'),
+      subTitle: map.optStringOrNull('subTitle'),
+      cover: map.optString('cover'),
+      description: map.optStringOrNull('description'),
+      tags: _generateMap(map.optMap('tags')),
+      chapters: chaptersMap == null
           ? null
-          : Map<String, String>.from(json["chapters"]),
-      sourceKey = json["sourceKey"],
-      comicId = json["comicId"],
-      thumbnails = json["thumbnails"] == null
+          : chaptersMap.map(
+              (key, value) => MapEntry(key, TypeUtil.parseString(value)),
+            ),
+      sourceKey: map.optString('sourceKey'),
+      comicId: map.optString('comicId'),
+      thumbnails: map['thumbnails'] == null
           ? null
-          : List<String>.from(json["thumbnails"]),
-      thumbnailLoader = null,
-      thumbnailMaxPage = TypeUtil.parseInt(json["thumbnailMaxPage"]),
-      suggestions = json["suggestions"] == null
+          : map.optStringList('thumbnails'),
+      thumbnailMaxPage: map.optInt('thumbnailMaxPage'),
+      suggestions: suggestionsValue == null
           ? null
-          : (json["suggestions"] as List)
-                .map(
-                  (e) => ComicInfoSuggestion.fromJson(
-                    Map<String, dynamic>.from(e),
-                  ),
-                )
-                .toList(),
-      isFavorite = json["isFavorite"],
-      subId = json["subId"];
+          : map.optList(
+              'suggestions',
+              (item) => ComicInfoSuggestion.fromMap(item),
+            ),
+      isFavorite: map.optBoolOrNull('isFavorite'),
+      subId: map.optStringOrNull('subId'),
+    );
+  }
+
+  factory ComicInfoData.fromJson(Map<String, dynamic> json) =>
+      ComicInfoData.fromMap(json);
 
   @override
   HistoryType get historyType => HistoryType(sourceKey.hashCode);
 
   @override
   String get target => comicId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ComicInfoData &&
+          title == other.title &&
+          subTitle == other.subTitle &&
+          cover == other.cover &&
+          description == other.description &&
+          TypeUtil.equal(tags, other.tags) &&
+          TypeUtil.equal(chapters, other.chapters) &&
+          TypeUtil.equal(thumbnails, other.thumbnails) &&
+          thumbnailMaxPage == other.thumbnailMaxPage &&
+          TypeUtil.equal(suggestions, other.suggestions) &&
+          sourceKey == other.sourceKey &&
+          comicId == other.comicId &&
+          isFavorite == other.isFavorite &&
+          subId == other.subId;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'ComicInfoData${jsonEncode(toMap())}';
 }
 
 typedef CategoryComicsLoader =

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
@@ -389,14 +391,17 @@ class LocalComicModel {
 
   factory LocalComicModel.fromMap(Map<String, dynamic> map) {
     return LocalComicModel(
-      path: TypeUtil.parseString(map['path']),
-      title: TypeUtil.parseString(map['title']),
-      subtitle: TypeUtil.parseString(map['subtitle']),
-      json: TypeUtil.parseMap(map['json']),
-      size: TypeUtil.parseDouble(map['size']),
-      cover: TypeUtil.parseString(map['cover']),
+      path: map.optString('path'),
+      title: map.optString('title'),
+      subtitle: map.optString('subtitle'),
+      json: map.optMap('json'),
+      size: map.optDouble('size'),
+      cover: map.optString('cover'),
     );
   }
+
+  factory LocalComicModel.fromJson(Map<String, dynamic> json) =>
+      LocalComicModel.fromMap(json);
 
   Map<String, dynamic> toMap() => {
     'path': path,
@@ -406,6 +411,8 @@ class LocalComicModel {
     'size': size,
     'cover': cover,
   };
+
+  Map<String, dynamic> toJson() => toMap();
 
   LocalComicModel copyWith({
     String? path,
@@ -422,4 +429,21 @@ class LocalComicModel {
     size: size ?? this.size,
     cover: cover ?? this.cover,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LocalComicModel &&
+          path == other.path &&
+          title == other.title &&
+          subtitle == other.subtitle &&
+          TypeUtil.equal(json, other.json) &&
+          size == other.size &&
+          cover == other.cover;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'LocalComicModel${jsonEncode(toMap())}';
 }

@@ -52,7 +52,7 @@ class _RatingDialogState extends State<_RatingDialog> {
     setState(() => _running = true);
     try {
       final success = await EhNetwork().rateGallery(
-        widget.data.auth!,
+        widget.data.auth,
         _rating.toInt(),
       );
       if (!mounted) return;
@@ -211,21 +211,21 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   ThumbnailsData? createThumbnails(Gallery data) {
-    if (data.auth?["thumbnailKey"] != null &&
-        data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
+    if (data.auth["thumbnailKey"] != null &&
+        data.auth["thumbnailKey"]!.startsWith("large thumbnail")) {
       return ThumbnailsData(
         data.thumbnails,
         (page) => EhNetwork().getThumbnails(data, page),
-        int.tryParse(data.auth!["thumbnailKey"]!.nums) ?? 1,
+        int.tryParse(data.auth["thumbnailKey"]!.nums) ?? 1,
       );
     }
     return ThumbnailsData(
       List.generate(
         min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
-        (_) => data.auth!["thumbnailKey"]!.split(" ")[0],
+        (_) => data.auth["thumbnailKey"]!.split(" ")[0],
       ),
       (page) => EhNetwork().getThumbnails(data, page),
-      int.tryParse(data.auth!["thumbnailKey"]!.split(" ")[1]) ?? 1,
+      int.tryParse(data.auth["thumbnailKey"]!.split(" ")[1]) ?? 1,
     );
   }
 
@@ -245,8 +245,8 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       );
     }
     imageUrl = imageUrl.replaceAll("s.exhentai.org", "ehgt.org");
-    if (data.auth?["thumbnailKey"] != null &&
-        data.auth!["thumbnailKey"]!.startsWith("large thumbnail")) {
+    if (data.auth["thumbnailKey"] != null &&
+        data.auth["thumbnailKey"]!.startsWith("large thumbnail")) {
       return PicaImage(
         url: imageUrl,
         headers: {"sourceKey": comicType.name, "isThumbnail": "true"},
@@ -311,12 +311,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await EhNetwork().favorite(
-            data.auth!["gid"]!,
-            data.auth!["token"]!,
+            data.auth["gid"]!,
+            data.auth["token"]!,
             id: EhNetwork().folderNames.indexOf(folder).toString(),
           );
           if (res) {
-            data.favorite = true;
+            data = data.copyWith(favorite: true);
+            bridge.updateData(data);
+            bridge.updateState();
             return const Res(true);
           }
           return Res.error("网络错误".tl);
@@ -329,11 +331,13 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       },
       cancelPlatformFavorite: () async {
         var res = await EhNetwork().unfavorite(
-          data.auth!["gid"]!,
-          data.auth!["token"]!,
+          data.auth["gid"]!,
+          data.auth["token"]!,
         );
         if (res) {
-          data.favorite = false;
+          data = data.copyWith(favorite: false);
+          bridge.updateData(data);
+          bridge.updateState();
           return const Res(true);
         }
         return Res.error("网络错误".tl);
@@ -353,16 +357,15 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
 
   @override
   ActionFunc? openComments(Gallery data, BuildContext context) => () {
-    showComments(
-      App.globalContext!,
-      data.link ?? '',
-      data.uploader,
-      data.auth ?? {},
-    );
+    showComments(App.globalContext!, data.link ?? '', data.uploader, data.auth);
   };
 
   @override
-  ActionFunc? onLike(Gallery data, BuildContext context) => null;
+  ActionFunc? onLike(
+    Gallery data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
   @override
   bool isLiked(Gallery data) => false;
 
@@ -512,14 +515,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
         child: StatefulBuilder(
           builder: (ctx, setState) {
             void load() async {
-              if (data.auth?["archiveDownload"] == null) return;
+              if (data.auth["archiveDownload"] == null) return;
               Res<ArchiveDownloadInfo> res;
               if (cancelUnlock) {
                 cancelUnlock = false;
                 res = await EhNetwork().cancelAndReloadArchiveInfo(info!);
               } else {
                 res = await EhNetwork().getArchiveDownloadInfo(
-                  data.auth!["archiveDownload"]!,
+                  data.auth["archiveDownload"]!,
                 );
               }
               if (res.error) {

@@ -84,11 +84,7 @@ class EhCommentsState {
 }
 
 /// E-Hentai 评论 Provider。
-@Riverpod(
-  keepAlive: false,
-  retry: _noRetry,
-  name: 'ehCommentsProvider',
-)
+@Riverpod(keepAlive: false, retry: _noRetry, name: 'ehCommentsProvider')
 class EhComments extends _$EhComments {
   late String _url;
   late EhCommentsRepository _repository;
@@ -123,8 +119,11 @@ class EhComments extends _$EhComments {
 
       final comment = comments[index];
       final isCancel = comment.voteUP == isUp;
-      comment.voteUP = isCancel ? null : isUp;
-      comment.score = res.data;
+      comments[index] = comment.copyWith(
+        voteUP: isCancel ? null : isUp,
+        clearVoteUP: isCancel,
+        score: res.data,
+      );
       state = AsyncData(
         current.copyWith(comments: List.unmodifiable(comments)),
       );
@@ -154,12 +153,9 @@ class EhComments extends _$EhComments {
       final comments = List<Comment>.from(latest.comments)
         ..add(
           Comment(
-            '',
-            _repository.currentUserName,
-            text,
-            DateTime.now().toIso8601String(),
-            0,
-            null,
+            name: _repository.currentUserName,
+            content: text,
+            time: DateTime.now().toIso8601String(),
           ),
         );
       state = AsyncData(

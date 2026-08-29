@@ -8,6 +8,7 @@ import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/http_client.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 import 'dart:io';
 import 'eh_main_network.dart';
@@ -134,7 +135,7 @@ class EhDownloadingTask extends DownloadingTask {
     // 创建 gallery 的副本，移除可能过期的认证信息
     final galleryJson = gallery.toJson();
     if (galleryJson['auth'] != null) {
-      final auth = Map<String, dynamic>.from(galleryJson['auth']);
+      final auth = <String, dynamic>{...TypeUtil.parseMap(galleryJson['auth'])};
       // 移除会过期的字段，避免下次恢复时使用过期的认证
       auth.remove('showKey');
       auth.remove('mpvKey');
@@ -161,14 +162,12 @@ class EhDownloadingTask extends DownloadingTask {
     await super.onStart();
 
     // 彻底重置所有认证相关的状态，确保从保存数据恢复时不会使用过期的认证
-    if (gallery.auth != null) {
-      gallery.auth!.remove("showKey");
-      gallery.auth!.remove("mpvKey");
-      gallery.auth!.remove("imgKey");
-      // 确保没有留下 "loading" 状态，防止死锁
-      if (gallery.auth!["showKey"] == "loading") {
-        gallery.auth!.remove("showKey");
-      }
+    gallery.auth.remove("showKey");
+    gallery.auth.remove("mpvKey");
+    gallery.auth.remove("imgKey");
+    // 确保没有留下 "loading" 状态，防止死锁
+    if (gallery.auth["showKey"] == "loading") {
+      gallery.auth.remove("showKey");
     }
 
     // 清除图片缓存，强制重新获取新的图片链接
@@ -221,12 +220,12 @@ class EhDownloadingTask extends DownloadingTask {
       _stop = false;
       try {
         await downloadCover();
-        if (gallery.auth?["archiveDownload"] == null) {
+        if (gallery.auth["archiveDownload"] == null) {
           throw "No archive download link";
         }
         if (_downloadLink == null) {
           var res = await EhNetwork().getArchiveDownloadLink(
-            gallery.auth!["archiveDownload"]!,
+            gallery.auth["archiveDownload"]!,
             downloadType,
           );
           if (_stop) {

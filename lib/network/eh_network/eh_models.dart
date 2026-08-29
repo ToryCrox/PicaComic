@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/tools/map_extension.dart';
@@ -5,28 +7,104 @@ import 'package:pica_comic/tools/type_util.dart';
 
 class EhGalleryBrief extends BaseComic {
   @override
-  String title;
-  String type;
-  String time;
-  String uploader;
-  double stars; //0-5
-  String coverPath;
-  String link;
+  final String title;
+  final String type;
+  final String time;
+  final String uploader;
+  final double stars; //0-5
+  final String coverPath;
+  final String link;
   @override
-  List<String> tags;
-  int? pages;
+  final List<String> tags;
+  final int? pages;
 
-  EhGalleryBrief(
-    this.title,
-    this.type,
-    this.time,
-    this.uploader,
-    this.coverPath,
-    this.stars,
-    this.link,
-    this.tags, {
+  const EhGalleryBrief({
+    this.title = '',
+    this.type = '',
+    this.time = '',
+    this.uploader = '',
+    this.coverPath = '',
+    this.stars = 0,
+    this.link = '',
+    this.tags = const [],
     this.pages,
   });
+
+  EhGalleryBrief copyWith({
+    String? title,
+    String? type,
+    String? time,
+    String? uploader,
+    String? coverPath,
+    double? stars,
+    String? link,
+    List<String>? tags,
+    int? pages,
+    bool clearPages = false,
+  }) {
+    return EhGalleryBrief(
+      title: title ?? this.title,
+      type: type ?? this.type,
+      time: time ?? this.time,
+      uploader: uploader ?? this.uploader,
+      coverPath: coverPath ?? this.coverPath,
+      stars: stars ?? this.stars,
+      link: link ?? this.link,
+      tags: tags ?? this.tags,
+      pages: clearPages ? null : pages ?? this.pages,
+    );
+  }
+
+  factory EhGalleryBrief.fromMap(Map<String, dynamic> map) {
+    return EhGalleryBrief(
+      title: map.optString('title'),
+      type: map.optString('type'),
+      time: map.optString('time'),
+      uploader: map.optString('uploader'),
+      stars: map.optDouble('stars'),
+      coverPath: map.optString('coverPath'),
+      link: map.optString('link'),
+      tags: map.optStringList('tags'),
+      pages: map.optIntOrNull('pages'),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'title': title,
+    'type': type,
+    'time': time,
+    'uploader': uploader,
+    'stars': stars,
+    'coverPath': coverPath,
+    'tags': tags,
+    'link': link,
+    'pages': pages,
+  };
+
+  factory EhGalleryBrief.fromJson(Map<String, dynamic> json) =>
+      EhGalleryBrief.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EhGalleryBrief &&
+          title == other.title &&
+          type == other.type &&
+          time == other.time &&
+          uploader == other.uploader &&
+          stars == other.stars &&
+          coverPath == other.coverPath &&
+          link == other.link &&
+          TypeUtil.equal(tags, other.tags) &&
+          pages == other.pages;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'EhGalleryBrief${jsonEncode(toMap())}';
 
   @override
   String get cover => coverPath;
@@ -42,68 +120,107 @@ class EhGalleryBrief extends BaseComic {
 
   @override
   bool get enableTagsTranslation => true;
-
-  EhGalleryBrief.fromJson(Map<String, dynamic> json)
-    : title = json.optString('title'),
-      type = json.optString('type'),
-      time = json.optString('time'),
-      uploader = json.optString('uploader'),
-      stars = json.optDouble('stars'),
-      coverPath = json.optString('coverPath'),
-      tags = json.optStringList('tags'),
-      link = json.optString('link'),
-      pages = json.optInt('pages');
-
-  Map<String, dynamic> toJson() {
-    return {
-      "title": title,
-      "type": type,
-      "time": time,
-      "uploader": uploader,
-      "stars": stars,
-      "coverPath": coverPath,
-      "tags": tags,
-      "link": link,
-      "pages": pages,
-    };
-  }
 }
 
 class Galleries {
-  List<EhGalleryBrief> galleries = [];
-  String? next; //下一页的链接
+  final List<EhGalleryBrief> galleries;
+  final String? next; //下一页的链接
   EhGalleryBrief operator [](int index) => galleries[index];
   int get length => galleries.length;
 
-  Galleries();
+  const Galleries({this.galleries = const [], this.next});
 
-  Galleries.fromJson(Map<String, dynamic> json)
-    : galleries = json
-          .optMapList('galleries')
-          .map((e) => EhGalleryBrief.fromJson(e))
-          .toList(),
-      next = json.optString('next');
-
-  Map<String, dynamic> toJson() {
-    return {
-      "galleries": galleries.map((e) => e.toJson()).toList(),
-      "next": next,
-    };
+  Galleries copyWith({
+    List<EhGalleryBrief>? galleries,
+    String? next,
+    bool clearNext = false,
+  }) {
+    return Galleries(
+      galleries: galleries ?? this.galleries,
+      next: clearNext ? null : next ?? this.next,
+    );
   }
+
+  factory Galleries.fromMap(Map<String, dynamic> map) {
+    return Galleries(
+      galleries: List.unmodifiable(
+        map.optMapList('galleries').map(EhGalleryBrief.fromMap),
+      ),
+      next: map.optStringOrNull('next'),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'galleries': galleries.map((e) => e.toMap()).toList(),
+    'next': next,
+  };
+
+  factory Galleries.fromJson(Map<String, dynamic> json) =>
+      Galleries.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Galleries &&
+          TypeUtil.equal(galleries, other.galleries) &&
+          next == other.next;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'Galleries${jsonEncode(toMap())}';
 }
 
 class Comment {
-  String id;
-  String name;
-  String content;
-  String time;
-  int score;
+  final String id;
+  final String name;
+  final String content;
+  final String time;
+  final int score;
   // true: up, false: down, null: not voted
-  bool? voteUP;
+  final bool? voteUP;
 
-  Comment(this.id, this.name, this.content, this.time, this.score, this.voteUP);
+  const Comment({
+    this.id = '',
+    this.name = '',
+    this.content = '',
+    this.time = '',
+    this.score = 0,
+    this.voteUP,
+  });
 
-  Map<String, dynamic> toJson() => {
+  Comment copyWith({
+    String? id,
+    String? name,
+    String? content,
+    String? time,
+    int? score,
+    bool? voteUP,
+    bool clearVoteUP = false,
+  }) {
+    return Comment(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      content: content ?? this.content,
+      time: time ?? this.time,
+      score: score ?? this.score,
+      voteUP: clearVoteUP ? null : voteUP ?? this.voteUP,
+    );
+  }
+
+  factory Comment.fromMap(Map<String, dynamic> map) => Comment(
+    id: map.optString('id'),
+    name: map.optString('name'),
+    content: map.optString('content'),
+    time: map.optString('time'),
+    score: map.optInt('score'),
+    voteUP: map.optBoolOrNull('voteUP'),
+  );
+
+  Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
     'content': content,
@@ -112,40 +229,53 @@ class Comment {
     'voteUP': voteUP,
   };
 
-  Comment.fromJson(Map<String, dynamic> json)
-    : id = json['id'],
-      name = json['name'],
-      content = json['content'],
-      time = json['time'],
-      score = json['score'],
-      voteUP = json['voteUP'];
+  factory Comment.fromJson(Map<String, dynamic> json) => Comment.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Comment &&
+          id == other.id &&
+          name == other.name &&
+          content == other.content &&
+          time == other.time &&
+          score == other.score &&
+          voteUP == other.voteUP;
+
+  @override
+  int get hashCode => Object.hash(id, name, content, time, score, voteUP);
+
+  @override
+  String toString() => 'Comment${jsonEncode(toMap())}';
 }
 
 class Gallery with HistoryMixin {
   @override
-  String title;
+  final String title;
   @override
-  String? subTitle;
-  String type;
-  String time;
-  String uploader;
-  double stars;
-  String? rating;
-  String coverPath;
-  Map<String, List<String>> tags;
-  List<Comment> comments = [];
+  final String? subTitle;
+  final String type;
+  final String time;
+  final String uploader;
+  final double stars;
+  final String? rating;
+  final String coverPath;
+  final Map<String, List<String>> tags;
+  final List<Comment> comments;
 
   /// api身份验证信息
-  Map<String, String>? auth;
-  bool favorite;
-  String link;
+  final Map<String, String> auth;
+  final bool favorite;
+  final String link;
   @override
-  String maxPage;
-  int pageSize;
-  List<String> thumbnails;
-  String ext;
-  int width;
-  String fileSize;
+  final String maxPage;
+  final int pageSize;
+  final List<String> thumbnails;
+  final String ext;
+  final int width;
+  final String fileSize;
 
   List<String> _generateTags() {
     var res = <String>[];
@@ -157,85 +287,171 @@ class Gallery with HistoryMixin {
     return res;
   }
 
-  EhGalleryBrief toBrief() => EhGalleryBrief(
-    title,
-    type,
-    time,
-    uploader,
-    coverPath,
-    stars,
-    link,
-    _generateTags(),
-  );
+  Gallery({
+    this.title = '',
+    this.subTitle,
+    this.type = '',
+    this.time = '',
+    this.uploader = '',
+    this.stars = 0,
+    this.rating,
+    this.coverPath = '',
+    this.tags = const {},
+    this.comments = const [],
+    Map<String, String>? auth,
+    this.favorite = false,
+    this.link = '',
+    this.maxPage = '',
+    this.pageSize = 20,
+    this.thumbnails = const [],
+    this.ext = 'jpg',
+    this.width = 100,
+    this.fileSize = '',
+  }) : auth = Map.of(auth ?? const {});
 
-  Map<String, dynamic> toJson() {
-    return {
-      "title": title,
-      "subTitle": subTitle,
-      "type": type,
-      "time": time,
-      "uploader": uploader,
-      "stars": stars,
-      "rating": rating,
-      "coverPath": coverPath,
-      "tags": tags,
-      "favorite": favorite,
-      "link": link,
-      "maxPage": maxPage,
-      "pageSize": pageSize,
-      "ext": ext,
-      'width': width,
-      'fileSize': fileSize,
-      'thumbnails': thumbnails,
-      "auth": auth,
-      'comments': comments.map((comment) => comment.toJson()).toList(),
-    };
+  Gallery copyWith({
+    String? title,
+    String? subTitle,
+    String? type,
+    String? time,
+    String? uploader,
+    double? stars,
+    String? rating,
+    String? coverPath,
+    Map<String, List<String>>? tags,
+    List<Comment>? comments,
+    Map<String, String>? auth,
+    bool? favorite,
+    String? link,
+    String? maxPage,
+    int? pageSize,
+    List<String>? thumbnails,
+    String? ext,
+    int? width,
+    String? fileSize,
+    bool clearSubTitle = false,
+    bool clearRating = false,
+    bool clearAuth = false,
+  }) {
+    return Gallery(
+      title: title ?? this.title,
+      subTitle: clearSubTitle ? null : subTitle ?? this.subTitle,
+      type: type ?? this.type,
+      time: time ?? this.time,
+      uploader: uploader ?? this.uploader,
+      stars: stars ?? this.stars,
+      rating: clearRating ? null : rating ?? this.rating,
+      coverPath: coverPath ?? this.coverPath,
+      tags: tags ?? this.tags,
+      comments: comments ?? this.comments,
+      auth: clearAuth ? null : auth ?? this.auth,
+      favorite: favorite ?? this.favorite,
+      link: link ?? this.link,
+      maxPage: maxPage ?? this.maxPage,
+      pageSize: pageSize ?? this.pageSize,
+      thumbnails: thumbnails ?? this.thumbnails,
+      ext: ext ?? this.ext,
+      width: width ?? this.width,
+      fileSize: fileSize ?? this.fileSize,
+    );
   }
 
-  Gallery.fromJson(Map<String, dynamic> json)
-    : title = json["title"],
-      type = json["type"],
-      time = json["time"],
-      uploader = json["uploader"],
-      subTitle = json["subTitle"],
-      stars = json["stars"],
-      rating = json["rating"],
-      coverPath = json["coverPath"],
-      tags = json
-          .optMap('tags')
-          .map((k, v) => MapEntry(k, TypeUtil.parseStringList(v))),
-      favorite = json["favorite"],
-      link = json["link"],
-      maxPage = json["maxPage"],
-      pageSize = json["pageSize"] ?? 20,
-      thumbnails = json.optStringList('thumbnails'),
-      ext = json["ext"] ?? "jpg",
-      width = json["width"] ?? 100,
-      fileSize = json["fileSize"] ?? "",
-      auth = json.optMap('auth').map((k, v) => MapEntry(k, v)),
-      comments = json.optList('comments', (e) => Comment.fromJson(e));
+  factory Gallery.fromMap(Map<String, dynamic> map) {
+    final tags = map
+        .optMap('tags')
+        .map((key, value) => MapEntry(key, TypeUtil.parseStringList(value)));
+    final authMap = map.optMapOrNull('auth');
+    return Gallery(
+      title: map.optString('title'),
+      type: map.optString('type'),
+      time: map.optString('time'),
+      uploader: map.optString('uploader'),
+      subTitle: map.optStringOrNull('subTitle'),
+      stars: map.optDouble('stars'),
+      rating: map.optStringOrNull('rating'),
+      coverPath: map.optString('coverPath'),
+      tags: tags,
+      favorite: map.optBool('favorite'),
+      link: map.optString('link'),
+      maxPage: map.optString('maxPage'),
+      pageSize: map.optInt('pageSize', 20),
+      thumbnails: map.optStringList('thumbnails'),
+      ext: map.optString('ext', 'jpg'),
+      width: map.optInt('width', 100),
+      fileSize: map.optString('fileSize'),
+      auth: authMap?.map(
+        (key, value) => MapEntry(key, TypeUtil.parseString(value)),
+      ),
+      comments: map.optList('comments', (item) => Comment.fromMap(item)),
+    );
+  }
 
-  Gallery(
-    this.title,
-    this.type,
-    this.time,
-    this.uploader,
-    this.stars,
-    this.rating,
-    this.coverPath,
-    this.tags,
-    this.comments,
-    this.auth,
-    this.favorite,
-    this.link,
-    this.maxPage,
-    this.pageSize,
-    this.thumbnails, // unused field
-    this.ext,
-    this.width,
-    this.subTitle, [
-    this.fileSize = "",
-  ]);
+  Map<String, dynamic> toMap() => {
+    'title': title,
+    'subTitle': subTitle,
+    'type': type,
+    'time': time,
+    'uploader': uploader,
+    'stars': stars,
+    'rating': rating,
+    'coverPath': coverPath,
+    'tags': tags,
+    'favorite': favorite,
+    'link': link,
+    'maxPage': maxPage,
+    'pageSize': pageSize,
+    'ext': ext,
+    'width': width,
+    'fileSize': fileSize,
+    'thumbnails': thumbnails,
+    'auth': auth,
+    'comments': comments.map((comment) => comment.toMap()).toList(),
+  };
+
+  factory Gallery.fromJson(Map<String, dynamic> json) => Gallery.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  EhGalleryBrief toBrief() => EhGalleryBrief(
+    title: title,
+    type: type,
+    time: time,
+    uploader: uploader,
+    coverPath: coverPath,
+    stars: stars,
+    link: link,
+    tags: _generateTags(),
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Gallery &&
+          title == other.title &&
+          subTitle == other.subTitle &&
+          type == other.type &&
+          time == other.time &&
+          uploader == other.uploader &&
+          stars == other.stars &&
+          rating == other.rating &&
+          coverPath == other.coverPath &&
+          TypeUtil.equal(tags, other.tags) &&
+          TypeUtil.equal(comments, other.comments) &&
+          TypeUtil.equal(auth, other.auth) &&
+          favorite == other.favorite &&
+          link == other.link &&
+          maxPage == other.maxPage &&
+          pageSize == other.pageSize &&
+          TypeUtil.equal(thumbnails, other.thumbnails) &&
+          ext == other.ext &&
+          width == other.width &&
+          fileSize == other.fileSize;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'Gallery${jsonEncode(toMap())}';
 
   @override
   String get cover => coverPath;

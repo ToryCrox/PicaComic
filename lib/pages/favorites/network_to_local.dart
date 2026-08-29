@@ -41,7 +41,7 @@ class LoadComicClass {
           data.galleries = res.data;
           data.comics[1] = [];
           data.comics[1]!.addAll(data.galleries!.galleries);
-          data.galleries!.galleries.clear();
+          data.galleries = data.galleries!.copyWith(galleries: const []);
         }
       }
       if (data.comics[i] != null) {
@@ -49,12 +49,14 @@ class LoadComicClass {
       } else {
         while (data.comics[i] == null) {
           data.page++;
-          if (!await EhNetwork().getNextPageGalleries(data.galleries!)) {
-            return Res(null, errorMessage: "网络错误".tl);
+          final next = await EhNetwork().getNextPageGalleries(data.galleries!);
+          if (next.error) {
+            return Res(null, errorMessage: next.errorMessage);
           }
+          data.galleries = next.data;
           data.comics[data.page] = [];
           data.comics[data.page]!.addAll(data.galleries!.galleries);
-          data.galleries!.galleries.clear();
+          data.galleries = data.galleries!.copyWith(galleries: const []);
         }
         return Res(data.comics[i]);
       }

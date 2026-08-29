@@ -18,6 +18,7 @@ import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/js.dart';
+import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
@@ -35,7 +36,7 @@ class EhNetwork {
 
   EhNetwork.create() {
     getCookies(true);
-    folderNames = List.from(ehentai.data["favoriteNames"] ?? []);
+    folderNames = ehentai.data.optStringList("favoriteNames");
     if (folderNames.length != 10) {
       folderNames = List.generate(10, (index) => "Favorite $index");
     }
@@ -421,14 +422,14 @@ class EhNetwork {
 
           galleries.add(
             EhGalleryBrief(
-              title,
-              type,
-              time,
-              uploader,
-              cover!,
-              stars,
-              link!,
-              tags,
+              title: title,
+              type: type,
+              time: time,
+              uploader: uploader,
+              coverPath: cover!,
+              stars: stars,
+              link: link!,
+              tags: tags,
               pages: pages,
             ),
           );
@@ -472,14 +473,13 @@ class EhNetwork {
           );
           galleries.add(
             EhGalleryBrief(
-              title,
-              type,
-              time,
-              "",
-              coverPath,
-              stars,
-              link,
-              [],
+              title: title,
+              type: type,
+              time: time,
+              coverPath: coverPath,
+              stars: stars,
+              link: link,
+              tags: const [],
               pages: pages,
             ),
           );
@@ -539,14 +539,14 @@ class EhNetwork {
           );
           galleries.add(
             EhGalleryBrief(
-              title,
-              type,
-              time,
-              uploader,
-              coverPath,
-              stars,
-              link,
-              tags,
+              title: title,
+              type: type,
+              time: time,
+              uploader: uploader,
+              coverPath: coverPath,
+              stars: stars,
+              link: link,
+              tags: tags,
               pages: pages,
             ),
           );
@@ -592,14 +592,14 @@ class EhNetwork {
               item.querySelector("td.gl3m > a")?.attributes["href"] ?? "";
           galleries.add(
             EhGalleryBrief(
-              title,
-              type,
-              time,
-              uploader,
-              coverPath!,
-              stars,
-              link,
-              [],
+              title: title,
+              type: type,
+              time: time,
+              uploader: uploader,
+              coverPath: coverPath!,
+              stars: stars,
+              link: link,
+              tags: const [],
             ),
           );
         } catch (e) {
@@ -607,14 +607,11 @@ class EhNetwork {
         }
       }
 
-      var g = Galleries();
       var nextButton = document.getElementById("dnext");
-      if (nextButton == null) {
-        g.next = null;
-      } else {
-        g.next = nextButton.attributes["href"];
-      }
-      g.galleries = galleries;
+      final g = Galleries(
+        galleries: galleries,
+        next: nextButton?.attributes["href"],
+      );
 
       //获取收藏夹名称
       if (favoritePage && ehentai.isLogin) {
@@ -664,13 +661,17 @@ class EhNetwork {
   }
 
   ///获取画廊的下一页
-  Future<bool> getNextPageGalleries(Galleries galleries) async {
-    if (galleries.next == null) return true;
-    var next = await getGalleries(galleries.next!);
-    if (next.error) return false;
-    galleries.galleries.addAll(next.data.galleries);
-    galleries.next = next.data.next;
-    return true;
+  Future<Res<Galleries>> getNextPageGalleries(Galleries galleries) async {
+    if (galleries.next == null) return Res(galleries);
+    final next = await getGalleries(galleries.next!);
+    if (next.error) return Res.fromErrorRes(next);
+    return Res(
+      galleries.copyWith(
+        galleries: [...galleries.galleries, ...next.data.galleries],
+        next: next.data.next,
+        clearNext: next.data.next == null,
+      ),
+    );
   }
 
   Comment _parseComment(dom.Element e) {
@@ -713,7 +714,14 @@ class EhNetwork {
     } else if (voteDown) {
       vote = false;
     }
-    return Comment(id, name, content, time, score, vote);
+    return Comment(
+      id: id,
+      name: name,
+      content: content,
+      time: time,
+      score: score,
+      voteUP: vote,
+    );
   }
 
   ///从漫画详情页链接中获取漫画详细信息
@@ -910,25 +918,25 @@ class EhNetwork {
       }
       return Res(
         Gallery(
-          title,
-          type,
-          time,
-          uploader,
-          stars,
-          rating,
-          coverPath,
-          tags,
-          comments,
-          auth,
-          favorite,
-          link,
-          maxPage,
-          pageSize,
-          thumbnailUrls,
-          ext,
-          width,
-          subTitle,
-          fileSize,
+          title: title,
+          type: type,
+          time: time,
+          uploader: uploader,
+          stars: stars,
+          rating: rating,
+          coverPath: coverPath,
+          tags: tags,
+          comments: comments,
+          auth: auth,
+          favorite: favorite,
+          link: link,
+          maxPage: maxPage,
+          pageSize: pageSize,
+          thumbnails: thumbnailUrls,
+          ext: ext,
+          width: width,
+          subTitle: subTitle,
+          fileSize: fileSize,
         ),
       );
     } catch (e, s) {
@@ -1086,7 +1094,7 @@ class EhNetwork {
 
   // Deprecated due to page-wise decentralized thumbnail
   Future<Res<List<String>>> getThumbnailUrls(Gallery gallery) async {
-    if (gallery.auth!["thumbnailKey"] == null) {
+    if (gallery.auth["thumbnailKey"] == null) {
       var res = await request(gallery.link);
       if (res.error) {
         return Res.fromErrorRes(res);
@@ -1096,7 +1104,7 @@ class EhNetwork {
       div = div.children.isEmpty ? div : div.children[0];
       var style = div.attributes["style"];
       var url = style!.split("background:transparent url(")[1].split(")")[0];
-      gallery.auth!["thumbnailKey"] = url;
+      gallery.auth["thumbnailKey"] = url;
     }
     return Res(
       List.generate(int.parse(gallery.maxPage), (index) {
@@ -1104,7 +1112,7 @@ class EhNetwork {
         if (page.length == 1) {
           page = "0$page";
         }
-        return "${gallery.auth!["thumbnailKey"]!}/${getGalleryId(gallery.link)}-$page.${gallery.ext}";
+        return "${gallery.auth["thumbnailKey"]!}/${getGalleryId(gallery.link)}-$page.${gallery.ext}";
       }),
     );
   }

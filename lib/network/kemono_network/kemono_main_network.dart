@@ -204,7 +204,7 @@ class KemonoNetwork {
     // 尝试从缓存读取
     if (useCache) {
       try {
-        final cached = await CacheManager().findCacheModel<KemonoPost>(
+        var cached = await CacheManager().findCacheModel<KemonoPost>(
           cacheKey,
           (map) => KemonoPost.fromJson(map),
         );
@@ -217,7 +217,7 @@ class KemonoNetwork {
             }
             final creatorName = getCreatorName(service, creatorId);
             if (creatorName != null && creatorName.isNotEmpty) {
-              cached.userName = creatorName;
+              cached = cached.copyWith(userName: creatorName);
             }
           }
           return Res(cached);
@@ -236,7 +236,7 @@ class KemonoNetwork {
       final jsonData = jsonDecode(res.data) as Map;
       // API 返回 {"post": {...}} 结构
       final postData = jsonData['post'] as Map? ?? jsonData;
-      final post = KemonoPost.fromJson(postData);
+      var post = KemonoPost.fromJson(postData);
 
       // 尝试从作者缓存中获取真实的作者名称
       // 因为 API 返回的详情中可能没有 user_name 字段，只有 user (userId)
@@ -246,7 +246,7 @@ class KemonoNetwork {
         }
         final creatorName = getCreatorName(service, creatorId);
         if (creatorName != null && creatorName.isNotEmpty) {
-          post.userName = creatorName;
+          post = post.copyWith(userName: creatorName);
         }
       }
 

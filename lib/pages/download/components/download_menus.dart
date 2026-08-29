@@ -795,11 +795,11 @@ void addToLocalFavoriteFolder({
                           ),
                           DownloadType.nhentai => FavoriteItem.fromNhentai(
                             NhentaiComicBrief(
-                              comic.name,
-                              (comic as NhentaiDownloadedComic).cover,
-                              comic.id,
-                              "",
-                              const [],
+                              title: comic.name,
+                              cover: (comic as NhentaiDownloadedComic).cover,
+                              id: comic.id,
+                              lang: "",
+                              tags: const [],
                             ),
                           ),
                           DownloadType.hitomi => FavoriteItem.fromHitomi(

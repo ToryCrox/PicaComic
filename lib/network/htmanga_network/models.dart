@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/network/base_comic.dart';
@@ -10,19 +12,49 @@ class HtHomePageData {
   final Map<String, String> links;
 
   /// 主页
-  const HtHomePageData(this.comics, this.links);
+  const HtHomePageData({this.comics = const [], this.links = const {}});
 
-  HtHomePageData.fromJson(Map<String, dynamic> json)
-    : comics = json
-          .optList("comics", (e) => TypeUtil.parseMapList(e))
-          .map((e) => e.map((e) => HtComicBrief.fromJson(e)).toList())
-          .toList(),
-      links = Map<String, String>.from(json["links"]);
+  HtHomePageData copyWith({
+    List<List<HtComicBrief>>? comics,
+    Map<String, String>? links,
+  }) =>
+      HtHomePageData(comics: comics ?? this.comics, links: links ?? this.links);
 
-  Map<String, dynamic> toJson() => {
-    "comics": comics.map((e) => e.map((e) => e.toJson()).toList()).toList(),
-    "links": links,
+  factory HtHomePageData.fromMap(Map<String, dynamic> map) {
+    return HtHomePageData(
+      comics: map.optList(
+        'comics',
+        (items) =>
+            TypeUtil.parseMapList(items).map(HtComicBrief.fromMap).toList(),
+      ),
+      links: map
+          .optMap('links')
+          .map((key, value) => MapEntry(key, TypeUtil.parseString(value))),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'comics': comics.map((e) => e.map((e) => e.toMap()).toList()).toList(),
+    'links': links,
   };
+
+  factory HtHomePageData.fromJson(Map<String, dynamic> json) =>
+      HtHomePageData.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HtHomePageData &&
+          TypeUtil.equal(comics, other.comics) &&
+          TypeUtil.equal(links, other.links);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'HtHomePageData${jsonEncode(toMap())}';
 }
 
 @immutable
@@ -36,14 +68,31 @@ class HtComicBrief extends BaseComic {
   final String? favoriteId;
 
   /// 漫画简略信息
-  const HtComicBrief(
-    this.name,
-    this.time,
-    this.image,
-    this.id,
-    this.pages, {
+  const HtComicBrief({
+    this.name = '',
+    this.time = '',
+    this.image = '',
+    this.id = '',
+    this.pages = 0,
     this.favoriteId,
   });
+
+  HtComicBrief copyWith({
+    String? name,
+    String? time,
+    String? image,
+    String? id,
+    int? pages,
+    String? favoriteId,
+    bool clearFavoriteId = false,
+  }) => HtComicBrief(
+    name: name ?? this.name,
+    time: time ?? this.time,
+    image: image ?? this.image,
+    id: id ?? this.id,
+    pages: pages ?? this.pages,
+    favoriteId: clearFavoriteId ? null : favoriteId ?? this.favoriteId,
+  );
 
   @override
   String get cover => image;
@@ -60,22 +109,45 @@ class HtComicBrief extends BaseComic {
   @override
   String get title => name;
 
-  HtComicBrief.fromJson(Map<String, dynamic> json)
-    : name = json.optString("name"),
-      time = json.optString("time"),
-      image = json.optString("image"),
-      pages = json.optInt("pages"),
-      id = json["id"],
-      favoriteId = json.optString("favoriteId");
+  factory HtComicBrief.fromMap(Map<String, dynamic> map) => HtComicBrief(
+    name: map.optString('name'),
+    time: map.optString('time'),
+    image: map.optString('image'),
+    pages: map.optInt('pages'),
+    id: map.optString('id'),
+    favoriteId: map.optStringOrNull('favoriteId'),
+  );
 
-  Map<String, dynamic> toJson() => {
-    "name": name,
-    "time": time,
-    "image": image,
-    "pages": pages,
-    "id": id,
-    "favoriteId": favoriteId,
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'time': time,
+    'image': image,
+    'pages': pages,
+    'id': id,
+    'favoriteId': favoriteId,
   };
+
+  factory HtComicBrief.fromJson(Map<String, dynamic> json) =>
+      HtComicBrief.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HtComicBrief &&
+          name == other.name &&
+          time == other.time &&
+          image == other.image &&
+          pages == other.pages &&
+          id == other.id &&
+          favoriteId == other.favoriteId;
+
+  @override
+  int get hashCode => Object.hash(name, time, image, pages, id, favoriteId);
+
+  @override
+  String toString() => 'HtComicBrief${jsonEncode(toMap())}';
 }
 
 @immutable
@@ -92,48 +164,83 @@ class HtComicInfo with HistoryMixin {
   final int uploadNum;
   final List<String> thumbnails;
 
-  const HtComicInfo(
-    this.id,
-    this.coverPath,
-    this.name,
-    this.category,
-    this.pages,
-    this.tags,
-    this.description,
-    this.uploader,
-    this.avatar,
-    this.uploadNum,
-    this.thumbnails,
+  const HtComicInfo({
+    this.id = '',
+    this.coverPath = '',
+    this.name = '',
+    this.category = '',
+    this.pages = 0,
+    this.tags = const {},
+    this.description = '',
+    this.uploader = '',
+    this.avatar = '',
+    this.uploadNum = 0,
+    this.thumbnails = const [],
+  });
+
+  HtComicInfo copyWith({
+    String? id,
+    String? coverPath,
+    String? name,
+    String? category,
+    int? pages,
+    Map<String, String>? tags,
+    String? description,
+    String? uploader,
+    String? avatar,
+    int? uploadNum,
+    List<String>? thumbnails,
+  }) => HtComicInfo(
+    id: id ?? this.id,
+    coverPath: coverPath ?? this.coverPath,
+    name: name ?? this.name,
+    category: category ?? this.category,
+    pages: pages ?? this.pages,
+    tags: tags ?? this.tags,
+    description: description ?? this.description,
+    uploader: uploader ?? this.uploader,
+    avatar: avatar ?? this.avatar,
+    uploadNum: uploadNum ?? this.uploadNum,
+    thumbnails: thumbnails ?? this.thumbnails,
   );
 
-  HtComicBrief toBrief() => HtComicBrief(name, "", coverPath, id, pages);
+  HtComicBrief toBrief() =>
+      HtComicBrief(name: name, image: coverPath, id: id, pages: pages);
 
-  Map<String, dynamic> toJson() => {
-    "id": id,
-    "coverPath": coverPath,
-    "name": name,
-    "category": category,
-    "pages": pages,
-    "tags": tags,
-    "description": description,
-    "uploader": uploader,
-    "avatar": avatar,
-    "uploadNum": uploadNum,
-    "thumbnails": thumbnails,
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'coverPath': coverPath,
+    'name': name,
+    'category': category,
+    'pages': pages,
+    'tags': tags,
+    'description': description,
+    'uploader': uploader,
+    'avatar': avatar,
+    'uploadNum': uploadNum,
+    'thumbnails': thumbnails,
   };
 
-  HtComicInfo.fromJson(Map<String, dynamic> json)
-    : id = json["id"],
-      coverPath = json["coverPath"],
-      name = json["name"],
-      category = json["category"],
-      pages = json["pages"],
-      tags = Map<String, String>.from(json["tags"]),
-      description = json["description"],
-      uploader = json["uploader"],
-      avatar = json["avatar"],
-      uploadNum = json["uploadNum"],
-      thumbnails = json.optStringList('thumbnails');
+  factory HtComicInfo.fromMap(Map<String, dynamic> map) => HtComicInfo(
+    id: map.optString('id'),
+    coverPath: map.optString('coverPath'),
+    name: map.optString('name'),
+    category: map.optString('category'),
+    pages: map.optInt('pages'),
+    tags: map
+        .optMap('tags')
+        .map((key, value) => MapEntry(key, TypeUtil.parseString(value))),
+    description: map.optString('description'),
+    uploader: map.optString('uploader'),
+    avatar: map.optString('avatar'),
+    uploadNum: map.optInt('uploadNum'),
+    thumbnails: map.optStringList('thumbnails'),
+  );
+
+  factory HtComicInfo.fromJson(Map<String, dynamic> json) =>
+      HtComicInfo.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
 
   @override
   String get cover => coverPath;
@@ -149,4 +256,26 @@ class HtComicInfo with HistoryMixin {
 
   @override
   String get title => name;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HtComicInfo &&
+          id == other.id &&
+          coverPath == other.coverPath &&
+          name == other.name &&
+          category == other.category &&
+          pages == other.pages &&
+          TypeUtil.equal(tags, other.tags) &&
+          description == other.description &&
+          uploader == other.uploader &&
+          avatar == other.avatar &&
+          uploadNum == other.uploadNum &&
+          TypeUtil.equal(thumbnails, other.thumbnails);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'HtComicInfo${jsonEncode(toMap())}';
 }

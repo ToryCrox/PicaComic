@@ -10,6 +10,8 @@ import '../http_client.dart';
 import '../res.dart';
 import 'fetch_data.dart';
 import 'hitomi_models.dart';
+import '../../tools/map_extension.dart';
+import '../../tools/type_util.dart';
 
 /// 用于 hitomi.la 的网络请求类
 class HiNetwork {
@@ -115,11 +117,11 @@ class HiNetwork {
         } else if (tr.firstChild!.text == "Series") {
           for (var liA in tr.querySelectorAll("td.series-list > ul > li > a")) {
             if (liA.text != "N/A")
-              tags.add(Tag(liA.text, liA.attributes["href"]!));
+              tags.add(Tag(name: liA.text, link: liA.attributes["href"]!));
           }
         } else if (tr.firstChild!.text == "Tags") {
           for (var liA in tr.querySelectorAll("td.relatedtags > ul > li > a")) {
-            tags.add(Tag(liA.text, liA.attributes["href"]!));
+            tags.add(Tag(name: liA.text, link: liA.attributes["href"]!));
           }
         }
       }
@@ -169,66 +171,81 @@ class HiNetwork {
     //直接将前面的"var galleryinfo = "删掉, 然后作为json解析即可
     var data = res.data.substring(res.data.indexOf('{'));
     var json = const JsonDecoder().convert(data);
+    final dataMap = TypeUtil.parseMap(json);
     var parodys = <Tag>[];
     var characters = <Tag>[];
     var tags = <Tag>[];
     var files = <HitomiFile>[];
 
-    for (var parody in json["parodys"] ?? []) {
+    for (var parody in dataMap.optDynamicList('parodys')) {
+      final parodyMap = TypeUtil.parseMap(parody);
       parodys.add(
-        Tag(parody["parody"], "https://ltn.$baseDomain${parody["url"]}"),
-      );
-    }
-
-    for (var character in json["characters"] ?? []) {
-      characters.add(
         Tag(
-          character["character"],
-          "https://ltn.$baseDomain${character["url"]}",
+          name: parodyMap.optString('parody'),
+          link: "https://ltn.$baseDomain${parodyMap.optString('url')}",
         ),
       );
     }
 
-    for (var tag in json["tags"] ?? []) {
-      String text = tag["tag"];
-      if (tag["female"] == "1") text += " ♀";
-      if (tag["male"] == "1") text += " ♂";
-      tags.add(Tag(text, "https://ltn.$baseDomain${tag["url"]}"));
+    for (var character in dataMap.optDynamicList('characters')) {
+      final characterMap = TypeUtil.parseMap(character);
+      characters.add(
+        Tag(
+          name: characterMap.optString('character'),
+          link: "https://ltn.$baseDomain${characterMap.optString('url')}",
+        ),
+      );
     }
 
-    for (var file in json["files"] ?? []) {
+    for (var tag in dataMap.optDynamicList('tags')) {
+      final tagMap = TypeUtil.parseMap(tag);
+      String text = tagMap.optString('tag');
+      if (tagMap.optString('female') == "1") text += " ♀";
+      if (tagMap.optString('male') == "1") text += " ♂";
+      tags.add(
+        Tag(
+          name: text,
+          link: "https://ltn.$baseDomain${tagMap.optString('url')}",
+        ),
+      );
+    }
+
+    for (var file in dataMap.optDynamicList('files')) {
+      final fileMap = TypeUtil.parseMap(file);
       files.add(
         HitomiFile(
-          file["name"],
-          file["hash"],
-          file["haswebp"] == 1,
-          file["hasavif"] == 1,
-          file["height"],
-          file["width"],
-          id,
+          name: fileMap.optString('name'),
+          hash: fileMap.optString('hash'),
+          hasWebp: fileMap.optBool('haswebp'),
+          hasAvif: fileMap.optBool('hasavif'),
+          height: fileMap.optInt('height'),
+          width: fileMap.optInt('width'),
+          galleryId: id,
         ),
       );
     }
 
     return Res(
       HitomiComic(
-        id,
-        json["title"],
-        List<int>.from(json["related"]),
-        json["type"],
-        List<String>.from(
-          (json["artists"] ?? []).map((e) => e["artist"]).toList(),
+        id: id,
+        name: dataMap.optString('title'),
+        related: dataMap.optIntList('related'),
+        type: dataMap.optString('type'),
+        artists: dataMap.optList(
+          'artists',
+          (item) => TypeUtil.parseMap(item).optString('artist'),
         ),
-        json["language"] ?? "",
-        parodys,
-        characters,
-        tags,
-        json["date"],
-        files,
-        List<String>.from(
-          (json["groups"] ?? []).map((e) => e["group"]).toList(),
+        lang: dataMap.optString('language'),
+        parodys: parodys,
+        characters: characters,
+        tags: tags,
+        time: dataMap.optString('date'),
+        files: files,
+        group: dataMap.optList(
+          'groups',
+          (item) => TypeUtil.parseMap(item).optString('group'),
         ),
-        brief.data.cover,
+        cover: brief.data.cover,
       ),
     );
   }

@@ -19,7 +19,6 @@ import '../../tools/translations.dart';
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import 'comic_page_adapter.dart';
-import 'comic_page_logic.dart';
 
 import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 
@@ -336,7 +335,11 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   }
 
   @override
-  ActionFunc? onLike(ComicInfoData data, BuildContext context) => null;
+  ActionFunc? onLike(
+    ComicInfoData data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
 
   @override
   bool isLiked(ComicInfoData data) => false;

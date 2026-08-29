@@ -207,16 +207,16 @@ Future<void> _checkAccountData() async {
     picacg.data['account'] = [account, pwd];
     picacg.data['token'] = token;
     picacg.data['user'] = Profile(
-      s.getString("userId") ?? "",
-      s.getString("userAvatar") ?? '',
-      s.getString("userEmail") ?? "",
-      s.getInt("userExp") ?? 0,
-      s.getInt("userLevel") ?? 0,
-      s.getString("userName") ?? "",
-      s.getString("userTitle") ?? "",
-      false,
-      '',
-      '',
+      id: s.getString("userId") ?? "",
+      avatarUrl: s.getString("userAvatar") ?? '',
+      email: s.getString("userEmail") ?? "",
+      exp: s.getInt("userExp") ?? 0,
+      level: s.getInt("userLevel") ?? 0,
+      name: s.getString("userName") ?? "",
+      title: s.getString("userTitle") ?? "",
+      isPunched: false,
+      slogan: '',
+      frameUrl: '',
     ).toJson();
     picacg.data['appChannel'] = s.getString("appChannel") ?? "3";
     picacg.data['imageQuality'] = s.getString('image') ?? "original";

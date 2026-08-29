@@ -27,19 +27,84 @@ class ImageFavorite {
 
   final Map<String, dynamic> otherInfo;
 
-  const ImageFavorite(
-    this.id,
-    this.imagePath,
-    this.title,
-    this.ep,
-    this.page,
-    this.otherInfo,
+  const ImageFavorite({
+    required this.id,
+    required this.imagePath,
+    required this.title,
+    required this.ep,
+    required this.page,
+    this.otherInfo = const {},
+  });
+
+  ImageFavorite copyWith({
+    String? id,
+    String? imagePath,
+    String? title,
+    int? ep,
+    int? page,
+    Map<String, dynamic>? otherInfo,
+  }) => ImageFavorite(
+    id: id ?? this.id,
+    imagePath: imagePath ?? this.imagePath,
+    title: title ?? this.title,
+    ep: ep ?? this.ep,
+    page: page ?? this.page,
+    otherInfo: otherInfo ?? this.otherInfo,
   );
+
+  factory ImageFavorite.fromMap(Map<String, dynamic> map) => ImageFavorite(
+    id: map.optString(kImageFavoriteId),
+    imagePath: map.optString(kImageFavoriteCover, map.optString('imagePath')),
+    title: map.optString(kImageFavoriteTitle),
+    ep: map.optInt(kImageFavoriteEp),
+    page: map.optInt(kImageFavoritePage),
+    otherInfo: map.optMap(kImageFavoriteOther),
+  );
+
+  factory ImageFavorite.fromRow(Map<String, dynamic> map) =>
+      ImageFavorite.fromMap(map);
+
+  factory ImageFavorite.fromJson(Map<String, dynamic> json) =>
+      ImageFavorite.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+    kImageFavoriteId: id,
+    kImageFavoriteCover: imagePath,
+    kImageFavoriteTitle: title,
+    kImageFavoriteEp: ep,
+    kImageFavoritePage: page,
+    kImageFavoriteOther: otherInfo,
+  };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  Map<String, dynamic> toRow() => {
+    kImageFavoriteId: id,
+    kImageFavoriteCover: imagePath,
+    kImageFavoriteTitle: title,
+    kImageFavoriteEp: ep,
+    kImageFavoritePage: page,
+    kImageFavoriteOther: jsonEncode(otherInfo),
+  };
 
   @override
   String toString() {
     return 'ImageFavorite{id: $id, imagePath: $imagePath, title: $title, ep: $ep, page: $page, otherInfo: $otherInfo}';
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ImageFavorite &&
+          id == other.id &&
+          imagePath == other.imagePath &&
+          title == other.title &&
+          ep == other.ep &&
+          page == other.page &&
+          TypeUtil.equal(otherInfo, other.otherInfo);
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
 }
 
 class ImageFavoriteManager {
@@ -62,32 +127,18 @@ class ImageFavoriteManager {
 
   static Future<void> add(ImageFavorite favorite) async {
     final db = await _db;
-    await db.insert(kTableImageFavorites, {
-      kImageFavoriteId: favorite.id,
-      kImageFavoriteTitle: favorite.title,
-      kImageFavoriteCover: favorite.imagePath,
-      kImageFavoriteEp: favorite.ep,
-      kImageFavoritePage: favorite.page,
-      kImageFavoriteOther: jsonEncode(favorite.otherInfo),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      kTableImageFavorites,
+      favorite.toRow(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     Webdav.uploadData();
   }
 
   static Future<List<ImageFavorite>> getAll() async {
     final db = await _db;
     var res = await db.query(kTableImageFavorites);
-    return res
-        .map(
-          (e) => ImageFavorite(
-            e[kImageFavoriteId] as String,
-            e[kImageFavoriteCover] as String,
-            e[kImageFavoriteTitle] as String,
-            e[kImageFavoriteEp] as int,
-            e[kImageFavoritePage] as int,
-            jsonDecode(e[kImageFavoriteOther] as String),
-          ),
-        )
-        .toList();
+    return res.map(ImageFavorite.fromRow).toList();
   }
 
   static Future<List<ImageFavorite>> getAllByTitle(String title) async {
@@ -97,18 +148,7 @@ class ImageFavoriteManager {
       where: '$kImageFavoriteTitle = ?',
       whereArgs: [title],
     );
-    return res
-        .map(
-          (e) => ImageFavorite(
-            e[kImageFavoriteId] as String,
-            e[kImageFavoriteCover] as String,
-            e[kImageFavoriteTitle] as String,
-            e[kImageFavoriteEp] as int,
-            e[kImageFavoritePage] as int,
-            jsonDecode(e[kImageFavoriteOther] as String),
-          ),
-        )
-        .toList();
+    return res.map(ImageFavorite.fromRow).toList();
   }
 
   static Future<List<String>> getAllTitle() async {
@@ -118,7 +158,9 @@ class ImageFavoriteManager {
       columns: [kImageFavoriteTitle],
       distinct: true,
     );
-    return res.map((e) => e[kImageFavoriteTitle] as String).toList();
+    return res
+        .map((e) => TypeUtil.parseString(e[kImageFavoriteTitle]))
+        .toList();
   }
 
   static Future<void> delete(ImageFavorite favorite) async {

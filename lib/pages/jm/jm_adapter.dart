@@ -24,7 +24,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 import 'jm_comments_page.dart';
 
 // ============================================================================
@@ -172,7 +171,11 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await jmNetwork.favorite(data.id, folder);
-          if (res.success) data.favorite = true;
+          if (res.success) {
+            data = data.copyWith(favorite: true);
+            bridge.updateData(data);
+            bridge.updateState();
+          }
           return res;
         }
         LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
@@ -180,7 +183,11 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       },
       cancelPlatformFavorite: () async {
         var res = await jmNetwork.favorite(data.id, null);
-        if (res.success) data.favorite = false;
+        if (res.success) {
+          data = data.copyWith(favorite: false);
+          bridge.updateData(data);
+          bridge.updateState();
+        }
         return res;
       },
       foldersLoader: () async {
@@ -202,9 +209,13 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   };
 
   @override
-  ActionFunc? onLike(JmComicInfo data, BuildContext context) => () {
+  ActionFunc? onLike(
+    JmComicInfo data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => () {
     if (!data.liked) jmNetwork.likeComic(data.id);
-    data.liked = true;
+    bridge.updateData(data.copyWith(liked: true));
   };
 
   @override
@@ -258,11 +269,11 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   FavoriteItem toLocalFavoriteItem(JmComicInfo data) =>
       FavoriteItem.fromJmComic(
         JmComicBrief(
-          data.id,
-          data.author.elementAtOrNull(0) ?? "",
-          data.name,
-          data.description,
-          [],
+          id: data.id,
+          author: data.author.elementAtOrNull(0) ?? "",
+          name: data.name,
+          description: data.description,
+          categories: const [],
         ),
       );
 

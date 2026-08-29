@@ -36,52 +36,61 @@ extension LocalFavoritesExt on FavoriteItem {
   }
 
   Future<bool> updateInfo(String folder) async {
+    FavoriteItem updated = this;
     if (type == FavoriteType.picacg) {
       var res = await PicacgNetwork().getComicInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      author = res.data.author;
-      tags = res.data.tags;
-      coverPath = res.data.cover;
+      updated = copyWith(
+        name: res.data.title,
+        author: res.data.author,
+        tags: res.data.tags,
+        coverPath: res.data.cover,
+      );
     } else if (type == FavoriteType.ehentai) {
       var res = await EhNetwork().getGalleryInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      coverPath = res.data.cover;
+      updated = copyWith(name: res.data.title, coverPath: res.data.cover);
     } else if (type == FavoriteType.jm) {
       var res = await JmNetwork().getComicInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      author = res.data.author.firstOrNull ?? '';
-      tags = res.data.tags;
-      coverPath = res.data.cover;
+      updated = copyWith(
+        name: res.data.title,
+        author: res.data.author.firstOrNull ?? '',
+        tags: res.data.tags,
+        coverPath: res.data.cover,
+      );
     } else if (type == FavoriteType.nhentai) {
       var res = await NhentaiNetwork().getComicInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      coverPath = res.data.cover;
+      updated = copyWith(name: res.data.title, coverPath: res.data.cover);
     } else if (type == FavoriteType.htmanga) {
       var res = await HtmangaNetwork().getComicInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      author = res.data.uploader;
-      coverPath = res.data.cover;
+      updated = copyWith(
+        name: res.data.title,
+        author: res.data.uploader,
+        coverPath: res.data.cover,
+      );
     } else if (type == FavoriteType.hitomi) {
       var res = await HiNetwork().getComicInfo(target);
       if (res.error) return false;
-      name = res.data.title;
-      author = res.data.subTitle;
-      coverPath = res.data.cover;
+      updated = copyWith(
+        name: res.data.title,
+        author: res.data.subTitle,
+        coverPath: res.data.cover,
+      );
     } else {
       var comicSource = type.comicSource;
       if (comicSource == null) return false;
       var res = await comicSource.loadComicInfo!(target);
       if (res.error) return false;
-      name = res.data.title;
-      author = res.data.subTitle ?? '';
-      coverPath = res.data.cover;
+      updated = copyWith(
+        name: res.data.title,
+        author: res.data.subTitle ?? '',
+        coverPath: res.data.cover,
+      );
     }
-    LocalFavoritesManager().updateInfo(folder, this);
+    LocalFavoritesManager().updateInfo(folder, updated);
     return true;
   }
 }

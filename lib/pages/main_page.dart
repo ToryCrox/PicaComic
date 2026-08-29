@@ -103,11 +103,17 @@ class MainPageState extends State<MainPage> {
           if (App.isMobile) {
             runBackgroundService();
           } else {
-            network.user?.isPunched = true;
+            final user = network.user;
+            if (user != null) {
+              network.user = user.copyWith(isPunched: true);
+            }
             network.punchIn().then((b) {
               if (b) {
                 showToast(message: "打卡成功".tl);
-                network.user?.exp += 10;
+                final user = network.user;
+                if (user != null) {
+                  network.user = user.copyWith(exp: user.exp + 10);
+                }
               }
             });
           }

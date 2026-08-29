@@ -3,7 +3,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 
-
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 
 class CustomDownloadedItem extends DownloadedItem {
@@ -71,20 +70,16 @@ class CustomDownloadedItem extends DownloadedItem {
       comic = json["comic"] != null
           ? ComicInfoData.fromJson(Map<String, dynamic>.from(json["comic"]))
           : ComicInfoData(
-              json["name"] ?? '',
-              json["subTitle"],
-              json["cover"] ?? '',
-              json["description"],
-              {"Tags": List<String>.from(json["tags"] ?? [])},
-              json["chapters"] == null
+              title: json["name"] ?? '',
+              subTitle: json["subTitle"],
+              cover: json["cover"] ?? '',
+              description: json["description"],
+              tags: {"Tags": List<String>.from(json["tags"] ?? [])},
+              chapters: json["chapters"] == null
                   ? null
                   : Map<String, String>.from(json["chapters"]),
-              null,
-              null,
-              0,
-              null,
-              json["sourceKey"] ?? '',
-              json["comicId"] ?? '',
+              sourceKey: json["sourceKey"] ?? '',
+              comicId: json["comicId"] ?? '',
             ),
       sourceName = json["sourceName"],
       color = DownloadColorTag.fromString(json["color"]);

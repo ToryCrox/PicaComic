@@ -8,6 +8,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/map_extension.dart';
+import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:signals/signals.dart';
@@ -94,6 +95,159 @@ final class HistoryType {
   }
 }
 
+/// 历史记录的不可变持久化快照。
+///
+/// 阅读器运行时仍使用 [History] 保存可变阅读进度；数据库和 JSON 边界统一
+/// 通过此模型转换，避免持久化数据被运行时原地修改。
+final class HistoryRecord {
+  final HistoryType type;
+  final DateTime time;
+  final String title;
+  final String subtitle;
+  final String cover;
+  final int ep;
+  final int page;
+  final String target;
+  final Set<int> readEpisode;
+  final int? maxPage;
+
+  const HistoryRecord({
+    required this.type,
+    required this.time,
+    required this.title,
+    required this.subtitle,
+    required this.cover,
+    required this.ep,
+    required this.page,
+    required this.target,
+    this.readEpisode = const {},
+    this.maxPage,
+  });
+
+  HistoryRecord copyWith({
+    HistoryType? type,
+    DateTime? time,
+    String? title,
+    String? subtitle,
+    String? cover,
+    int? ep,
+    int? page,
+    String? target,
+    Set<int>? readEpisode,
+    int? maxPage,
+    bool clearMaxPage = false,
+  }) => HistoryRecord(
+    type: type ?? this.type,
+    time: time ?? this.time,
+    title: title ?? this.title,
+    subtitle: subtitle ?? this.subtitle,
+    cover: cover ?? this.cover,
+    ep: ep ?? this.ep,
+    page: page ?? this.page,
+    target: target ?? this.target,
+    readEpisode: readEpisode ?? this.readEpisode,
+    maxPage: clearMaxPage ? null : maxPage ?? this.maxPage,
+  );
+
+  static DateTime _parseTime(dynamic value) {
+    final timestamp = TypeUtil.parseIntOrNull(value);
+    if (timestamp != null) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
+    }
+    return DateTime.tryParse(TypeUtil.parseString(value)) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static Set<int> _parseReadEpisode(dynamic value) {
+    if (value is String) {
+      return value
+          .split(',')
+          .map(TypeUtil.parseIntOrNull)
+          .whereType<int>()
+          .toSet();
+    }
+    return TypeUtil.parseIntList(value).toSet();
+  }
+
+  factory HistoryRecord.fromMap(Map<String, dynamic> map) => HistoryRecord(
+    type: HistoryType(map.optInt(kHistoryType)),
+    time: _parseTime(map[kHistoryTime]),
+    title: map.optString(kHistoryTitle),
+    subtitle: map.optString(kHistorySubtitle),
+    cover: map.optString(kHistoryCover),
+    ep: map.optInt(kHistoryEp),
+    page: map.optInt(kHistoryPage),
+    target: map.optString(kHistoryTarget),
+    readEpisode: Set.unmodifiable(_parseReadEpisode(map[kHistoryReadEpisode])),
+    maxPage: map.optIntOrNull(kHistoryMaxPage),
+  );
+
+  factory HistoryRecord.fromRow(Map<String, dynamic> map) => HistoryRecord(
+    type: HistoryType(TypeUtil.parseInt(map[kHistoryType])),
+    time: _parseTime(map[kHistoryTime]),
+    title: TypeUtil.parseString(map[kHistoryTitle]),
+    subtitle: TypeUtil.parseString(map[kHistorySubtitle]),
+    cover: TypeUtil.parseString(map[kHistoryCover]),
+    ep: TypeUtil.parseInt(map[kHistoryEp]),
+    page: TypeUtil.parseInt(map[kHistoryPage]),
+    target: TypeUtil.parseString(map[kHistoryTarget]),
+    readEpisode: Set.unmodifiable(_parseReadEpisode(map[kHistoryReadEpisode])),
+    maxPage: TypeUtil.parseIntOrNull(map[kHistoryMaxPage]),
+  );
+
+  Map<String, dynamic> toMap() => {
+    kHistoryType: type.value,
+    kHistoryTime: time.millisecondsSinceEpoch,
+    kHistoryTitle: title,
+    kHistorySubtitle: subtitle,
+    kHistoryCover: cover,
+    kHistoryEp: ep,
+    kHistoryPage: page,
+    kHistoryTarget: target,
+    kHistoryReadEpisode: readEpisode.toList(),
+    kHistoryMaxPage: maxPage,
+  };
+
+  Map<String, dynamic> toRow() => {
+    kHistoryTarget: target,
+    kHistoryTitle: title,
+    kHistorySubtitle: subtitle,
+    kHistoryCover: cover,
+    kHistoryTime: time.millisecondsSinceEpoch,
+    kHistoryType: type.value,
+    kHistoryEp: ep,
+    kHistoryPage: page,
+    kHistoryReadEpisode: readEpisode.join(','),
+    kHistoryMaxPage: maxPage,
+  };
+
+  factory HistoryRecord.fromJson(Map<String, dynamic> json) =>
+      HistoryRecord.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HistoryRecord &&
+          type == other.type &&
+          time == other.time &&
+          title == other.title &&
+          subtitle == other.subtitle &&
+          cover == other.cover &&
+          ep == other.ep &&
+          page == other.page &&
+          target == other.target &&
+          TypeUtil.equal(readEpisode, other.readEpisode) &&
+          maxPage == other.maxPage;
+
+  @override
+  int get hashCode => jsonEncode(toMap()).hashCode;
+
+  @override
+  String toString() => 'HistoryRecord${jsonEncode(toMap())}';
+}
+
 base class History extends LinkedListEntry<History> {
   HistoryType type;
 
@@ -139,6 +293,32 @@ base class History extends LinkedListEntry<History> {
     this.maxPage,
   ]) : readEpisode = readEpisode ?? <int>{};
 
+  HistoryRecord toRecord() => HistoryRecord(
+    type: type,
+    time: time,
+    title: title,
+    subtitle: subtitle,
+    cover: cover,
+    ep: ep,
+    page: page,
+    target: target,
+    readEpisode: Set.unmodifiable(readEpisode),
+    maxPage: maxPage,
+  );
+
+  factory History.fromRecord(HistoryRecord record) => History(
+    record.type,
+    record.time,
+    record.title,
+    record.subtitle,
+    record.cover,
+    record.ep,
+    record.page,
+    record.target,
+    record.readEpisode,
+    record.maxPage,
+  );
+
   History.fromModel({
     required HistoryMixin model,
     required this.ep,
@@ -153,54 +333,18 @@ base class History extends LinkedListEntry<History> {
        readEpisode = readEpisode ?? <int>{},
        time = time ?? DateTime.now();
 
-  Map<String, dynamic> toMap() => {
-    "type": type.value,
-    "time": time.millisecondsSinceEpoch,
-    "title": title,
-    "subtitle": subtitle,
-    "cover": cover,
-    "ep": ep,
-    "page": page,
-    "target": target,
-    "readEpisode": readEpisode.toList(),
-    "max_page": maxPage,
-  };
+  Map<String, dynamic> toMap() => toRecord().toMap();
 
-  History.fromMap(Map<String, dynamic> map)
-    : type = HistoryType(map["type"]),
-      time = DateTime.fromMillisecondsSinceEpoch(map["time"]),
-      title = map["title"],
-      subtitle = map["subtitle"],
-      cover = map["cover"],
-      ep = map["ep"],
-      page = map["page"],
-      target = map["target"],
-      readEpisode = Set<int>.from(
-        (map["readEpisode"] as List<dynamic>?)?.toSet() ?? const <int>{},
-      ),
-      maxPage = map["max_page"];
+  factory History.fromMap(Map<String, dynamic> map) =>
+      History.fromRecord(HistoryRecord.fromMap(map));
 
   @override
   String toString() {
     return 'NewHistory{type: $type, time: $time, title: $title, subtitle: $subtitle, cover: $cover, ep: $ep, page: $page, target: $target}';
   }
 
-  History.fromRow(Map<String, dynamic> map)
-    : type = HistoryType(map[kHistoryType]),
-      time = DateTime.fromMillisecondsSinceEpoch(map[kHistoryTime]),
-      title = map[kHistoryTitle],
-      subtitle = map[kHistorySubtitle],
-      cover = map[kHistoryCover],
-      ep = map[kHistoryEp],
-      page = map[kHistoryPage],
-      target = map[kHistoryTarget],
-      readEpisode = Set<int>.from(
-        (map[kHistoryReadEpisode] as String)
-            .split(',')
-            .where((element) => element != "")
-            .map((e) => int.parse(e)),
-      ),
-      maxPage = map[kHistoryMaxPage];
+  factory History.fromRow(Map<String, dynamic> map) =>
+      History.fromRecord(HistoryRecord.fromRow(map));
 
   static Future<History> findOrCreate(
     HistoryMixin model, {
@@ -300,18 +444,7 @@ class HistoryManager {
 
       // 查询收藏的图片
       var newImages0 = await db.query('image_favorites');
-      var newImages = newImages0
-          .map(
-            (e) => ImageFavorite(
-              e.optString("id"),
-              e.optString("cover"),
-              e.optString("title"),
-              e.optInt("ep"),
-              e.optInt("page"),
-              jsonDecode(e.optString("other")),
-            ),
-          )
-          .toList();
+      var newImages = newImages0.map((e) => ImageFavorite.fromRow(e)).toList();
 
       for (var image in newImages) {
         if (await ImageFavoriteManager.exist(image.id, image.ep, image.page)) {
@@ -411,8 +544,6 @@ class HistoryManager {
     for (var h in json) {
       history.add(History.fromMap((h as Map<String, dynamic>)));
     }
-    // do not clear previous history
-    for (var element in history) {}
     vacuum();
   }
 
@@ -436,18 +567,11 @@ class HistoryManager {
     );
 
     if (res.isEmpty) {
-      await db.insert(kTableHistory, {
-        kHistoryTarget: newItem.target,
-        kHistoryTitle: newItem.title,
-        kHistorySubtitle: newItem.subtitle,
-        kHistoryCover: newItem.cover,
-        kHistoryTime: newItem.time.millisecondsSinceEpoch,
-        kHistoryType: newItem.type.value,
-        kHistoryEp: newItem.ep,
-        kHistoryPage: newItem.page,
-        kHistoryReadEpisode: newItem.readEpisode.join(','),
-        kHistoryMaxPage: newItem.maxPage,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        kTableHistory,
+        newItem.toRecord().toRow(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } else {
       newItem.time = DateTime.now();
       await db.update(

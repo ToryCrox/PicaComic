@@ -74,15 +74,10 @@ extension ReadComic on DownloadedItem {
       );
     } else if (comic.type == DownloadType.nhentai) {
       var nc = NhentaiComic(
-        comic.id.replaceFirst("nhentai", ""),
-        comic.name,
-        comic.subTitle,
-        (comic as NhentaiDownloadedComic).cover,
-        {},
-        false,
-        [],
-        [],
-        "",
+        id: comic.id.replaceFirst("nhentai", ""),
+        title: comic.name,
+        subTitle: comic.subTitle,
+        cover: (comic as NhentaiDownloadedComic).cover,
       );
       var history = await History.findOrCreate(nc);
       App.globalTo(
@@ -95,18 +90,11 @@ extension ReadComic on DownloadedItem {
     } else if (comic.type == DownloadType.other) {
       comic as CustomDownloadedItem;
       var data = ComicInfoData(
-        name,
-        subTitle,
-        comic.cover,
-        null,
-        {},
-        null,
-        null,
-        null,
-        0,
-        null,
-        comic.sourceKey,
-        comic.id.replaceFirst("${comic.sourceKey}-", ""),
+        title: name,
+        subTitle: subTitle,
+        cover: comic.cover,
+        sourceKey: comic.sourceKey,
+        comicId: comic.id.replaceFirst("${comic.sourceKey}-", ""),
       );
       var history = await History.findOrCreate(data);
       App.globalTo(

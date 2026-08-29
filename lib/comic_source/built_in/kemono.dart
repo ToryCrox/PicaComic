@@ -163,18 +163,17 @@ final kemono = ComicSource.named(
 
     return Res(
       ComicInfoData(
-        post.title,
-        post.userName,
-        post.cover,
-        stripHtml(post.content),
-        tags,
-        null, // 单章节,不需要章节列表
-        post.thumbnailUrls,
-        null,
-        0,
-        null,
-        ComicType.kemono.name,
-        id,
+        title: post.title,
+        subTitle: post.userName,
+        cover: post.cover,
+        description: stripHtml(post.content),
+        tags: tags,
+        chapters: null, // 单章节,不需要章节列表
+        thumbnails: post.thumbnailUrls,
+        thumbnailMaxPage: 0,
+        suggestions: null,
+        sourceKey: ComicType.kemono.name,
+        comicId: id,
       ),
     );
   },

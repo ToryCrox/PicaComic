@@ -21,7 +21,6 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 
 // ============================================================================
 // HtAdapter — 绅士漫画
@@ -178,7 +177,11 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
   @override
   ActionFunc? openComments(HtComicInfo data, BuildContext context) => null;
   @override
-  ActionFunc? onLike(HtComicInfo data, BuildContext context) => null;
+  ActionFunc? onLike(
+    HtComicInfo data,
+    ComicPageBridge bridge,
+    BuildContext context,
+  ) => null;
   @override
   bool isLiked(HtComicInfo data) => false;
   @override
