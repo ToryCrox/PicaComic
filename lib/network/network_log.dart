@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../base.dart';
+import 'jm_network/jm_crypto.dart';
 import 'network_monitor_settings.dart';
 
 part 'network_log.g.dart';
@@ -164,6 +165,26 @@ class NetworkLogBody {
       );
     }
     return NetworkLogBody(content: text, byteLength: byteLength);
+  }
+
+  /// 采集响应体，并在需要时将 JM API 的 data 解密后用于日志展示。
+  static NetworkLogBody? captureResponse(Response response) {
+    final contentType = response.headers.value(Headers.contentTypeHeader);
+    final rawBody = capture(response.data, contentType: contentType);
+    final decodedBody = decodeJmApiResponse(
+      body: response.data,
+      statusCode: response.statusCode,
+      responseTime: response.requestOptions.extra[jmResponseTimeExtraKey],
+    );
+    if (decodedBody == null) return rawBody;
+
+    final decoded = capture(decodedBody, contentType: 'application/json');
+    if (decoded == null) return rawBody;
+    return NetworkLogBody(
+      content: decoded.content,
+      byteLength: rawBody?.byteLength ?? decoded.byteLength,
+      isTruncated: decoded.isTruncated,
+    );
   }
 
   static String _formatString(String value, String? contentType) {
@@ -584,10 +605,7 @@ class NetworkLogController extends _$NetworkLogController
       response.statusCode,
       DateTime.now().difference(token.startedAt),
       response.headers.map,
-      NetworkLogBody.capture(
-        response.data,
-        contentType: response.headers.value(Headers.contentTypeHeader),
-      ),
+      NetworkLogBody.captureResponse(response),
       null,
       info,
       requestKind:
@@ -612,12 +630,7 @@ class NetworkLogController extends _$NetworkLogController
       response?.statusCode,
       DateTime.now().difference(token.startedAt),
       response?.headers.map,
-      response == null
-          ? null
-          : NetworkLogBody.capture(
-              response.data,
-              contentType: response.headers.value(Headers.contentTypeHeader),
-            ),
+      response == null ? null : NetworkLogBody.captureResponse(response),
       error.toString(),
       info,
       requestKind:

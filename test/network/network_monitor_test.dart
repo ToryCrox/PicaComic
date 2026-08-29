@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pointycastle/api.dart';
+import 'package:pointycastle/block/aes.dart';
+import 'package:pointycastle/block/modes/ecb.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/network/jm_network/jm_crypto.dart';
 import 'package:pica_comic/network/network_interceptors.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_monitor_settings.dart';
@@ -118,6 +124,59 @@ void main() {
     expect(text?.isTruncated, isTrue);
     expect(text?.content.length, networkLogBodyMaxLength);
     expect(text?.byteLength, networkLogBodyMaxLength + 1);
+  });
+
+  test('网络日志展示 JM API 解密后的 data', () {
+    const time = 1700000000;
+    const plaintext = '{"ok":true,"message":"已解密"}';
+    final encrypted = _encryptJmData(plaintext, '$time$jmResponseSecret');
+    final options = RequestOptions(
+      method: 'GET',
+      path: 'https://www.cdntwice.org/promote?page=0',
+      extra: const {jmResponseTimeExtraKey: time},
+    );
+    final response = Response<List<int>>(
+      requestOptions: options,
+      statusCode: 200,
+      data: utf8.encode(
+        jsonEncode(<String, dynamic>{'code': 200, 'data': encrypted}),
+      ),
+      headers: Headers.fromMap(const {
+        'content-type': ['application/json'],
+      }),
+    );
+
+    final body = NetworkLogBody.captureResponse(response);
+
+    expect(body?.content, contains('"message": "已解密"'));
+    expect(body?.content, isNot(contains(encrypted)));
+    expect(body?.isBinary, isFalse);
+  });
+
+  test('JM POST 请求保留解密时间戳并展示解密后的 data', () {
+    const time = 1700000001;
+    const plaintext = '{"method":"POST","ok":true}';
+    final encrypted = _encryptJmData(plaintext, '$time$jmResponseSecret');
+    final options = RequestOptions(
+      method: 'POST',
+      path: 'https://www.cdntwice.org/login',
+      extra: const {jmResponseTimeExtraKey: time},
+    );
+    final response = Response<List<int>>(
+      requestOptions: options,
+      statusCode: 200,
+      data: utf8.encode(
+        jsonEncode(<String, dynamic>{'code': 200, 'data': encrypted}),
+      ),
+      headers: Headers.fromMap(const {
+        'content-type': ['application/json'],
+      }),
+    );
+
+    final body = NetworkLogBody.captureResponse(response);
+
+    expect(body?.content, contains('"method": "POST"'));
+    expect(body?.content, isNot(contains(encrypted)));
   });
 
   test('Protocol 优先使用实际值并保留来源', () {
@@ -416,4 +475,18 @@ void main() {
     expect(logs[2].requestKind, NetworkRequestKind.other);
     expect(logs[2].transferId, isNull);
   });
+}
+
+String _encryptJmData(String plaintext, String secret) {
+  final key = md5.convert(utf8.encode(secret)).toString();
+  final source = Uint8List.fromList(utf8.encode(plaintext));
+  final paddedLength = (source.length + 15) ~/ 16 * 16;
+  final padded = Uint8List(paddedLength)..setRange(0, source.length, source);
+  final encrypted = Uint8List(padded.length);
+  final cipher = ECBBlockCipher(AESEngine())
+    ..init(true, KeyParameter(utf8.encode(key)));
+  for (var offset = 0; offset < padded.length; offset += 16) {
+    cipher.processBlock(padded, offset, encrypted, offset);
+  }
+  return base64Encode(encrypted);
 }

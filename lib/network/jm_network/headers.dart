@@ -3,6 +3,8 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:pica_comic/base.dart';
 
+import 'jm_crypto.dart';
+
 String get ua {
   return "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.0.0 Mobile Safari/537.36";
 }
@@ -58,6 +60,7 @@ BaseOptions getApiOptions(int time, {bool post = false, bool byte = true}) {
     receiveDataWhenStatusError: true,
     connectTimeout: const Duration(seconds: 8),
     responseType: byte ? ResponseType.bytes : null,
+    extra: {jmResponseTimeExtraKey: time},
     headers: {
       ...getBaseHeaders(),
       "Authorization": "Bearer",

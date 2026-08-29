@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:html/parser.dart';
@@ -13,9 +12,6 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/tools/type_util.dart';
-import 'package:pointycastle/api.dart';
-import 'package:pointycastle/block/aes.dart';
-import 'package:pointycastle/block/modes/ecb.dart';
 
 import '../../foundation/cache_manager.dart';
 import '../../foundation/log.dart';
@@ -23,6 +19,7 @@ import '../cookie_jar.dart';
 import '../network_client_manager.dart';
 import '../res.dart';
 import 'headers.dart';
+import 'jm_crypto.dart';
 import 'jm_image.dart';
 import 'jm_models.dart';
 
@@ -52,6 +49,7 @@ extension _CachedNetwork on CachedNetwork {
       validateStatus: options.validateStatus,
       receiveDataWhenStatusError: options.receiveDataWhenStatusError,
       extra: {
+        ...options.extra,
         if (cookieJar != null) NetworkCookieInterceptor.cookieJarKey: cookieJar,
       },
     );
@@ -117,7 +115,10 @@ class JmNetwork {
       receiveTimeout: source.receiveTimeout,
       receiveDataWhenStatusError: source.receiveDataWhenStatusError,
       validateStatus: validateStatus ?? source.validateStatus,
-      extra: {NetworkCookieInterceptor.cookieJarKey: cookieJar},
+      extra: {
+        ...source.extra,
+        NetworkCookieInterceptor.cookieJarKey: cookieJar,
+      },
     );
   }
 
@@ -157,7 +158,7 @@ class JmNetwork {
     107,
   ];
 
-  static const kJmSecret = '185Hcomic3PAPP7R';
+  static const kJmSecret = jmResponseSecret;
 
   static const builtInImgUrls = <String>[
     "https://cdn-msp3.jmapiproxy1.cc",
@@ -170,28 +171,7 @@ class JmNetwork {
 
   ///解密数据
   static String convertData(String input, String secret) {
-    //hash得到密钥
-    var key = md5.convert(const Utf8Encoder().convert(secret));
-    //先将数据进行base64解码
-    final data = base64Decode(input);
-    //再进行AES-ECB解密
-    BlockCipher cipher = ECBBlockCipher(AESEngine())
-      ..init(false, KeyParameter(const Utf8Encoder().convert(key.toString())));
-    var offset = 0;
-    var paddedPlainText = Uint8List(data.length);
-    while (offset < data.length) {
-      offset += cipher.processBlock(data, offset, paddedPlainText, offset);
-    }
-    //将得到的数据进行Utf8解码
-    var res = const Utf8Decoder().convert(paddedPlainText);
-    //得到的数据在末尾有一些乱码
-    int i = res.length - 1;
-    for (; i >= 0; i--) {
-      if (res[i] == '}' || res[i] == ']') {
-        break;
-      }
-    }
-    return res.substring(0, i + 1);
+    return decryptJmData(input, secret);
   }
 
   Future<void> init() async {
