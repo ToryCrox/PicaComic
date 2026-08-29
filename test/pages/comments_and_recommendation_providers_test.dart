@@ -272,6 +272,25 @@ void main() {
       expect(results[0].single.id, '1-korean');
       expect(results[1].single.id, '2-manga');
     });
+
+    test('分类没有漫画时保持成功空列表', () async {
+      final repository = _FakeJmWeekRepository({'1': '第一周'}, emptyComics: true);
+      final container = ProviderContainer(
+        overrides: [
+          jmWeekRecommendationRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final comics = await container.read(
+        jmWeekRecommendationComicsProvider((
+          '1',
+          WeekRecommendationType.korean,
+        )).future,
+      );
+
+      expect(comics, isEmpty);
+    });
   });
 }
 
@@ -381,9 +400,10 @@ class _FakeJmCommentsRepository implements JmCommentsRepository {
 }
 
 class _FakeJmWeekRepository implements JmWeekRecommendationRepository {
-  _FakeJmWeekRepository(this.recommendations);
+  _FakeJmWeekRepository(this.recommendations, {this.emptyComics = false});
 
   final Map<String, String> recommendations;
+  final bool emptyComics;
 
   @override
   Future<Res<Map<String, String>>> getRecommendations() async {
@@ -395,6 +415,7 @@ class _FakeJmWeekRepository implements JmWeekRecommendationRepository {
     String id,
     WeekRecommendationType type,
   ) async {
+    if (emptyComics) return const Res([]);
     return Res([
       jm.JmComicBrief('$id-${type.name}', 'author', 'title', '', const []),
     ]);

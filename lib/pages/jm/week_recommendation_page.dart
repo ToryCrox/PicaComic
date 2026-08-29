@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -141,7 +142,15 @@ class WeekRecommendationList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tabStates = [
+      for (final type in WeekRecommendationType.values)
+        ref.watch(jmWeekRecommendationComicsProvider((id, type))),
+    ];
+    final initialIndex = _initialRecommendationTabIndex(tabStates);
+
     return DefaultTabController(
+      key: ValueKey('$id-$initialIndex'),
+      initialIndex: initialIndex,
       length: WeekRecommendationType.values.length,
       child: Column(
         children: [
@@ -166,6 +175,19 @@ class WeekRecommendationList extends ConsumerWidget {
   }
 }
 
+/// 选择第一个有内容的推荐分类作为默认页。
+int _initialRecommendationTabIndex(
+  List<AsyncValue<List<JmComicBrief>>> states,
+) {
+  // 等待所有分类完成首轮请求，避免某个分类较慢时提前切换默认页。
+  if (states.any((state) => state.isLoading)) return 0;
+
+  for (var index = 0; index < states.length; index++) {
+    if (states[index].value?.isNotEmpty ?? false) return index;
+  }
+  return 0;
+}
+
 /// 单个 JM 每周推荐分类列表。
 class _RecommendationTab extends ConsumerWidget {
   const _RecommendationTab({required this.id, required this.type});
@@ -185,9 +207,11 @@ class _RecommendationTab extends ConsumerWidget {
       ),
       data: (comics) {
         if (comics.isEmpty) {
-          return NetworkError(
-            message: "未知错误".tl,
-            retry: () => ref.invalidate(provider),
+          return Center(
+            child: Text(
+              "本期暂无漫画".tl,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           );
         }
         return CustomScrollView(
