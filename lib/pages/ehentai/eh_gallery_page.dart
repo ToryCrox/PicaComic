@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../foundation/def.dart';
-import '../../foundation/state_controller.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../comic_page.dart';
 
@@ -29,11 +28,6 @@ class EhGalleryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ComicPage(comicType: ComicType.ehentai, id: link, cover: comicCover);
   }
-}
-
-class RatingLogic extends StateController {
-  double rating = 0;
-  bool running = false;
 }
 
 class EhThumbnailLoader extends StatefulWidget {

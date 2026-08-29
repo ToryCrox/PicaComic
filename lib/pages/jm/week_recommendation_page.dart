@@ -1,185 +1,148 @@
 import 'package:flutter/material.dart';
-import 'package:pica_comic/network/jm_network/jm_network.dart';
-import 'package:pica_comic/network/jm_network/jm_models.dart';
-import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/tools/translations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/tools/translations.dart';
 
-class JWRPLogic extends StateController {
-  bool loading = true;
-  Map<String, String>? rec;
-  String? message;
-  String currentName = "";
-  String currentId = "";
+import 'week_recommendation_logic.dart';
 
-  void change() {
-    loading = !loading;
-    update();
-  }
+export 'week_recommendation_logic.dart';
 
-  void get() async {
-    rec = null;
-    message = null;
-    var res = await JmNetwork().getWeekRecommendation();
-    if (res.error) {
-      message = res.errorMessage;
-    } else {
-      rec = res.data;
-      currentName = rec!.values.first;
-      currentId = rec!.keys.first;
-    }
-    loading = false;
-    update();
-  }
-}
-
-class JmWeekRecommendationPage extends StatelessWidget {
-  JmWeekRecommendationPage({Key? key}) : super(key: key);
-  final logic = StateController.put(JWRPLogic());
+/// JM 每周推荐页面。
+class JmWeekRecommendationPage extends ConsumerWidget {
+  const JmWeekRecommendationPage({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    var key = GlobalKey();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pageState = ref.watch(jmWeekRecommendationProvider);
+    final logic = ref.read(jmWeekRecommendationProvider.notifier);
+    final selectorKey = GlobalKey();
     const titleLength = 190;
+
     return Scaffold(
       appBar: Appbar(
         title: Text("每周必看".tl),
         actions: [
-          StateBuilder<JWRPLogic>(
-            builder: (logic) => Container(
-              key: key,
-              margin: const EdgeInsets.all(5),
-              padding: const EdgeInsets.all(5),
-              width: MediaQuery.of(context).size.width > 250 + titleLength
-                  ? 250
-                  : MediaQuery.of(context).size.width - titleLength,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      logic.currentName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_drop_down_sharp),
-                    iconSize: 16,
-                    onPressed: () {
-                      if (logic.rec == null) return;
-                      var renderObject =
-                          key.currentContext!.findRenderObject() as RenderBox;
-                      var offset = renderObject.localToGlobal(Offset.zero);
-                      offset = Offset(offset.dx + 246, offset.dy + 53);
-                      showMenu(
-                        constraints: BoxConstraints(
-                          maxHeight: 300,
-                          minWidth:
-                              (MediaQuery.of(context).size.width > 250
-                                  ? 250
-                                  : MediaQuery.of(context).size.width) -
-                              16,
-                        ),
-                        context: context,
-                        position: RelativeRect.fromLTRB(
-                          offset.dx,
-                          offset.dy,
-                          MediaQuery.of(context).size.width - offset.dx,
-                          MediaQuery.of(context).size.height - offset.dy,
-                        ),
-                        items: [
-                          for (var item in logic.rec!.entries)
-                            PopupMenuItem(
-                              child: Text(item.value),
-                              onTap: () {
-                                logic.currentId = item.key;
-                                logic.currentName = item.value;
-                                logic.update();
-                              },
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
+          pageState.when(
+            loading: () => const SizedBox.shrink(),
+            error: (error, stackTrace) => const SizedBox.shrink(),
+            data: (data) => _RecommendationSelector(
+              key: selectorKey,
+              data: data,
+              titleLength: titleLength,
+              onSelect: logic.select,
             ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StateBuilder<JWRPLogic>(
-              builder: (logic) {
-                if (logic.loading) {
-                  logic.get();
-                  return const Center(child: CircularProgressIndicator());
-                } else if (logic.message != null) {
-                  return NetworkError(
-                    message: logic.message!,
-                    retry: () {
-                      logic.change();
-                      logic.get();
-                    },
-                  );
-                } else {
-                  return WeekRecommendationList(
-                    logic.currentId,
-                    key: Key(logic.currentId),
-                  );
-                }
-              },
-            ),
-          ),
-        ],
+      body: pageState.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) =>
+            NetworkError(message: _errorMessage(error), retry: logic.refresh),
+        data: (data) => WeekRecommendationList(
+          data.currentId,
+          key: ValueKey(data.currentId),
+        ),
       ),
     );
   }
-}
 
-class WRLLogic extends StateController {
-  var comics = <List<JmComicBrief>>[[], [], []];
-  var messages = <String?>[null, null, null];
-  var loading = <bool>[true, true, true];
-
-  void get(int index, String id) async {
-    var res = await JmNetwork().getWeekRecommendationComics(
-      id,
-      WeekRecommendationType.values[index],
-    );
-    if (res.error) {
-      messages[index] = res.errorMessage;
-    } else {
-      comics[index] = res.data;
-    }
-    loading[index] = false;
-    update();
-  }
-
-  void retry(int index, String id) {
-    loading[index] = true;
-    messages[index] = null;
-    update();
-    get(index, id);
+  String _errorMessage(Object error) {
+    if (error is JmWeekRecommendationException) return error.message;
+    return "未知错误".tl;
   }
 }
 
-class WeekRecommendationList extends StatelessWidget {
-  const WeekRecommendationList(this.id, {Key? key}) : super(key: key);
-  final String id;
+/// 每周推荐分类选择器。
+class _RecommendationSelector extends StatelessWidget {
+  const _RecommendationSelector({
+    required this.data,
+    required this.titleLength,
+    required this.onSelect,
+    super.key,
+  });
+
+  final JmWeekRecommendationState data;
+  final int titleLength;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(5),
+      width: MediaQuery.of(context).size.width > 250 + titleLength
+          ? 250
+          : MediaQuery.of(context).size.width - titleLength,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              data.currentName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_drop_down_sharp),
+            iconSize: 16,
+            onPressed: () => _showCategories(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCategories(BuildContext context) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox) return;
+    var offset = renderObject.localToGlobal(Offset.zero);
+    offset = Offset(offset.dx + 246, offset.dy + 53);
+    showMenu(
+      constraints: BoxConstraints(
+        maxHeight: 300,
+        minWidth:
+            (MediaQuery.of(context).size.width > 250
+                ? 250
+                : MediaQuery.of(context).size.width) -
+            16,
+      ),
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy,
+        MediaQuery.of(context).size.width - offset.dx,
+        MediaQuery.of(context).size.height - offset.dy,
+      ),
+      items: [
+        for (final item in data.recommendations.entries)
+          PopupMenuItem(
+            value: item.key,
+            child: Text(item.value),
+            onTap: () => onSelect(item.key),
+          ),
+      ],
+    );
+  }
+}
+
+/// JM 每周推荐的三个分类列表。
+class WeekRecommendationList extends ConsumerWidget {
+  const WeekRecommendationList(this.id, {Key? key}) : super(key: key);
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: WeekRecommendationType.values.length,
       child: Column(
         children: [
           TabBar(
@@ -190,41 +153,52 @@ class WeekRecommendationList extends StatelessWidget {
             ],
           ),
           Expanded(
-            child: StateBuilder<WRLLogic>(
-              init: WRLLogic(),
-              tag: id,
-              builder: (logic) {
-                return TabBarView(
-                  children: [
-                    for (int i = 0; i <= 2; i++) buildPage(i, logic, context),
-                  ],
-                );
-              },
+            child: TabBarView(
+              children: [
+                for (final type in WeekRecommendationType.values)
+                  _RecommendationTab(id: id, type: type),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget buildPage(int index, WRLLogic logic, BuildContext context) {
-    if (logic.loading[index]) {
-      logic.get(index, id);
-      return const Center(child: CircularProgressIndicator());
-    } else if (logic.comics[index].isEmpty) {
-      return NetworkError(
-        message: logic.messages[index] ?? "未知错误".tl,
-        retry: () => logic.retry(index, id),
-      );
-    } else {
-      return CustomScrollView(
-        slivers: [
-          SliverGridComics(
-            comics: logic.comics[index],
-            comicType: ComicType.jm,
-          ),
-        ],
-      );
-    }
+/// 单个 JM 每周推荐分类列表。
+class _RecommendationTab extends ConsumerWidget {
+  const _RecommendationTab({required this.id, required this.type});
+
+  final String id;
+  final WeekRecommendationType type;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = jmWeekRecommendationComicsProvider((id, type));
+    final pageState = ref.watch(provider);
+    return pageState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) => NetworkError(
+        message: _errorMessage(error),
+        retry: () => ref.invalidate(provider),
+      ),
+      data: (comics) {
+        if (comics.isEmpty) {
+          return NetworkError(
+            message: "未知错误".tl,
+            retry: () => ref.invalidate(provider),
+          );
+        }
+        return CustomScrollView(
+          slivers: [SliverGridComics(comics: comics, comicType: ComicType.jm)],
+        );
+      },
+    );
+  }
+
+  String _errorMessage(Object error) {
+    if (error is JmWeekRecommendationException) return error.message;
+    return "未知错误".tl;
   }
 }

@@ -1,6 +1,4 @@
 import 'dart:math';
-import 'dart:ui' as ui;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -27,14 +25,87 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
-import '../comic_page/comic_page_logic.dart';
 import 'eh_comments_page.dart';
-import 'eh_gallery_page.dart' show RatingLogic, RatingWidget, EhThumbnailLoader;
+import 'eh_gallery_page.dart' show RatingWidget, EhThumbnailLoader;
 import 'eh_original_availability.dart';
 
 // ============================================================================
 // EhAdapter — E-Hentai
 // ============================================================================
+
+/// E-Hentai 评分弹窗。
+class _RatingDialog extends StatefulWidget {
+  const _RatingDialog({required this.data});
+
+  final Gallery data;
+
+  @override
+  State<_RatingDialog> createState() => _RatingDialogState();
+}
+
+class _RatingDialogState extends State<_RatingDialog> {
+  double _rating = 0;
+  bool _running = false;
+
+  Future<void> _submit() async {
+    if (_running) return;
+    setState(() => _running = true);
+    try {
+      final success = await EhNetwork().rateGallery(
+        widget.data.auth!,
+        _rating.toInt(),
+      );
+      if (!mounted) return;
+      if (success) {
+        Navigator.of(context).pop();
+        showToast(message: "评分成功".tl);
+      } else {
+        setState(() => _running = false);
+        showToast(message: "网络错误".tl);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _running = false);
+      showToast(message: "网络错误".tl);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: const Text("评分"),
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          height: 100,
+          child: Center(
+            child: SizedBox(
+              width: 210,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  RatingWidget(
+                    padding: 2,
+                    onRatingUpdate: (value) => setState(() => _rating = value),
+                    value: 0,
+                    selectAble: true,
+                    size: 40,
+                  ),
+                  const Spacer(),
+                  Button.filled(
+                    isLoading: _running,
+                    onPressed: _submit,
+                    child: Text("提交".tl),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class EhAdapter extends ComicPageAdapter<Gallery> {
   @override
@@ -424,57 +495,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     }
     showDialog(
       context: context,
-      builder: (dialogContext) => StateBuilder<RatingLogic>(
-        init: RatingLogic(),
-        builder: (logic) => SimpleDialog(
-          title: const Text("评分"),
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              height: 100,
-              child: Center(
-                child: SizedBox(
-                  width: 210,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      RatingWidget(
-                        padding: 2,
-                        onRatingUpdate: (value) => logic.rating = value,
-                        value: 0,
-                        selectAble: true,
-                        size: 40,
-                      ),
-                      const Spacer(),
-                      Button.filled(
-                        isLoading: logic.running,
-                        onPressed: () {
-                          logic.running = true;
-                          logic.update();
-                          EhNetwork()
-                              .rateGallery(data.auth!, logic.rating.toInt())
-                              .then((b) {
-                                if (!dialogContext.mounted) return;
-                                if (b) {
-                                  Navigator.of(dialogContext).pop();
-                                  showToast(message: "评分成功".tl);
-                                } else {
-                                  logic.running = false;
-                                  logic.update();
-                                  showToast(message: "网络错误".tl);
-                                }
-                              });
-                        },
-                        child: Text("提交".tl),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _RatingDialog(data: data),
     );
   }
 

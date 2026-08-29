@@ -1,56 +1,36 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
-import 'package:pica_comic/comic_source/built_in/ehentai.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
+import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/app_links.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-class CommentsPageLogic extends StateController {
-  bool isLoading = true;
-  var comments = <Comment>[];
-  bool sending = false;
-  String? message;
-  var controller = TextEditingController();
+import 'eh_comments_page_logic.dart';
 
-  void change() {
-    isLoading = !isLoading;
-    update();
-  }
-
-  void get(String url) async {
-    var res = await EhNetwork().getComments(url);
-    if (res.error) {
-      message = res.errorMessageWithoutNull;
-    } else {
-      comments = res.data;
-    }
-    isLoading = false;
-    update();
-  }
-}
+export 'eh_comments_page_logic.dart';
 
 class _EhCommentWidget extends StatefulWidget {
   const _EhCommentWidget({
     required this.comment,
     required this.uploader,
-    required this.auth,
+    required this.onVote,
   });
 
   final Comment comment;
 
   final String uploader;
 
-  final Map<String, String> auth;
+  final Future<Res<int>> Function(bool isUp) onVote;
 
   @override
   State<_EhCommentWidget> createState() => _EhCommentWidgetState();
@@ -72,11 +52,9 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
     setState(() {
       isVoteUp = true;
     });
-    var res = await EhNetwork().voteComment(widget.auth, comment.id, true);
+    var res = await widget.onVote(true);
+    if (!mounted) return;
     if (res.success) {
-      var isCancel = comment.voteUP == true;
-      comment.voteUP = isCancel ? null : true;
-      comment.score = res.data;
       setState(() {
         isVoteUp = false;
       });
@@ -95,11 +73,9 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
     setState(() {
       isVoteDown = true;
     });
-    var res = await EhNetwork().voteComment(widget.auth, comment.id, false);
+    var res = await widget.onVote(false);
+    if (!mounted) return;
     if (res.success) {
-      var isCancel = comment.voteUP == false;
-      comment.voteUP = isCancel ? null : false;
-      comment.score = res.data;
       setState(() {
         isVoteDown = false;
       });
@@ -196,67 +172,84 @@ class _EhCommentWidgetState extends State<_EhCommentWidget> {
   }
 }
 
-class CommentsPage extends StatelessWidget {
+class CommentsPage extends ConsumerStatefulWidget {
+  const CommentsPage(this.url, this.uploader, this.auth, {super.key});
+
   final String url;
-
   final String uploader;
-
   final Map<String, String> auth;
 
-  const CommentsPage(this.url, this.uploader, this.auth, {super.key});
+  @override
+  ConsumerState<CommentsPage> createState() => _CommentsPageState();
+}
+
+class _CommentsPageState extends ConsumerState<CommentsPage> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    Widget body = StateBuilder<CommentsPageLogic>(
-      init: CommentsPageLogic(),
-      builder: (logic) {
-        if (logic.isLoading) {
-          logic.get(url);
-          return const Center(child: CircularProgressIndicator());
-        } else if (logic.message != null) {
-          return NetworkError(
-            message: logic.message!,
-            retry: () => logic.change(),
-            withAppbar: false,
-          );
-        } else {
-          return Column(
-            children: [
-              Expanded(
-                child: CustomScrollView(
-                  slivers: [
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        childCount: logic.comments.length,
-                        (context, index) {
-                          var comment = logic.comments[index];
-                          return _EhCommentWidget(
-                            comment: comment,
-                            uploader: uploader,
-                            auth: auth,
-                          );
-                        },
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(App.globalContext!).padding.bottom,
-                      ),
-                    ),
-                  ],
+    final provider = ehCommentsProvider(widget.url);
+    final pageState = ref.watch(provider);
+    final logic = ref.read(provider.notifier);
+    final body = pageState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) => NetworkError(
+        message: _errorMessage(error),
+        retry: () => ref.invalidate(provider),
+        withAppbar: false,
+      ),
+      data: (data) => Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: data.comments.length,
+                    (context, index) {
+                      final comment = data.comments[index];
+                      return _EhCommentWidget(
+                        comment: comment,
+                        uploader: widget.uploader,
+                        onVote: (isUp) =>
+                            logic.voteComment(widget.auth, comment.id, isUp),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              buildBottom(context, logic),
-            ],
-          );
-        }
-      },
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(App.globalContext!).padding.bottom,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildBottom(context, data, logic),
+        ],
+      ),
     );
 
     return body;
   }
 
-  Widget buildBottom(BuildContext context, CommentsPageLogic logic) {
+  Widget _buildBottom(
+    BuildContext context,
+    EhCommentsState state,
+    EhComments logic,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -278,7 +271,7 @@ class CommentsPage extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                     child: TextField(
-                      controller: logic.controller,
+                      controller: _controller,
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isCollapsed: true,
@@ -289,7 +282,7 @@ class CommentsPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                logic.sending
+                state.sending
                     ? const Padding(
                         padding: EdgeInsets.all(8.5),
                         child: SizedBox(
@@ -299,38 +292,7 @@ class CommentsPage extends StatelessWidget {
                         ),
                       )
                     : IconButton(
-                        onPressed: () async {
-                          var content = logic.controller.text;
-                          if (content.isEmpty) {
-                            showToast(message: "请输入评论".tl);
-                            return;
-                          }
-                          logic.sending = true;
-                          logic.update();
-                          var b = await EhNetwork().comment(
-                            logic.controller.text,
-                            url,
-                          );
-                          if (b.success) {
-                            logic.controller.text = "";
-                            logic.sending = false;
-                            logic.comments.add(
-                              Comment(
-                                '',
-                                ehentai.data['name'] ?? '',
-                                content,
-                                DateTime.now().toIso8601String(),
-                                0,
-                                null,
-                              ),
-                            );
-                            logic.update();
-                          } else {
-                            showToast(message: b.errorMessage!);
-                            logic.sending = false;
-                            logic.update();
-                          }
-                        },
+                        onPressed: () => _sendComment(logic),
                         icon: Icon(
                           Icons.send,
                           color: Theme.of(context).colorScheme.secondary,
@@ -342,6 +304,26 @@ class CommentsPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _sendComment(EhComments logic) async {
+    final content = _controller.text;
+    if (content.isEmpty) {
+      showToast(message: "请输入评论".tl);
+      return;
+    }
+    final res = await logic.sendComment(content);
+    if (!mounted) return;
+    if (res.success) {
+      _controller.clear();
+    } else {
+      showToast(message: res.errorMessageWithoutNull);
+    }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is EhCommentsException) return error.message;
+    return "网络错误".tl;
   }
 }
 

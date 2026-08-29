@@ -14,52 +14,46 @@ class AllCategoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StateBuilder<SimpleController>(
-      tag: "category",
-      init: SimpleController(),
-      builder: (controller) {
-        var categories = appdata.appSettings.categoryPages;
-        var allCategories = ComicSource.sources
-            .map((e) => e.categoryData?.key)
-            .where((element) => element != null)
-            .map((e) => e!)
-            .toList();
-        categories = categories
-            .where((element) => allCategories.contains(element))
-            .toList();
+    var categories = appdata.appSettings.categoryPages;
+    var allCategories = ComicSource.sources
+        .map((e) => e.categoryData?.key)
+        .where((element) => element != null)
+        .map((e) => e!)
+        .toList();
+    categories = categories
+        .where((element) => allCategories.contains(element))
+        .toList();
 
-        return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: DefaultTabController(
-            length: categories.length,
-            key: Key(categories.toString()),
-            child: Column(
-              children: [
-                SafeArea(
-                  top: true,
-                  bottom: false,
-                  child: FilledTabBar(
-                    tabs: categories.map((e) {
-                      String title = e;
-                      try {
-                        title = getCategoryDataWithKey(e).title;
-                      } catch (e) {
-                        //
-                      }
-                      return Tab(text: title.tl, key: Key(e));
-                    }).toList(),
-                  ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: categories.map((e) => CategoryPage(e)).toList(),
-                  ),
-                ),
-              ],
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: DefaultTabController(
+        length: categories.length,
+        key: Key(categories.toString()),
+        child: Column(
+          children: [
+            SafeArea(
+              top: true,
+              bottom: false,
+              child: FilledTabBar(
+                tabs: categories.map((e) {
+                  String title = e;
+                  try {
+                    title = getCategoryDataWithKey(e).title;
+                  } catch (e) {
+                    //
+                  }
+                  return Tab(text: title.tl, key: Key(e));
+                }).toList(),
+              ),
             ),
-          ),
-        );
-      },
+            Expanded(
+              child: TabBarView(
+                children: categories.map((e) => CategoryPage(e)).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

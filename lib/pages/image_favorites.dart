@@ -54,6 +54,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
       }
     }
     Log.d('ImageFavorites _imageList $_imageList');
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -62,27 +63,21 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     final title = Text(
       "图片收藏".tl + (_filterTitle.isEmpty ? "" : " - $_filterTitle"),
     );
-    return StateBuilder(
-      tag: "image_favorites_page",
-      init: SimpleController(),
-      builder: (controller) {
-        if (UiMode.m1(context)) {
-          return Scaffold(
-            appBar: AppBar(title: title, actions: [..._buildActions()]),
-            body: buildPage(),
-          );
-        } else {
-          return Material(
-            child: Column(
-              children: [
-                Appbar(title: title, actions: [..._buildActions()]),
-                Expanded(child: buildPage()),
-              ],
-            ),
-          );
-        }
-      },
-    );
+    if (UiMode.m1(context)) {
+      return Scaffold(
+        appBar: AppBar(title: title, actions: [..._buildActions()]),
+        body: buildPage(),
+      );
+    } else {
+      return Material(
+        child: Column(
+          children: [
+            Appbar(title: title, actions: [..._buildActions()]),
+            Expanded(child: buildPage()),
+          ],
+        ),
+      );
+    }
   }
 
   List<Widget> _buildActions() {
@@ -125,16 +120,17 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
       gridDelegate: SliverGridDelegateWithComics(true, appdata.settings[74]),
       itemCount: _imageList.length,
       itemBuilder: (context, index) {
-        return FavoriteImageTile(_imageList[index]);
+        return FavoriteImageTile(_imageList[index], onDeleted: _refresh);
       },
     );
   }
 }
 
 class FavoriteImageTile extends StatelessWidget {
-  const FavoriteImageTile(this.image, {super.key});
+  const FavoriteImageTile(this.image, {super.key, this.onDeleted});
 
   final ImageFavorite image;
+  final VoidCallback? onDeleted;
 
   @override
   Widget build(BuildContext context) {
@@ -316,10 +312,10 @@ class FavoriteImageTile extends StatelessWidget {
     showConfirmDialog(App.globalContext!, "确认删除".tl, "要删除这个图片吗".tl, delete);
   }
 
-  void delete() {
-    ImageFavoriteManager.delete(image);
+  Future<void> delete() async {
+    await ImageFavoriteManager.delete(image);
     showToast(message: "删除成功".tl);
-    StateController.findOrNull(tag: "image_favorites_page")?.update();
+    onDeleted?.call();
   }
 
   void onSecondaryTap(TapDownDetails details, BuildContext context) {

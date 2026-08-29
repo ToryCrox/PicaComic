@@ -46,86 +46,91 @@ void findUpdate(BuildContext context) {
   });
 }
 
-class ProxyController extends StateController {
-  bool value = appdata.settings[8] == "0";
-  late var controller = TextEditingController(
-    text: value ? "" : appdata.settings[8],
-  );
+void setProxy(BuildContext context) {
+  showDialog(context: context, builder: (_) => const _ProxyDialog());
 }
 
-void setProxy(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return StateBuilder(
-        init: ProxyController(),
-        builder: (controller) {
-          return SimpleDialog(
-            title: Text("设置代理".tl),
-            children: [
-              const SizedBox(width: 400),
-              ListTile(
-                title: Text("使用系统代理".tl),
-                trailing: Switch(
-                  value: controller.value,
-                  onChanged: (value) {
-                    if (value == true) {
-                      controller.controller.text = "";
-                    }
-                    controller.value = !controller.value;
-                    controller.update();
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
-                child: TextField(
-                  readOnly: controller.value,
-                  controller: controller.controller,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    hintText: controller.value
-                        ? "使用系统代理时无法手动设置".tl
-                        : "设置代理, 例如127.0.0.1:7890".tl,
-                  ),
-                ),
-              ),
-              if (!controller.value)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 15, 10),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 20),
-                      Text("  ${"留空表示禁用网络代理".tl}"),
-                    ],
-                  ),
-                ),
-              Center(
-                child: FilledButton(
-                  onPressed: () {
-                    if (controller.value) {
-                      appdata.settings[8] = "0";
-                      appdata.writeData();
-                      setNetworkProxy();
-                      unawaited(networkClientManager.applySettings());
-                      App.globalBack();
-                    } else {
-                      appdata.settings[8] = controller.controller.text;
-                      appdata.writeData();
-                      setNetworkProxy();
-                      unawaited(networkClientManager.applySettings());
-                      App.globalBack();
-                    }
-                  },
-                  child: Text("确认".tl),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
+/// 代理设置弹窗。
+class _ProxyDialog extends StatefulWidget {
+  const _ProxyDialog();
+
+  @override
+  State<_ProxyDialog> createState() => _ProxyDialogState();
+}
+
+class _ProxyDialogState extends State<_ProxyDialog> {
+  late final TextEditingController _controller;
+  bool _useSystemProxy = appdata.settings[8] == "0";
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: _useSystemProxy ? "" : appdata.settings[8],
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    appdata.settings[8] = _useSystemProxy ? "0" : _controller.text;
+    appdata.writeData();
+    setNetworkProxy();
+    unawaited(networkClientManager.applySettings());
+    App.globalBack();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: Text("设置代理".tl),
+      children: [
+        const SizedBox(width: 400),
+        ListTile(
+          title: Text("使用系统代理".tl),
+          trailing: Switch(
+            value: _useSystemProxy,
+            onChanged: (value) {
+              if (value) {
+                _controller.clear();
+              }
+              setState(() => _useSystemProxy = value);
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
+          child: TextField(
+            readOnly: _useSystemProxy,
+            controller: _controller,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              hintText: _useSystemProxy
+                  ? "使用系统代理时无法手动设置".tl
+                  : "设置代理, 例如127.0.0.1:7890".tl,
+            ),
+          ),
+        ),
+        if (!_useSystemProxy)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 15, 10),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 20),
+                Text("  ${"留空表示禁用网络代理".tl}"),
+              ],
+            ),
+          ),
+        Center(
+          child: FilledButton(onPressed: _save, child: Text("确认".tl)),
+        ),
+      ],
+    );
+  }
 }
 
 void setDownloadFolder() async {
