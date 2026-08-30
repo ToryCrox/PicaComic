@@ -767,7 +767,7 @@ class ImageManager {
     if (!forceAuthentication && current.nl != null) {
       try {
         if (current.mpv) {
-          return _resolveEhImageLink(
+          return await _resolveEhImageLink(
             gallery,
             readerLink,
             gid,

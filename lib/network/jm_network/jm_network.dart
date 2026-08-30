@@ -342,7 +342,7 @@ class JmNetwork {
         if (message == "請先登入會員" && jm.isLogin && !isRetry) {
           var res = await jm.reLogin();
           if (res) {
-            return get(
+            return await get(
               url,
               header: header,
               expiredTime: expiredTime,

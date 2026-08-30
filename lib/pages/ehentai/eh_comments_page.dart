@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
@@ -419,7 +420,7 @@ class _EhComment extends StatelessWidget {
           );
           if (recognizer != null) {
             widget = MouseRegion(
-              cursor: SystemMouseCursors.click,
+              cursor: appClickableMouseCursor,
               child: GestureDetector(onTap: recognizer.onTap, child: widget),
             );
           }

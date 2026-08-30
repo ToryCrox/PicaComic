@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 /// PixEz 风格的 HSV 颜色选择器，不包含透明度选择。
 class ThemeColorPicker extends StatefulWidget {
@@ -217,32 +218,35 @@ class _PresetColor extends StatelessWidget {
     return Semantics(
       label: '预设颜色 ${_hexColor(color)}',
       button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Colors.transparent,
-              width: 3,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                blurRadius: 3,
-                spreadRadius: 1,
-                color: Color(0x40000000),
+      child: MouseRegion(
+        cursor: appClickableMouseCursor,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Colors.transparent,
+                width: 3,
               ),
-            ],
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 3,
+                  spreadRadius: 1,
+                  color: Color(0x40000000),
+                ),
+              ],
+            ),
+            child: selected
+                ? const Icon(Icons.check, color: Colors.white, size: 18)
+                : null,
           ),
-          child: selected
-              ? const Icon(Icons.check, color: Colors.white, size: 18)
-              : null,
         ),
       ),
     );

@@ -623,6 +623,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         borderRadius: BorderRadius.circular(8),
         onTap: () {
           setState(() {

@@ -922,6 +922,7 @@ class LocalFavoriteTile extends ComicTile {
                                   Text(e),
                                   const SizedBox(width: 4),
                                   InkWell(
+                                    mouseCursor: appClickableMouseCursor,
                                     borderRadius: BorderRadius.circular(10),
                                     child: const Icon(Icons.close, size: 20),
                                     onTap: () {

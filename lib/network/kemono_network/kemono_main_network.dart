@@ -370,7 +370,7 @@ class KemonoNetwork {
 
     try {
       if (service == 'discord') {
-        return _getDiscordPosts(creatorId, offset);
+        return await _getDiscordPosts(creatorId, offset);
       }
 
       final res = await get('/$service/user/$creatorId/posts?o=$offset');

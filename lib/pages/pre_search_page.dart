@@ -501,6 +501,7 @@ class PreSearchPage extends StatelessWidget {
                     Text("建议".tl),
                     const Spacer(),
                     InkWell(
+                      mouseCursor: appClickableMouseCursor,
                       borderRadius: BorderRadius.circular(14),
                       onTap: () {
                         searchController.suggestions.clear();
@@ -658,6 +659,7 @@ class PreSearchPage extends StatelessWidget {
         );
       },
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () => search(history),
         child: SizedBox(
           width: double.infinity,

@@ -25,43 +25,50 @@ class Avatar extends StatelessWidget {
     if (avatarUrl != null && !avatarUrl.isURL) {
       avatarUrl = null;
     }
-    return GestureDetector(
-      onTap: () {
-        if (couldBeShown) {
-          showUserInfo(context, avatarUrl, frame, name, slogan, level);
-        } else if (avatarUrl != null && avatarUrl != "DEFAULT AVATAR URL") {
-          App.globalTo(() => ShowImagePageWithHero(avatarUrl!, "avatar"));
-        }
-      },
-      child: Container(
-        width: size,
-        height: size,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(size)),
-        child: Stack(
-          children: [
-            Positioned(
-              top: size * 0.25 / 2,
-              left: size * 0.25 / 2,
-              child: Container(
-                width: size * 0.75,
-                height: size * 0.75,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(size),
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+    final isClickable =
+        couldBeShown ||
+        (avatarUrl != null && avatarUrl != "DEFAULT AVATAR URL");
+    return MouseRegion(
+      cursor: isClickable ? appClickableMouseCursor : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: () {
+          if (couldBeShown) {
+            showUserInfo(context, avatarUrl, frame, name, slogan, level);
+          } else if (avatarUrl != null && avatarUrl != "DEFAULT AVATAR URL") {
+            App.globalTo(() => ShowImagePageWithHero(avatarUrl!, "avatar"));
+          }
+        },
+        child: Container(
+          width: size,
+          height: size,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(size)),
+          child: Stack(
+            children: [
+              Positioned(
+                top: size * 0.25 / 2,
+                left: size * 0.25 / 2,
+                child: Container(
+                  width: size * 0.75,
+                  height: size * 0.75,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(size),
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                  ),
+                  child:
+                      (avatarUrl == null || avatarUrl == "DEFAULT AVATAR URL")
+                      ? const Image(
+                          image: AssetImage("images/avatar_small.png"),
+                          fit: BoxFit.cover,
+                        )
+                      : PicaImage(url: avatarUrl, fit: BoxFit.cover),
                 ),
-                child: (avatarUrl == null || avatarUrl == "DEFAULT AVATAR URL")
-                    ? const Image(
-                        image: AssetImage("images/avatar_small.png"),
-                        fit: BoxFit.cover,
-                      )
-                    : PicaImage(url: avatarUrl, fit: BoxFit.cover),
               ),
-            ),
-            if (frame != null && appdata.settings[5] == "1")
-              Positioned(child: PicaImage(url: frame!)),
-          ],
+              if (frame != null && appdata.settings[5] == "1")
+                Positioned(child: PicaImage(url: frame!)),
+            ],
+          ),
         ),
       ),
     );

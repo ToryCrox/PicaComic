@@ -13,6 +13,7 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/pica_image_manager.dart';
 import '../../foundation/ui_mode.dart';
+import '../../foundation/theme/app_mouse_cursor.dart';
 import '../../network/download/download_model.dart';
 import '../../network/eh_network/eh_download_model.dart';
 import '../../network/eh_network/eh_main_network.dart';
@@ -426,7 +427,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: appClickableMouseCursor,
           child: GestureDetector(
             onTap: () => _showStarRating(context, data),
             child: SizedBox(

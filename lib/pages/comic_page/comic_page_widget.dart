@@ -438,26 +438,29 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       );
     }
 
-    return GestureDetector(
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Hero(
-          tag: tag,
-          child: PicaImage(
-            url: displayUrl,
-            fit: BoxFit.cover,
-            sourceKey: adapter.comicType.name,
-            isThumbnail: true,
+    return MouseRegion(
+      cursor: appClickableMouseCursor,
+      child: GestureDetector(
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Hero(
+            tag: tag,
+            child: PicaImage(
+              url: displayUrl,
+              fit: BoxFit.cover,
+              sourceKey: adapter.comicType.name,
+              isThumbnail: true,
+            ),
           ),
         ),
+        onTap: () => App.globalTo(() => ShowImagePageWithHero(displayUrl, tag)),
       ),
-      onTap: () => App.globalTo(() => ShowImagePageWithHero(displayUrl, tag)),
     );
   }
 
@@ -840,6 +843,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     VoidCallback? onLongPress,
   ]) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: const BorderRadius.all(Radius.circular(8)),
@@ -1038,6 +1042,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       child: Container(
         margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           onTap: title
               ? null
@@ -1170,6 +1175,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       child: Container(
         margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           onTap: () {
             final notifier = ref.read(
@@ -1209,6 +1215,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         onTap: () async {
           final folderPath = await downloadManager.getFullDirectory(downloadId);
@@ -1255,6 +1262,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         onTap: () => _openTagAssignmentDialog(context, adapter),
         child: Card(
@@ -1414,6 +1422,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           return Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
             child: InkWell(
+              mouseCursor: appClickableMouseCursor,
               borderRadius: const BorderRadius.all(Radius.circular(16)),
               onTap: () => eps.onTap(index),
               child: Material(
@@ -1585,6 +1594,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               children: [
                 Expanded(
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     onTap: () =>
                         adapter.onThumbnailTapped(index, data, context),
                     borderRadius: const BorderRadius.all(Radius.circular(16)),

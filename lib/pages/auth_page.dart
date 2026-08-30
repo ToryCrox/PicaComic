@@ -1,5 +1,6 @@
 import 'package:flutter/scheduler.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:pica_comic/pages/main_page.dart';
@@ -40,27 +41,30 @@ class _AuthPageState extends State<AuthPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: auth,
-      child: Scaffold(
-        body: PopScope(
-          canPop: false,
-          child: SizedBox(
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.height,
-            child: Center(
-              child: SizedBox(
-                height: 100,
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.security,
-                      size: 40,
-                      color: context.colorScheme.secondary,
-                    ),
-                    const SizedBox(height: 5),
-                    Text("点击完成身份验证".tl),
-                  ],
+    return MouseRegion(
+      cursor: appClickableMouseCursor,
+      child: GestureDetector(
+        onTap: auth,
+        child: Scaffold(
+          body: PopScope(
+            canPop: false,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              child: Center(
+                child: SizedBox(
+                  height: 100,
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.security,
+                        size: 40,
+                        color: context.colorScheme.secondary,
+                      ),
+                      const SizedBox(height: 5),
+                      Text("点击完成身份验证".tl),
+                    ],
+                  ),
                 ),
               ),
             ),

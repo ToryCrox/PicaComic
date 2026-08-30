@@ -336,6 +336,7 @@ class _TranslationResultReplaceDialogState
           ),
           if (batchPlan != null && state.loadError == null) ...[
             FilterChip(
+              mouseCursor: appClickableMouseCursor,
               label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
               selected: state.showSkippedOnly,
               visualDensity: VisualDensity.compact,
@@ -704,6 +705,7 @@ class _TranslationResultReplaceDialogState
         children: [
           Expanded(
             child: InkWell(
+              mouseCursor: appClickableMouseCursor,
               onTap: state.busy
                   ? null
                   : () =>
@@ -769,6 +771,7 @@ class _TranslationResultReplaceDialogState
     }
 
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: disabled ? null : () => setSkipped(!selected),
       borderRadius: BorderRadius.circular(4),
       child: Padding(
@@ -973,6 +976,7 @@ class _TranslationResultReplaceDialogState
     }
 
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: disabled ? null : () => setSkipped(!selected),
       borderRadius: BorderRadius.circular(4),
       child: Padding(
@@ -1019,6 +1023,7 @@ class _TranslationResultReplaceDialogState
         ? _compactDetail(pair.translatedDimensions, pair.translatedSize)
         : _compactDetail(pair.originalDimensions, pair.originalSize);
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: () =>
           _openPairViewer(plan, filePath, label, translated, initialIndex),
       borderRadius: BorderRadius.circular(6),

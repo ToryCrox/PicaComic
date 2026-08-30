@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -1038,6 +1039,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(22),
           onTap: enabled ? onTap : null,
           child: Container(
@@ -1071,6 +1073,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Container(

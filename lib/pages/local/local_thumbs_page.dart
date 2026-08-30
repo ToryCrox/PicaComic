@@ -411,6 +411,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
             fit: StackFit.expand,
             children: [
               InkWell(
+                mouseCursor: appClickableMouseCursor,
                 onTap: () {
                   if (_isSelectedMode) {
                     if (_selectedImages.contains(imageFile)) {

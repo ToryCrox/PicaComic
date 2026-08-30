@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,5 +117,44 @@ void main() {
       bundle.lightTheme.scaffoldBackgroundColor,
       bundle.lightColorScheme.surface,
     );
+  });
+
+  test('亮色和深色主题的标准 Material 控件使用共享鼠标指针', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final bundle = container.read(themeBundleProvider);
+
+    void expectCursor(WidgetStateProperty<MouseCursor?>? property) {
+      expect(property, isNotNull);
+      expect(
+        property!.resolve(<WidgetState>{}),
+        same(SystemMouseCursors.click),
+      );
+      expect(
+        property.resolve(<WidgetState>{WidgetState.disabled}),
+        same(SystemMouseCursors.basic),
+      );
+    }
+
+    for (final theme in <ThemeData>[bundle.lightTheme, bundle.darkTheme]) {
+      expectCursor(theme.bottomNavigationBarTheme.mouseCursor);
+      expectCursor(theme.checkboxTheme.mouseCursor);
+      expectCursor(theme.elevatedButtonTheme.style?.mouseCursor);
+      expectCursor(theme.filledButtonTheme.style?.mouseCursor);
+      expectCursor(theme.floatingActionButtonTheme.mouseCursor);
+      expectCursor(theme.iconButtonTheme.style?.mouseCursor);
+      expectCursor(theme.listTileTheme.mouseCursor);
+      expectCursor(theme.menuButtonTheme.style?.mouseCursor);
+      expectCursor(theme.outlinedButtonTheme.style?.mouseCursor);
+      expectCursor(theme.popupMenuTheme.mouseCursor);
+      expectCursor(theme.radioTheme.mouseCursor);
+      expectCursor(theme.sliderTheme.mouseCursor);
+      expectCursor(theme.switchTheme.mouseCursor);
+      expectCursor(theme.tabBarTheme.mouseCursor);
+      expectCursor(theme.textButtonTheme.style?.mouseCursor);
+    }
   });
 }

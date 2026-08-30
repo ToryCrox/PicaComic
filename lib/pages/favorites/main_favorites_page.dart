@@ -9,6 +9,7 @@ import 'package:pica_comic/components/components.dart';
 import "package:pica_comic/foundation/app.dart";
 import "package:pica_comic/foundation/local_favorites.dart";
 import "package:pica_comic/foundation/log.dart";
+import "package:pica_comic/foundation/theme/app_mouse_cursor.dart";
 import "package:pica_comic/tools/translations.dart";
 
 import "../../network/net_fav_to_local.dart";
@@ -231,6 +232,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
       color: Theme.of(context).scaffoldBackgroundColor,
       elevation: 1,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         hoverColor: Colors.transparent,
         onTap: () {
           if (controller.selectingFolder) {
@@ -325,6 +327,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
       delegate: SliverChildBuilderDelegate((context, index) {
         final data = folders.elementAt(index);
         return InkWell(
+          mouseCursor: appClickableMouseCursor,
           onTap: () {
             controller.current = data?.title;
             controller.isNetwork = true;
@@ -367,6 +370,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               onLongPressStart: (details) =>
                   _showMenu(data, details.globalPosition),
               child: InkWell(
+                mouseCursor: appClickableMouseCursor,
                 onTap: () {
                   controller.current = data;
                   controller.isNetwork = false;
@@ -426,6 +430,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   Widget buildUtils(BuildContext context) {
     Widget buildItem(String title, IconData icon, VoidCallback onTap) {
       return InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: onTap,
         borderRadius: const BorderRadius.all(Radius.circular(8)),
         child: SizedBox(
@@ -948,7 +953,7 @@ class _FoldersReorderPageState extends State<_FoldersReorderPage> {
                 for (var index = 0; index < folders.length; index++)
                   MouseRegion(
                     key: ValueKey(folders[index]),
-                    cursor: SystemMouseCursors.click,
+                    cursor: appClickableMouseCursor,
                     child: Row(
                       children: [
                         const SizedBox(width: 16),

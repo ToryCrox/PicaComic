@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -190,7 +191,13 @@ ThemeData _buildTheme(
         : colorScheme.surface,
     cardColor: surfaceContainer,
     canvasColor: surfaceContainer,
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      mouseCursor: appClickableMouseCursor,
+    ),
     chipTheme: ChipThemeData(backgroundColor: surfaceContainer),
+    checkboxTheme: const CheckboxThemeData(
+      mouseCursor: appClickableMouseCursor,
+    ),
     dialogTheme: DialogThemeData(
       backgroundColor: surfaceContainer,
       titleTextStyle: TextStyle(
@@ -204,6 +211,39 @@ ThemeData _buildTheme(
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    tabBarTheme: const TabBarThemeData(dividerColor: Colors.transparent),
+    elevatedButtonTheme: const ElevatedButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
+    filledButtonTheme: const FilledButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      mouseCursor: appClickableMouseCursor,
+    ),
+    iconButtonTheme: const IconButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
+    listTileTheme: const ListTileThemeData(
+      mouseCursor: appClickableMouseCursor,
+    ),
+    menuButtonTheme: const MenuButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
+    outlinedButtonTheme: const OutlinedButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
+    popupMenuTheme: const PopupMenuThemeData(
+      mouseCursor: appClickableMouseCursor,
+    ),
+    radioTheme: const RadioThemeData(mouseCursor: appClickableMouseCursor),
+    sliderTheme: const SliderThemeData(mouseCursor: appClickableMouseCursor),
+    switchTheme: const SwitchThemeData(mouseCursor: appClickableMouseCursor),
+    tabBarTheme: const TabBarThemeData(
+      dividerColor: Colors.transparent,
+      mouseCursor: appClickableMouseCursor,
+    ),
+    textButtonTheme: const TextButtonThemeData(
+      style: ButtonStyle(mouseCursor: appClickableMouseCursor),
+    ),
   );
 }

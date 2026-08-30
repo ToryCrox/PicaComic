@@ -74,6 +74,7 @@ class _FlyoutState extends State<Flyout> {
   Widget build(BuildContext context) {
     if (widget.withInkWell) {
       return InkWell(
+        mouseCursor: appClickableMouseCursor,
         borderRadius: BorderRadius.circular(widget.borderRadius),
         onTap: widget.enableTap ? show : null,
         onDoubleTap: widget.enableDoubleTap ? show : null,
@@ -82,12 +83,17 @@ class _FlyoutState extends State<Flyout> {
         child: widget.child,
       );
     }
-    return GestureDetector(
-      onTap: widget.enableTap ? show : null,
-      onDoubleTap: widget.enableDoubleTap ? show : null,
-      onLongPress: widget.enableLongPress ? show : null,
-      onSecondaryTap: widget.enableSecondaryTap ? show : null,
-      child: widget.child,
+    final isClickable =
+        widget.enableTap || widget.enableDoubleTap || widget.enableLongPress;
+    return MouseRegion(
+      cursor: isClickable ? appClickableMouseCursor : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: widget.enableTap ? show : null,
+        onDoubleTap: widget.enableDoubleTap ? show : null,
+        onLongPress: widget.enableLongPress ? show : null,
+        onSecondaryTap: widget.enableSecondaryTap ? show : null,
+        child: widget.child,
+      ),
     );
   }
 

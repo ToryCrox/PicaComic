@@ -59,6 +59,8 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
           title: const Text('网络后端'),
           subtitle: kIsWeb ? const Text('Web 平台固定使用 Dio') : null,
           trailing: DropdownButton<NetworkBackend>(
+            mouseCursor: appClickableMouseCursor,
+            dropdownMenuItemMouseCursor: appClickableMouseCursor,
             value: backend,
             onChanged: kIsWeb
                 ? null
@@ -82,6 +84,8 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
           leading: const Icon(Icons.http),
           title: const Text('HTTP 协议'),
           trailing: DropdownButton<NetworkProtocol>(
+            mouseCursor: appClickableMouseCursor,
+            dropdownMenuItemMouseCursor: appClickableMouseCursor,
             value: protocol,
             onChanged: (value) {
               if (value == null) return;
@@ -133,6 +137,7 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
               const Text("Hosts"),
               const SizedBox(width: 2),
               InkWell(
+                mouseCursor: appClickableMouseCursor,
                 borderRadius: const BorderRadius.all(Radius.circular(18)),
                 onTap: () => showDialogMessage(
                   context,

@@ -10,6 +10,7 @@ import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../foundation/app.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/log.dart';
+import '../../foundation/theme/app_mouse_cursor.dart';
 import '../../tools/translations.dart';
 import 'image.dart';
 import 'reader_logic.dart';
@@ -231,7 +232,7 @@ Widget buildComicView(
                     ),
                     const SizedBox(height: 4),
                     MouseRegion(
-                      cursor: SystemMouseCursors.click,
+                      cursor: appClickableMouseCursor,
                       child: Listener(
                         onPointerDown: (details) {
                           TapController.ignoreNextTap = true;

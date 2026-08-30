@@ -132,6 +132,7 @@ class DownloadedComicTile extends ComicTile {
         ? '标记为 AI 翻译完成'.tl
         : '取消 AI 翻译完成标记'.tl,
     child: InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: onAiTranslationMarkerTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
@@ -245,6 +246,7 @@ class DownloadedComicTile extends ComicTile {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(7),
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(7),
           onTap: onTap,
           child: ConstrainedBox(
@@ -284,6 +286,7 @@ class DownloadedComicTile extends ComicTile {
         color: colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(7),
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(7),
           onTapDown: (details) async {
             final overlay =
@@ -430,6 +433,7 @@ class DownloadedComicTile extends ComicTile {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   onTap: onTranslationResultTap,
                   borderRadius: BorderRadius.circular(7),
                   child: DecoratedBox(

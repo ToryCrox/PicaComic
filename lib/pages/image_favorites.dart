@@ -200,6 +200,7 @@ class FavoriteImageTile extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   onTap: onTap,
                   onLongPress: onLongTap,
                   onSecondaryTapDown: (details) =>

@@ -369,6 +369,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
           children: [
             _field(_name, '名称'.tl),
             DropdownButtonFormField<AiProtocolType>(
+              mouseCursor: appClickableMouseCursor,
+              dropdownMenuItemMouseCursor: appClickableMouseCursor,
               value: _protocol,
               decoration: InputDecoration(labelText: '协议'.tl),
               items: AiProtocolType.values
@@ -393,6 +395,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
             ),
             _field(_model, '模型'.tl, hint: 'gpt-4o-mini'),
             DropdownButtonFormField<String?>(
+              mouseCursor: appClickableMouseCursor,
+              dropdownMenuItemMouseCursor: appClickableMouseCursor,
               value: _reasoningEffort,
               decoration: InputDecoration(labelText: '思考强度'.tl),
               items: [
@@ -412,6 +416,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
               onChanged: (value) => setState(() => _reasoningEffort = value),
             ),
             DropdownButtonFormField<int>(
+              mouseCursor: appClickableMouseCursor,
+              dropdownMenuItemMouseCursor: appClickableMouseCursor,
               initialValue: _maxRetries,
               decoration: InputDecoration(labelText: '失败重试次数'.tl),
               items: [
@@ -511,6 +517,8 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
           children: [
             _field(_name, '名称'.tl),
             DropdownButtonFormField<String>(
+              mouseCursor: appClickableMouseCursor,
+              dropdownMenuItemMouseCursor: appClickableMouseCursor,
               value: _providerId,
               decoration: InputDecoration(labelText: 'AI服务'.tl),
               items: [

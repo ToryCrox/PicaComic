@@ -43,7 +43,7 @@ class _SelectState extends State<Select> {
     return MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
-      cursor: SystemMouseCursors.click,
+      cursor: appClickableMouseCursor,
       child: GestureDetector(
         onTap: () {
           if (widget.values.isEmpty) {
@@ -174,6 +174,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
     return Material(
       textStyle: Theme.of(context).textTheme.labelLarge,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () => widget.onSelected(true),
         borderRadius: const BorderRadius.all(Radius.circular(8)),
         child: AnimatedContainer(
@@ -327,6 +328,7 @@ class OptionChip extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Padding(

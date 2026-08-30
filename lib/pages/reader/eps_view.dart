@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../foundation/app.dart';
 import '../../foundation/state_controller.dart';
+import '../../foundation/theme/app_mouse_cursor.dart';
 import '../../foundation/def.dart';
 import '../../tools/translations.dart';
 import '../jm/jm_comments_page.dart';
@@ -106,6 +107,7 @@ class _EpsViewState extends ConsumerState<EpsView> {
                 String title = data.eps!.values.elementAt(index);
 
                 return InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   onTap: () {
                     Navigator.pop(App.globalContext!);
                     logic.jumpToChapter(index + 1);

@@ -152,6 +152,7 @@ class WindowFrame extends StatelessWidget {
     BuildContext context,
   ) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: () {
         controller.openSideBar();
       },
@@ -376,6 +377,7 @@ class _SideBarBody extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -564,6 +566,7 @@ class _WindowButtonState extends State<WindowButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
+      cursor: appClickableMouseCursor,
       onEnter: (event) => setState(() {
         isHovering = true;
       }),

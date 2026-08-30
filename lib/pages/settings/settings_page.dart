@@ -336,6 +336,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
             ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
             : EdgeInsets.zero,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           onTap: () => setState(() => currentPage = id),
           borderRadius: BorderRadius.circular(16),
           child: content,
@@ -371,6 +372,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
                 Text("高刷新率模式".tl),
                 const SizedBox(width: 2),
                 InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   borderRadius: const BorderRadius.all(Radius.circular(18)),
                   onTap: () => showDialogMessage(
                     context,

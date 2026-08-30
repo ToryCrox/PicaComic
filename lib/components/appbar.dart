@@ -351,6 +351,7 @@ class _FilledTabBarState extends State<FilledTabBar> {
 
   Widget buildTab(int i) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: () => onTabClicked(i),
       borderRadius: BorderRadius.circular(tabRadius),
       child: KeyedSubtree(

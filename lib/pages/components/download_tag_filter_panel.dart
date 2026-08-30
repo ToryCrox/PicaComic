@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -234,6 +235,7 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
       color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () => widget.onTagSelected(isSelected ? null : tag.id),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

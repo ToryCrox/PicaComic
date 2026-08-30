@@ -547,6 +547,7 @@ class _SuggestionsState extends State<_Suggestions> {
               Text("建议".tl),
               const Spacer(),
               InkWell(
+                mouseCursor: appClickableMouseCursor,
                 borderRadius: BorderRadius.circular(14),
                 onTap: () {
                   widget.controller.suggestions.clear();
@@ -685,6 +686,7 @@ class _SearchOptionsState extends State<_SearchOptions> {
             spacing: 8,
             children: option.options.entries.map((e) {
               return InkWell(
+                mouseCursor: appClickableMouseCursor,
                 onTap: () {
                   setState(() {
                     options[i] = e.key;

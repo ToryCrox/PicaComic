@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../foundation/theme/app_mouse_cursor.dart';
 import '../network/network_artifact_preview.dart';
 import '../network/network_log.dart';
 import 'local_image_viewer_page.dart';
@@ -103,6 +104,7 @@ class NetworkLogDetailPage extends ConsumerWidget {
                   ),
                   padding: const EdgeInsets.all(8),
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     borderRadius: BorderRadius.circular(6),
                     onTap: () => openNetworkImagePreview(
                       context,

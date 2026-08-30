@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'accounts_page.dart';
 import 'package:pica_comic/pages/download/download_page.dart';
@@ -104,8 +105,8 @@ class _MePageState extends State<MePage> {
   Widget buildHistory(BuildContext context) {
     var history = _recentHistoryList;
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: () => context.to(() => const HistoryPage()),
-      mouseCursor: SystemMouseCursors.click,
       borderRadius: BorderRadius.circular(12),
       child: Card.outlined(
         margin: EdgeInsets.zero,
@@ -119,7 +120,7 @@ class _MePageState extends State<MePage> {
                 leading: const Icon(Icons.history),
                 title: Text("${"历史记录".tl}($_historyCount)"),
                 trailing: const Icon(Icons.chevron_right),
-                mouseCursor: SystemMouseCursors.click,
+                mouseCursor: appClickableMouseCursor,
               ),
               SizedBox(
                 height: 128,
@@ -128,6 +129,7 @@ class _MePageState extends State<MePage> {
                   itemCount: history.length,
                   itemBuilder: (context, index) {
                     return InkWell(
+                      mouseCursor: appClickableMouseCursor,
                       onTap: () =>
                           toComicPageWithHistory(context, history[index]),
                       borderRadius: BorderRadius.circular(8),
@@ -270,6 +272,7 @@ class _MePageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Card.outlined(
@@ -282,7 +285,7 @@ class _MePageCard extends StatelessWidget {
               leading: icon,
               title: Text(title),
               trailing: const Icon(Icons.chevron_right),
-              mouseCursor: SystemMouseCursors.click,
+              mouseCursor: appClickableMouseCursor,
             ),
             DefaultTextStyle(
               style:

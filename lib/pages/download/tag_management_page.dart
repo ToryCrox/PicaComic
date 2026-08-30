@@ -106,6 +106,8 @@ class _TagManagementPageState extends State<TagManagementPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
+                mouseCursor: appClickableMouseCursor,
+                dropdownMenuItemMouseCursor: appClickableMouseCursor,
                 initialValue: selectedCategory,
                 decoration: InputDecoration(
                   labelText: "分类".tl,
@@ -284,6 +286,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
             itemBuilder: (context, index) {
               final comic = tagComics[index];
               return InkWell(
+                mouseCursor: appClickableMouseCursor,
                 onTap: () => Navigator.pop(context, comic),
                 child: Column(
                   children: [
@@ -490,6 +493,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
       key: ValueKey(tag.id.toString()),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () => _onTagTap(tag),
         onSecondaryTapDown: (details) {
           showContextMenu<String>(

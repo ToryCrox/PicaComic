@@ -287,6 +287,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
                 ),
                 const Spacer(),
                 ActionChip(
+                  mouseCursor: appClickableMouseCursor,
                   label: Text(
                     "${"页面".tl}: ${logic.value.current}/${logic.value.maxPage?.toString() ?? "?"}",
                   ),
@@ -330,6 +331,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
               children: [
                 Expanded(
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(16),
                       topRight: Radius.circular(16),
@@ -343,6 +345,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
                 const Divider(height: 1),
                 Expanded(
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     onTap: () => selectPage(logic),
                     child: SizedBox.expand(
                       child: Center(
@@ -356,6 +359,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
                 const Divider(height: 1),
                 Expanded(
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(16),
                       bottomRight: Radius.circular(16),

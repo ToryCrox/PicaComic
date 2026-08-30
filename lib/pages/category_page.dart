@@ -256,6 +256,7 @@ class CategoryPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(16)),
         onTap: () => onClick(tag, param),
         child: Builder(

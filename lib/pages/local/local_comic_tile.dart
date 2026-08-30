@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/foundation/local_history.dart';
@@ -93,6 +94,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () async {
           final historyMap = LocalHistoryManager()
               .findInCache(widget.model.path)
@@ -176,6 +178,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
               widget.model.path,
             );
             return InkWell(
+              mouseCursor: appClickableMouseCursor,
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
                 if (favorite != null) {
@@ -240,6 +243,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
           return Material(
             color: Colors.transparent,
             child: InkWell(
+              mouseCursor: appClickableMouseCursor,
               borderRadius: BorderRadius.circular(16),
               onTap: _read,
               child: Container(
@@ -265,6 +269,7 @@ class _LocalComicTileState extends State<LocalComicTile> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(20),
           onTap: () => FileUtils.openFileOrDirectory(widget.model.path),
           child: Container(

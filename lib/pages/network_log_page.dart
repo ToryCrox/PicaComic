@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../foundation/app.dart';
+import '../foundation/theme/app_mouse_cursor.dart';
 import '../network/network_artifact_preview.dart';
 import '../network/network_log.dart';
 import 'network_log_detail_page.dart';
@@ -185,6 +186,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
+        mouseCursor: appClickableMouseCursor,
         label: Text(label, style: const TextStyle(fontSize: 10)),
         selected: selected,
         visualDensity: VisualDensity.compact,
@@ -293,6 +295,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     final selected = entry.id == _selectedEntryId;
     final thumbnail = entry.isImageResponse && entry.artifactPath != null;
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       onTap: () {
         if (App.isDesktop) {
           setState(() => _selectedEntryId = entry.id);
@@ -318,6 +321,7 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     onTap: () => openNetworkImagePreview(
                       context,
                       entry.artifactPath!,

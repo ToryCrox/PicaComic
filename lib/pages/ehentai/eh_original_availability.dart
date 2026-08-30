@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 import '../../foundation/image_manager.dart';
 import '../../network/eh_network/eh_models.dart';
@@ -61,6 +62,7 @@ class _EhOriginalAvailabilityBadgeState
         final result = snapshot.data!;
         if (result.error) {
           return ActionChip(
+            mouseCursor: appClickableMouseCursor,
             avatar: const Icon(Icons.refresh, size: 18),
             label: Text("第1页原图检测失败".tl),
             onPressed: _retry,
@@ -80,6 +82,10 @@ class _EhOriginalAvailabilityBadgeState
   }
 
   Widget _buildChip({required Widget icon, required String label}) {
-    return Chip(avatar: icon, label: Text(label));
+    return Chip(
+      avatar: icon,
+      label: Text(label),
+      mouseCursor: SystemMouseCursors.basic,
+    );
   }
 }

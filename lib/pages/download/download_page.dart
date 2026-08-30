@@ -931,6 +931,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final category = TagCategory.fromValue(tag.category);
 
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       key: ValueKey(tag.id),
       onTap: () => updateTagFilter(ref, _pageId, tag.id),
       borderRadius: BorderRadius.circular(8),

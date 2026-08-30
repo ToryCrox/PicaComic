@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 /// 为桌面端提供轻量悬浮反馈的卡片表面。
 ///
@@ -87,7 +88,9 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
     return Padding(
       padding: widget.margin,
       child: MouseRegion(
-        cursor: widget.enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        cursor: widget.enabled
+            ? appClickableMouseCursor
+            : SystemMouseCursors.basic,
         onEnter: (_) => _setHovered(true),
         onExit: (_) => _setHovered(false),
         child: AnimatedScale(

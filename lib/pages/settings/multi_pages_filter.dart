@@ -123,6 +123,7 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
           children: canAdd.entries
               .map(
                 (e) => InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   child: ListTile(title: Text(e.value), key: Key(e.key)),
                   onTap: () {
                     App.back(context);

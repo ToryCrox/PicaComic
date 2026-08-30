@@ -38,6 +38,7 @@ class CommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
@@ -82,6 +83,7 @@ class CommentTile extends StatelessWidget {
                         const Spacer(),
                         if (like != null)
                           InkWell(
+                            mouseCursor: appClickableMouseCursor,
                             borderRadius: const BorderRadius.all(
                               Radius.circular(8),
                             ),
@@ -116,6 +118,7 @@ class CommentTile extends StatelessWidget {
                         if (like != null) const SizedBox(width: 16),
                         if (comments != null)
                           InkWell(
+                            mouseCursor: appClickableMouseCursor,
                             borderRadius: const BorderRadius.all(
                               Radius.circular(8),
                             ),

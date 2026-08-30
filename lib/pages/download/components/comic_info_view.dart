@@ -66,6 +66,7 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
                 return Padding(
                   padding: const EdgeInsets.all(4),
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     borderRadius: const BorderRadius.all(Radius.circular(16)),
                     child: Container(
                       decoration: BoxDecoration(

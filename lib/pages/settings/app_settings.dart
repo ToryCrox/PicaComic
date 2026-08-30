@@ -425,6 +425,7 @@ class _SetExplorePagesState extends State<SetExplorePages> {
   Widget buildNotShowPageSelector(String i, BuildContext context) {
     var widget = ListTile(title: Text(i.tl), key: Key(i));
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       child: widget,
       onTap: () {
         App.back(context);

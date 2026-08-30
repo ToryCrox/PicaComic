@@ -420,7 +420,7 @@ class _SideNaviWidgetState extends State<_SideNaviWidget> {
       widget.enabled ? widget.entry.activeIcon : widget.entry.icon,
     );
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: appClickableMouseCursor,
       onEnter: (details) => setState(() => isHovering = true),
       onExit: (details) => setState(() => isHovering = false),
       child: GestureDetector(
@@ -478,7 +478,7 @@ class _PaneActionWidgetState extends State<_PaneActionWidget> {
     final colorScheme = Theme.of(context).colorScheme;
     final icon = Icon(widget.entry.icon);
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: appClickableMouseCursor,
       onEnter: (details) => setState(() => isHovering = true),
       onExit: (details) => setState(() => isHovering = false),
       child: GestureDetector(
@@ -568,7 +568,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
       animation: CurvedAnimation(parent: controller, curve: Curves.ease),
       builder: (context, child) {
         return MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: appClickableMouseCursor,
           onEnter: (details) => setState(() => isHovering = true),
           onExit: (details) => setState(() => isHovering = false),
           child: GestureDetector(

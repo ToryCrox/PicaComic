@@ -43,6 +43,7 @@ class _SelectDownloadChapterState extends State<SelectDownloadChapter> {
                 return Padding(
                   padding: const EdgeInsets.all(4),
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     borderRadius: const BorderRadius.all(Radius.circular(16)),
                     onTap: () {
                       if (widget.downloadedEps.contains(i)) {

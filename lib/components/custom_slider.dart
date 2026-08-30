@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 /// copied from flutter source
 class _SliderDefaultsM3 extends SliderThemeData {
@@ -127,7 +128,7 @@ class _CustomSliderState extends State<CustomSlider> {
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
       child: LayoutBuilder(
         builder: (context, constrains) => MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: appClickableMouseCursor,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTapDown: (details) {

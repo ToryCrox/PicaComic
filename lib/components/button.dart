@@ -23,7 +23,7 @@ class _HoverBoxState extends State<HoverBox> {
     return MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
-      cursor: SystemMouseCursors.click,
+      cursor: appClickableMouseCursor,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -200,7 +200,9 @@ class _ButtonState extends State<Button> {
     return MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
-      cursor: !widget.disabled ? SystemMouseCursors.click : MouseCursor.defer,
+      cursor: widget.disabled || isLoading
+          ? SystemMouseCursors.basic
+          : appClickableMouseCursor,
       child: GestureDetector(
         onTap: () {
           if (widget.disabled) {
@@ -321,7 +323,9 @@ class _IconButtonState extends State<_IconButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
-      cursor: SystemMouseCursors.click,
+      cursor: widget.isLoading
+          ? SystemMouseCursors.basic
+          : appClickableMouseCursor,
       child: GestureDetector(
         behavior: widget.behavior,
         onTap: () {

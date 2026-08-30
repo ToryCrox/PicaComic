@@ -269,6 +269,7 @@ class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
     Widget buildFolder(String name, String id, int p) {
       bool isSelected = selected.contains(id);
       return InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: () => setState(() {
           page = p;
           if (isSelected) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 import '../../foundation/image_loader/base_image_provider.dart';
 import 'touch_control.dart';
@@ -295,7 +296,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 4),
                 MouseRegion(
-                  cursor: SystemMouseCursors.click,
+                  cursor: appClickableMouseCursor,
                   child: Listener(
                     onPointerDown: (details) {
                       TapController.ignoreNextTap = true;

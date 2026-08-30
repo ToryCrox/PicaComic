@@ -206,6 +206,7 @@ class _FolderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: onTap,
         borderRadius: const BorderRadius.all(Radius.circular(8)),
         child: Padding(

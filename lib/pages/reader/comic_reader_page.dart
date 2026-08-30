@@ -587,6 +587,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
+                      mouseCursor: appClickableMouseCursor,
                       onTap: () => logic.jumpToNextChapter(),
                       borderRadius: BorderRadius.circular(16),
                       child: Center(

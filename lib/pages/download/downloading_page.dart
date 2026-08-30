@@ -257,6 +257,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
           children: [
             // 封面区域：点击导航到详情页
             InkWell(
+              mouseCursor: appClickableMouseCursor,
               onTap: () {
                 toDownloadingComicInfoPage(comic);
               },
@@ -282,6 +283,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
             // 内容区域
             Expanded(
               child: InkWell(
+                mouseCursor: appClickableMouseCursor,
                 onTap: () {
                   if (_isSingleEpisode) {
                     // 单章节漫画：导航到详情页
@@ -530,6 +532,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                 if (!isCompleted) ...[
                   const SizedBox(width: 4),
                   InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     onTap: () {
                       showConfirmDialog(
                         context,

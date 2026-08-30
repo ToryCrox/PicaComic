@@ -395,6 +395,7 @@ abstract class ComicTile extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
+                  mouseCursor: appClickableMouseCursor,
                   onTap: () {
                     context.to(() => const DownloadPage());
                   },
@@ -458,6 +459,7 @@ abstract class ComicTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        mouseCursor: appClickableMouseCursor,
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
@@ -932,6 +934,7 @@ class _ComicDescriptionState extends State<_ComicDescription> {
                             }
                           },
                           child: InkWell(
+                            mouseCursor: appClickableMouseCursor,
                             onTap: () => widget.onPrimaryTagTap?.call(s),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
@@ -966,6 +969,7 @@ class _ComicDescriptionState extends State<_ComicDescription> {
                             }
                           },
                           child: InkWell(
+                            mouseCursor: appClickableMouseCursor,
                             onTap: () => widget.onTagTap?.call(s),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
@@ -1227,6 +1231,7 @@ class _ComicTileInkWellState extends State<_ComicTileInkWell> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appClickableMouseCursor,
       borderRadius: widget.borderRadius,
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
@@ -1577,6 +1582,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appClickableMouseCursor,
           onTap: _isLoading
               ? null
               : () async {

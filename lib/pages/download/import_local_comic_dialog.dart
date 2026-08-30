@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
@@ -357,6 +358,8 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButton<String>(
+                    mouseCursor: appClickableMouseCursor,
+                    dropdownMenuItemMouseCursor: appClickableMouseCursor,
                     value: selectedRepositoryName,
                     isExpanded: true,
                     items: repositories.map((repo) {
@@ -394,6 +397,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
                     onTap: () => _showTagSearchDialog(context),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -423,6 +427,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
                                         return const SizedBox.shrink();
                                       return Chip(
                                         label: Text(tag.name),
+                                        mouseCursor: appClickableMouseCursor,
                                         onDeleted: () {
                                           setState(() {
                                             selectedTagIds.remove(tagId);
