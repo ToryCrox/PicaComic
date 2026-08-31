@@ -96,12 +96,6 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
 
     final isPaged = appdata.settings[25] != "0";
     final currentPageComics = pageState.dividedComics[pageState.current];
-    if (isPaged &&
-        currentPageComics == null &&
-        pageState.message == null &&
-        !pageState.loadingData) {
-      logic.ensurePageLoaded(pageState.current);
-    }
 
     Widget body;
     if (pageState.loading || (isPaged && currentPageComics == null)) {
@@ -137,13 +131,13 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
             if (header != null) header!,
             SliverGrid(
               delegate: SliverChildBuilderDelegate(childCount: comics.length, (
-                context,
+                itemContext,
                 i,
               ) {
                 if (i == comics.length - 1) {
-                  logic.loadNextPage();
+                  _scheduleNextPageLoad(context, logic, pageState.current);
                 }
-                return buildItem(context, comics[i], logic);
+                return buildItem(itemContext, comics[i], logic);
               }),
               gridDelegate: SliverGridDelegateWithComics(),
             ),
@@ -237,6 +231,28 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
       );
     }
     return Material(child: body);
+  }
+
+  /// 在当前帧结束后触发连续模式的下一页加载。
+  ///
+  /// Sliver 的 itemBuilder 仍属于 Widget 构建过程，不能在其中直接修改
+  /// Riverpod Notifier 状态。通过帧后回调触发，并再次确认页面状态，避免
+  /// 页面刷新或销毁后执行过期的加载请求。
+  void _scheduleNextPageLoad(
+    BuildContext context,
+    ComicListPageLogic logic,
+    int currentPage,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      final state = logic.value;
+      if (state.current != currentPage ||
+          state.loadingData ||
+          state.comics == null) {
+        return;
+      }
+      logic.loadNextPage();
+    });
   }
 
   SliverAppBar _buildAppbar() {
@@ -517,12 +533,19 @@ class _SliverGridComics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var callbackScheduled = false;
     return SliverGrid(
-      delegate: SliverChildBuilderDelegate((context, index) {
+      delegate: SliverChildBuilderDelegate((itemContext, index) {
         if (index == comics.length - 1) {
-          onLastItemBuild?.call();
+          final callback = onLastItemBuild;
+          if (callback != null && !callbackScheduled) {
+            callbackScheduled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) callback();
+            });
+          }
         }
-        return buildComicTile(context, comics[index], comicType);
+        return buildComicTile(itemContext, comics[index], comicType);
       }, childCount: comics.length),
       gridDelegate: SliverGridDelegateWithComics(),
     );

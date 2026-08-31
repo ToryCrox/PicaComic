@@ -25,16 +25,19 @@ part 'download_providers.g.dart';
 @Riverpod(keepAlive: true)
 class AllDownloadedComics extends _$AllDownloadedComics {
   StreamSubscription<void>? _subscription;
+  bool _disposed = false;
 
   @override
   Future<List<DownloadedItem>> build() async {
-    _subscription?.cancel();
-    _subscription = downloadManager.onComicsChanged.listen((_) {
-      _refresh();
-    });
-
     ref.onDispose(() {
+      _disposed = true;
       _subscription?.cancel();
+    });
+    await downloadManager.init();
+    if (_disposed) return const [];
+    await _subscription?.cancel();
+    _subscription = downloadManager.onComicsChanged.listen((_) {
+      if (!_disposed) _refresh();
     });
 
     return _loadComics();
@@ -45,6 +48,7 @@ class AllDownloadedComics extends _$AllDownloadedComics {
   }
 
   Future<void> _refresh() async {
+    if (_disposed) return;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _loadComics());
   }
@@ -53,6 +57,44 @@ class AllDownloadedComics extends _$AllDownloadedComics {
   Future<void> refresh() async {
     await _refresh();
   }
+}
+
+/// 下载页和首页摘要所需的轻量统计数据。
+class DownloadSummary {
+  const DownloadSummary({required this.total, required this.pending});
+
+  final int total;
+  final int pending;
+}
+
+/// 下载管理器初始化后提供下载数量和未完成任务数量。
+@Riverpod(keepAlive: true)
+Future<DownloadSummary> downloadSummary(Ref ref) async {
+  StreamSubscription<void>? subscription;
+  var disposed = false;
+  ref.onDispose(() {
+    disposed = true;
+    subscription?.cancel();
+  });
+  await downloadManager.init();
+  if (disposed) {
+    return const DownloadSummary(total: 0, pending: 0);
+  }
+  subscription = downloadManager.onComicsChanged.listen((_) {
+    if (!disposed) ref.invalidateSelf();
+  });
+  final total = await downloadManager.getTotal();
+  return DownloadSummary(
+    total: total,
+    pending: downloadManager.downloading.length,
+  );
+}
+
+/// 应用启动后用于决定是否显示“继续未完成下载”提示。
+@Riverpod(keepAlive: true)
+Future<bool> pendingDownloads(Ref ref) async {
+  await downloadManager.init();
+  return downloadManager.downloading.isNotEmpty;
 }
 
 /// 当前下载列表中存在可替换翻译结果的漫画。
@@ -80,13 +122,32 @@ enum DownloadStatus {
 /// 监听 DownloadManager 的状态变化，提供当前任务的状态映射。
 @Riverpod(keepAlive: true)
 class DownloadingItems extends _$DownloadingItems {
+  bool _disposed = false;
+  bool _listenerRegistered = false;
+
   @override
   Map<String, DownloadStatus> build() {
-    downloadManager.addListener(_update);
+    // 先等待管理器恢复队列，再注册监听器，避免在初始化窗口读取到半成品。
+    unawaited(_initialize());
     ref.onDispose(() {
-      downloadManager.removeListener(_update);
+      _disposed = true;
+      if (_listenerRegistered) {
+        downloadManager.removeListener(_update);
+      }
     });
     return _computeStatus();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await downloadManager.init();
+      if (_disposed) return;
+      downloadManager.addListener(_update);
+      _listenerRegistered = true;
+      _update();
+    } catch (_) {
+      // 该 Provider 只表示队列状态；初始化错误由下载摘要/页面自身展示。
+    }
   }
 
   Map<String, DownloadStatus> _computeStatus() {
@@ -151,22 +212,26 @@ Set<String> downloadedIds(Ref ref) {
 @Riverpod(keepAlive: true)
 class AllTags extends _$AllTags {
   StreamSubscription<void>? _subscription;
+  bool _disposed = false;
 
   @override
   Future<List<DownloadTag>> build() async {
-    _subscription?.cancel();
-    _subscription = downloadManager.onTagsChanged.listen((_) {
-      _refresh();
-    });
-
     ref.onDispose(() {
+      _disposed = true;
       _subscription?.cancel();
+    });
+    await downloadManager.init();
+    if (_disposed) return const [];
+    await _subscription?.cancel();
+    _subscription = downloadManager.onTagsChanged.listen((_) {
+      if (!_disposed) _refresh();
     });
 
     return await downloadManager.getAllTags();
   }
 
   Future<void> _refresh() async {
+    if (_disposed) return;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => downloadManager.getAllTags());
   }
@@ -220,22 +285,26 @@ Future<List<TagInfo>> downloadTags(Ref ref) async {
 @Riverpod(keepAlive: true)
 class ComicUserTags extends _$ComicUserTags {
   StreamSubscription<void>? _tagsSubscription;
+  bool _disposed = false;
 
   @override
   Future<Map<String, List<String>>> build() async {
-    _tagsSubscription?.cancel();
-    _tagsSubscription = downloadManager.onTagsChanged.listen((_) {
-      _refresh();
-    });
-
     ref.onDispose(() {
+      _disposed = true;
       _tagsSubscription?.cancel();
+    });
+    await downloadManager.init();
+    if (_disposed) return const {};
+    await _tagsSubscription?.cancel();
+    _tagsSubscription = downloadManager.onTagsChanged.listen((_) {
+      if (!_disposed) _refresh();
     });
 
     return await downloadManager.getAllComicTagsMap();
   }
 
   Future<void> _refresh() async {
+    if (_disposed) return;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => downloadManager.getAllComicTagsMap());
   }

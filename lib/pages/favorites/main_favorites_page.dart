@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:collection/collection.dart";
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart";
 import "package:pica_comic/base.dart";
 import "package:pica_comic/comic_source/comic_source.dart";
@@ -15,6 +16,7 @@ import "package:pica_comic/tools/translations.dart";
 import "../../network/net_fav_to_local.dart";
 import "../../tools/io_tools.dart";
 import "local_favorites.dart";
+import "local_favorites_providers.dart";
 import "local_search_page.dart";
 import "network_favorite_page.dart";
 
@@ -75,7 +77,7 @@ class FavoritesPageController extends StateController {
 
 const _kSecondaryTopBarHeight = 48.0;
 
-class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
+class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
   FavoritesPage({super.key});
 
   final controller = StateController.putIfNotExists<FavoritesPageController>(
@@ -83,18 +85,23 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localFavorites = ref.watch(localFavoritesProvider);
     return StateBuilder<FavoritesPageController>(
       builder: (controller) {
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: buildPage(context),
+          body: buildPage(context, ref, localFavorites),
         );
       },
     );
   }
 
-  Widget buildPage(BuildContext context) {
+  Widget buildPage(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<LocalFavoritesState> localFavorites,
+  ) {
     return Column(
       children: [
         buildTopBar(context),
@@ -109,7 +116,12 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                   left: 0,
                   right: 0,
                   bottom: controller.selectingFolder ? 0 : constrains.maxHeight,
-                  child: buildFoldersList(context, constrains.maxHeight),
+                  child: buildFoldersList(
+                    context,
+                    constrains.maxHeight,
+                    ref,
+                    localFavorites,
+                  ),
                 ),
               ],
             ),
@@ -282,7 +294,12 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     );
   }
 
-  Widget buildFoldersList(BuildContext context, double height) {
+  Widget buildFoldersList(
+    BuildContext context,
+    double height,
+    WidgetRef ref,
+    AsyncValue<LocalFavoritesState> localFavorites,
+  ) {
     return Material(
       child: SizedBox(
         height: height,
@@ -297,8 +314,8 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
               child: Divider(),
             ).sliverPaddingHorizontal(12),
             buildTitle("本地".tl).sliverPaddingHorizontal(12),
-            buildUtils(context),
-            buildLocal().sliverPaddingHorizontal(12),
+            buildUtils(context, ref),
+            buildLocal(localFavorites, ref).sliverPaddingHorizontal(12),
           ],
         ),
       ),
@@ -354,11 +371,29 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     );
   }
 
-  Widget buildLocal() {
-    return FutureBuilder<List<String>>(
-      future: LocalFavoritesManager().folderNames,
-      builder: (context, snapshot) {
-        final folders = snapshot.data ?? [];
+  Widget buildLocal(
+    AsyncValue<LocalFavoritesState> localFavorites,
+    WidgetRef ref,
+  ) {
+    return localFavorites.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => SliverToBoxAdapter(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('本地收藏加载失败: $error'),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => ref.invalidate(localFavoritesProvider),
+              child: Text('重试'.tl),
+            ),
+          ],
+        ),
+      ),
+      data: (state) {
+        final folders = state.folderNames;
         return SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedHeight(
             maxCrossAxisExtent: 260,
@@ -368,7 +403,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
             final data = folders.elementAt(index);
             return GestureDetector(
               onLongPressStart: (details) =>
-                  _showMenu(data, details.globalPosition),
+                  _showMenu(data, details.globalPosition, ref),
               child: InkWell(
                 mouseCursor: appClickableMouseCursor,
                 onTap: () {
@@ -380,7 +415,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                   appdata.writeImplicitData();
                 },
                 onSecondaryTapUp: (details) =>
-                    _showMenu(data, details.globalPosition),
+                    _showMenu(data, details.globalPosition, ref),
                 borderRadius: BorderRadius.circular(8),
                 child: Row(
                   children: [
@@ -405,13 +440,22 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
                         color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: FutureBuilder<int>(
-                        future: LocalFavoritesManager().count(data),
-                        builder: (context, snapshot) {
-                          final count = snapshot.data ?? 0;
-                          return Text(
-                            '$count',
-                            style: const TextStyle(fontSize: 12),
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final count = ref.watch(
+                            localFavoriteCountProvider(data),
+                          );
+                          return count.when(
+                            data: (value) => Text(
+                              '$value',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            loading: () => const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            error: (_, __) => const Text('–'),
                           );
                         },
                       ),
@@ -427,7 +471,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     );
   }
 
-  Widget buildUtils(BuildContext context) {
+  Widget buildUtils(BuildContext context, WidgetRef ref) {
     Widget buildItem(String title, IconData icon, VoidCallback onTap) {
       return InkWell(
         mouseCursor: appClickableMouseCursor,
@@ -517,7 +561,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
     }
   }
 
-  void _showMenu(String folder, Offset location) {
+  void _showMenu(String folder, Offset location, WidgetRef ref) {
     showContextMenu(
       context: App.globalContext!,
       items: [
@@ -525,7 +569,7 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
           text: "删除".tl,
           icon: Icons.delete_outline,
           onTap: () {
-            deleteFolder(folder);
+            deleteFolder(folder, ref);
           },
         ),
         popupMenuItem(
@@ -582,16 +626,22 @@ class FavoritesPage extends StatelessWidget with _LocalFavoritesManager {
 }
 
 mixin class _LocalFavoritesManager {
-  void deleteFolder(String folder) {
+  void deleteFolder(String folder, WidgetRef ref) {
     showConfirmDialog(App.globalContext!, "确认删除".tl, "此操作无法撤销, 是否继续?".tl, () {
       App.globalBack();
-      LocalFavoritesManager().deleteFolder(folder);
-      final controller = StateController.find<FavoritesPageController>();
-      if (controller.current == folder && !controller.isNetwork!) {
-        controller.current = null;
-        controller.isNetwork = null;
-      }
-      controller.update();
+      unawaited(() async {
+        try {
+          await ref.read(localFavoritesProvider.notifier).deleteFolder(folder);
+          final controller = StateController.find<FavoritesPageController>();
+          if (controller.current == folder && !controller.isNetwork!) {
+            controller.current = null;
+            controller.isNetwork = null;
+          }
+          controller.update();
+        } catch (e) {
+          showToast(message: e.toString());
+        }
+      }());
     });
   }
 
@@ -728,9 +778,9 @@ class _ComicsPageViewState extends StateWithController<ComicsPageView> {
         removeTop: true,
         context: context,
         child: RefreshIndicator(
-          notificationPredicate: (notify) {
-            return folderSync() != null;
-          },
+          // folderSync() 是异步查询，不能在同步通知过滤器中比较 Future；
+          // 原逻辑运行时始终为 true，这里直接保留同样的刷新行为。
+          notificationPredicate: (_) => true,
           onRefresh: () => onRefresh(context),
           child: Scrollbar(
             controller: scrollController,

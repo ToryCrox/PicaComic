@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -406,34 +405,60 @@ class LocalFavoritesManager {
 
   Database? _db;
   bool _initialized = false;
+  bool _initializing = false;
+  Future<void>? _initializationFuture;
   final Completer<Database> _initCompleter = Completer<Database>();
   final Lock _lock = Lock();
+  final StreamController<void> _changeController =
+      StreamController<void>.broadcast();
 
-  Future<void> init() async {
-    if (_initialized) return;
-    await _lock.synchronized(() async {
-      if (_initialized) return;
+  /// 收藏夹或其中漫画发生变化时触发，供功能 Provider 刷新派生状态。
+  Stream<void> get changes => _changeController.stream;
 
-      final dbPath = "${App.dataPath}/local_favorite.db";
-      final dir = Directory(App.dataPath);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
 
-      _db = await databaseFactory.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: 1,
-          onCreate: _onCreate,
-          onUpgrade: _onUpgrade,
-        ),
-      );
+    final future = _initialize();
+    _initializationFuture = future;
+    return future;
+  }
 
-      _checkAndCreate();
-      await readData();
-      _initialized = true;
-      _initCompleter.complete(_db);
-    });
+  Future<void> _initialize() async {
+    try {
+      await _lock.synchronized(() async {
+        if (_initialized) return;
+        _initializing = true;
+
+        try {
+          final dbPath = "${App.dataPath}/local_favorite.db";
+          final dir = Directory(App.dataPath);
+          if (!await dir.exists()) {
+            await dir.create(recursive: true);
+          }
+
+          _db = await databaseFactory.openDatabase(
+            dbPath,
+            options: OpenDatabaseOptions(
+              version: 1,
+              onCreate: _onCreate,
+              onUpgrade: _onUpgrade,
+            ),
+          );
+
+          await _checkAndCreate();
+          await readData();
+          _initialized = true;
+          _initCompleter.complete(_db);
+        } finally {
+          _initializing = false;
+        }
+      });
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -459,15 +484,17 @@ class LocalFavoritesManager {
   }
 
   /// 确保数据库已初始化并返回数据库实例
-  Future<Database> _getDatabase() {
+  Future<Database> _getDatabase() async {
     final db = _db;
     if (db != null) {
-      return SynchronousFuture(db);
+      return db;
     }
-    return _initCompleter.future;
+    // 直接访问收藏功能时也应触发懒初始化，而不是无限等待 Completer。
+    await init();
+    return _db!;
   }
 
-  void _checkAndCreate() async {
+  Future<void> _checkAndCreate() async {
     final db = await _getDatabase();
     final tables = await _getTablesWithDB(db);
     if (!tables.contains(kTableFolderSync)) {
@@ -533,6 +560,7 @@ class LocalFavoritesManager {
   }
 
   void updateUI() {
+    _changeController.add(null);
     Future.microtask(
       () => StateController.findOrNull<FavoritesPageController>()?.update(),
     );
@@ -603,10 +631,10 @@ class LocalFavoritesManager {
         await clearAll();
 
         for (var folder in allComics.keys) {
-          createFolder(folder, true);
+          await createFolder(folder, true);
           var comics = allComics[folder]!;
           for (int i = 0; i < comics.length; i++) {
-            addComic(folder, comics[i]);
+            await addComic(folder, comics[i]);
           }
         }
       } catch (e, s) {
@@ -666,14 +694,14 @@ class LocalFavoritesManager {
       var skips = 0;
       for (var comic in res) {
         if (!folderNames.contains(comic.folder)) {
-          createFolder(comic.folder);
+          await createFolder(comic.folder);
         }
         if (!(await comicExists(
           comic.folder,
           comic.comic.target,
           comic.comic.type.key,
         ))) {
-          addComic(comic.folder, comic.comic);
+          await addComic(comic.folder, comic.comic);
           Log.i(
             "LocalFavoritesManager add comic ${comic.comic.target} to ${comic.folder}",
           );
@@ -723,7 +751,7 @@ class LocalFavoritesManager {
     return folders;
   }
 
-  void updateOrder(Map<String, int> order) async {
+  Future<void> updateOrder(Map<String, int> order) async {
     final db = await _getDatabase();
     for (var folder in order.keys) {
       await db.insert(kTableFolderOrder, {
@@ -731,6 +759,7 @@ class LocalFavoritesManager {
         kFolderOrderValue: order[folder],
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
+    updateUI();
   }
 
   Future<List<FolderSync>> _getFolderSyncWithDB() async {
@@ -760,12 +789,18 @@ class LocalFavoritesManager {
   }
 
   Future<int> count(String folderName) async {
+    await init();
     final db = await _getDatabase();
     final result = await db.rawQuery('SELECT COUNT(*) as c FROM "$folderName"');
     return result.first["c"] as int;
   }
 
-  Future<List<String>> get folderNames async => await _getFolderNamesWithDB();
+  Future<List<String>> get folderNames async {
+    if (!_initialized && !_initializing) {
+      await init();
+    }
+    return _getFolderNamesWithDB();
+  }
 
   Future<List<FolderSync>> get folderSync async => await _getFolderSyncWithDB();
 
@@ -786,6 +821,7 @@ class LocalFavoritesManager {
   }
 
   Future<List<FavoriteItem>> getAllComics(String folder) async {
+    await init();
     final db = await _getDatabase();
     var rows = await db.query(folder, orderBy: 'display_order');
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();
@@ -873,6 +909,7 @@ class LocalFavoritesManager {
         PRIMARY KEY (target, type)
       )
     ''');
+    updateUI();
     saveData();
     return name;
   }
@@ -907,7 +944,7 @@ class LocalFavoritesManager {
   /// add comic to a folder
   ///
   /// This method will download cover to local, to avoid problems like changing url
-  void addComic(String folder, FavoriteItem comic, [int? order]) async {
+  Future<void> addComic(String folder, FavoriteItem comic, [int? order]) async {
     _modifiedAfterLastCache = true;
     if (!(await folderNames).contains(folder)) {
       throw Exception("Folder does not exists");
@@ -1000,7 +1037,7 @@ class LocalFavoritesManager {
   }
 
   /// delete a folder
-  void deleteFolder(String name) async {
+  Future<void> deleteFolder(String name) async {
     _modifiedAfterLastCache = true;
     final db = await _getDatabase();
     await db.delete(
@@ -1009,6 +1046,7 @@ class LocalFavoritesManager {
       whereArgs: [name],
     );
     await db.execute('DROP TABLE "$name"');
+    updateUI();
   }
 
   void checkAndDeleteCover(FavoriteItem item) async {
@@ -1023,7 +1061,7 @@ class LocalFavoritesManager {
     checkAndDeleteCover(comic);
   }
 
-  void deleteComicWithTarget(
+  Future<void> deleteComicWithTarget(
     String folder,
     String target,
     FavoriteType type,
@@ -1035,30 +1073,41 @@ class LocalFavoritesManager {
       where: 'target = ? AND type = ?',
       whereArgs: [target, type.key],
     );
+    updateUI();
     saveData();
   }
 
   Future<void> clearAll() async {
     final db = await _getDatabase();
-    await db.close();
-    File("${App.dataPath}/local_favorite.db").deleteSync();
-    await init();
+    final tables = await _getTablesWithDB(db);
+    for (final table in tables) {
+      if (table == kTableFolderSync || table == kTableFolderOrder) {
+        continue;
+      }
+      await db.execute('DROP TABLE IF EXISTS "$table"');
+    }
+    await db.delete(kTableFolderSync);
+    await db.delete(kTableFolderOrder);
+    await _onCreate(db, 1);
+    _cachedFavoritedTargets.clear();
+    _modifiedAfterLastCache = true;
+    updateUI();
     saveData();
   }
 
-  void reorder(List<FavoriteItem> newFolder, String folder) async {
+  Future<void> reorder(List<FavoriteItem> newFolder, String folder) async {
     if (!(await folderNames).contains(folder)) {
       throw Exception("Failed to reorder: folder not found");
     }
-    deleteFolder(folder);
+    await deleteFolder(folder);
     await createFolder(folder);
     for (int i = 0; i < newFolder.length; i++) {
-      addComic(folder, newFolder[i], i);
+      await addComic(folder, newFolder[i], i);
     }
     updateUI();
   }
 
-  void rename(String before, String after) async {
+  Future<void> rename(String before, String after) async {
     if ((await folderNames).contains(after)) {
       throw "Name already exists!";
     }
@@ -1077,6 +1126,7 @@ class LocalFavoritesManager {
         whereArgs: [before],
       );
     }
+    updateUI();
     saveData();
   }
 

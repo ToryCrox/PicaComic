@@ -16,6 +16,7 @@ import 'package:pica_comic/tools/type_util.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
+import 'package:pica_comic/foundation/worker_pool.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/download_queue_manager.dart';
@@ -48,7 +49,6 @@ import 'package:pica_comic/tools/debounce.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
-import 'package:worker_manager/worker_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/foundation/local_repository_manager.dart';
@@ -114,8 +114,8 @@ class DownloadManager extends ChangeNotifier {
   ///是否出现了错误
   bool get error => _error;
 
-  ///是否初始化
-  bool _runInit = false;
+  Future<void>? _initializationFuture;
+  bool _initialized = false;
 
   final DownloadDatabase _db = DownloadDatabase();
 
@@ -228,7 +228,8 @@ class DownloadManager extends ChangeNotifier {
       }
     }
 
-    _runInit = false;
+    _initializationFuture = null;
+    _initialized = false;
     downloading.clear();
     await init();
     return "ok";
@@ -243,6 +244,7 @@ class DownloadManager extends ChangeNotifier {
     } else {
       try {
         var json = const JsonDecoder().convert(await file.readAsString());
+        var corrected = false;
         for (var item in json["downloading"]) {
           final task = downloadingItemFromMap(
             item,
@@ -250,12 +252,22 @@ class DownloadManager extends ChangeNotifier {
             _onError,
             _saveInfo,
           );
+          final originalDirectory = task.directory;
           // 直接调用 _addDownloadTask，统一处理 directory 初始化
-          _addDownloadTask(task, skipSave: true, autoStart: false);
+          await _addDownloadTask(
+            task,
+            skipSave: true,
+            autoStart: false,
+            ensureInitialized: false,
+          );
+          corrected = corrected || task.directory != originalDirectory;
         }
 
-        // 恢复完成后统一保存一次
-        await _saveInfo();
+        // 只有恢复过程中修正了旧格式或缺失字段时才回写，避免每次启动
+        // 都触发一次 newDownload.json 的无变化写入。
+        if (corrected) {
+          _saveInfo();
+        }
 
         // 如果有任务被加载，记录一下，但不自动启动
         if (_queueManager.totalTasksCount > 0) {
@@ -280,23 +292,39 @@ class DownloadManager extends ChangeNotifier {
 
   @override
   void dispose() {
-    _runInit = false;
+    _initializationFuture = null;
+    _initialized = false;
     _queueManager.stopAll();
     super.dispose();
   }
 
   ///初始化下载管理器
-  Future<void> init() async {
-    if (_runInit) return;
-    _runInit = true;
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
 
-    // 初始化队列管理器
-    _queueManager.removeListener(notifyListeners);
-    _queueManager.addListener(notifyListeners);
+    final future = _initialize();
+    _initializationFuture = future;
+    return future;
+  }
 
-    await _getPath();
-    await _getInfo();
-    await _initDb();
+  Future<void> _initialize() async {
+    try {
+      // 初始化队列管理器
+      _queueManager.removeListener(notifyListeners);
+      _queueManager.addListener(notifyListeners);
+
+      await _getPath();
+      await _initDb();
+      await _getInfo();
+      _initialized = true;
+    } catch (_) {
+      await _queueManager.stopAll();
+      _initializationFuture = null;
+      _initialized = false;
+      rethrow;
+    }
   }
 
   static final _saveInfoThrottle = Debounce(
@@ -314,7 +342,7 @@ class DownloadManager extends ChangeNotifier {
         data["downloading"].add(item.toMap());
       }
       final saveItem = SaveInfoItem(data, path ?? '');
-      workerManager.execute(_buildSaveTask(saveItem));
+      unawaited(workerPool.execute(_buildSaveTask(saveItem)));
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
     });
@@ -553,6 +581,7 @@ class DownloadManager extends ChangeNotifier {
     _isBatchFavoriteQueryPending = false;
 
     try {
+      await init();
       // 通过单一查询批量处理(由于无原生批量借口，或者可以多次查询，SQLite性能良好)
       for (var path in targetsToQuery) {
         final result = await _db.getLocalFavorite(path);
@@ -579,6 +608,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> addLocalFavorite(String path, {int sortOrder = 0}) async {
+    await init();
     await _db.addOrUpdateLocalFavorite(path, sortOrder: sortOrder);
 
     // 同步更新或新增 Signal
@@ -595,6 +625,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> updateLocalFavoriteSortOrder(String path, int sortOrder) async {
+    await init();
     await _db.updateLocalFavoriteSortOrder(path, sortOrder);
 
     // 同步更新 Signal
@@ -611,6 +642,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> deleteLocalFavorite(String path) async {
+    await init();
     await _db.deleteLocalFavorite(path);
 
     // 同步清除 Signal
@@ -620,16 +652,19 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<List<Map<String, Object?>>> getAllLocalFavorites() async {
+    await init();
     return _db.getAllLocalFavorites();
   }
 
   Future<Map<String, Object?>?> getLocalFavorite(String path) async {
+    await init();
     return _db.getLocalFavorite(path);
   }
 
   // ====================================================================
 
   Future<DownloadedItem?> getComicOrNull(String id) async {
+    await init();
     return _getComicWithDb(id);
   }
 
@@ -676,6 +711,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> deleteWithoutFile(List<String> ids) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 删除数据库记录(不删除文件) ids=$ids');
     for (var id in ids) {
       await _deleteFromDb(id);
@@ -1031,17 +1067,24 @@ extension AddDownloadExt on DownloadManager {
   ///
   /// [skipSave] 跳过保存，用于批量添加任务时提高性能
   /// [autoStart] 是否自动开始下载
-  void _addDownloadTask(
+  Future<void> _addDownloadTask(
     DownloadingTask task, {
     bool skipSave = false,
     bool autoStart = true,
+    bool ensureInitialized = true,
   }) async {
+    if (ensureInitialized) {
+      await init();
+    }
     Log.d(() => 'DownloadManager: 添加下载任务 id=${task.id}, title=${task.title}');
 
     // 确保 directory 不为空
     if (task.directory.trim().isEmpty) {
       // 尝试从数据库恢复
-      if (await isExists(task.id)) {
+      final exists = ensureInitialized
+          ? await isExists(task.id)
+          : await _db.isDownloadExists(task.id);
+      if (exists) {
         task.directory = await getDirectoryName(task.id);
       }
       // 如果还是空，生成新的
@@ -1645,6 +1688,7 @@ extension AddDownloadExt on DownloadManager {
     String directory, [
     DateTime? time,
   ]) async {
+    await init();
     // 使用锁保护数据库写入，防止并发导致的 SQLite 死锁
     await DownloadManager._dbLock.synchronized(() async {
       Log.d(
@@ -1671,6 +1715,7 @@ extension AddDownloadExt on DownloadManager {
     DownloadedItem original,
     DownloadedItem updated,
   ) async {
+    await init();
     if (original.id != updated.id) {
       throw ArgumentError('下载详情更新前后的 ID 不一致');
     }
@@ -1695,6 +1740,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 更新漫画大小
   Future<void> updateSize(String id, double size) async {
+    await init();
     // 使用锁保护数据库写入
     await DownloadManager._dbLock.synchronized(() async {
       Log.d(() => 'DB DownloadManager: 更新漫画大小 id=$id, size=$size MB');
@@ -1703,12 +1749,14 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<bool> isExists(String id) async {
+    await init();
     final exists = await _db.isDownloadExists(id);
     Log.d(() => 'DB DownloadManager: 检查下载是否存在 id=$id, exists=$exists');
     return exists;
   }
 
   Future<void> _deleteFromDb(String id) async {
+    await init();
     // 使用锁保护数据库删除操作
     await DownloadManager._dbLock.synchronized(() async {
       Log.d(() => 'DB DownloadManager: 从数据库删除下载记录 id=$id');
@@ -1718,6 +1766,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<DownloadedItem?> _getComicWithDb(String id) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 从数据库获取漫画 id=$id');
     final result = await _db.getDownloadById(id);
     if (result == null) {
@@ -1749,6 +1798,7 @@ extension AddDownloadExt on DownloadManager {
     List<String> ids,
   ) async {
     if (ids.isEmpty) return {};
+    await init();
 
     Log.d(() => 'DB DownloadManager: 批量获取漫画 ids=$ids');
     final results = await _db.getDownloadsByIds(ids);
@@ -1783,6 +1833,7 @@ extension AddDownloadExt on DownloadManager {
   // }
 
   Future<int> getTotal() async {
+    await init();
     final count = await _db.getDownloadTotalCount();
     Log.d(() => 'DB DownloadManager: 获取下载总数 count=$count');
     return count;
@@ -1793,6 +1844,7 @@ extension AddDownloadExt on DownloadManager {
     String order = 'time',
     String direction = 'desc',
   ]) async {
+    await init();
     Log.d(
       () => 'DB DownloadManager: 获取所有下载 order=$order, direction=$direction',
     );
@@ -1915,6 +1967,7 @@ extension AddDownloadExt on DownloadManager {
     required double size,
     required String cover,
   }) async {
+    await init();
     Log.d(
       () =>
           'DB DownloadManager: 添加本地漫画 title=$title, path=$path, size=$size MB',
@@ -1930,6 +1983,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<List<Map<String, dynamic>>> getAllLocal() async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取所有本地漫画');
     final result = (await _db.getAllLocalComics())
         .map((e) => Map<String, dynamic>.from(e))
@@ -1939,6 +1993,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<void> deleteLocal(String path) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 删除本地漫画 path=$path');
     await _db.deleteLocalComic(path);
   }
@@ -1950,6 +2005,7 @@ extension AddDownloadExt on DownloadManager {
     required int time,
     int totalPages = 0,
   }) async {
+    await init();
     await _db.addOrUpdateLocalHistory(
       path: path,
       isReversed: isReversed,
@@ -1966,6 +2022,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<Map<String, dynamic>> getLocalHistory(String path) async {
+    await init();
     final result = await _db.getLocalHistory(path);
     if (result == null) return {};
     return TypeUtil.parseMap(result);
@@ -1979,6 +2036,7 @@ extension AddDownloadExt on DownloadManager {
     String? coverComicId,
     int category = 0,
   }) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 创建标签 name=$name, category=$category');
     return await _db.createTag(
       name,
@@ -1989,6 +2047,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 获取所有标签
   Future<List<DownloadTag>> getAllTags() async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取所有标签');
     final maps = await _db.getAllTags();
     final tags = maps.map((map) => DownloadTag.fromMap(map)).toList();
@@ -1998,6 +2057,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 根据ID获取标签
   Future<DownloadTag?> getTagById(int tagId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 根据ID获取标签 tagId=$tagId');
     final map = await _db.getTagById(tagId);
     return map != null ? DownloadTag.fromMap(map) : null;
@@ -2005,12 +2065,14 @@ extension AddDownloadExt on DownloadManager {
 
   /// 重命名标签
   Future<void> renameTag(int tagId, String newName) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 重命名标签 tagId=$tagId, newName=$newName');
     await _db.updateTagName(tagId, newName);
   }
 
   /// 更新标签封面（使用漫画ID）
   Future<void> updateTagCover(int tagId, String coverComicId) async {
+    await init();
     Log.d(
       () =>
           'DB DownloadManager: 更新标签封面 tagId=$tagId, coverComicId=$coverComicId',
@@ -2020,6 +2082,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 删除标签
   Future<void> deleteTag(int tagId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 删除标签 tagId=$tagId');
     await _db.deleteTag(tagId);
   }
@@ -2065,6 +2128,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 获取漫画的所有标签
   Future<List<DownloadTag>> getComicTags(String comicId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取漫画的所有标签 comicId=$comicId');
     final maps = await _db.getComicTags(comicId);
     final tags = maps.map((map) => DownloadTag.fromMap(map)).toList();
@@ -2073,6 +2137,7 @@ extension AddDownloadExt on DownloadManager {
   }
 
   Future<List<DownloadTag>> getCommonComicTags(List<String> comicIds) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取多个漫画的共同标签 comicIds=$comicIds');
     final maps = await _db.getCommonComicTags(comicIds);
     final tags = maps.map((map) => DownloadTag.fromMap(map)).toList();
@@ -2082,6 +2147,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 获取所有漫画的标签映射
   Future<Map<String, List<String>>> getAllComicTagsMap() async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取所有漫画的标签映射');
     final result = await _db.getAllComicTags();
     Log.d(() => 'DB DownloadManager: 获取到 ${result.length} 个漫画的标签映射');
@@ -2090,6 +2156,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 获取标签下的所有漫画ID
   Future<List<String>> getComicIdsByTag(int tagId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取标签下的所有漫画ID tagId=$tagId');
     final ids = await _db.getComicIdsByTag(tagId);
     Log.d(() => 'DB DownloadManager: 标签下有 ${ids.length} 个漫画');
@@ -2098,6 +2165,7 @@ extension AddDownloadExt on DownloadManager {
 
   /// 获取标签下的漫画数量
   Future<int> getTagComicCount(int tagId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 获取标签下的漫画数量 tagId=$tagId');
     final count = await _db.getTagComicCount(tagId);
     Log.d(() => 'DB DownloadManager: 标签下有 $count 个漫画');
@@ -2106,12 +2174,14 @@ extension AddDownloadExt on DownloadManager {
 
   /// 清除漫画的所有标签
   Future<void> clearComicTags(String comicId) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 清除漫画所有标签 comicId=$comicId');
     await _db.clearComicTags(comicId);
   }
 
   /// 更新标签排序
   Future<void> updateTagSortOrder(int tagId, int sortOrder) async {
+    await init();
     Log.d(
       () => 'DB DownloadManager: 更新标签排序 tagId=$tagId, sortOrder=$sortOrder',
     );
@@ -2120,12 +2190,14 @@ extension AddDownloadExt on DownloadManager {
 
   /// 批量更新标签排序
   Future<void> updateTagsSortOrder(List<int> tagIds) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 批量更新标签排序 tagIds=$tagIds');
     await _db.updateTagsSortOrder(tagIds);
   }
 
   /// 更新标签分类排序
   Future<void> updateTagCategorySortOrder(int tagId, int sortOrder) async {
+    await init();
     Log.d(
       () => 'DB DownloadManager: 更新标签分类排序 tagId=$tagId, sortOrder=$sortOrder',
     );
@@ -2134,12 +2206,14 @@ extension AddDownloadExt on DownloadManager {
 
   /// 更新标签分类
   Future<void> updateTagCategory(int tagId, int category) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 更新标签分类 tagId=$tagId, category=$category');
     await _db.updateTagCategory(tagId, category);
   }
 
   /// 按分类获取标签
   Future<List<DownloadTag>> getTagsByCategory(int category) async {
+    await init();
     Log.d(() => 'DB DownloadManager: 按分类获取标签 category=$category');
     final maps = await _db.getTagsByCategory(category);
     final tags = maps.map((map) => DownloadTag.fromMap(map)).toList();

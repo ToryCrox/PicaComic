@@ -51,10 +51,34 @@ class App {
   ///
   /// **Warning: The end of String is not '/'**
   static late final String dataPath;
+  static Future<void>? _initializationFuture;
+  static bool _isInitialized = false;
 
-  static Future<void> init() async {
-    cachePath = (await getApplicationCacheDirectory()).path;
-    dataPath = (await getApplicationSupportDirectory()).path;
+  /// 判断应用目录是否已准备完成，供早于核心初始化的诊断代码使用。
+  static bool get isInitialized => _isInitialized;
+
+  static Future<void> init() {
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+    final future = _initialize();
+    _initializationFuture = future;
+    return future;
+  }
+
+  static Future<void> _initialize() async {
+    try {
+      // 先在局部变量中完成两个路径的读取，再一次性写入 late final，
+      // 这样任一路径读取失败后的重试不会重复赋值已成功的字段。
+      final cacheDirectory = await getApplicationCacheDirectory();
+      final dataDirectory = await getApplicationSupportDirectory();
+      cachePath = cacheDirectory.path;
+      dataPath = dataDirectory.path;
+      _isInitialized = true;
+    } catch (_) {
+      _isInitialized = false;
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 
   static back(BuildContext context) {

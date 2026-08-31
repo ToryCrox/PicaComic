@@ -26,13 +26,27 @@ extension AppTranslation on String {
   }
 
   static late final Map<String, Map<String, String>> translations;
+  static Future<void>? _initializationFuture;
 
-  static Future<void> init() async {
-    var data = await rootBundle.load("assets/translation.json");
-    var json = jsonDecode(utf8.decode(data.buffer.asUint8List()));
-    translations = {
-      for (var e in json.entries) e.key: Map<String, String>.from(e.value),
-    };
+  static Future<void> init() {
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+    final future = _initialize();
+    _initializationFuture = future;
+    return future;
+  }
+
+  static Future<void> _initialize() async {
+    try {
+      var data = await rootBundle.load("assets/translation.json");
+      var json = jsonDecode(utf8.decode(data.buffer.asUint8List()));
+      translations = {
+        for (var e in json.entries) e.key: Map<String, String>.from(e.value),
+      };
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 }
 

@@ -193,7 +193,9 @@ class ComicListPageLogic extends _$ComicListPageLogic {
 
   /// 确保分页模式的当前页已经加载。
   void ensurePageLoaded(int page) {
-    if (state.dividedComics[page] != null || _loadingRequest) return;
+    if (!ref.mounted || state.dividedComics[page] != null || _loadingRequest) {
+      return;
+    }
     state = state.copyWith(
       loading: true,
       loadingData: true,
@@ -245,6 +247,7 @@ class ComicListPageLogic extends _$ComicListPageLogic {
 
   /// 连续浏览模式加载下一页。
   void loadNextPage() {
+    if (!ref.mounted) return;
     final maxPage = state.maxPage;
     if (maxPage != null && state.current >= maxPage) return;
     if (_loadingRequest) return;

@@ -109,6 +109,11 @@ class ImageFavorite {
 
 class ImageFavoriteManager {
   static Future<Database> get _db => HistoryManager().db;
+  static final StreamController<void> _changeController =
+      StreamController<void>.broadcast();
+
+  /// 图片收藏发生变化时通知功能 Provider 刷新摘要。
+  static Stream<void> get changes => _changeController.stream;
 
   /// 检查表image_favorites是否存在, 不存在则创建
   static Future<void> createTable(Database db) async {
@@ -132,6 +137,7 @@ class ImageFavoriteManager {
       favorite.toRow(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _changeController.add(null);
     Webdav.uploadData();
   }
 
@@ -171,6 +177,7 @@ class ImageFavoriteManager {
           '$kImageFavoriteId = ? AND $kImageFavoriteEp = ? AND $kImageFavoritePage = ?',
       whereArgs: [favorite.id, favorite.ep, favorite.page],
     );
+    _changeController.add(null);
     Webdav.uploadData();
   }
 

@@ -8,7 +8,7 @@ import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:worker_manager/worker_manager.dart';
+import 'package:pica_comic/foundation/worker_pool.dart';
 
 /// 在 isolate 中计算所有标签与建议标签的相似度
 ///
@@ -198,9 +198,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
           )
           .toList();
       similarityMap.addAll(
-        await workerManager.execute<Map<int, int>>(
-          _buildSimilarityTask(inputs),
-        ),
+        await workerPool.execute<Map<int, int>>(_buildSimilarityTask(inputs)),
       );
     }
 

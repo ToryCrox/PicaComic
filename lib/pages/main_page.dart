@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
-import 'package:pica_comic/network/webdav.dart';
+import 'package:pica_comic/foundation/startup_metrics.dart';
+import 'package:pica_comic/network/update.dart';
 import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/local/local_comic_page.dart';
 import 'package:pica_comic/tools/app_links.dart';
-import 'package:pica_comic/tools/background_service.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'download/download_providers.dart';
+import 'update_providers.dart';
 import 'category_page.dart';
 import 'explore_page.dart';
 import 'favorites/main_favorites_page.dart';
@@ -18,9 +23,7 @@ import 'settings/settings_page.dart';
 import 'settings/theme_page.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/network/update.dart';
 import 'me_page.dart';
-import 'package:pica_comic/network/picacg_network/methods.dart';
 
 bool _haveClipboardDialog = false;
 
@@ -55,7 +58,7 @@ void checkClipboard() async {
   }
 }
 
-class MainPage extends StatefulWidget {
+class MainPage extends ConsumerStatefulWidget {
   const MainPage({Key? key}) : super(key: key);
 
   static MainPageState of(BuildContext context) {
@@ -63,10 +66,10 @@ class MainPage extends StatefulWidget {
   }
 
   @override
-  State<MainPage> createState() => MainPageState();
+  ConsumerState<MainPage> createState() => MainPageState();
 }
 
-class MainPageState extends State<MainPage> {
+class MainPageState extends ConsumerState<MainPage> {
   GlobalKey<NavigatorState>? _navigatorKey;
 
   late final NaviObserver _observer;
@@ -93,54 +96,8 @@ class MainPageState extends State<MainPage> {
     const LocalComicPage(),
   ];
 
-  void _login() {
-    network.updateProfile().then((res) {
-      if (res.error) {
-        showToast(message: res.errorMessageWithoutNull);
-      } else {
-        //检查是否打卡
-        if (network.user?.isPunched == false && appdata.settings[6] == "1") {
-          if (App.isMobile) {
-            runBackgroundService();
-          } else {
-            final user = network.user;
-            if (user != null) {
-              network.user = user.copyWith(isPunched: true);
-            }
-            network.punchIn().then((b) {
-              if (b) {
-                showToast(message: "打卡成功".tl);
-                final user = network.user;
-                if (user != null) {
-                  network.user = user.copyWith(exp: user.exp + 10);
-                }
-              }
-            });
-          }
-        }
-      }
-    });
-  }
-
-  void _checkUpdates() async {
-    var s = await SharedPreferences.getInstance();
-    var lastCheck = s.getInt("lastCheckUpdate");
-    if (lastCheck != null) {
-      if (DateTime.now()
-              .difference(DateTime.fromMillisecondsSinceEpoch(lastCheck))
-              .inDays <
-          1) {
-        return;
-      }
-    }
-    if (appdata.settings[2] != "1") {
-      return;
-    }
-    var res = await checkUpdate();
-    s.setInt("lastCheckUpdate", DateTime.now().millisecondsSinceEpoch);
-    if (res != true) return;
-    var info = await getUpdatesInfo();
-    if (info == null) return;
+  void _showUpdateDialog(String info) {
+    if (!mounted) return;
     showDialog(
       context: App.globalContext!,
       builder: (dialogContext) {
@@ -169,38 +126,42 @@ class MainPageState extends State<MainPage> {
         );
       },
     );
-
-    // if (appdata.settings[80] == "1") {
-    //   ComicSourceSettings.checkCustomComicSourceUpdate();
-    // }
   }
 
-  void _checkDownload() {
-    if (downloadManager.downloading.isNotEmpty) {
-      Future.delayed(const Duration(microseconds: 500), () {
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: Text("下载管理器".tl),
-                content: Text("继续未完成的下载?".tl),
-                actions: [
-                  TextButton(onPressed: dialogContext.pop, child: Text("否".tl)),
-                  TextButton(
-                    onPressed: () {
-                      downloadManager.start();
-                      dialogContext.pop();
-                    },
-                    child: Text("是".tl),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-      });
+  bool _downloadPromptShown = false;
+
+  void _showDownloadPrompt() {
+    if (!mounted || _downloadPromptShown) return;
+    _downloadPromptShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text("下载管理器".tl),
+          content: Text("继续未完成的下载?".tl),
+          actions: [
+            TextButton(onPressed: dialogContext.pop, child: Text("否".tl)),
+            TextButton(
+              onPressed: () {
+                downloadManager.start();
+                dialogContext.pop();
+              },
+              child: Text("是".tl),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _initializeNotifications() async {
+    try {
+      await notifications.init();
+      await notifications.requestPermission();
+      await notifications.cancelAll();
+    } catch (_) {
+      // 通知权限失败不应影响页面交互。
     }
   }
 
@@ -208,28 +169,44 @@ class MainPageState extends State<MainPage> {
   void initState() {
     _navigatorKey = GlobalKey();
     App.mainNavigatorKey = _navigatorKey;
-    _login();
-    notifications.requestPermission();
-    notifications.cancelAll();
-    _checkUpdates();
-    _checkDownload();
-
     if (appdata.firstUse[3] == "0") {
       appdata.firstUse[3] = "1";
       appdata.writeData();
     }
 
-    Future.delayed(
-      const Duration(milliseconds: 300),
-      () => Webdav.syncData(),
-    ).then((v) => checkClipboard());
+    Future.delayed(const Duration(milliseconds: 300), checkClipboard);
     _observer = NaviObserver();
     _heroController = HeroController();
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      startupMetrics.mark('Home interactive');
+      unawaited(_initializeNotifications());
+      ref.read(updateCheckProvider);
+      ref.read(pendingDownloadsProvider);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(updateCheckProvider, (previous, next) {
+      next.when(
+        data: (info) {
+          if (info != null) _showUpdateDialog(info);
+        },
+        loading: () {},
+        error: (_, __) {},
+      );
+    });
+    ref.listen(pendingDownloadsProvider, (previous, next) {
+      next.when(
+        data: (pending) {
+          if (pending) _showDownloadPrompt();
+        },
+        loading: () {},
+        error: (_, __) {},
+      );
+    });
     return NaviPane(
       initialPage: int.parse(appdata.settings[23]),
       observer: _observer,

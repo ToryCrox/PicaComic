@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:worker_manager/worker_manager.dart';
+import 'package:pica_comic/foundation/worker_pool.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as Path;
@@ -94,7 +94,7 @@ Stream<Map<String, ImageSizeInfo>> computeImageSizes(
     final list = needsCompute.sublist(i, end).toList();
     // 使用共享计算资源并行计算图片尺寸
     // final result = await sharedCompute(loadImageSizes, list);
-    final result = await workerManager.execute<Map<String, ImageSizeInfo>>(
+    final result = await workerPool.execute<Map<String, ImageSizeInfo>>(
       _buildLoadImageSizesTask(list),
     );
     // 更新缓存并合并结果

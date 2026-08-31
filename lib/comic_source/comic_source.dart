@@ -88,15 +88,43 @@ class ComicSource {
     (element) => element.key.index == key || element.key.name.hashCode == key,
   );
 
-  static Future<void> init() async {
-    for (var source in builtInSources) {
-      if (appdata.appSettings.isComicSourceEnabled(source.name)) {
-        var s = builtIn.firstWhere((e) => e.key == source);
-        sources.add(s);
-        await s.loadData();
-        s.initData?.call(s);
-      }
-    }
+  static Future<void> init({bool initializeRuntime = true}) async {
+    final enabledSources = [
+      for (final source in builtInSources)
+        if (appdata.appSettings.isComicSourceEnabled(source.name))
+          builtIn.firstWhere((e) => e.key == source),
+    ];
+
+    // 先提交完整列表，保持旧实现中 initData 可以访问其他已启用来源的行为，
+    // 再并行读取各来源的本地数据。单个损坏文件不应阻塞整个应用启动。
+    sources = enabledSources;
+    await Future.wait(
+      enabledSources.map((source) async {
+        try {
+          await source.loadData();
+          if (initializeRuntime) {
+            await source.initData?.call(source);
+          }
+        } catch (e, s) {
+          Log.w('Failed to initialize comic source ${source.key}.\n$e\n$s');
+        }
+      }),
+    );
+  }
+
+  /// 首帧后初始化需要访问 cookie 或其他运行时资源的漫画源模块。
+  static Future<void> initRuntime() async {
+    await Future.wait(
+      sources.map((source) async {
+        try {
+          await source.initData?.call(source);
+        } catch (e, s) {
+          Log.w(
+            'Failed to initialize comic source runtime ${source.key}.\n$e\n$s',
+          );
+        }
+      }),
+    );
   }
 
   static Future reload() async {

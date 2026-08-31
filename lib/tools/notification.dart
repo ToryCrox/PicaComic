@@ -6,8 +6,10 @@ import '../foundation/app.dart';
 class Notifications {
   FlutterLocalNotificationsPlugin? flutterLocalNotificationsPlugin;
   final progressId = 72382;
+  Future<void>? _initializationFuture;
 
   Future<bool?> requestPermission() async {
+    await init();
     try {
       if (App.isAndroid) {
         return await flutterLocalNotificationsPlugin!
@@ -28,23 +30,37 @@ class Notifications {
     }
   }
 
-  Future<void> init() async {
-    if (!(App.isAndroid || App.isIOS)) return;
-    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@drawable/notification');
-    final DarwinInitializationSettings initializationSettingsDarwin =
-        DarwinInitializationSettings(
-          onDidReceiveLocalNotification: onDidReceiveLocalNotification,
-        );
-    InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-    );
-    await flutterLocalNotificationsPlugin!.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
-    );
+  Future<void> init() {
+    if (!(App.isAndroid || App.isIOS)) return Future.value();
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+    final future = _initialize();
+    _initializationFuture = future;
+    return future;
+  }
+
+  Future<void> _initialize() async {
+    try {
+      if (flutterLocalNotificationsPlugin != null) return;
+      flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@drawable/notification');
+      final DarwinInitializationSettings initializationSettingsDarwin =
+          DarwinInitializationSettings(
+            onDidReceiveLocalNotification: onDidReceiveLocalNotification,
+          );
+      InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+      );
+      await flutterLocalNotificationsPlugin!.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
+      );
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 
   void onDidReceiveNotificationResponse(
@@ -75,6 +91,7 @@ class Notifications {
     String content,
   ) async {
     if (!(App.isAndroid || App.isIOS)) return;
+    await init();
     AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
           'download',
@@ -110,11 +127,13 @@ class Notifications {
 
   void endProgress() async {
     if (!(App.isAndroid || App.isIOS)) return;
+    await init();
     await flutterLocalNotificationsPlugin!.cancel(progressId);
   }
 
-  void cancelAll() async {
+  Future<void> cancelAll() async {
     if (!(App.isAndroid || App.isIOS)) return;
+    await init();
     try {
       await flutterLocalNotificationsPlugin!.cancelAll();
     } catch (e) {
@@ -124,6 +143,7 @@ class Notifications {
 
   void sendNotification(String title, String content) async {
     if (!(App.isAndroid || App.isIOS)) return;
+    await init();
     AndroidNotificationDetails androidNotificationDetails =
         const AndroidNotificationDetails(
           'PicaComic',
@@ -148,6 +168,7 @@ class Notifications {
 
   void sendUnimportantNotification(String title, String content) async {
     if (!(App.isAndroid || App.isIOS)) return;
+    await init();
     AndroidNotificationDetails androidNotificationDetails =
         const AndroidNotificationDetails(
           'punchIN',

@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/foundation/history_providers.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/pages/download/download_providers.dart';
+import 'package:pica_comic/pages/account_providers.dart';
+import 'package:pica_comic/network/picacg_network/models.dart';
 import 'accounts_page.dart';
 import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/tools.dart';
@@ -12,36 +18,43 @@ import 'history_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'image_favorites.dart';
 
-class MePage extends StatefulWidget {
+class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
 
   @override
-  State<MePage> createState() => _MePageState();
+  ConsumerState<MePage> createState() => _MePageState();
 }
 
-class _MePageState extends State<MePage> {
-  final List<History> _recentHistoryList = [];
-  int _historyCount = 0;
-  int _favoriteCount = 0;
-
+class _MePageState extends ConsumerState<MePage> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    // 只有用户进入“我的”页时才刷新账户，避免账户请求参与启动阶段。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshAccount());
+    });
   }
 
-  Future<void> _refresh() async {
-    final recent = await HistoryManager().getRecent();
-    _historyCount = await HistoryManager().count();
-    _favoriteCount = await ImageFavoriteManager.length;
-    setState(() {
-      _recentHistoryList.clear();
-      _recentHistoryList.addAll(recent);
-    });
+  Future<void> _refreshAccount() async {
+    try {
+      final punched = await ref
+          .read(accountSessionProvider.notifier)
+          .refreshAndCheckIn();
+      if (punched && mounted) {
+        showToast(message: "打卡成功".tl);
+      }
+    } catch (_) {
+      // 错误由账户卡片中的 AsyncValue 局部展示。
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final recentHistory = ref.watch(recentHistoryProvider);
+    final historySummary = ref.watch(historySummaryProvider);
+    final downloadSummary = ref.watch(downloadSummaryProvider);
+    final accountSession = ref.watch(accountSessionProvider);
+
     return SizedBox.expand(
       child: LayoutBuilder(
         builder: (context, constrains) {
@@ -55,7 +68,7 @@ class _MePageState extends State<MePage> {
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  buildHistory(context),
+                  buildHistory(context, recentHistory, historySummary, ref),
                   if (shouldShowTwoPanel)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,9 +77,14 @@ class _MePageState extends State<MePage> {
                           child: Column(
                             children: [
                               const SizedBox(height: 12),
-                              buildAccount(width),
+                              buildAccount(width, accountSession, ref),
                               const SizedBox(height: 12),
-                              buildDownload(context, width),
+                              buildDownload(
+                                context,
+                                width,
+                                downloadSummary,
+                                ref,
+                              ),
                             ],
                           ),
                         ),
@@ -75,7 +93,12 @@ class _MePageState extends State<MePage> {
                           child: Column(
                             children: [
                               const SizedBox(height: 12),
-                              buildImageFavorite(context, width),
+                              buildImageFavorite(
+                                context,
+                                width,
+                                historySummary,
+                                ref,
+                              ),
                               const SizedBox(height: 12),
                               buildTools(width),
                             ],
@@ -85,11 +108,11 @@ class _MePageState extends State<MePage> {
                     )
                   else ...[
                     const SizedBox(height: 12),
-                    buildAccount(width),
+                    buildAccount(width, accountSession, ref),
                     const SizedBox(height: 12),
-                    buildDownload(context, width),
+                    buildDownload(context, width, downloadSummary, ref),
                     const SizedBox(height: 12),
-                    buildImageFavorite(context, width),
+                    buildImageFavorite(context, width, historySummary, ref),
                     const SizedBox(height: 12),
                     buildTools(width),
                   ],
@@ -102,8 +125,42 @@ class _MePageState extends State<MePage> {
     );
   }
 
-  Widget buildHistory(BuildContext context) {
-    var history = _recentHistoryList;
+  Widget buildHistory(
+    BuildContext context,
+    AsyncValue<List<History>> recentHistory,
+    AsyncValue<HistorySummary> historySummary,
+    WidgetRef ref,
+  ) {
+    final history = recentHistory.asData?.value ?? const <History>[];
+    final title = recentHistory.hasError
+        ? Row(
+            children: [
+              Expanded(child: Text("历史记录加载失败".tl)),
+              TextButton(
+                onPressed: () {
+                  ref.invalidate(recentHistoryProvider);
+                  ref.invalidate(historySummaryProvider);
+                },
+                child: Text("重试".tl),
+              ),
+            ],
+          )
+        : historySummary.when(
+            data: (summary) => Text("${"历史记录".tl}(${summary.historyCount})"),
+            loading: () => Text("${"历史记录".tl}(…)"),
+            error: (_, __) => Row(
+              children: [
+                Expanded(child: Text("历史记录加载失败".tl)),
+                TextButton(
+                  onPressed: () {
+                    ref.invalidate(recentHistoryProvider);
+                    ref.invalidate(historySummaryProvider);
+                  },
+                  child: Text("重试".tl),
+                ),
+              ],
+            ),
+          );
     return InkWell(
       mouseCursor: appClickableMouseCursor,
       onTap: () => context.to(() => const HistoryPage()),
@@ -118,7 +175,7 @@ class _MePageState extends State<MePage> {
             children: [
               ListTile(
                 leading: const Icon(Icons.history),
-                title: Text("${"历史记录".tl}($_historyCount)"),
+                title: title,
                 trailing: const Icon(Icons.chevron_right),
                 mouseCursor: appClickableMouseCursor,
               ),
@@ -165,7 +222,11 @@ class _MePageState extends State<MePage> {
     );
   }
 
-  Widget buildAccount(double width) {
+  Widget buildAccount(
+    double width,
+    AsyncValue<Profile?> accountSession,
+    WidgetRef ref,
+  ) {
     var accounts = findAccounts();
 
     Widget buildItem(String name) {
@@ -180,12 +241,27 @@ class _MePageState extends State<MePage> {
       );
     }
 
+    final description = accountSession.when(
+      data: (_) =>
+          Text("已登录 @a 个账号".tlParams({"a": accounts.length.toString()})),
+      loading: () => Text("账号信息加载中…".tl),
+      error: (_, __) => Row(
+        children: [
+          Expanded(child: Text("账号信息加载失败".tl)),
+          TextButton(
+            onPressed: () => unawaited(
+              ref.read(accountSessionProvider.notifier).refreshAndCheckIn(),
+            ),
+            child: Text("重试".tl),
+          ),
+        ],
+      ),
+    );
+
     return _MePageCard(
       icon: const Icon(Icons.switch_account),
       title: "账号管理".tl,
-      description: Text(
-        "已登录 @a 个账号".tlParams({"a": accounts.length.toString()}),
-      ),
+      description: description,
       onTap: () => showPopUpWidget(App.globalContext!, const AccountsPage()),
       child: Wrap(
         spacing: 8,
@@ -195,20 +271,52 @@ class _MePageState extends State<MePage> {
     );
   }
 
-  Widget buildDownload(BuildContext context, double width) {
+  Widget buildDownload(
+    BuildContext context,
+    double width,
+    AsyncValue<DownloadSummary> summary,
+    WidgetRef ref,
+  ) {
     return _MePageCard(
       icon: const Icon(Icons.download_for_offline),
       title: "已下载".tl,
-      description: const _DownloadCountText(),
+      description: summary.when(
+        data: (value) => Text(
+          value.pending == 0
+              ? "共 @a 部漫画".tlParams({"a": "${value.total}"})
+              : "共 @a 部漫画，@b 项未完成".tlParams({
+                  "a": "${value.total}",
+                  "b": "${value.pending}",
+                }),
+        ),
+        loading: () => Text("下载数据加载中…".tl),
+        error: (_, __) => _RetryDescription(
+          text: "下载数据加载失败".tl,
+          onRetry: () => ref.invalidate(downloadSummaryProvider),
+        ),
+      ),
       onTap: () => context.to(() => const DownloadPage()),
     );
   }
 
-  Widget buildImageFavorite(BuildContext context, double width) {
+  Widget buildImageFavorite(
+    BuildContext context,
+    double width,
+    AsyncValue<HistorySummary> summary,
+    WidgetRef ref,
+  ) {
     return _MePageCard(
       icon: const Icon(Icons.image),
       title: "图片收藏".tl,
-      description: Text("@a 条图片收藏".tlParams({"a": '$_favoriteCount'})),
+      description: summary.when(
+        data: (value) =>
+            Text("@a 条图片收藏".tlParams({"a": "${value.imageCount}"})),
+        loading: () => Text("图片收藏加载中…".tl),
+        error: (_, __) => _RetryDescription(
+          text: "图片收藏加载失败".tl,
+          onRetry: () => ref.invalidate(historySummaryProvider),
+        ),
+      ),
       onTap: () => context.to(() => const ImageFavoritesPage()),
     );
   }
@@ -251,6 +359,23 @@ class _MePageState extends State<MePage> {
       }
     }
     return result;
+  }
+}
+
+class _RetryDescription extends StatelessWidget {
+  const _RetryDescription({required this.text, required this.onRetry});
+
+  final String text;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(text)),
+        TextButton(onPressed: onRetry, child: Text("重试".tl)),
+      ],
+    );
   }
 }
 
@@ -297,36 +422,5 @@ class _MePageCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _DownloadCountText extends StatefulWidget {
-  const _DownloadCountText();
-
-  @override
-  State<_DownloadCountText> createState() => _DownloadCountTextState();
-}
-
-class _DownloadCountTextState extends State<_DownloadCountText> {
-  String _count = '...';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCount();
-  }
-
-  Future<void> _loadCount() async {
-    final count = await downloadManager.getTotal();
-    if (mounted) {
-      setState(() {
-        _count = count.toString();
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Text("共 $_count 部漫画".tlParams({"a": _count}));
   }
 }

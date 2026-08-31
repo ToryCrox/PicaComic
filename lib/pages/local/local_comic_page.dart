@@ -6,7 +6,7 @@ import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
-import 'package:worker_manager/worker_manager.dart';
+import 'package:pica_comic/foundation/worker_pool.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/components/components.dart';
@@ -100,9 +100,7 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 计算并显示当前目录所有文件大小
   Future<void> _loadAllFileSize(final String dir) async {
-    int totalFileSize = await workerManager.execute<int>(
-      _buildComputeTask(dir),
-    );
+    int totalFileSize = await workerPool.execute<int>(_buildComputeTask(dir));
     if (widget.parentPath == dir) {
       setState(() {
         _fileSize = bytesLengthToReadableSize(totalFileSize);

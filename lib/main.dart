@@ -14,6 +14,7 @@ import 'package:pica_comic/components/window_frame.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/startup_metrics.dart';
 import 'package:pica_comic/foundation/theme/theme_provider.dart';
 import 'package:pica_comic/init.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
@@ -24,14 +25,23 @@ import 'package:pica_comic/pages/main_page.dart';
 import 'package:pica_comic/pages/welcome_page.dart';
 import 'package:pica_comic/tools/block_screenshot.dart';
 import 'package:pica_comic/tools/mouse_listener.dart';
-import 'package:pica_comic/tools/tags_translation.dart';
+import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:worker_manager/worker_manager.dart';
 
 import 'components/components.dart';
 import 'network/webdav.dart';
 
 bool notFirstUse = false;
+
+void _logStartupError(Object error, StackTrace? stack) {
+  final message =
+      'Unhandled Exception $error${stack == null ? '' : '\n$stack'}';
+  if (App.isInitialized) {
+    Log.e(message, stackTrace: stack);
+  } else {
+    debugPrint(message);
+  }
+}
 
 void main(List<String> args) {
   if (runWebViewTitleBarWidget(args)) {
@@ -41,43 +51,47 @@ void main(List<String> args) {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      await initBase();
+      startupMetrics.mark('Dart entry');
       registerAllComicPageAdapters();
-      await workerManager.init(isolatesCount: 3, dynamicSpawning: false);
       FlutterError.onError = (details) {
-        Log.e("Unhandled Exception ${details.exception}\n${details.stack}");
+        _logStartupError(details.exception, details.stack);
       };
-      notFirstUse = appdata.firstUse[3] == "1";
-      setNetworkProxy();
       runApp(const ProviderScope(child: AppBootstrap()));
+      listenAppLinks();
       if (App.isDesktop) {
-        await windowManager.ensureInitialized();
-        windowManager.waitUntilReadyToShow().then((_) async {
-          await windowManager.setTitleBarStyle(
-            TitleBarStyle.hidden,
-            windowButtonVisibility: App.isMacOS,
-          );
-          if (App.isLinux) {
-            await windowManager.setBackgroundColor(Colors.transparent);
-          }
-          await windowManager.setMinimumSize(const Size(500, 600));
-          if (!App.isLinux) {
-            // https://github.com/leanflutter/window_manager/issues/460
-            var placement = await WindowPlacement.loadFromFile();
-            await placement.applyToWindow();
-            await windowManager.show();
-            WindowPlacement.loop();
-          }
-        });
+        unawaited(_initializeDesktopWindow());
       }
     },
     (error, stack) {
-      Log.e("Unhandled Exception $error\n$stack");
+      _logStartupError(error, stack);
     },
   );
 }
 
-/// 在 ProviderScope 内完成网络客户端和应用服务初始化。
+Future<void> _initializeDesktopWindow() async {
+  // 窗口恢复与核心初始化并行，但偏好设置本身必须先完成，避免读取窗口
+  // 配置时访问尚未赋值的 SharedPreferences。
+  await PrefsHelper.init();
+  await windowManager.ensureInitialized();
+  await windowManager.waitUntilReadyToShow();
+  await windowManager.setTitleBarStyle(
+    TitleBarStyle.hidden,
+    windowButtonVisibility: App.isMacOS,
+  );
+  if (App.isLinux) {
+    await windowManager.setBackgroundColor(Colors.transparent);
+  }
+  await windowManager.setMinimumSize(const Size(500, 600));
+  if (!App.isLinux) {
+    // https://github.com/leanflutter/window_manager/issues/460
+    final placement = await WindowPlacement.loadFromFile();
+    await placement.applyToWindow();
+    await windowManager.show();
+    WindowPlacement.loop();
+  }
+}
+
+/// 在 ProviderScope 内等待首屏必须的普通 Future。
 class AppBootstrap extends ConsumerStatefulWidget {
   const AppBootstrap({super.key});
 
@@ -86,21 +100,34 @@ class AppBootstrap extends ConsumerStatefulWidget {
 }
 
 class _AppBootstrapState extends ConsumerState<AppBootstrap> {
-  late final Future<void> _initialization;
+  late Future<void> _initialization;
+  bool _deferredServicesScheduled = false;
+  bool _firstFrameScheduled = false;
 
   @override
   void initState() {
     super.initState();
-    _initialization = _initialize();
+    // 只注入网络监控桥接，不把网络初始化纳入启动状态管理。这样核心阶段
+    // 创建 Dio 时就能使用 Riverpod 提供的日志和速度监控实例。
+    ref.read(networkClientManagerProvider);
+    _initialization = initializeCore();
   }
 
-  Future<void> _initialize() async {
-    await ref.read(networkClientManagerProvider).initialize();
-    await initServices();
+  void _retry() {
+    setState(() {
+      _deferredServicesScheduled = false;
+      _initialization = initializeCore();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_firstFrameScheduled) {
+      _firstFrameScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        startupMetrics.mark('First frame');
+      });
+    }
     return FutureBuilder<void>(
       future: _initialization,
       builder: (context, snapshot) {
@@ -112,9 +139,25 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap> {
         if (snapshot.hasError) {
           return MaterialApp(
             home: Scaffold(
-              body: Center(child: Text('初始化失败: ${snapshot.error}')),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('初始化失败: ${snapshot.error}'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(onPressed: _retry, child: const Text('重试')),
+                  ],
+                ),
+              ),
             ),
           );
+        }
+        notFirstUse = appdata.firstUse[3] == "1";
+        if (!_deferredServicesScheduled) {
+          _deferredServicesScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) startDeferredServices();
+          });
         }
         return const MyApp();
       },
@@ -195,7 +238,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     MyApp.updater = () => setState(() => forceRebuild = true);
     time = DateTime.now();
-    TagsTranslation.readData();
     if (App.isAndroid && appdata.settings[38] == "1") {
       try {
         FlutterDisplayMode.setHighRefreshRate();
@@ -204,7 +246,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     listenMouseSideButtonToBack();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.addObserver(this);
-    notifications.init();
     if (appdata.settings[12] == "1") {
       blockScreenshot();
     }

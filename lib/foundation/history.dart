@@ -383,15 +383,26 @@ class HistoryManager {
 
   Database? _db;
   bool _initialized = false;
+  Future<void>? _initializationFuture;
   final Lock _lock = Lock();
   final Completer<Database> _initCompleter = Completer<Database>();
+  final StreamController<void> _changeController =
+      StreamController<void>.broadcast();
 
-  Future<Database> get db {
+  /// 历史记录发生变化时通知功能 Provider 刷新派生数据。
+  Stream<void> get changes => _changeController.stream;
+
+  void _notifyChanged() => _changeController.add(null);
+
+  Future<Database> get db async {
     final db = _db;
     if (db != null) {
-      return SynchronousFuture(db);
+      return db;
     }
-    return _initCompleter.future;
+    // 允许图片收藏页、阅读器等直接调用方按需触发历史数据库初始化，
+    // 避免在未打开数据库时永久等待 Completer。
+    await init();
+    return _db!;
   }
 
   // 数据库版本号
@@ -534,9 +545,27 @@ class HistoryManager {
     }
   }
 
-  Future<void> init() async {
-    // 启动数据库初始化但不等待完成
-    _ensureInitialized();
+  /// 确保历史数据库初始化完成。
+  ///
+  /// 多个功能 Provider 可能同时读取历史和图片收藏，所有调用共享同一个
+  /// Future，避免重复打开数据库或在数据库尚未就绪时读取。
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+
+    final future = _initializeWithRetry();
+    _initializationFuture = future;
+    return future;
+  }
+
+  Future<void> _initializeWithRetry() async {
+    try {
+      await _ensureInitialized();
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 
   void readDataFromJson(List<dynamic> json) {
@@ -581,6 +610,7 @@ class HistoryManager {
         whereArgs: [newItem.target],
       );
     }
+    _notifyChanged();
     saveData();
   }
 
@@ -608,6 +638,7 @@ class HistoryManager {
 
     // 更新内存缓存
     _updateHistoryCache(history.target, history);
+    _notifyChanged();
   }
 
   void clearHistory() async {
@@ -616,6 +647,7 @@ class HistoryManager {
     await db.delete(kTableHistory);
     historyCache.clear();
     _pendingTargets.clear();
+    _notifyChanged();
   }
 
   void remove(String id) async {
@@ -627,6 +659,7 @@ class HistoryManager {
       whereArgs: [id],
     );
     _updateHistoryCache(id, null);
+    _notifyChanged();
   }
 
   /// 同步查找历史缓存。如果缓存没有，则抛入待查队列（微任务合并批量查找）
@@ -783,6 +816,20 @@ class HistoryManager {
       kTableHistory,
       orderBy: '$kHistoryTime DESC',
       limit: 20,
+    );
+    return res.map((element) => History.fromRow(element)).toList();
+  }
+
+  /// 分页获取历史记录，避免为单页请求读取整个历史表。
+  Future<List<History>> getPage(int page, {int pageSize = 30}) async {
+    await _ensureInitialized();
+    final db = _db!;
+    final safePage = page < 0 ? 0 : page;
+    final res = await db.query(
+      kTableHistory,
+      orderBy: '$kHistoryTime DESC',
+      limit: pageSize,
+      offset: safePage * pageSize,
     );
     return res.map((element) => History.fromRow(element)).toList();
   }

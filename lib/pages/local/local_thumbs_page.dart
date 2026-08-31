@@ -18,7 +18,7 @@ import '../../foundation/local_history.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/io_tools.dart';
 import '../../tools/prefs_helper.dart';
-import 'package:worker_manager/worker_manager.dart';
+import 'package:pica_comic/foundation/worker_pool.dart';
 import '../reader/comic_reading_page.dart';
 
 class LocalThumbsPage extends StatefulWidget {
@@ -111,7 +111,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   // 加载图片并更新状态
   Future<void> _loadImages() async {
     final t1 = DateTime.now();
-    final images = await workerManager.execute<List<ImageFile>>(
+    final images = await workerPool.execute<List<ImageFile>>(
       _buildLoadImagesTask(widget.dirPath),
     );
     //final images = await loadImagesFilePaths(widget.dirPath);

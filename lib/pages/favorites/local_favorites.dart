@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -10,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
 import 'main_favorites_page.dart';
+import 'local_favorites_providers.dart';
 import 'network_to_local.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
@@ -180,11 +184,20 @@ class _UpdateFavoritesInfoDialogState extends State<UpdateFavoritesInfoDialog> {
   }
 }
 
-class CreateFolderDialog extends StatelessWidget {
+class CreateFolderDialog extends ConsumerWidget {
   const CreateFolderDialog({Key? key}) : super(key: key);
 
+  Future<void> _submit(BuildContext context, WidgetRef ref, String name) async {
+    try {
+      await ref.read(localFavoritesProvider.notifier).createFolder(name);
+      if (context.mounted) context.pop();
+    } catch (e) {
+      showToast(message: e.toString());
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
     final FocusNode focusNode = FocusNode();
     focusNode.requestFocus();
@@ -196,14 +209,8 @@ class CreateFolderDialog extends StatelessWidget {
           child: TextField(
             focusNode: focusNode,
             controller: controller,
-            onEditingComplete: () {
-              try {
-                LocalFavoritesManager().createFolder(controller.text);
-                App.globalBack();
-              } catch (e) {
-                showToast(message: e.toString());
-              }
-            },
+            onEditingComplete: () =>
+                unawaited(_submit(context, ref, controller.text)),
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: "名称".tl,
@@ -249,14 +256,8 @@ class CreateFolderDialog extends StatelessWidget {
           height: 35,
           child: Center(
             child: FilledButton(
-              onPressed: () {
-                try {
-                  LocalFavoritesManager().createFolder(controller.text);
-                  App.globalBack();
-                } catch (e) {
-                  showToast(message: e.toString());
-                }
-              },
+              onPressed: () =>
+                  unawaited(_submit(context, ref, controller.text)),
               child: Text("提交".tl),
             ),
           ),
@@ -266,13 +267,24 @@ class CreateFolderDialog extends StatelessWidget {
   }
 }
 
-class RenameFolderDialog extends StatelessWidget {
+class RenameFolderDialog extends ConsumerWidget {
   const RenameFolderDialog(this.before, {Key? key}) : super(key: key);
 
   final String before;
 
+  Future<void> _submit(BuildContext context, WidgetRef ref, String name) async {
+    try {
+      await ref
+          .read(localFavoritesProvider.notifier)
+          .renameFolder(before, name);
+      if (context.mounted) context.pop();
+    } catch (e) {
+      showToast(message: e.toString());
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController(text: before);
     final FocusNode focusNode = FocusNode();
     focusNode.requestFocus();
@@ -284,14 +296,8 @@ class RenameFolderDialog extends StatelessWidget {
           child: TextField(
             controller: controller,
             focusNode: focusNode,
-            onEditingComplete: () {
-              try {
-                LocalFavoritesManager().rename(before, controller.text);
-                context.pop();
-              } catch (e) {
-                showToast(message: e.toString());
-              }
-            },
+            onEditingComplete: () =>
+                unawaited(_submit(context, ref, controller.text)),
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: "名称".tl,
@@ -303,14 +309,8 @@ class RenameFolderDialog extends StatelessWidget {
           height: 35,
           child: Center(
             child: TextButton(
-              onPressed: () {
-                try {
-                  LocalFavoritesManager().rename(before, controller.text);
-                  context.pop();
-                } catch (e) {
-                  showToast(message: e.toString());
-                }
-              },
+              onPressed: () =>
+                  unawaited(_submit(context, ref, controller.text)),
               child: Text("提交".tl),
             ),
           ),

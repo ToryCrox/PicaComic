@@ -30,6 +30,7 @@ class NetworkClientManager {
 
   bool _dioCreated = false;
   bool _initialized = false;
+  Future<void>? _initializationFuture;
   bool _rhttpAvailable = false;
   bool _disposed = false;
   NetworkTelemetryBridge _telemetry = NetworkTelemetryBridge.instance;
@@ -50,31 +51,67 @@ class NetworkClientManager {
     _telemetry = telemetry;
   }
 
-  /// 初始化网络运行时和共享 Dio。
-  Future<void> initialize() async {
+  /// 创建可立即使用的 Dio 和基础适配器。
+  ///
+  /// 该步骤不初始化可选的 rhttp 后端，因此可以在首屏前快速完成。
+  void prepare() {
     if (_disposed) {
       throw StateError('NetworkClientManager has been disposed.');
     }
     _createDioIfNeeded();
-    if (_initialized) return;
+  }
 
-    if (!kIsWeb && appdata.appSettings.networkBackend == NetworkBackend.rhttp) {
-      try {
-        await initializeRhttp();
-        _rhttpAvailable = true;
-      } catch (e, s) {
-        _rhttpAvailable = false;
-        Log.e('rhttp initialization failed, fallback to Dio.\n$e\n$s');
+  /// 初始化网络运行时和共享 Dio。
+  Future<void> initialize() => applyPreferredBackend();
+
+  /// 首屏后应用首选网络后端、协议和代理设置。
+  ///
+  /// 同时调用时共享同一个 Future；失败后清除 Future，调用方可以重试。
+  Future<void> applyPreferredBackend() {
+    prepare();
+    if (_initialized) return Future.value();
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+
+    final future = _initializePreferredBackend();
+    _initializationFuture = future;
+    return future;
+  }
+
+  Future<void> _initializePreferredBackend() async {
+    try {
+      if (_initialized) return;
+
+      if (!kIsWeb &&
+          appdata.appSettings.networkBackend == NetworkBackend.rhttp) {
+        try {
+          await initializeRhttp();
+          _rhttpAvailable = true;
+        } catch (e, s) {
+          _rhttpAvailable = false;
+          Log.e('rhttp initialization failed, fallback to Dio.\n$e\n$s');
+        }
       }
-    }
 
-    await applySettings();
-    _initialized = true;
+      await _applySettings();
+      _initialized = true;
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
+    }
   }
 
   /// 应用网络设置，后续新请求会使用新的传输层。
   Future<void> applySettings() async {
     if (_disposed) return;
+    if (!_initialized) {
+      await applyPreferredBackend();
+      return;
+    }
+    await _applySettings();
+  }
+
+  Future<void> _applySettings() async {
     _createDioIfNeeded();
 
     if (!kIsWeb &&
@@ -196,9 +233,8 @@ NetworkClientManager get networkClientManager => NetworkClientManager.instance;
 final networkClientManagerProvider = Provider<NetworkClientManager>((ref) {
   final manager = NetworkClientManager.instance;
   manager.configureTelemetry(ref.read(networkTelemetryBridgeProvider));
-  ref.onDispose(() {
-    unawaited(manager.dispose());
-  });
+  // 这是应用级单例，ProviderScope（例如页面级测试容器）销毁时不能
+  // 释放它，否则其他页面或后续 Provider 会拿到已经关闭的 Dio。
   return manager;
 });
 

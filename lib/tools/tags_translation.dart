@@ -11,31 +11,58 @@
 // https://github.com/EhTagTranslation/Database/tree/master/database
 
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/tools/extensions.dart';
 
+Map<String, Map<String, String>> _parseTagTranslations(Uint8List bytes) {
+  final decoded = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+  return decoded.map((namespace, values) {
+    return MapEntry(
+      namespace,
+      Map<String, String>.from(values as Map<dynamic, dynamic>),
+    );
+  });
+}
+
 extension TagsTranslation on String {
   static final Map<String, Map<String, String>> _data = {};
+  static Future<void>? _loading;
 
-  static Future<void> readData() async {
+  static Future<void> readData() {
+    if (_data.isNotEmpty) return Future.value();
+    final pending = _loading;
+    if (pending != null) return pending;
+    final future = _readDataWithRetry();
+    _loading = future;
+    return future;
+  }
+
+  static Future<void> _readDataWithRetry() async {
+    try {
+      await _readData();
+    } catch (_) {
+      _loading = null;
+      rethrow;
+    }
+  }
+
+  static Future<void> _readData() async {
     var fileName = App.locale.countryCode == 'TW'
         ? "assets/tags_tw.json"
         : "assets/tags.json";
     var data = await rootBundle.load(fileName);
-    List<int> bytes = data.buffer.asUint8List(
+    final bytes = data.buffer.asUint8List(
       data.offsetInBytes,
       data.lengthInBytes,
     );
-    const JsonDecoder().convert(const Utf8Decoder().convert(bytes)).forEach((
-      key,
-      value,
-    ) {
-      _data[key] = {};
-      value.forEach((key1, value1) {
-        _data[key]?[key1] = value1;
-      });
-    });
+    final parsed = await compute(_parseTagTranslations, bytes);
+    _data
+      ..clear()
+      ..addAll(parsed);
   }
 
   static bool _haveNamespace(String key) {
