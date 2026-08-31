@@ -313,10 +313,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       Log.e(
                         "Unhandled Exception ${details.exception}\n${details.stack}",
                       );
-                      return Material(
-                        child: Center(
-                          child: Text(details.exception.toString()),
-                        ),
+                      return Center(
+                        child: Text(details.exception.toString()),
                       );
                     };
                     if (widget != null) {

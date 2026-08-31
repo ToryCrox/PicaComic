@@ -51,7 +51,7 @@ class NetworkError extends StatelessWidget {
         ],
       );
     }
-    return Material(child: body);
+    return body;
   }
 }
 

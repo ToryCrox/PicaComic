@@ -230,7 +230,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
         body: body,
       );
     }
-    return Material(child: body);
+    return body;
   }
 
   /// 在当前帧结束后触发连续模式的下一页加载。
