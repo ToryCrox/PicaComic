@@ -89,13 +89,11 @@ void main() {
       final translationRoot = Directory(
         path.join(temporaryDirectory.path, 'translation-output'),
       );
+      final translationComic = Directory(
+        path.join(translationRoot.path, path.basename(comicDirectory.path)),
+      );
       final translationChapter = Directory(
-        path.join(
-          translationRoot.path,
-          path.basename(comicDirectory.path),
-          '1',
-          'translated',
-        ),
+        path.join(translationComic.path, '1', 'translated'),
       );
       await _writeImage(path.join(translationChapter.path, '1.png'), '译图');
       await File(
@@ -128,6 +126,7 @@ void main() {
         await File(path.join(translationChapter.path, '1.png')).exists(),
         isFalse,
       );
+      expect(await translationComic.exists(), isFalse);
       expect(
         await Directory(
           path.join(comicDirectory.path, 'manga_translator_work'),

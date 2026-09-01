@@ -466,6 +466,7 @@ class TranslationResultReplacer {
           ...skippedPairList.map((pair) => pair.originalPath),
         ],
       );
+      await _removeEmptyExternalComicDirectory(plan);
       intermediateDirectoriesCleaned = true;
     }
     return TranslationReplacementSummary(
@@ -717,6 +718,50 @@ class TranslationResultReplacer {
         );
       }
     }
+  }
+
+  /// 删除已经清空的外部漫画结果目录，但保留外部结果根目录。
+  Future<void> _removeEmptyExternalComicDirectory(
+    TranslationReplacementPlan plan,
+  ) async {
+    final externalComicDirectory = plan.externalComicDirectory;
+    if (externalComicDirectory == null) return;
+
+    final normalizedExternalDirectory = path.normalize(externalComicDirectory);
+    final normalizedComicDirectory = path.normalize(plan.comicDirectory);
+    if (path.equals(normalizedExternalDirectory, normalizedComicDirectory)) {
+      Log.w('外部翻译结果目录与原漫画目录相同，跳过删除: $externalComicDirectory');
+      return;
+    }
+
+    final directory = Directory(externalComicDirectory);
+    await _removeEmptyDirectoryTree(directory);
+  }
+
+  /// 仅删除目录树中的空目录，遇到文件或链接时保留整个分支。
+  Future<bool> _removeEmptyDirectoryTree(Directory directory) async {
+    try {
+      if (!await directory.exists()) return true;
+      var hasRemainingEntries = false;
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is Directory) {
+          final childRemoved = await _removeEmptyDirectoryTree(entity);
+          if (!childRemoved) hasRemainingEntries = true;
+        } else {
+          hasRemainingEntries = true;
+        }
+      }
+      if (hasRemainingEntries) return false;
+      await directory.delete();
+      return true;
+    } catch (error, stackTrace) {
+      Log.w(
+        '删除空的外部翻译结果目录失败: ${directory.path}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    return false;
   }
 
   Future<bool> hasReplacementCandidate(
