@@ -269,6 +269,17 @@ class _MangaTranslationMetadata {
   final bool hasUntranslatableContent;
 }
 
+/// Manga Translator 页面元数据及相关工作文件的位置。
+class _MangaTranslationWorkLocation {
+  const _MangaTranslationWorkLocation({
+    required this.metadataFile,
+    required this.inpaintedFile,
+  });
+
+  final File metadataFile;
+  final File inpaintedFile;
+}
+
 /// 扫描并安全应用漫画目录中的翻译结果。
 ///
 /// 旧 `result/` 目录与其父目录匹配；自定义目录按原漫画相对路径匹配，避免跨章节覆盖。
@@ -422,7 +433,8 @@ class TranslationResultReplacer {
       );
     }
 
-    final skippedOriginalPaths = skippedPairs
+    final skippedPairList = skippedPairs.toList(growable: false);
+    final skippedOriginalPaths = skippedPairList
         .map((pair) => pair.originalPath)
         .toSet();
     final results = <TranslationReplacementResult>[];
@@ -432,7 +444,7 @@ class TranslationResultReplacer {
     }
 
     final allSucceeded =
-        (results.isNotEmpty || skippedPairs.isNotEmpty) &&
+        (results.isNotEmpty || skippedPairList.isNotEmpty) &&
         results.every((result) => result.isSuccess);
     var resultDirectoriesRemoved = false;
     if (allSucceeded) {
@@ -448,14 +460,18 @@ class TranslationResultReplacer {
     if (allSucceeded && !hasUnmatchedTranslation && resultDirectoriesRemoved) {
       await _removeIntermediateDirectories(
         plan.resultDirectories,
-        comicDirectory: plan.comicDirectory,
+        plan: plan,
+        originalPaths: [
+          ...plan.pairs.map((pair) => pair.originalPath),
+          ...skippedPairList.map((pair) => pair.originalPath),
+        ],
       );
       intermediateDirectoriesCleaned = true;
     }
     return TranslationReplacementSummary(
       results: results,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
-      skippedCount: skippedPairs.length,
+      skippedCount: skippedPairList.length,
     );
   }
 
@@ -566,25 +582,14 @@ class TranslationResultReplacer {
     var deletedFileCount = 0;
     for (final pair in pairs) {
       var failed = false;
-      final files = <File>[
-        File(pair.translatedPath),
-        File(
-          path.join(
-            plan.comicDirectory,
-            _translationWorkDirectoryName,
-            'json',
-            '${pair.baseName}_translations.json',
-          ),
-        ),
-        File(
-          path.join(
-            plan.comicDirectory,
-            _translationWorkDirectoryName,
-            'inpainted',
-            '${pair.baseName}_inpainted.png',
-          ),
-        ),
-      ];
+      final files = <File>[File(pair.translatedPath)];
+      final workLocation = await _findMangaTranslationWorkLocation(
+        plan.comicDirectory,
+        pair.originalPath,
+      );
+      if (workLocation != null) {
+        files.addAll([workLocation.metadataFile, workLocation.inpaintedFile]);
+      }
       for (final file in files) {
         try {
           if (await file.exists()) {
@@ -600,46 +605,11 @@ class TranslationResultReplacer {
       if (!failed) completedPairs.add(pair);
     }
 
-    var removedTranslationMapEntryCount = 0;
-    final mapDirectory = plan.externalComicDirectory;
-    if (mapDirectory != null && completedPairs.isNotEmpty) {
-      final mapFile = File(path.join(mapDirectory, 'translation_map.json'));
-      if (await mapFile.exists()) {
-        try {
-          final decoded = jsonDecode(await mapFile.readAsString());
-          if (decoded is! Map) {
-            throw const FormatException('translation_map.json 顶层不是对象');
-          }
-          final translationMap = Map<String, dynamic>.from(decoded);
-          final pathsToRemove = completedPairs
-              .map((pair) => path.normalize(pair.translatedPath))
-              .toSet();
-          final keysToRemove = translationMap.keys
-              .where((key) {
-                final value = key.trim();
-                final resolved = path.isAbsolute(value)
-                    ? value
-                    : path.join(mapDirectory, value);
-                return pathsToRemove.contains(path.normalize(resolved));
-              })
-              .toList(growable: false);
-          for (final key in keysToRemove) {
-            translationMap.remove(key);
-          }
-          if (keysToRemove.isNotEmpty) {
-            await _writeTranslationMap(mapFile, translationMap);
-            removedTranslationMapEntryCount = keysToRemove.length;
-          }
-        } catch (error, stackTrace) {
-          errors.add('更新 translation_map.json 失败：$error');
-          Log.e(
-            '更新翻译映射失败: ${mapFile.path}',
-            error: error,
-            stackTrace: stackTrace,
-          );
-        }
-      }
-    }
+    final removedTranslationMapEntryCount = await _removeTranslationMapEntries(
+      plan,
+      completedPairs,
+      errors,
+    );
     return TranslationUntranslatableCleanupSummary(
       deletedPairCount: completedPairs.length,
       deletedFileCount: deletedFileCount,
@@ -664,6 +634,73 @@ class TranslationResultReplacer {
     } finally {
       if (await temporaryFile.exists()) await temporaryFile.delete();
     }
+  }
+
+  /// 删除拒译译图在外部结果目录中的映射记录。
+  Future<int> _removeTranslationMapEntries(
+    TranslationReplacementPlan plan,
+    List<TranslationReplacementPair> pairs,
+    List<String> errors,
+  ) async {
+    if (plan.externalComicDirectory == null || pairs.isEmpty) return 0;
+
+    final mapPaths = <String, Set<String>>{};
+    final rootMapFile = File(
+      path.join(plan.externalComicDirectory!, 'translation_map.json'),
+    );
+    final rootMapExists = await rootMapFile.exists();
+    for (final pair in pairs) {
+      final resultMapFile = File(
+        path.join(path.dirname(pair.translatedPath), 'translation_map.json'),
+      );
+      if (await resultMapFile.exists()) {
+        mapPaths
+            .putIfAbsent(path.normalize(resultMapFile.path), () => <String>{})
+            .add(path.normalize(pair.translatedPath));
+      }
+      if (rootMapExists && !path.equals(resultMapFile.path, rootMapFile.path)) {
+        mapPaths
+            .putIfAbsent(path.normalize(rootMapFile.path), () => <String>{})
+            .add(path.normalize(pair.translatedPath));
+      }
+    }
+
+    var removedCount = 0;
+    for (final entry in mapPaths.entries) {
+      final mapFile = File(entry.key);
+      try {
+        final decoded = jsonDecode(await mapFile.readAsString());
+        if (decoded is! Map) {
+          throw const FormatException('translation_map.json 顶层不是对象');
+        }
+        final translationMap = Map<String, dynamic>.from(decoded);
+        final mapDirectory = path.dirname(mapFile.path);
+        final keysToRemove = translationMap.keys
+            .where((key) {
+              final value = key.trim();
+              final resolved = path.isAbsolute(value)
+                  ? value
+                  : path.join(mapDirectory, value);
+              return entry.value.contains(path.normalize(resolved));
+            })
+            .toList(growable: false);
+        for (final key in keysToRemove) {
+          translationMap.remove(key);
+        }
+        if (keysToRemove.isNotEmpty) {
+          await _writeTranslationMap(mapFile, translationMap);
+          removedCount += keysToRemove.length;
+        }
+      } catch (error, stackTrace) {
+        errors.add('更新 translation_map.json 失败：$error');
+        Log.e(
+          '更新翻译映射失败: ${mapFile.path}',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    return removedCount;
   }
 
   /// 递归删除翻译结果目录及其中的其它文件。
@@ -959,6 +996,94 @@ class TranslationResultReplacer {
     );
   }
 
+  /// 查找原图对应的 Manga Translator 工作文件。
+  Future<_MangaTranslationWorkLocation?> _findMangaTranslationWorkLocation(
+    String comicDirectory,
+    String originalPath,
+  ) async {
+    final baseName = path.basenameWithoutExtension(originalPath);
+    for (final directoryPath in _ancestorDirectories(
+      path.dirname(originalPath),
+      comicDirectory,
+    )) {
+      final workDirectory = Directory(
+        path.join(directoryPath, _translationWorkDirectoryName),
+      );
+      final metadataFile = File(
+        path.join(workDirectory.path, 'json', '${baseName}_translations.json'),
+      );
+      if (!await metadataFile.exists()) continue;
+      return _MangaTranslationWorkLocation(
+        metadataFile: metadataFile,
+        inpaintedFile: File(
+          path.join(
+            workDirectory.path,
+            'inpainted',
+            '${baseName}_inpainted.png',
+          ),
+        ),
+      );
+    }
+    return null;
+  }
+
+  /// 查找计划涉及的所有 Manga Translator 工作目录。
+  Future<Set<String>> _findMangaTranslationWorkDirectories(
+    String comicDirectory,
+    Iterable<String> originalPaths,
+  ) async {
+    final workDirectories = <String>{};
+    for (final originalPath in originalPaths) {
+      for (final directoryPath in _ancestorDirectories(
+        path.dirname(originalPath),
+        comicDirectory,
+      )) {
+        final workDirectory = Directory(
+          path.join(directoryPath, _translationWorkDirectoryName),
+        );
+        if (await workDirectory.exists()) {
+          workDirectories.add(path.normalize(workDirectory.path));
+        }
+      }
+    }
+    return workDirectories;
+  }
+
+  /// 从起始目录逐级返回到漫画根目录的目录路径。
+  Iterable<String> _ancestorDirectories(
+    String startDirectory,
+    String comicDirectory,
+  ) sync* {
+    final rootPath = path.normalize(comicDirectory);
+    var currentPath = path.normalize(startDirectory);
+    if (!_isWithinDirectory(currentPath, rootPath)) return;
+
+    while (true) {
+      yield currentPath;
+      if (path.equals(currentPath, rootPath)) return;
+      final parentPath = path.dirname(currentPath);
+      if (path.equals(parentPath, currentPath)) return;
+      currentPath = parentPath;
+    }
+  }
+
+  /// 判断目录是否位于漫画根目录内。
+  bool _isWithinDirectory(String directoryPath, String rootPath) {
+    final normalizedDirectory = path.normalize(directoryPath);
+    final normalizedRoot = path.normalize(rootPath);
+    if (path.equals(normalizedDirectory, normalizedRoot)) return true;
+    try {
+      final relativePath = path.relative(
+        normalizedDirectory,
+        from: normalizedRoot,
+      );
+      return relativePath != '..' &&
+          !relativePath.startsWith('..${path.separator}');
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 读取 Manga Translator 页面元数据。
   ///
   /// 未检测到文本时会保留 JSON 记录，但不会生成 inpainted 图片。两个信号
@@ -968,23 +1093,16 @@ class TranslationResultReplacer {
     String comicDirectory,
     String originalPath,
   ) async {
-    final translatorWorkDirectory = Directory(
-      path.join(comicDirectory, _translationWorkDirectoryName),
+    final workLocation = await _findMangaTranslationWorkLocation(
+      comicDirectory,
+      originalPath,
     );
-    if (!await translatorWorkDirectory.exists()) return null;
-
-    final baseName = path.basenameWithoutExtension(originalPath);
-    final metadataFile = File(
-      path.join(
-        translatorWorkDirectory.path,
-        'json',
-        '${baseName}_translations.json',
-      ),
-    );
-    if (!await metadataFile.exists()) return null;
+    if (workLocation == null) return null;
 
     try {
-      final decoded = jsonDecode(await metadataFile.readAsString());
+      final decoded = jsonDecode(
+        await workLocation.metadataFile.readAsString(),
+      );
       if (decoded is! Map) return null;
 
       Map? metadata;
@@ -1009,14 +1127,8 @@ class TranslationResultReplacer {
             _containsUntranslatableText(region['translation_raw']);
       });
 
-      final inpaintedFile = File(
-        path.join(
-          translatorWorkDirectory.path,
-          'inpainted',
-          '${baseName}_inpainted.png',
-        ),
-      );
-      final defaultSkipReason = regions.isEmpty && !await inpaintedFile.exists()
+      final defaultSkipReason =
+          regions.isEmpty && !await workLocation.inpaintedFile.exists()
           ? '未检测到可翻译文本，已默认跳过'
           : null;
       return _MangaTranslationMetadata(
@@ -1025,7 +1137,8 @@ class TranslationResultReplacer {
       );
     } catch (error, stackTrace) {
       Log.w(
-        '读取 Manga Translator 翻译元数据失败: ${metadataFile.path}',
+        '读取 Manga Translator 翻译元数据失败: '
+        '${workLocation.metadataFile.path}',
         error: error,
         stackTrace: stackTrace,
       );
@@ -1126,7 +1239,8 @@ class TranslationResultReplacer {
 
   Future<void> _removeIntermediateDirectories(
     Set<String> resultDirectories, {
-    required String comicDirectory,
+    required TranslationReplacementPlan plan,
+    required Iterable<String> originalPaths,
   }) async {
     final parentDirectories = resultDirectories
         .where(
@@ -1141,11 +1255,15 @@ class TranslationResultReplacer {
         if (await directory.exists()) await directory.delete(recursive: true);
       }
     }
-    final translationWorkDirectory = Directory(
-      path.join(comicDirectory, _translationWorkDirectoryName),
+    final workDirectories = await _findMangaTranslationWorkDirectories(
+      plan.comicDirectory,
+      originalPaths,
     );
-    if (await translationWorkDirectory.exists()) {
-      await translationWorkDirectory.delete(recursive: true);
+    for (final workDirectoryPath in workDirectories) {
+      final translationWorkDirectory = Directory(workDirectoryPath);
+      if (await translationWorkDirectory.exists()) {
+        await translationWorkDirectory.delete(recursive: true);
+      }
     }
   }
 

@@ -507,6 +507,72 @@ void main() {
       );
     });
 
+    test('Manga Translator 章节目录中的无文本页面默认跳过', () async {
+      final chapterOne = Directory(path.join(comicDirectory.path, '1'));
+      final chapterTwo = Directory(path.join(comicDirectory.path, '2'));
+      await chapterOne.create();
+      await chapterTwo.create();
+      await _writeImage(path.join(chapterOne.path, '1.webp'), '原图一');
+      await _writeImage(path.join(chapterTwo.path, '2.webp'), '原图二');
+      await _writeImage(path.join(chapterOne.path, 'result', '1.png'), '译图一');
+      await _writeImage(path.join(chapterTwo.path, 'result', '2.png'), '译图二');
+      await _writeMangaTranslatorMetadata(chapterTwo, '2', regions: const []);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+      final chapterTwoPair = plan.pairs.firstWhere(
+        (pair) => pair.originalPath == path.join(chapterTwo.path, '2.webp'),
+      );
+
+      expect(chapterTwoPair.defaultSkipped, isTrue);
+      expect(chapterTwoPair.defaultSkipReason, '未检测到可翻译文本，已默认跳过');
+      expect(plan.defaultSkippedOriginalPaths, {chapterTwoPair.originalPath});
+      expect(
+        plan.pairs
+            .firstWhere(
+              (pair) =>
+                  pair.originalPath == path.join(chapterOne.path, '1.webp'),
+            )
+            .defaultSkipped,
+        isFalse,
+      );
+    });
+
+    test('从图片目录向上查找章节元数据并清理章节工作目录', () async {
+      final chapter = Directory(path.join(comicDirectory.path, '2'));
+      final pages = Directory(path.join(chapter.path, 'pages'));
+      await pages.create(recursive: true);
+      await _writeImage(path.join(pages.path, '2.webp'), '原图');
+      await _writeImage(path.join(pages.path, 'result', '2.png'), '译图');
+      await _writeMangaTranslatorMetadata(chapter, '2', regions: const []);
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+      );
+      final pair = plan.pairs.single;
+
+      expect(pair.defaultSkipped, isTrue);
+      final summary = await replacer.apply(plan, skippedPairs: [pair]);
+
+      expect(summary.successCount, 0);
+      expect(summary.skippedCount, 1);
+      expect(await File(pair.originalPath).exists(), isTrue);
+      expect(await File(pair.translatedPath).exists(), isFalse);
+      expect(
+        await Directory(path.join(pages.path, 'result')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(
+          path.join(chapter.path, 'manga_translator_work'),
+        ).exists(),
+        isFalse,
+      );
+    });
+
     test('Manga Translator 有文本、存在去字图或元数据异常时不默认跳过', () async {
       for (final name in ['1', '2', '3', '4']) {
         await _writeImage(
@@ -842,6 +908,81 @@ void main() {
               as Map<String, dynamic>;
       expect(map, {'normal.png': '保留'});
     });
+
+    test('拒译结果清理支持章节级元数据和外部映射', () async {
+      final chapter = Directory(path.join(comicDirectory.path, '2'));
+      await chapter.create();
+      await _writeImage(path.join(chapter.path, '2.webp'), '原图');
+      await _writeMangaTranslatorMetadata(
+        chapter,
+        '2',
+        regions: const [
+          {'translation': '无法翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+
+      final translationRoot = Directory(
+        path.join(temporaryDirectory.path, 'translation-output'),
+      );
+      final externalChapter = Directory(
+        path.join(
+          translationRoot.path,
+          path.basename(comicDirectory.path),
+          '2',
+        ),
+      );
+      await _writeImage(path.join(externalChapter.path, '2.png'), '拒译译图');
+      await _writeImage(path.join(externalChapter.path, 'keep.png'), '保留译图');
+      await File(
+        path.join(externalChapter.path, 'translation_map.json'),
+      ).writeAsString(jsonEncode({'2.png': '拒译', 'keep.png': '保留'}));
+
+      final plan = await replacer.prepare(
+        comicDirectory.path,
+        includeDimensions: false,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      final pair = plan.pairs.single;
+      expect(pair.hasUntranslatableContent, isTrue);
+
+      final summary = await replacer.removeUntranslatableResults(plan);
+
+      expect(summary.deletedPairCount, 1);
+      expect(summary.removedTranslationMapEntryCount, 1);
+      expect(await File(pair.originalPath).exists(), isTrue);
+      expect(await File(pair.translatedPath).exists(), isFalse);
+      expect(
+        await File(
+          path.join(
+            chapter.path,
+            'manga_translator_work',
+            'json',
+            '2_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      expect(
+        await File(
+          path.join(
+            chapter.path,
+            'manga_translator_work',
+            'inpainted',
+            '2_inpainted.png',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      final map =
+          jsonDecode(
+                await File(
+                  path.join(externalChapter.path, 'translation_map.json'),
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      expect(map, {'keep.png': '保留'});
+    });
   });
 }
 
@@ -851,12 +992,12 @@ Future<void> _writeImage(String filePath, String contents) async {
 }
 
 Future<void> _writeMangaTranslatorMetadata(
-  Directory comicDirectory,
+  Directory workOwner,
   String baseName, {
   required List<Object?> regions,
   bool createInpainted = false,
 }) async {
-  final workDirectory = path.join(comicDirectory.path, 'manga_translator_work');
+  final workDirectory = path.join(workOwner.path, 'manga_translator_work');
   final metadataFile = File(
     path.join(workDirectory, 'json', '${baseName}_translations.json'),
   );
