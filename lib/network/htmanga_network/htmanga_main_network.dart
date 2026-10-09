@@ -394,7 +394,8 @@ class HtmangaNetwork {
       return Res(null, errorMessage: res.errorMessage);
     }
     try {
-      var urls = RegExp(r"(?<=//)[\w./\[\]()-]+").allMatches(res.data);
+      // 保留 ?verify= 等签名参数，否则图片 CDN 可能返回 403。
+      var urls = RegExp(r"(?<=//)[\w./\[\]()?&=%+-]+").allMatches(res.data);
       var images = <String>[];
       for (var url in urls) {
         images.add("https://${url[0]!}");
