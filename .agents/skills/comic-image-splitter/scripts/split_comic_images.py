@@ -34,6 +34,8 @@ GUTTER_ROW_WHITE_RATIO = 0.98
 GUTTER_MIN_RUN_RATIO = 0.0015
 GUTTER_SEARCH_RATIO = 0.18
 MIN_SEGMENT_RATIO = 0.75
+WEBP_QUALITY = 85
+WEBP_QUALITY_MIN_WIDTH = 1280
 
 
 @dataclass(frozen=True)
@@ -420,7 +422,8 @@ def save_piece(image: Image.Image, source: SourceImage, destination: Path) -> No
     else:
         if crop.mode not in ("RGB", "RGBA", "L"):
             crop = crop.convert("RGBA" if "A" in crop.getbands() else "RGB")
-        options = {"quality": 100, "method": 0, "exact": True}
+        quality = WEBP_QUALITY if crop.width > WEBP_QUALITY_MIN_WIDTH else 100
+        options = {"quality": quality, "method": 0, "exact": True}
         for key in ("icc_profile", "exif", "xmp"):
             value = source.info.get(key)
             if value is not None:
