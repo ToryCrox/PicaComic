@@ -1,0 +1,3 @@
+interface:
+  display_name: "漫画长图切割"
+  short_description: "均分切割漫画长图并保留 JPG/PNG/WebP 原格式"
