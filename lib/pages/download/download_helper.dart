@@ -5,6 +5,8 @@ import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
+import 'package:pica_comic/pages/hiperdex/hiperdex_reading_data.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
@@ -85,6 +87,15 @@ extension ReadComic on DownloadedItem {
           comic.id.replaceFirst("nhentai", ""),
           comic.title,
           initialPage: initialPage ?? (ep == null ? history.page : 0),
+        ),
+      );
+    } else if (comic is HiperdexDownloadedItem) {
+      final history = await History.findOrCreate(comic.comic);
+      App.globalTo(
+        () => ComicReadingPage(
+          HiperdexReadingData(comic.comicId, comic.name, comic.chapters),
+          initialPage ?? (ep == null ? history.page : 0),
+          ep ?? history.ep,
         ),
       );
     } else if (comic.type == DownloadType.other) {

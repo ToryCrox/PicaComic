@@ -8,6 +8,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
@@ -55,6 +56,8 @@ String getDownloadTypeName(DownloadType type) {
       return "收藏";
     case DownloadType.local:
       return "本地".tl;
+    case DownloadType.hiperdex:
+      return 'HiperDEX';
   }
 }
 
@@ -811,6 +814,8 @@ void addToLocalFavoriteFolder({
                           DownloadType.htmanga => FavoriteItem.fromHtcomic(
                             (comic as DownloadedHtComic).comic.toBrief(),
                           ),
+                          DownloadType.hiperdex =>
+                            (comic as HiperdexDownloadedItem).toFavoriteItem(),
                           DownloadType.other => () {
                             var c = (comic as CustomDownloadedItem);
                             return FavoriteItem.custom(

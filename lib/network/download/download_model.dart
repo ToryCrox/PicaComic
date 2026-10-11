@@ -17,6 +17,7 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/file_type.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:synchronized/synchronized.dart';
 import 'models/download_color_tag.dart';
 
 import '../../base.dart';
@@ -27,6 +28,12 @@ import '../../foundation/local_repository_manager.dart';
 abstract class DownloadedItem {
   ///漫画源
   DownloadType get type;
+
+  /// 实际漫画源标识，供列表、翻译和图片定位使用。
+  String get sourceKey => type.toComicType().name;
+
+  /// 根据一基章节索引获取磁盘目录，默认兼容原有数字目录。
+  String getEpisodeDirectoryName(int episodeIndex) => '$episodeIndex';
 
   ///漫画名
   String get name;
@@ -85,7 +92,8 @@ enum DownloadType {
   nhentai,
   other,
   favorite,
-  local;
+  local,
+  hiperdex;
 
   ComicType toComicType() => switch (this) {
     picacg => ComicType.picacg,
@@ -97,6 +105,7 @@ enum DownloadType {
     other => ComicType.other,
     favorite => ComicType.other,
     local => ComicType.other,
+    hiperdex => ComicType.hiperdex,
   };
 }
 
@@ -295,7 +304,13 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// 章节下载完成时调用，保存增量数据到数据库
   ///
   /// [episodeIndex] 是 links Map 的 key，即章节编号（通常从1开始）
-  Future<void> _onEpisodeDownloaded(int episodeIndex) async {
+  final Lock _episodeSaveLock = Lock();
+
+  Future<void> _onEpisodeDownloaded(int episodeIndex) =>
+      _episodeSaveLock.synchronized(() => _saveDownloadedEpisode(episodeIndex));
+
+  /// 串行保存章节，避免并发完成时覆盖增量下载记录。
+  Future<void> _saveDownloadedEpisode(int episodeIndex) async {
     if (!shouldSaveToDatabase) return;
     if (directory.trim().isEmpty) return;
 
@@ -377,7 +392,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
     for (var ep in links!.keys) {
       var urls = links![ep]!;
       for (var i = 0; i < urls.length; i++) {
-        var downloadTo = haveEps ? "$path/$ep" : path;
+        var downloadTo = haveEps
+            ? Path.join(path, getEpisodeDirectoryName(ep))
+            : path;
         var basename = i.toString();
 
         var item = ImageDownloadQueueItem(
@@ -598,7 +615,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       for (var ep in links!.keys.toList()) {
         // 只删除未完成的章节
         if (completedEpisodes.contains(ep)) continue;
-        var directory = Directory(comicPath + ep.toString());
+        var directory = Directory(
+          Path.join(comicPath, getEpisodeDirectoryName(ep)),
+        );
         if (directory.existsSync()) {
           await directory.delete(recursive: true);
         }
@@ -683,6 +702,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       type != DownloadType.hitomi &&
       type != DownloadType.htmanga &&
       type != DownloadType.nhentai;
+
+  /// 将章节索引转换为磁盘目录名，默认保留原有数字目录格式。
+  String getEpisodeDirectoryName(int episodeIndex) => '$episodeIndex';
 
   /// 下载单张图片
   ///

@@ -164,9 +164,7 @@ class DownloadList extends ConsumerWidget {
         ),
         child: AiCachedTitleBuilder(
           resource: AiComicResource(
-            sourceKey: item is CustomDownloadedItem
-                ? item.sourceKey
-                : item.type.toComicType().name,
+            sourceKey: item.sourceKey,
             downloadId: item.id,
             targetLanguage: App.locale.toLanguageTag(),
           ),
@@ -460,6 +458,8 @@ class DownloadList extends ConsumerWidget {
               sourceKey = "htmanga";
             } else if (comic.type == DownloadType.nhentai) {
               sourceKey = "nhentai";
+            } else if (comic.type == DownloadType.hiperdex) {
+              sourceKey = 'hiperdex';
             } else if (comic.type == DownloadType.other) {
               if (comic is CustomDownloadedItem) {
                 sourceKey = comic.sourceKey;

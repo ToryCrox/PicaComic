@@ -31,6 +31,8 @@ import 'package:pica_comic/network/download/favorite_download.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart' as hitomi;
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
@@ -80,6 +82,12 @@ class DownloadManager extends ChangeNotifier {
   /// 封面文件名只依赖来源和下载 ID，因此漫画目录重命名不会影响封面路径。
   String? getCoverPath(String id, DownloadType type) {
     if (path == null) return null;
+    if (type == DownloadType.hiperdex) {
+      // 旧版本将 HiperDEX 封面存为 other，继续使用原文件避免重复下载。
+      final legacyName = buildDownloadCoverFileName(sourceKey: 'other', id: id);
+      final legacyPath = Path.join(coversPath, legacyName);
+      if (File(legacyPath).existsSync()) return legacyPath;
+    }
     final fileName = buildDownloadCoverFileName(sourceKey: type.name, id: id);
     return Path.join(coversPath, fileName);
   }
@@ -123,6 +131,9 @@ class DownloadManager extends ChangeNotifier {
 
   /// 数据库操作锁，防止并发写入导致 SQLite 死锁
   static final Lock _dbLock = Lock();
+
+  /// 串行迁移旧章节目录，防止并发读取重复重命名。
+  final Lock _chapterDirectoryLock = Lock();
 
   /// 用于通知已下载列表变化的 StreamController
   final StreamController<void> _comicsChangedController =
@@ -741,10 +752,11 @@ class DownloadManager extends ChangeNotifier {
       // 获取漫画目录的完整路径
       final fullPath = Path.join(comicsPath, comic.directory);
 
-      // 删除指定章节的目录（章节编号从1开始，所以需要 +1）
-      if (Directory("$fullPath/${ep + 1}").existsSync()) {
-        Directory("$fullPath/${ep + 1}").deleteSync(recursive: true);
-        Log.d(() => 'DownloadManager: 删除章节目录 $fullPath/${ep + 1}');
+      final episodeDirectory = comic.getEpisodeDirectoryName(ep + 1);
+      final episodePath = Path.join(fullPath, episodeDirectory);
+      if (Directory(episodePath).existsSync()) {
+        Directory(episodePath).deleteSync(recursive: true);
+        Log.d(() => 'DownloadManager: 删除章节目录 $episodePath');
       }
 
       // 重新计算漫画文件大小（异步操作，不阻塞主线程）
@@ -826,8 +838,7 @@ class DownloadManager extends ChangeNotifier {
 
   /// 获取漫画章节的长度, 适用于有章节的漫画
   Future<int> getEpLength(String id, int ep) async {
-    final fullDirPath = await getFullDirectory(id);
-    var directory = Directory("$fullDirPath/$ep");
+    var directory = Directory(await _getEpisodePath(id, ep));
     var files = directory.list();
     return files.length;
   }
@@ -842,13 +853,7 @@ class DownloadManager extends ChangeNotifier {
 
   ///获取图片, 对于无章节的漫画, ep参数为0
   Future<File> getImage(String id, int ep, int index) async {
-    final fullDirPath = await getFullDirectory(id); // 这里需要修改为同步方法或者重构调用处
-    String downloadPath;
-    if (ep == 0) {
-      downloadPath = fullDirPath;
-    } else {
-      downloadPath = Path.join(fullDirPath, ep.toString());
-    }
+    final downloadPath = await _getEpisodePath(id, ep);
     for (var file in Directory(downloadPath).listSync()) {
       if (file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "") ==
           index.toString()) {
@@ -873,14 +878,22 @@ class DownloadManager extends ChangeNotifier {
     );
   }
 
-  Future<String> getImageDirectory(String id, int ep) async {
-    String downloadPath;
+  /// 使用下载记录中的章节目录映射构建路径，兼容旧格式。
+  Future<String> _getEpisodePath(String id, int ep) async {
     final dirName = await getDirectoryName(id);
-    if (ep == 0) {
-      downloadPath = Path.join(comicsPath, dirName);
-    } else {
-      downloadPath = Path.join(comicsPath, dirName, ep.toString());
+    final root = Path.join(comicsPath, dirName);
+    if (ep == 0) return root;
+    if (id.startsWith('hiperdex-')) {
+      final comic = await getComicOrNull(id);
+      if (comic != null) {
+        return Path.join(root, comic.getEpisodeDirectoryName(ep));
+      }
     }
+    return Path.join(root, '$ep');
+  }
+
+  Future<String> getImageDirectory(String id, int ep) async {
+    final downloadPath = await _getEpisodePath(id, ep);
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
       await dir.create(recursive: true);
@@ -889,13 +902,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<List<String>> getAllImageFileList(String id, int ep) async {
-    String downloadPath;
-    final dirName = await getDirectoryName(id);
-    if (ep == 0) {
-      downloadPath = Path.join(comicsPath, dirName);
-    } else {
-      downloadPath = Path.join(comicsPath, dirName, ep.toString());
-    }
+    final downloadPath = await _getEpisodePath(id, ep);
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) {
       return [];
@@ -928,13 +935,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {
-    String downloadPath;
-    final dirName = await getDirectoryName(id);
-    if (ep == 0) {
-      downloadPath = Path.join(comicsPath, dirName);
-    } else {
-      downloadPath = Path.join(comicsPath, dirName, ep.toString());
-    }
+    final downloadPath = await _getEpisodePath(id, ep);
     var fileName = _downloadedFileName["$id$ep$index"];
     if (fileName != null) {
       final file = File(Path.join(downloadPath, fileName));
@@ -974,6 +975,7 @@ class DownloadManager extends ChangeNotifier {
 
   /// 根据下载 ID 推断内置漫画源类型，用于兼容没有数据库记录的调用方。
   DownloadType _inferDownloadType(String id) {
+    if (id.startsWith('hiperdex-')) return DownloadType.hiperdex;
     if (id.startsWith('jm')) return DownloadType.jm;
     if (id.startsWith('hitomi')) return DownloadType.hitomi;
     if (id.startsWith('nhentai')) return DownloadType.nhentai;
@@ -1040,6 +1042,14 @@ DownloadingTask downloadingItemFromMap(
         map["id"],
       );
     case 6:
+      if (map['comic']?['sourceKey'] == ComicType.hiperdex.name) {
+        return HiperdexDownloadingTask.fromMap(
+          map,
+          whenFinish,
+          whenError,
+          updateInfo,
+        );
+      }
       throw "Custom downloading task is no longer supported";
     case 7:
       return FavoriteDownloadingTask.fromMap(
@@ -1056,6 +1066,13 @@ DownloadingTask downloadingItemFromMap(
         whenError,
         updateInfo,
         map["id"],
+      );
+    case 9:
+      return HiperdexDownloadingTask.fromMap(
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
       );
     default:
       throw UnimplementedError();
@@ -1215,9 +1232,9 @@ extension AddDownloadExt on DownloadManager {
     throw "Custom download is no longer supported";
   }
 
-  /// 添加 HiperDEX 内置源下载，复用通用章节任务及其持久化格式。
+  /// 添加 HiperDEX 内置源的独立下载任务。
   void addHiperdexDownload(ComicInfoData comic, List<int> downloadEps) {
-    final task = CustomDownloadingTask(
+    final task = HiperdexDownloadingTask(
       comic,
       downloadEps,
       _onFinish,
@@ -1284,7 +1301,8 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.jm ||
       DownloadType.hitomi ||
       DownloadType.htmanga ||
-      DownloadType.nhentai => true,
+      DownloadType.nhentai ||
+      DownloadType.hiperdex => true,
       DownloadType.other ||
       DownloadType.favorite ||
       DownloadType.local => false,
@@ -1465,6 +1483,7 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.hitomi => (comic as DownloadedHitomiComic).cover,
       DownloadType.htmanga => (comic as DownloadedHtComic).comic.cover,
       DownloadType.nhentai => (comic as NhentaiDownloadedComic).cover,
+      DownloadType.hiperdex => (comic as HiperdexDownloadedItem).cover,
       DownloadType.other || DownloadType.favorite || DownloadType.local => '',
     };
   }
@@ -1490,10 +1509,32 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.nhentai => await _buildNhentaiDownloadContext(
         comic as NhentaiDownloadedComic,
       ),
+      DownloadType.hiperdex => await _buildHiperdexDownloadContext(
+        comic as HiperdexDownloadedItem,
+      ),
       DownloadType.other ||
       DownloadType.favorite ||
       DownloadType.local => throw UnsupportedError("不支持该漫画类型"),
     };
+  }
+
+  /// 用最新目录构建 HiperDEX 重下载或封面更新任务，保留原章节映射。
+  Future<({DownloadedItem item, DownloadingTask task})>
+  _buildHiperdexDownloadContext(HiperdexDownloadedItem comic) async {
+    final source = ComicSource.find(ComicType.hiperdex.name);
+    if (source?.loadComicInfo == null) throw StateError('找不到 HiperDEX 漫画源');
+    final result = await source!.loadComicInfo!(comic.comicId);
+    if (result.error) throw StateError(result.errorMessageWithoutNull);
+    final item = comic.withComicInfo(result.data);
+    final task = HiperdexDownloadingTask(
+      item.comic,
+      item.downloadedEps,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      comic.id,
+    );
+    return (item: item, task: task);
   }
 
   Future<({DownloadedItem item, DownloadingTask task})>
@@ -1662,6 +1703,8 @@ extension AddDownloadExt on DownloadManager {
         // Kemono 附件下载 - 不应该被保存到数据库，但如果被保存了就忽略
         // 返回 null 会被 whereType<DownloadedItem>() 过滤掉
         return null;
+      } else if (id.startsWith('hiperdex-')) {
+        comic = HiperdexDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.contains('-')) {
         comic = CustomDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.startsWith("jm")) {
@@ -1778,7 +1821,15 @@ extension AddDownloadExt on DownloadManager {
     });
   }
 
-  Future<DownloadedItem?> _getComicWithDb(String id) async {
+  Future<DownloadedItem?> _getComicWithDb(String id) {
+    if (id.startsWith('hiperdex-')) {
+      return _chapterDirectoryLock.synchronized(() => _readComicWithDb(id));
+    }
+    return _readComicWithDb(id);
+  }
+
+  /// 读取下载快照，并在没有活动任务时迁移 HiperDEX 的旧目录。
+  Future<DownloadedItem?> _readComicWithDb(String id) async {
     await init();
     Log.d(() => 'DB DownloadManager: 从数据库获取漫画 id=$id');
     final result = await _db.getDownloadById(id);
@@ -1787,7 +1838,7 @@ extension AddDownloadExt on DownloadManager {
       return null;
     }
 
-    return _getComicFromJson(
+    final item = _getComicFromJson(
       id: result[kDownloadId] as String,
       json: result[kDownloadJson] as String,
       time: DateTime.fromMillisecondsSinceEpoch(result[kDownloadTime] as int),
@@ -1799,6 +1850,25 @@ extension AddDownloadExt on DownloadManager {
       aiTranslationCompletedAt:
           result[kDownloadAiTranslationCompletedAt] as int?,
     );
+    if (item is HiperdexDownloadedItem &&
+        item.directory.isNotEmpty &&
+        !downloading.any((task) => task.id == id)) {
+      final root = Path.join(comicsPath, item.directory);
+      final directoriesChanged = await item.migrateChapterDirectories(root);
+      if (directoriesChanged ||
+          jsonDecode(result[kDownloadJson] as String)['modelVersion'] != 1) {
+        await DownloadManager._dbLock.synchronized(
+          () => _db.updateDownloadDetails(
+            id: item.id,
+            title: item.name,
+            subtitle: item.subTitle,
+            json: jsonEncode(item.toJson()),
+          ),
+        );
+        Log.i('HiperDEX 已按真实章号更新下载目录：${item.name}');
+      }
+    }
+    return item;
   }
 
   /// 根据ID获取已下载的漫画

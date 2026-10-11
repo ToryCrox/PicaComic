@@ -422,6 +422,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         return "收藏";
       case DownloadType.local:
         return "本地".tl;
+      case DownloadType.hiperdex:
+        return 'HiperDEX';
     }
   }
 

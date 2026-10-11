@@ -1313,7 +1313,7 @@ class CustomComicTile extends ComicTile {
       var history = await History.findOrCreate(res.data);
       App.globalTo(
         () => ComicReadingPage(
-          CustomReadingData(
+          ReadingData.fromSource(
             res.data.target,
             res.data.title,
             comicSource,

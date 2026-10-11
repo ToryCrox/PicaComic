@@ -1027,7 +1027,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
           state.currentEpisode - 1,
         );
         otherInfo["bookId"] = readingData.id;
-      } else if (readingData.type != ComicType.other) {
+      } else if (readingData.type != ComicType.other &&
+          readingData.type != ComicType.hiperdex) {
         otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];
       } else {
         otherInfo["eps"] = readingData.eps;

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -296,7 +297,7 @@ class FavoriteImageTile extends StatelessWidget {
         if (source == null) throw "Unknown source $key";
         App.globalTo(
           () => ComicReadingPage(
-            CustomReadingData(
+            ReadingData.fromSource(
               target,
               title,
               source,
@@ -394,6 +395,11 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
           stream = ImageManager().getHitomiImage(
             HitomiFile.fromMap(image.otherInfo["hitomi"][image.page - 1]),
             image.otherInfo["galleryId"],
+          );
+        case 'hiperdex':
+          stream = ImageManager().getImage(
+            image.otherInfo['url'],
+            HiperdexNetwork.imageHeaders,
           );
         default:
           stream = ImageManager().getImage(image.otherInfo["url"]);

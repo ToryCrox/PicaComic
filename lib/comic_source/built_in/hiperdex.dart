@@ -143,11 +143,11 @@ final hiperdex = ComicSource.named(
   },
   getImageLoadingConfig: (url, comicId, epId) => ImageConfig(
     url: url,
-    headers: {'User-Agent': webUA, 'Referer': '${HiperdexNetwork.baseUrl}/'},
+    headers: HiperdexNetwork.imageHeaders,
   ),
   getThumbnailLoadingConfig: (url) => ImageConfig(
     url: url,
-    headers: {'User-Agent': webUA, 'Referer': '${HiperdexNetwork.baseUrl}/'},
+    headers: HiperdexNetwork.imageHeaders,
   ),
 );
 

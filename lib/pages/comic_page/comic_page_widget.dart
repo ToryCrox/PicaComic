@@ -732,7 +732,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           final cs = ComicSource.find(widget.comicType);
           App.globalTo(
             () => ComicReadingPage(
-              CustomReadingData(widget.id, adapter.title(data) ?? '', cs!, {}),
+              ReadingData.fromSource(
+                widget.id,
+                adapter.title(data) ?? '',
+                cs!,
+                {},
+              ),
               1,
               1,
             )..readingData.history = state.history,

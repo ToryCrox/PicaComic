@@ -12,6 +12,7 @@ import '../../foundation/image_loader/file_image_loader.dart';
 import '../../foundation/image_loader/stream_image_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
+import '../../network/download/download_model.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import '../../network/htmanga_network/htmanga_main_network.dart';
@@ -22,9 +23,23 @@ import '../../network/picacg_network/methods.dart';
 import '../../network/res.dart';
 import '../../tools/type_util.dart';
 import '../../base.dart';
+import '../hiperdex/hiperdex_reading_data.dart';
 
 abstract class ReadingData {
   ReadingData();
+
+  /// 根据实际漫画源创建阅读数据，内置源使用自己的实现。
+  factory ReadingData.fromSource(
+    String id,
+    String title,
+    ComicSource? source,
+    Map<String, String>? eps,
+  ) {
+    if (source?.key == ComicType.hiperdex) {
+      return HiperdexReadingData(id, title, eps);
+    }
+    return CustomReadingData(id, title, source, eps);
+  }
 
   bool isReversed = false;
 
@@ -57,18 +72,26 @@ abstract class ReadingData {
 
   History? history;
 
+  /// 将在线章节索引映射到下载快照中的章节索引（一基）。
+  int localEpisode(int ep) => ep;
+
+  /// 加载下载记录后更新来源特有的章节映射。
+  void onDownloadedItemLoaded(DownloadedItem item) {}
+
   bool checkEpDownloaded(int ep) {
-    return !hasEp || downloadedEps.contains(ep - 1);
+    return !hasEp || downloadedEps.contains(localEpisode(ep) - 1);
   }
 
   Stream<Res<List<String>>> loadEp(int ep) async* {
     history ??= await HistoryManager().findSync(id);
     history?.addReadEpisode(ep);
     _isDownloaded = await downloadManager.isExists(downloadId);
-    if (_isDownloaded && downloadedEps.isEmpty) {
-      downloadedEps = (await downloadManager.getComicOrNull(
-        downloadId,
-      ))!.downloadedEps;
+    if (_isDownloaded) {
+      final item = await downloadManager.getComicOrNull(downloadId);
+      if (item != null) {
+        downloadedEps = item.downloadedEps;
+        onDownloadedItemLoaded(item);
+      }
     }
     if (dirPath.isNotEmpty) {
       final imageList = await downloadManager.getAllImagesByDir(dirPath);
@@ -79,7 +102,7 @@ abstract class ReadingData {
         yield Res(imageFileUriList);
       }
     } else if (_isDownloaded && checkEpDownloaded(ep)) {
-      final e = hasEp ? ep : 0;
+      final e = hasEp ? localEpisode(ep) : 0;
       final downloadDir = await downloadManager.getImageDirectory(
         downloadId,
         e,
@@ -128,7 +151,7 @@ abstract class ReadingData {
     if (_isDownloaded && checkEpDownloaded(ep)) {
       final imageFile = await downloadManager.getImage(
         downloadId,
-        hasEp ? ep : 0,
+        hasEp ? localEpisode(ep) : 0,
         page,
       );
       yield DownloadProgress(1, 1, "", imageFile.path);
@@ -155,7 +178,7 @@ abstract class ReadingData {
     if (url.startsWith("file://")) {
       return FileImage(File(url.substring(7)));
     } else if (_isDownloaded && checkEpDownloaded(ep)) {
-      return FileImageProvider(downloadId, hasEp ? ep : 0, page);
+      return FileImageProvider(downloadId, hasEp ? localEpisode(ep) : 0, page);
     } else {
       return StreamImageProvider(
         () => loadImage(ep, page, url, title: title),

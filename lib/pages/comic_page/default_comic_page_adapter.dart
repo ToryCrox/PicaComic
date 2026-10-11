@@ -78,13 +78,17 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     if (item is! CustomDownloadedItem) return null;
     return CustomDownloadedItem(
       item.comicSize,
-      List<int>.from(item.downloadedEps),
+      List.of(item.downloadedEps),
       item.id,
       data,
       item.sourceName,
       color: item.color,
     );
   }
+
+  /// 将已选章节交给来源对应的下载任务。
+  void addDownload(ComicInfoData data, List<int> selectedEps) =>
+      downloadManager.addCustomDownload(data, selectedEps);
 
   @override
   Future<bool> loadFavorite(ComicInfoData data) async =>
@@ -117,7 +121,12 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       await History.findOrCreate(data);
       App.globalTo(
         () => ComicReadingPage(
-          CustomReadingData(data.target, data.title, _source!, data.chapters),
+          ReadingData.fromSource(
+            data.target,
+            data.title,
+            _source!,
+            data.chapters,
+          ),
           0,
           ep + 1,
         ),
@@ -176,7 +185,12 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     final h = await History.createIfNull(history, data);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(data.target, data.title, _source!, data.chapters),
+        ReadingData.fromSource(
+          data.target,
+          data.title,
+          _source!,
+          data.chapters,
+        ),
         h.page,
         h.ep,
       ),
@@ -185,14 +199,6 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   void download(ComicInfoData data, BuildContext context) {
-    void addDownload(List<int> selectedEps) {
-      if (comicType == ComicType.hiperdex) {
-        downloadManager.addHiperdexDownload(data, selectedEps);
-      } else {
-        downloadManager.addCustomDownload(data, selectedEps);
-      }
-    }
-
     final downloadId = downloadManager.getDownloadIdFromComicId(
       comicType,
       data.comicId,
@@ -214,10 +220,12 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
           return;
         }
         var downloadedComic = await downloadManager.getComicOrNull(downloadId);
-        downloaded.addAll(downloadedComic!.downloadedEps);
+        final mapped =
+            mergeDownloadedItem(downloadedComic!, data) ?? downloadedComic;
+        downloaded.addAll(mapped.downloadedEps);
       } else {
         if (eps == null) {
-          addDownload([0]);
+          addDownload(data, [0]);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
           return;
@@ -227,7 +235,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       final child = SelectDownloadChapter(
         eps,
         (selectedEps) {
-          addDownload(selectedEps);
+          addDownload(data, selectedEps);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
         },
@@ -235,6 +243,9 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
         onEpisodeDelete: (ep) async {
           var dc = await downloadManager.getComicOrNull(downloadId);
           if (dc != null) {
+            final directory = dc.directory;
+            dc = mergeDownloadedItem(dc, data) ?? dc;
+            dc.directory = directory;
             if (dc.downloadedEps.length == 1) {
               await downloadManager.delete([downloadId]);
             } else {
@@ -382,7 +393,12 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     await History.findOrCreate(data);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(data.target, data.title, _source!, data.chapters),
+        ReadingData.fromSource(
+          data.target,
+          data.title,
+          _source!,
+          data.chapters,
+        ),
         index + 1,
         1,
       ),

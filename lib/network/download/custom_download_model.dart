@@ -38,6 +38,7 @@ class CustomDownloadedItem extends DownloadedItem {
   @override
   DownloadType get type => DownloadType.other;
 
+  @override
   String get sourceKey => comic.sourceKey;
 
   String get cover => comic.cover;

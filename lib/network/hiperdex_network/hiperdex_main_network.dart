@@ -17,6 +17,12 @@ class HiperdexNetwork {
   static final HiperdexNetwork instance = HiperdexNetwork._();
 
   static const String baseUrl = 'https://hiperdex.com';
+
+  /// 阅读、封面和下载共用的图片请求头。
+  static Map<String, String> get imageHeaders => {
+    'User-Agent': webUA,
+    'Referer': '$baseUrl/',
+  };
   static const int pageSize = 30;
 
   Future<String>? _apiKeyFuture;

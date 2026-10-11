@@ -127,7 +127,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     final h = await History.createIfNull(history, data);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(
+        ReadingData.fromSource(
           data.target,
           data.title,
           ComicSource.find(comicType)!,
@@ -238,7 +238,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     await History.findOrCreate(data, page: index + 1);
     App.globalTo(
       () => ComicReadingPage(
-        CustomReadingData(
+        ReadingData.fromSource(
           data.target,
           data.title,
           ComicSource.find(comicType)!,

@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
@@ -131,14 +133,25 @@ class FavoriteDownloadingTask extends DownloadingTask {
               comicInfoData.data.chapters?.length ?? 0,
               (index) => index,
             );
-            downloadLogic = CustomDownloadingTask(
-              comicInfoData.data,
-              downloadedEp,
-              onFinish,
-              onError,
-              updateInfo,
-              id,
-            );
+            if (comicSource.key == ComicType.hiperdex) {
+              downloadLogic = HiperdexDownloadingTask(
+                comicInfoData.data,
+                downloadedEp,
+                onFinish,
+                onError,
+                updateInfo,
+                id,
+              );
+            } else {
+              downloadLogic = CustomDownloadingTask(
+                comicInfoData.data,
+                downloadedEp,
+                onFinish,
+                onError,
+                updateInfo,
+                id,
+              );
+            }
           }
       }
     } catch (e, s) {
