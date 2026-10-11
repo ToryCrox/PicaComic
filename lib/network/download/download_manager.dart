@@ -1215,6 +1215,19 @@ extension AddDownloadExt on DownloadManager {
     throw "Custom download is no longer supported";
   }
 
+  /// 添加 HiperDEX 内置源下载，复用通用章节任务及其持久化格式。
+  void addHiperdexDownload(ComicInfoData comic, List<int> downloadEps) {
+    final task = CustomDownloadingTask(
+      comic,
+      downloadEps,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      generateId(ComicType.hiperdex.name, comic.comicId),
+    );
+    _addDownloadTask(task);
+  }
+
   void addFavoriteDownload(FavoriteItem comic) {
     var id = switch (comic.type.key) {
       0 => comic.target,

@@ -7,7 +7,6 @@ import '../../components/select_download_eps.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_page_route.dart';
-import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
@@ -65,7 +64,8 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   }
 
   @override
-  Future<ComicInfoData?> loadCachedData(String id) => SynchronousFuture(null);
+  Future<ComicInfoData?> loadCachedData(String id) =>
+      _source?.loadComicInfoCache?.call(id) ?? SynchronousFuture(null);
 
   @override
   ComicInfoData? dataFromDownloadedItem(DownloadedItem item) =>
@@ -177,7 +177,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     App.globalTo(
       () => ComicReadingPage(
         CustomReadingData(data.target, data.title, _source!, data.chapters),
-        h!.page,
+        h.page,
         h.ep,
       ),
     );
@@ -185,6 +185,14 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
 
   @override
   void download(ComicInfoData data, BuildContext context) {
+    void addDownload(List<int> selectedEps) {
+      if (comicType == ComicType.hiperdex) {
+        downloadManager.addHiperdexDownload(data, selectedEps);
+      } else {
+        downloadManager.addCustomDownload(data, selectedEps);
+      }
+    }
+
     final downloadId = downloadManager.getDownloadIdFromComicId(
       comicType,
       data.comicId,
@@ -209,7 +217,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
         downloaded.addAll(downloadedComic!.downloadedEps);
       } else {
         if (eps == null) {
-          downloadManager.addCustomDownload(data, [0]);
+          addDownload([0]);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
           return;
@@ -219,7 +227,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       final child = SelectDownloadChapter(
         eps,
         (selectedEps) {
-          downloadManager.addCustomDownload(data, selectedEps);
+          addDownload(selectedEps);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
         },

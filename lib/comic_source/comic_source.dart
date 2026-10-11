@@ -19,6 +19,7 @@ import '../base.dart';
 import '../network/base_comic.dart';
 import '../network/res.dart';
 import 'built_in/ehentai.dart';
+import 'built_in/hiperdex.dart';
 import 'built_in/hitomi.dart';
 import 'built_in/ht_manga.dart';
 import 'built_in/jm.dart';
@@ -71,6 +72,7 @@ class ComicSource {
     htManga,
     nhentai,
     kemono,
+    hiperdex,
   ];
 
   static List<ComicSource> sources = [];
@@ -89,6 +91,7 @@ class ComicSource {
   );
 
   static Future<void> init({bool initializeRuntime = true}) async {
+    migrateHiperdexExplorePages();
     final enabledSources = [
       for (final source in builtInSources)
         if (appdata.appSettings.isComicSourceEnabled(source.name))
@@ -165,6 +168,9 @@ class ComicSource {
 
   /// Load comic info.
   final LoadComicFunc? loadComicInfo;
+
+  /// 详情首屏磁盘缓存，网络加载前即可显示。
+  final Future<ComicInfoData?> Function(String id)? loadComicInfoCache;
 
   /// Load comic pages.
   final LoadComicPagesFunc? loadComicPages;
@@ -262,6 +268,7 @@ class ComicSource {
     this.commentsLoader,
     this.sendCommentFunc,
   ) : initData = null,
+      loadComicInfoCache = null,
       comicTileBuilderOverride = null,
       idMatcher = null,
       comicPageBuilder = null;
@@ -277,6 +284,7 @@ class ComicSource {
     this.searchPageData,
     this.settings = const [],
     this.loadComicInfo,
+    this.loadComicInfoCache,
     this.loadComicPages,
     this.getImageLoadingConfig,
     this.getThumbnailLoadingConfig,
@@ -303,6 +311,7 @@ class ComicSource {
       searchPageData = null,
       settings = [],
       loadComicInfo = null,
+      loadComicInfoCache = null,
       loadComicPages = null,
       getImageLoadingConfig = null,
       getThumbnailLoadingConfig = null,
@@ -453,12 +462,17 @@ class SearchPageData {
 
   final SearchFunction? loadPage;
 
+  /// 按关键词和筛选项读取首屏列表缓存。
+  final Future<List<BaseComic>> Function(String keyword, List<String> options)?
+  loadCache;
+
   final bool enableLanguageFilter;
 
   final bool enableTagsSuggestions;
 
   const SearchPageData(this.searchOptions, this.loadPage)
     : enableLanguageFilter = false,
+      loadCache = null,
       customOptionsBuilder = null,
       overrideSearchResultBuilder = null,
       enableTagsSuggestions = false;
@@ -466,6 +480,7 @@ class SearchPageData {
   const SearchPageData.named({
     this.searchOptions,
     this.loadPage,
+    this.loadCache,
     this.enableLanguageFilter = false,
     this.customOptionsBuilder,
     this.overrideSearchResultBuilder,

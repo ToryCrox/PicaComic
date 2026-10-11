@@ -6,19 +6,16 @@ import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as path;
 
 import '../../comic_source/comic_source.dart';
-import '../../foundation/def.dart';
 import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/image_loader/file_image_loader.dart';
 import '../../foundation/image_loader/stream_image_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
-import '../../foundation/local_history.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import '../../network/htmanga_network/htmanga_main_network.dart';
 import '../../network/jm_network/jm_image.dart';
-import '../../network/jm_network/jm_models.dart';
 import '../../network/jm_network/jm_network.dart';
 import '../../network/nhentai_network/nhentai_main_network.dart';
 import '../../network/picacg_network/methods.dart';
@@ -451,7 +448,11 @@ class CustomReadingData extends ReadingData {
   final ComicSource? source;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId {
+    // 通用阅读器的 type 为 other，下载记录需要使用实际漫画源标识。
+    if (source == null) return '';
+    return downloadManager.generateId(sourceKey, id);
+  }
 
   @override
   final Map<String, String>? eps;

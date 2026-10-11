@@ -89,6 +89,23 @@ class CookieJarSql {
     }
   }
 
+  /// 删除指定请求域名下同名 Cookie，避免旧的主机 Cookie 遮蔽新值。
+  Future<void> deleteCookiesForRequest(Uri uri, Iterable<String> names) async {
+    final cookieNames = names.toSet().toList();
+    if (cookieNames.isEmpty) return;
+
+    final domains = _getAcceptedDomains(uri.host);
+    final namePlaceholders = List.filled(cookieNames.length, '?').join(',');
+    final domainPlaceholders = List.filled(domains.length, '?').join(',');
+    final db = await _getDatabase();
+    await db.delete(
+      kTableCookies,
+      where:
+          '$kCookieName IN ($namePlaceholders) AND $kCookieDomain IN ($domainPlaceholders)',
+      whereArgs: [...cookieNames, ...domains],
+    );
+  }
+
   Future<void> _saveCookie(Uri uri, Cookie cookie) async {
     final db = await _getDatabase();
 

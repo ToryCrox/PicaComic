@@ -36,7 +36,14 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
   final ComicType comicType;
 
   @override
-  String get tag => "${comicType.name} search page with $keyword";
+  String get tag => "${comicType.name} search page with $keyword and $options";
+
+  @override
+  Future<List<BaseComic>> getComicsCache() =>
+      ComicSource.find(
+        comicType,
+      )?.searchPageData?.loadCache?.call(keyword, options) ??
+      super.getComicsCache();
 
   @override
   String? get title => null;

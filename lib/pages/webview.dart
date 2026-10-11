@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -208,12 +209,20 @@ class DesktopWebview {
 
   String? title;
 
+  bool _collecting = false;
+
   void onMessage(String message) {
-    var json = jsonDecode(message);
+    dynamic json;
+    try {
+      json = jsonDecode(_removeCode0(message));
+    } on FormatException {
+      // 导航期间可能返回空结果，等待下次轮询。
+      return;
+    }
     if (json is Map) {
-      if (json["id"] == "document_created") {
-        title = json["data"]["title"];
-        _ua = json["data"]["ua"];
+      if (json["id"] == "document_created" && json['data'] is Map) {
+        title = _removeCode0(json["data"]["title"]?.toString() ?? '');
+        _ua = _removeCode0(json["data"]["ua"]?.toString() ?? '');
         onTitleChange?.call(title!, this);
       }
     }
@@ -242,8 +251,20 @@ class DesktopWebview {
         }
         collect();
       ''';
-      if (_webview != null) {
-        onMessage(await evaluateJavascript(js) ?? '');
+      final view = _webview;
+      if (view == null || _collecting) return;
+      _collecting = true;
+      try {
+        final message = await view.evaluateJavaScript(js);
+        if (identical(view, _webview) && message != null) {
+          onMessage(message);
+        }
+      } catch (error) {
+        if (identical(view, _webview)) {
+          Log.d('WebView 页面正在导航，稍后重试状态读取：$error');
+        }
+      } finally {
+        _collecting = false;
       }
     });
   }
@@ -287,6 +308,26 @@ class DesktopWebview {
     return res;
   }
 
+  /// 获取指定站点 Cookie 及其属性，供网络层保持有效期和作用域。
+  Future<List<Map<String, dynamic>>> getCookieDetails(String url) async {
+    final cookies = await _webview!.getAllCookies();
+    return cookies
+        .where((cookie) => _cookieMatch(url, cookie.domain))
+        .map(
+          (cookie) => <String, dynamic>{
+            'name': _removeCode0(cookie.name),
+            'value': _removeCode0(cookie.value),
+            'domain': _removeCode0(cookie.domain),
+            'path': _removeCode0(cookie.path),
+            'expires': cookie.expires,
+            'secure': cookie.secure,
+            'httpOnly': cookie.httpOnly,
+            'sessionOnly': cookie.sessionOnly,
+          },
+        )
+        .toList();
+  }
+
   String _removeCode0(String s) {
     var codeUints = List<int>.from(s.codeUnits);
     codeUints.removeWhere((e) => e == 0);
@@ -310,6 +351,8 @@ class DesktopWebview {
   }
 
   void close() {
+    timer?.cancel();
+    timer = null;
     _webview?.close();
     _webview = null;
   }
