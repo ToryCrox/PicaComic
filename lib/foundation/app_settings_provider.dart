@@ -12,6 +12,14 @@ final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
   (ref) => AppSettingsRepository(),
 );
 
+/// 按命名 key 观察单个设置，避免无关配置变化触发页面重建。
+@riverpod
+String appSetting(Ref ref, String key) {
+  return ref.watch(
+    appSettingsProvider.select((settings) => settings.value(key)),
+  );
+}
+
 /// 应用级设置快照，观察统一存储入口的变更通知。
 @Riverpod(keepAlive: true)
 class AppSettings extends _$AppSettings {

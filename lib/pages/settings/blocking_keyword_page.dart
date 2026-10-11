@@ -1,5 +1,6 @@
 part of pica_settings;
 
+// TODO: 后续改造屏蔽关键词状态时，连带迁移其读取和保存入口；关键词列表属于独立数据，不是主设置快照。
 class BlockingKeywordPageLogic extends StateController {
   var keywords = appdata.blockingKeyword;
   bool down = true;
@@ -15,7 +16,6 @@ class BlockingKeywordPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(appSettingsProvider);
     var addButton = Tooltip(
       message: "添加".tl,
       child: IconButton(

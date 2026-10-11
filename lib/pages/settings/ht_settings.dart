@@ -12,7 +12,6 @@ class HtSettings extends ConsumerStatefulWidget {
 class _HtSettingsState extends ConsumerState<HtSettings> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("绅士漫画".tl)),
@@ -20,8 +19,8 @@ class _HtSettingsState extends ConsumerState<HtSettings> {
           leading: const Icon(Icons.dns),
           title: Text("域名".tl),
           subtitle: Text(
-            appdata
-                .getSetting(AppSettingKeys.htmangaDomain)
+            ref
+                .watch(appSettingProvider(AppSettingKeys.htmangaDomain))
                 .replaceFirst("https://", ""),
           ),
           trailing: IconButton(
@@ -36,8 +35,8 @@ class _HtSettingsState extends ConsumerState<HtSettings> {
   void changeDomain(BuildContext context) {
     final FocusNode focusNode = FocusNode();
     var controller = TextEditingController(
-      text: appdata
-          .getSetting(AppSettingKeys.htmangaDomain)
+      text: ref
+          .read(appSettingProvider(AppSettingKeys.htmangaDomain))
           .replaceFirst("https://", ""),
     );
 

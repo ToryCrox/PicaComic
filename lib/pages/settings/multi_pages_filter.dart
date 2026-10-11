@@ -19,7 +19,7 @@ class _MultiPagesFilterState extends ConsumerState<MultiPagesFilter> {
 
   @override
   void initState() {
-    keys = appdata.getSetting(widget.settingKey).split(",");
+    keys = ref.read(appSettingProvider(widget.settingKey)).split(",");
     keys.remove("");
     super.initState();
   }

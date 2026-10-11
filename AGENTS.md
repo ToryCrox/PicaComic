@@ -280,6 +280,7 @@ fvm dart run build_runner watch --delete-conflicting-outputs  # 开发模式（�
 生成的 `*.g.dart` 文件不纳入版本控制（已在 .gitignore 中排除）。
 
 ## 注意事项
+- 后续修改含 `appdata` 设置访问的页面或业务模块时，应评估并连带迁移适合的调用：界面使用 Riverpod 的 `watch/select`，操作使用 `read` 和 Notifier，服务通过依赖注入获取仓库或配置。不要为替换调用强行改变生命周期、跨 isolate 共享 Ref 或引入全局 ProviderContainer；仓库内部的存储适配访问可以保留。具体边界见 `docs/app_settings.md`。
 - 保持代码简洁和可读性
 - 遵循 DRY (Don't Repeat Yourself) 原则
 - 优先使用项目已有的工具和组件

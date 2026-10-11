@@ -16,6 +16,7 @@ import 'rhttp_dio_adapter.dart';
 import 'rhttp_init.dart';
 
 /// 管理应用内漫画网络请求的两个共享 Dio。
+// TODO: 后续调整网络依赖时，将设置读取连带改为注入配置或仓库；共享 Dio 仍保持应用级生命周期。
 class NetworkClientManager {
   NetworkClientManager._();
 

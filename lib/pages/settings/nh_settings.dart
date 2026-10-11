@@ -34,7 +34,6 @@ class _NhSettingsState extends ConsumerState<NhSettings> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("nhentai".tl)),

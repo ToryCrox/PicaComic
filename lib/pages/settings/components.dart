@@ -76,6 +76,14 @@ AppSettings _settingsController(BuildContext context) {
   ).read(appSettingsProvider.notifier);
 }
 
+/// 普通弹窗函数读取当前作用域的设置初值，编辑草稿仍由弹窗维护。
+String _readSettingContext(BuildContext context, String key) {
+  return ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appSettingProvider(key));
+}
+
 /// 普通函数中的设置弹窗复用统一写入，并展示持久化错误。
 Future<void> _saveSettingContext(
   BuildContext context,

@@ -38,7 +38,6 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     final settings = ref.watch(networkSettingsControllerProvider);
     final controller = ref.read(networkSettingsControllerProvider.notifier);
     final backend = settings.backend;
@@ -221,7 +220,6 @@ class _EditRuleViewState extends ConsumerState<EditRuleView> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text("rule.json")),
       body: SingleChildScrollView(

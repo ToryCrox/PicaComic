@@ -11,7 +11,6 @@ class EhSettings extends ConsumerStatefulWidget {
 class _EhSettingsState extends ConsumerState<EhSettings> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Column(
       children: [
         const ListTile(title: Text("E-Hentai")),
@@ -19,7 +18,9 @@ class _EhSettingsState extends ConsumerState<EhSettings> {
           leading: const Icon(Icons.dns),
           title: Text("画廊站点".tl),
           trailing: Select(
-            initialValue: int.parse(appdata.getSetting(AppSettingKeys.ehSite)),
+            initialValue: int.parse(
+              ref.watch(appSettingProvider(AppSettingKeys.ehSite)),
+            ),
             width: 150,
             values: const ["e-hentai.org", "exhentai.org"],
             onChange: (i) {
@@ -39,7 +40,11 @@ class _EhSettingsState extends ConsumerState<EhSettings> {
           title: Text("优先加载原图".tl),
           subtitle: Text("可能导致加载失败".tl),
           trailing: Switch(
-            value: appdata.getSetting(AppSettingKeys.ehPreferOriginal) == "1",
+            value:
+                ref.watch(
+                  appSettingProvider(AppSettingKeys.ehPreferOriginal),
+                ) ==
+                "1",
             onChanged: (b) {
               setState(() {
                 _saveSetting(
@@ -57,7 +62,11 @@ class _EhSettingsState extends ConsumerState<EhSettings> {
           leading: const Icon(Icons.notifications_off_outlined),
           title: Text("忽略警告".tl),
           trailing: Switch(
-            value: appdata.getSetting(AppSettingKeys.ehIgnoreWarnings) == "1",
+            value:
+                ref.watch(
+                  appSettingProvider(AppSettingKeys.ehIgnoreWarnings),
+                ) ==
+                "1",
             onChanged: (b) {
               setState(() {
                 _saveSetting(
@@ -77,7 +86,9 @@ class _EhSettingsState extends ConsumerState<EhSettings> {
           subtitle: Text("适用于已下载的画廊".tl),
           trailing: Switch(
             value:
-                appdata.getSetting(AppSettingKeys.ehDownloadedUseSubtitle) ==
+                ref.watch(
+                  appSettingProvider(AppSettingKeys.ehDownloadedUseSubtitle),
+                ) ==
                 "1",
             onChanged: (b) {
               setState(() {
@@ -134,7 +145,7 @@ class _EhProfileSelectPageState extends ConsumerState<EhProfileSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    ref.watch(appSettingProvider(AppSettingKeys.ehProfile));
     if (loading) {
       loadData();
     }
@@ -164,7 +175,7 @@ class _EhProfileSelectPageState extends ConsumerState<EhProfileSelectPage> {
         return RadioListTile<String>(
           title: Text(value),
           value: key,
-          groupValue: appdata.getSetting(AppSettingKeys.ehProfile),
+          groupValue: ref.read(appSettingProvider(AppSettingKeys.ehProfile)),
           onChanged: (value) async {
             setState(() {
               _saveSetting(ref, AppSettingKeys.ehProfile, key, persist: false);

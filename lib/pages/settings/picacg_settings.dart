@@ -9,16 +9,15 @@ class PicacgSettings extends ConsumerStatefulWidget {
 }
 
 class _PicacgSettingsState extends ConsumerState<PicacgSettings> {
-  bool get showFrame =>
-      appdata.getSetting(AppSettingKeys.picacgShowAvatarFrame) == "1";
-  bool get punchIn =>
-      appdata.getSetting(AppSettingKeys.picacgAutoCheckIn) == "1";
-
   static const _imageQualityValues = ["low", "middle", "high", "original"];
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final showFrame =
+        ref.watch(appSettingProvider(AppSettingKeys.picacgShowAvatarFrame)) ==
+        "1";
+    final punchIn =
+        ref.watch(appSettingProvider(AppSettingKeys.picacgAutoCheckIn)) == "1";
     return Column(
       children: [
         ListTile(title: Text("哔咔漫画".tl)),
@@ -53,7 +52,9 @@ class _PicacgSettingsState extends ConsumerState<PicacgSettings> {
           leading: const Icon(Icons.collections_bookmark_outlined),
           trailing: Select(
             initialValue: int.parse(
-              appdata.getSetting(AppSettingKeys.picacgFavoritesNewestFirst),
+              ref.watch(
+                appSettingProvider(AppSettingKeys.picacgFavoritesNewestFirst),
+              ),
             ),
             values: ["旧到新".tl, "新到旧".tl],
             onChange: (i) {

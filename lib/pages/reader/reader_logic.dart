@@ -14,6 +14,7 @@ import '../../components/scrollable_list/src/item_positions_listener.dart';
 import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
+import '../../foundation/app_settings_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/log.dart';
@@ -258,6 +259,7 @@ extension PageControllerExtension on PageController {
 // ============================================================================
 
 @Riverpod(keepAlive: false, name: 'comicReaderLogicProvider')
+// TODO: 后续修改阅读设置消费逻辑时连带使用配置 Provider；用 read/listen 更新现有会话，避免 watch 导致会话重新初始化。
 class ComicReaderLogic extends _$ComicReaderLogic {
   // ---- Controllers (mutable, don't trigger rebuild) ----
 
@@ -429,9 +431,24 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     autoPageTurning();
   }
 
-  /// Force a rebuild when external settings change (e.g. appdata).
+  /// 设置变化后刷新当前会话，保留页码、加载状态和控制器。
   void notifySettingsChanged() =>
       state = state.copyWith(rebuildCount: state.rebuildCount + 1);
+
+  /// 通过统一设置入口切换图片宽度限制，并立即刷新当前阅读器。
+  Future<void> toggleImageWidthLimit() async {
+    final limited = ref.read(readerSettingsProvider).limitImageWidth;
+    final saving = ref
+        .read(appSettingsProvider.notifier)
+        .setValue(AppSettingKeys.limitReaderImageWidth, limited ? '0' : '1');
+    notifySettingsChanged();
+    try {
+      await saving;
+    } catch (error, stack) {
+      Log.e('阅读设置保存失败', error: error, stackTrace: stack);
+      showToast(message: '设置保存失败'.tl);
+    }
+  }
 
   void notifyIndexChange(int value) {
     for (var element in _indexChangeCallbacks) {

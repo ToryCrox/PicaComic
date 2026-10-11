@@ -65,14 +65,12 @@ class JmSettings extends ConsumerStatefulWidget {
 }
 
 class _JmSettingsState extends ConsumerState<JmSettings> {
-  bool get autoSelectStream =>
-      appdata.getSetting(AppSettingKeys.jmAutoSelectDomain) == "1";
-  bool get autoCheckIn =>
-      appdata.getSetting(AppSettingKeys.jmAutoCheckIn) == "1";
-
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final autoSelectStream =
+        ref.watch(appSettingProvider(AppSettingKeys.jmAutoSelectDomain)) == "1";
+    final autoCheckIn =
+        ref.watch(appSettingProvider(AppSettingKeys.jmAutoCheckIn)) == "1";
     return Column(
       children: [
         ListTile(title: Text("禁漫天堂".tl)),
@@ -91,7 +89,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
               );
               setState(() {});
               _persistSettings(ref);
-              if (autoSelectStream) JmNetwork().loginFromAppdata();
+              if (b) JmNetwork().loginFromAppdata();
             },
           ),
         ),
@@ -104,7 +102,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
               opacity: !autoSelectStream ? 1.0 : 0.5,
               child: Select(
                 initialValue: int.parse(
-                  appdata.getSetting(AppSettingKeys.jmApiStream),
+                  ref.watch(appSettingProvider(AppSettingKeys.jmApiStream)),
                 ),
                 values: ["分流1".tl, "分流2".tl, "分流3".tl, "分流4".tl],
                 onChange: (i) {
@@ -125,7 +123,14 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
           leading: const Icon(Icons.dns_outlined),
           title: Text("图片分流".tl),
           trailing: Select(
-            initialValue: int.parse(appdata.appSettings.jmImgUrlIndex),
+            initialValue:
+                (int.tryParse(
+                          ref.watch(
+                            appSettingProvider(AppSettingKeys.jmImageStream),
+                          ),
+                        ) ??
+                        0)
+                    .clamp(0, 3),
             values: ["分流1".tl, "分流2".tl, "分流3".tl, "分流4".tl],
             onChange: (i) {
               _saveSetting(
@@ -144,7 +149,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
           title: Text("收藏夹漫画排序模式".tl),
           trailing: Select(
             initialValue: int.parse(
-              appdata.getSetting(AppSettingKeys.jmFavoritesOrder),
+              ref.watch(appSettingProvider(AppSettingKeys.jmFavoritesOrder)),
             ),
             width: App.locale.languageCode == "en" ? 130 : 120,
             values: ["最新收藏".tl, "最新更新".tl],
@@ -181,7 +186,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
               );
               setState(() {});
               _persistSettings(ref);
-              if (autoCheckIn && jm.isLogin) JmSettings.daily(false);
+              if (b && jm.isLogin) JmSettings.daily(false);
             },
           ),
         ),

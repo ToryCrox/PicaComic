@@ -34,6 +34,7 @@ class AppSettingsSnapshot {
 }
 
 /// 设置持久化仓库，页面和后台共用命名 key 的写入与保存边界。
+/// 此处 appdata 是存储适配边界，无须引入 Ref；业务层优先注入仓库或配置。
 class AppSettingsRepository {
   AppSettingsRepository({
     Map<String, String> Function()? readValues,

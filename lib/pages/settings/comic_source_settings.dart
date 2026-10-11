@@ -60,21 +60,23 @@ class _ComicSourceSettingsState extends ConsumerState<ComicSourceSettings> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final enabledSources = ref.watch(
+      appSettingProvider(AppSettingKeys.enabledBuiltInSources),
+    );
     return Column(
       children: [
         const _BuiltInSources(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.picacg.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.picacg.name))
           const PicacgSettings(false).withDivider(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.ehentai.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.ehentai.name))
           const EhSettings(false).withDivider(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.nhentai.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.nhentai.name))
           const NhSettings(false).withDivider(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.jm.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.jm.name))
           const JmSettings(false).withDivider(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.hitomi.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.hitomi.name))
           const HitomiSettings(false).withDivider(),
-        if (appdata.appSettings.isComicSourceEnabled(ComicType.htmanga.name))
+        if (_isBuiltInSourceEnabled(enabledSources, ComicType.htmanga.name))
           const HtSettings(false),
         Padding(
           padding: EdgeInsets.only(
@@ -116,7 +118,6 @@ class _ComicSourceListState extends ConsumerState<_ComicSourceList> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text("漫画源".tl),
@@ -174,13 +175,15 @@ class _BuiltInSources extends ConsumerStatefulWidget {
 class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final enabledSources = ref.watch(
+      appSettingProvider(AppSettingKeys.enabledBuiltInSources),
+    );
     return Column(
       children: [
         const Divider(),
         ListTile(title: Text("内置漫画源".tl)),
         for (int index = 0; index < builtInSources.length; index++)
-          buildTile(index),
+          buildTile(index, enabledSources),
         const Divider(),
       ],
     );
@@ -188,12 +191,12 @@ class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
 
   bool isLoading = false;
 
-  Widget buildTile(int index) {
+  Widget buildTile(int index, String enabledSources) {
     var key = builtInSources[index];
     return ListTile(
       title: Text(ComicSource.builtIn.firstWhere((e) => e.key == key).name.tl),
       trailing: Switch(
-        value: appdata.appSettings.isComicSourceEnabled(key.name),
+        value: _isBuiltInSourceEnabled(enabledSources, key.name),
         onChanged: (v) async {
           if (isLoading) return;
           isLoading = true;
@@ -201,7 +204,13 @@ class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
               .read(appSettingsProvider.notifier)
               .setValue(
                 AppSettingKeys.enabledBuiltInSources,
-                appdata.appSettings.comicSourceEnabledValue(key.name, v),
+                _builtInSourceEnabledValue(
+                  ref.read(
+                    appSettingProvider(AppSettingKeys.enabledBuiltInSources),
+                  ),
+                  key.name,
+                  v,
+                ),
               );
           if (!v) {
             ComicSource.sources.removeWhere((e) => e.key == key);
@@ -227,9 +236,15 @@ class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
 
 /// 禁用漫画源后批量移除对应的页面配置。
 Future<void> _validatePages(WidgetRef ref) async {
-  var explorePages = appdata.appSettings.explorePages;
-  var categoryPages = appdata.appSettings.categoryPages;
-  var networkFavorites = appdata.appSettings.networkFavorites;
+  var explorePages = ref
+      .read(appSettingProvider(AppSettingKeys.explorePages))
+      .split(",");
+  var categoryPages = ref
+      .read(appSettingProvider(AppSettingKeys.categoryPages))
+      .split(",");
+  var networkFavorites = ref
+      .read(appSettingProvider(AppSettingKeys.networkFavoritePages))
+      .split(",");
 
   var totalExplorePages = ComicSource.sources
       .map((e) => e.explorePages.map((e) => e.title))
@@ -274,9 +289,15 @@ Future<void> _addAllPagesWithComicSource(
   ComicSource source,
   WidgetRef ref,
 ) async {
-  var explorePages = appdata.appSettings.explorePages;
-  var categoryPages = appdata.appSettings.categoryPages;
-  var networkFavorites = appdata.appSettings.networkFavorites;
+  var explorePages = ref
+      .read(appSettingProvider(AppSettingKeys.explorePages))
+      .split(",");
+  var categoryPages = ref
+      .read(appSettingProvider(AppSettingKeys.categoryPages))
+      .split(",");
+  var networkFavorites = ref
+      .read(appSettingProvider(AppSettingKeys.networkFavoritePages))
+      .split(",");
 
   if (source.explorePages.isNotEmpty) {
     for (var page in source.explorePages) {
@@ -300,4 +321,18 @@ Future<void> _addAllPagesWithComicSource(
     AppSettingKeys.networkFavoritePages: (networkFavorites.toSet().toList())
         .join(','),
   });
+}
+
+/// 读取内置源启用位；未提供的新增源默认启用。
+bool _isBuiltInSourceEnabled(String values, String key) {
+  final index = builtInSources.indexWhere((source) => source.name == key);
+  if (index < 0) throw ArgumentError.value(key, 'key', '未知漫画源');
+  return index >= values.length || values[index] == '1';
+}
+
+/// 根据最新快照生成启用位，持久化由设置 Notifier 处理。
+String _builtInSourceEnabledValue(String values, String key, bool enabled) {
+  final index = builtInSources.indexWhere((source) => source.name == key);
+  if (index < 0) throw ArgumentError.value(key, 'key', '未知漫画源');
+  return values.padRight(index + 1, '1').setValueAt(enabled ? '1' : '0', index);
 }

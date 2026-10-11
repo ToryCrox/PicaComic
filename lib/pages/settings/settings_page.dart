@@ -202,7 +202,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    // 子布局共用当前 State，只订阅此页直接展示的配置。
+    for (final key in [
+      AppSettingKeys.logLevel,
+      AppSettingKeys.preventScreenshots,
+      AppSettingKeys.language,
+      AppSettingKeys.parallelDownloads,
+    ]) {
+      ref.watch(appSettingProvider(key));
+    }
     if (currentPage != -1 && !enableTwoViews) {
       canPop.value = false;
       App.temporaryDisablePopGesture = true;
@@ -461,7 +469,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               'info',
               'warning',
               'error',
-            ].indexOf(appdata.getSetting(AppSettingKeys.logLevel)),
+            ].indexOf(ref.read(appSettingProvider(AppSettingKeys.logLevel))),
             values: ["自动".tl, "Trace", "Debug", "Info", "Warning", "Error"],
             onChange: (i) {
               final codes = [
@@ -479,7 +487,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 persist: false,
               );
               _persistSettings(ref);
-              final code = appdata.getSetting(AppSettingKeys.logLevel);
+              final code = codes[i];
               final level = switch (code) {
                 'trace' => Level.trace,
                 'debug' => Level.debug,
@@ -580,7 +588,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             subtitle: Text("需要重启App以应用更改".tl),
             trailing: Switch(
               value:
-                  appdata.getSetting(AppSettingKeys.preventScreenshots) == "1",
+                  ref.read(
+                    appSettingProvider(AppSettingKeys.preventScreenshots),
+                  ) ==
+                  "1",
               onChanged: (b) {
                 _saveSetting(
                   ref,
@@ -609,7 +620,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               "cn",
               "tw",
               "en",
-            ].indexOf(appdata.getSetting(AppSettingKeys.language)),
+            ].indexOf(ref.read(appSettingProvider(AppSettingKeys.language))),
             values: const ["System", "中文(简体)", "中文(繁體)", "English"],
             onChange: (value) {
               _saveSetting(
@@ -627,14 +638,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           title: Text("下载并行".tl),
           leading: const Icon(Icons.download),
           trailing: Select(
-            initialValue: [
-              "1",
-              "2",
-              "4",
-              "6",
-              "8",
-              "16",
-            ].indexOf(appdata.getSetting(AppSettingKeys.parallelDownloads)),
+            initialValue: ["1", "2", "4", "6", "8", "16"].indexOf(
+              ref.read(appSettingProvider(AppSettingKeys.parallelDownloads)),
+            ),
             values: const ["1", "2", "4", "6", "8", "16"],
             onChange: (value) {
               _saveSetting(

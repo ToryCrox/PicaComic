@@ -12,14 +12,15 @@ class HitomiSettings extends ConsumerStatefulWidget {
 class _HitomiSettingsState extends ConsumerState<HitomiSettings> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("Hitomi".tl)),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("CDN ${"域名".tl}"),
-          subtitle: Text(appdata.getSetting(AppSettingKeys.hitomiCdnDomain)),
+          subtitle: Text(
+            ref.watch(appSettingProvider(AppSettingKeys.hitomiCdnDomain)),
+          ),
           trailing: IconButton(
             onPressed: () => changeDomain(context),
             icon: const Icon(Icons.edit),
@@ -32,7 +33,7 @@ class _HitomiSettingsState extends ConsumerState<HitomiSettings> {
   void changeDomain(BuildContext context) {
     final FocusNode focusNode = FocusNode();
     var controller = TextEditingController(
-      text: appdata.getSetting(AppSettingKeys.hitomiCdnDomain),
+      text: ref.read(appSettingProvider(AppSettingKeys.hitomiCdnDomain)),
     );
 
     void onFinished() {

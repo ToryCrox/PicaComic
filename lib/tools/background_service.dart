@@ -36,6 +36,8 @@ void onStart() {
   DartPluginRegistrant.ensureInitialized();
   Workmanager().executeTask((taskName, inputData) async {
     await App.init();
+    // 独立 isolate 没有页面 ProviderScope，必须先读取本进程的持久化数据。
+    // TODO: 后续重构后台任务时，一并向业务服务注入设置仓库或快照，不复用界面的 Ref。
     appdata = Appdata();
     await appdata.readData();
     final networkClient = NetworkClientManager.instance;

@@ -98,7 +98,6 @@ class _ProxyDialogState extends ConsumerState<_ProxyDialog> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return SimpleDialog(
       title: Text("设置代理".tl),
       children: [
@@ -196,12 +195,25 @@ class SetDownloadFolderDialog extends ConsumerStatefulWidget {
 class _SetDownloadFolderDialogState
     extends ConsumerState<SetDownloadFolderDialog> {
   final controller = TextEditingController();
-  String current = appdata.getSetting(AppSettingKeys.downloadDirectory);
+  late String current;
+
+  @override
+  void initState() {
+    super.initState();
+    // 目录选择是未提交草稿，仅在打开弹窗时初始化。
+    current = ref.read(appSettingProvider(AppSettingKeys.downloadDirectory));
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   bool transform = true;
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
     return SimpleDialog(
       title: Text("设置下载目录".tl),
       children: [
@@ -251,12 +263,16 @@ class _SetDownloadFolderDialogState
                   child: FilledButton(
                     onPressed: () async {
                       if (controller.text ==
-                          appdata.getSetting(AppSettingKeys.downloadDirectory))
+                          ref.read(
+                            appSettingProvider(
+                              AppSettingKeys.downloadDirectory,
+                            ),
+                          ))
                         return;
                       var directory = Directory(controller.text);
                       if (directory.existsSync() || controller.text == "") {
-                        var oldPath = appdata.getSetting(
-                          AppSettingKeys.downloadDirectory,
+                        var oldPath = ref.read(
+                          appSettingProvider(AppSettingKeys.downloadDirectory),
                         );
                         _saveSetting(
                           ref,
@@ -372,12 +388,16 @@ class _SetDownloadFolderDialogState
                     child: FilledButton(
                       child: Text("确认".tl),
                       onPressed: () async {
-                        if (appdata.getSetting(
-                              AppSettingKeys.downloadDirectory,
+                        if (ref.read(
+                              appSettingProvider(
+                                AppSettingKeys.downloadDirectory,
+                              ),
                             ) !=
                             current) {
-                          var oldPath = appdata.getSetting(
-                            AppSettingKeys.downloadDirectory,
+                          var oldPath = ref.read(
+                            appSettingProvider(
+                              AppSettingKeys.downloadDirectory,
+                            ),
                           );
                           _saveSetting(
                             ref,
@@ -449,7 +469,9 @@ class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
       child: IconButton(
         onPressed: () {
           setState(() {
-            var config = appdata.appSettings.explorePages;
+            var config = ref
+                .read(appSettingProvider(AppSettingKeys.explorePages))
+                .split(",");
             config.remove(i);
             _saveSetting(ref, AppSettingKeys.explorePages, config.join(','));
           });
@@ -476,7 +498,11 @@ class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
       onTap: () {
         App.back(context);
         setState(() {
-          final pages = appdata.appSettings.explorePages..add(i);
+          final pages =
+              ref
+                  .read(appSettingProvider(AppSettingKeys.explorePages))
+                  .split(",")
+                ..add(i);
           _saveSetting(ref, AppSettingKeys.explorePages, pages.join(','));
         });
       },
@@ -489,7 +515,9 @@ class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final pages = ref
+        .watch(appSettingProvider(AppSettingKeys.explorePages))
+        .split(",");
     var notShowPages = <String>[];
     var allPages = <String>[];
     for (var source in ComicSource.sources) {
@@ -498,14 +526,12 @@ class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
       }
     }
     for (var i in allPages) {
-      if (!appdata.appSettings.explorePages.contains(i)) {
+      if (!pages.contains(i)) {
         notShowPages.add(i);
       }
     }
 
-    var tiles = appdata.appSettings.explorePages
-        .map((e) => buildItem(e))
-        .toList();
+    var tiles = pages.map((e) => buildItem(e)).toList();
 
     var view = ReorderableBuilder(
       key: reorderWidgetKey,
@@ -527,7 +553,11 @@ class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
       onReorder: (reorderFunc) {
         setState(() {
           final pages = List<String>.from(
-            reorderFunc(appdata.appSettings.explorePages),
+            reorderFunc(
+              ref
+                  .read(appSettingProvider(AppSettingKeys.explorePages))
+                  .split(","),
+            ),
           );
           _saveSetting(ref, AppSettingKeys.explorePages, pages.join(','));
         });
@@ -699,8 +729,11 @@ void importDataSetting(BuildContext context) {
 
 void syncDataSettings(BuildContext context) {
   var configs = ["", "", "", ""];
-  if (appdata.getSetting(AppSettingKeys.webdavConfig) != "") {
-    configs = appdata.getSetting(AppSettingKeys.webdavConfig).split(';');
+  if (_readSettingContext(context, AppSettingKeys.webdavConfig) != "") {
+    configs = _readSettingContext(
+      context,
+      AppSettingKeys.webdavConfig,
+    ).split(';');
   }
   String url = configs[0];
   String username = configs[1];
@@ -832,7 +865,9 @@ void syncDataSettings(BuildContext context) {
 }
 
 void setCacheLimit() {
-  int size = appdata.appSettings.cacheLimit;
+  int size = int.parse(
+    _readSettingContext(App.globalContext!, AppSettingKeys.cacheLimitMb),
+  );
   const minSize = 16;
   bool isValid = true;
   final FocusNode focusNode = FocusNode();
@@ -901,7 +936,7 @@ void setCacheLimit() {
 }
 
 void setFont(BuildContext context) {
-  var current = appdata.appSettings.font;
+  var current = _readSettingContext(context, AppSettingKeys.font);
   var controller = TextEditingController(text: current);
   showDialog(
     context: context,

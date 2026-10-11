@@ -103,6 +103,7 @@ class _TapDownPointer {
   _TapDownPointer(this.id) : offset = const Offset(0, 0);
 }
 
+// TODO: 后续重构触控会话时，将同步设置读取一并改为注入配置或阅读器 Provider 的方法；避免静态控制器持有全局 Ref。
 class TapController {
   static ComicReaderLogic? _currentLogic;
   static String? _sessionId;
@@ -230,16 +231,7 @@ class TapController {
           popupMenuItem<void>(
             text: "限制最大宽度".tl,
             icon: Icons.width_full,
-            onTap: () {
-              appdata.setSetting(
-                AppSettingKeys.limitReaderImageWidth,
-                appdata.getSetting(AppSettingKeys.limitReaderImageWidth) == '0'
-                    ? "1"
-                    : "0",
-              );
-              appdata.updateSettings();
-              Future.microtask(() => logic.notifySettingsChanged());
-            },
+            onTap: logic.toggleImageWidthLimit,
           ),
         if (App.isDesktop)
           popupMenuItem<void>(

@@ -12,7 +12,12 @@ class _LocalFavoritesSettingsState
     extends ConsumerState<LocalFavoritesSettings> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final defaultFolder = ref.watch(
+      appSettingProvider(AppSettingKeys.defaultFavoriteFolder),
+    );
+    final syncPages = ref.watch(
+      appSettingProvider(AppSettingKeys.favoriteSyncPages),
+    );
     return Column(
       children: [
         FutureBuilder<List<String>>(
@@ -24,9 +29,7 @@ class _LocalFavoritesSettingsState
               title: Text("快速收藏".tl),
               subtitle: Text("长按收藏按钮执行快速收藏".tl),
               trailing: Select(
-                initialValue: folderNames.indexOf(
-                  appdata.getSetting(AppSettingKeys.defaultFavoriteFolder),
-                ),
+                initialValue: folderNames.indexOf(defaultFolder),
                 onChange: (i) {
                   _saveSetting(
                     ref,
@@ -71,7 +74,7 @@ class _LocalFavoritesSettingsState
               "5",
               "10",
               "99",
-            ].indexOf(appdata.getSetting(AppSettingKeys.favoriteSyncPages)),
+            ].indexOf(syncPages),
             values: const ["1", "2", "3", "4", "5", "10", "99"],
             onChange: (i) {
               _saveSetting(
