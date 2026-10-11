@@ -107,16 +107,23 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap> {
   @override
   void initState() {
     super.initState();
-    // 只注入网络监控桥接，不把网络初始化纳入启动状态管理。这样核心阶段
-    // 创建 Dio 时就能使用 Riverpod 提供的日志和速度监控实例。
-    ref.read(networkClientManagerProvider);
-    _initialization = initializeCore();
+    _initialization = _initializeCore();
+  }
+
+  /// 在加载设置后注入网络监控，再完成核心初始化。
+  Future<void> _initializeCore() {
+    return initializeCore(
+      // 设置加载后、创建 Dio 前注入网络监控桥接，确保日志开关读取持久化值。
+      configureNetworkClient: () {
+        ref.read(networkClientManagerProvider);
+      },
+    );
   }
 
   void _retry() {
     setState(() {
       _deferredServicesScheduled = false;
-      _initialization = initializeCore();
+      _initialization = _initializeCore();
     });
   }
 

@@ -43,13 +43,16 @@ import 'package:logger/logger.dart';
 Future<void> initBase() => initializeCore();
 
 /// 初始化首屏必须的基础环境。
-Future<void> initializeCore() async {
+Future<void> initializeCore({void Function()? configureNetworkClient}) async {
   final stopwatch = Stopwatch()..start();
 
   // 应用目录与偏好设置互不依赖，并行准备以缩短核心阶段。
   await Future.wait([App.init(), PrefsHelper.init()]);
   Log.i("App Status Start initialization.");
   await appdata.readData();
+  // 网络客户端的监控桥接会创建日志控制器，因此必须等持久化设置加载后
+  // 再注入，避免控制器把默认开关状态当成实际状态。
+  configureNetworkClient?.call();
 
   // 应用设置决定日志等级，但不应因为日志配置失败而阻塞启动。
   try {
