@@ -11,6 +11,7 @@ import 'package:pica_comic/base.dart';
 import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
+import '../../foundation/app_settings_provider.dart';
 import '../../foundation/history.dart';
 import '../../foundation/image_loader/base_image_provider.dart';
 import '../../foundation/image_manager.dart';
@@ -80,7 +81,8 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
   ReadingData get readingData => widget.readingData;
   ReadingType get type => readingData.type;
-  bool get useDarkBackground => appdata.appSettings.useDarkBackground;
+  bool get useDarkBackground =>
+      ref.read(readerSettingsProvider).readerDarkBackground;
 
   ComicReaderLogic _logic() {
     _logicCache ??= ref.read(comicReaderLogicProvider(_sessionId).notifier);
@@ -96,12 +98,13 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     WakelockPlus.enable();
-    if (appdata.getSetting(AppSettingKeys.readerOrientation) == "1") {
+    final orientation = ref.read(readerSettingsProvider).screenOrientation;
+    if (orientation == 1) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-    } else if (appdata.getSetting(AppSettingKeys.readerOrientation) == "2") {
+    } else if (orientation == 2) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -168,7 +171,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       ComicReaderPage.updateActiveComicPageHistory(readingData.history);
     });
 
-    if (appdata.getSetting(AppSettingKeys.readerOrientation) != "0") {
+    if (ref.read(readerSettingsProvider).screenOrientation != 0) {
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
     if (useDarkBackground) {
@@ -212,6 +215,30 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final toolbarSettings = ref.watch(
+      readerSettingsProvider.select(
+        (settings) => (
+          readingMode: settings.readingMode,
+          orientation: settings.screenOrientation,
+          showButtons: settings.showButtonsInReader,
+          flipPageWithClick: settings.flipWithTap,
+        ),
+      ),
+    );
+    final screenSettings = ref.watch(
+      readerSettingsProvider.select(
+        (settings) => (
+          useVolumeKeys: settings.useVolumeKeys,
+          reduceBrightness: settings.reduceBrightness,
+          showPageInfo: settings.showPageInfo,
+        ),
+      ),
+    );
+    final useDarkBackground = ref.watch(
+      readerSettingsProvider.select(
+        (settings) => settings.readerDarkBackground,
+      ),
+    );
     final state = ref.watch(comicReaderLogicProvider(_sessionId));
     final logic = _logic();
 
@@ -260,7 +287,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 });
               }
 
-              if (appdata.getSetting(AppSettingKeys.readerVolumeKeys) == "1") {
+              if (screenSettings.useVolumeKeys) {
                 if (logic.listenVolume == null) {
                   logic.listenVolume = ListenVolumeController(
                     () => logic.jumpToLastPage(),
@@ -273,7 +300,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 logic.listenVolume = null;
               }
 
-              if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
+              if (toolbarSettings.readingMode == 4) {
                 logic.scrollManager ??= ScrollManager(logic);
               }
 
@@ -296,7 +323,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                     ),
                     if (MediaQuery.of(context).platformBrightness ==
                             Brightness.dark &&
-                        appdata.appSettings.reduceBrightnessInDarkMode)
+                        screenSettings.reduceBrightness)
                       Positioned(
                         top: 0,
                         bottom: 0,
@@ -309,7 +336,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                         ),
                       ),
 
-                    if (appdata.appSettings.showPageInfoInReader)
+                    if (screenSettings.showPageInfo)
                       buildPageInfoText(
                         state,
                         context,
@@ -321,6 +348,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                       state,
                       logic,
                       context,
+                      settings: toolbarSettings,
                       showEps: readingData.hasEp,
                       useDarkBackground: useDarkBackground,
                       openEpsDrawer: openEpsDrawer,
@@ -328,7 +356,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                       onSaveCurrentImage: () => _saveCurrentImage(logic),
                     ),
 
-                    ...buildButtons(state, logic, context),
+                    ...buildButtons(state, logic, context, toolbarSettings),
 
                     buildTopToolBar(
                       state,

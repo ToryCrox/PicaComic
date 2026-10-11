@@ -259,7 +259,6 @@ extension PageControllerExtension on PageController {
 // ============================================================================
 
 @Riverpod(keepAlive: false, name: 'comicReaderLogicProvider')
-// TODO: 后续修改阅读设置消费逻辑时连带使用配置 Provider；用 read/listen 更新现有会话，避免 watch 导致会话重新初始化。
 class ComicReaderLogic extends _$ComicReaderLogic {
   // ---- Controllers (mutable, don't trigger rebuild) ----
 
@@ -325,24 +324,25 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   /// 双页模式下是否在第一页时显示单页
   bool get singlePageForFirstScreen => appdata.implicitData[1] == '1';
 
+  /// 当前阅读会话读取最新的持久化阅读设置。
+  ReaderSettingsState get readerSettings => ref.read(readerSettingsProvider);
+
   double get _animateNextPageDistance =>
       (_pageSize.height * 0.95).clamp(100, 2000);
 
   /// 当前章节的长度
   int get length => state.urls.length;
 
-  static int _getIndex(int initPage) {
-    if (appdata.getSetting(AppSettingKeys.readingMode) == "5" ||
-        appdata.getSetting(AppSettingKeys.readingMode) == "6") {
+  static int _getIndex(int initPage, int readingMode) {
+    if (readingMode == 5 || readingMode == 6) {
       return initPage % 2 == 1 ? initPage : initPage - 1;
     } else {
       return initPage;
     }
   }
 
-  static int getPage(int initPage) {
-    if (appdata.getSetting(AppSettingKeys.readingMode) == "5" ||
-        appdata.getSetting(AppSettingKeys.readingMode) == "6") {
+  static int getPage(int initPage, {required int readingMode}) {
+    if (readingMode == 5 || readingMode == 6) {
       return (initPage + 2) ~/ 2;
     } else {
       return initPage;
@@ -353,6 +353,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
   @override
   ReaderPageState build(String sessionId) {
+    final settings = readerSettings;
     final params = ReaderSession._pendingParams.remove(sessionId)!;
     final readingData = params.readingData;
     var initialPage = params.initialPage;
@@ -366,10 +367,12 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     }
 
     this.readingData = readingData;
-    pageController = PageController(initialPage: getPage(initialPage));
+    pageController = PageController(
+      initialPage: getPage(initialPage, readingMode: settings.readingMode),
+    );
 
     final isShowOriginSize =
-        appdata.getSetting(AppSettingKeys.limitReaderImageWidth) == '0' ||
+        !settings.limitImageWidth ||
         readingData is LocalReadingData ||
         readingData.isDownloaded;
 
@@ -385,13 +388,9 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
     return ReaderPageState(
       isLoading: true,
-      currentPage: _getIndex(initialPage),
+      currentPage: _getIndex(initialPage, settings.readingMode),
       currentEpisode: order,
-      readingMethod:
-          ReadingMethod.values[int.parse(
-                appdata.getSetting(AppSettingKeys.readingMode),
-              ) -
-              1],
+      readingMethod: ReadingMethod.values[settings.readingMode - 1],
       isShowOriginSize: isShowOriginSize,
     );
   }
@@ -423,6 +422,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       state = state.copyWith(isShowOriginSize: !state.isShowOriginSize);
   void setReadingMethod(ReadingMethod method) =>
       state = state.copyWith(readingMethod: method);
+
   void hideToolsAndSettings() =>
       state = state.copyWith(toolsVisible: false, showSettings: false);
 
@@ -437,11 +437,22 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
   /// 通过统一设置入口切换图片宽度限制，并立即刷新当前阅读器。
   Future<void> toggleImageWidthLimit() async {
-    final limited = ref.read(readerSettingsProvider).limitImageWidth;
+    final limited = readerSettings.limitImageWidth;
+    await setImageWidthLimit(!limited);
+  }
+
+  /// 保存图片最大宽度设置并立即更新当前阅读会话。
+  Future<void> setImageWidthLimit(bool limited) async {
     final saving = ref
         .read(appSettingsProvider.notifier)
-        .setValue(AppSettingKeys.limitReaderImageWidth, limited ? '0' : '1');
-    notifySettingsChanged();
+        .setValue(AppSettingKeys.limitReaderImageWidth, limited ? '1' : '0');
+    state = state.copyWith(
+      isShowOriginSize:
+          !limited ||
+          readingData is LocalReadingData ||
+          readingData.isDownloaded,
+      rebuildCount: state.rebuildCount + 1,
+    );
     try {
       await saving;
     } catch (error, stack) {
@@ -513,9 +524,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
             600,
           );
         }
-        int sec = int.parse(
-          appdata.getSetting(AppSettingKeys.autoPageInterval),
-        );
+        int sec = readerSettings.autoPageSeconds;
         final duration = Duration(
           milliseconds: (distance / 600 * 1200 * (sec / 5)).toInt(),
         );
@@ -747,9 +756,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     bool hasEvent = false;
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       Log.d('handleKeyboard key: $event');
-      bool reverse =
-          appdata.getSetting(AppSettingKeys.readingMode) == "2" ||
-          appdata.getSetting(AppSettingKeys.readingMode) == "6";
+      final readingMode = readerSettings.readingMode;
+      final reverse = readingMode == 2 || readingMode == 6;
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
@@ -895,7 +903,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       stopAutoPageTurning();
       return;
     }
-    int sec = int.parse(appdata.getSetting(AppSettingKeys.autoPageInterval));
+    final sec = readerSettings.autoPageSeconds;
     _autoPageTurningTimer?.cancel();
     if (state.runningAutoPageTurning) {
       _autoPageTurningTimer = Timer.periodic(Duration(seconds: sec), (timer) {

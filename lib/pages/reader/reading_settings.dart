@@ -13,6 +13,14 @@ import '../../tools/translations.dart';
 import 'reader_logic.dart';
 import 'reading_type.dart';
 
+/// 工具栏展示所需的阅读设置，减少阅读页对无关设置的监听。
+typedef ReaderToolbarSettings = ({
+  int readingMode,
+  int orientation,
+  bool showButtons,
+  bool flipPageWithClick,
+});
+
 void showSettings(BuildContext context, String sessionId) {
   if (UiMode.m1(context)) {
     showModalBottomSheet(
@@ -394,8 +402,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
           trailing: Switch(
             value: reading.limitImageWidth,
             onChanged: (b) => setState(() {
-              _saveSetting(AppSettingKeys.limitReaderImageWidth, b ? "1" : "0");
-              Future.microtask(() => logic.notifySettingsChanged());
+              logic.setImageWidthLimit(b);
             }),
           ),
         ),
@@ -435,7 +442,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
     ];
   }
 
-  /// 保存设置并保留阅读器立即读取 appdata 的行为。
+  /// 保存阅读设置并在当前阅读会话中立即生效。
   Future<void> _saveSetting(
     String key,
     String value, {
@@ -455,16 +462,22 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
   void setValue(int i) {
     App.globalBack();
     final value = i;
+    final currentState = _state;
+    final wasContinuous =
+        currentState.readingMethod == ReadingMethod.topToBottomContinuously;
     _saveSetting(AppSettingKeys.readingMode, value.toString(), fullData: true);
     _logic.hideToolsAndSettings();
-    final index = _state.currentPage;
-    final page = ComicReaderLogic.getPage(_state.currentPage);
+    final index = currentState.currentPage;
+    final page = ComicReaderLogic.getPage(
+      currentState.currentPage,
+      readingMode: value,
+    );
     Log.d("setReadingMethod: $value, index: $index, page: $page");
     _logic.pageController = PageController(initialPage: page);
     _logic.restoreTopToBottomContinuouslyPage = true;
     _logic.clearPhotoViewControllers();
     _logic.setReadingMethod(ReadingMethod.values[value - 1]);
-    if (_state.readingMethod == ReadingMethod.topToBottomContinuously) {
+    if (wasContinuous) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         _logic.jumpToPage(index);
       });

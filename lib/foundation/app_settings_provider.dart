@@ -81,7 +81,11 @@ class ReaderSettingsState {
   bool get limitImageWidth =>
       snapshot.enabled(AppSettingKeys.limitReaderImageWidth);
   bool get longPressZoom => snapshot.enabled(AppSettingKeys.longPressZoom);
+  bool get readerDarkBackground =>
+      snapshot.enabled(AppSettingKeys.readerDarkBackground);
   bool get showPageInfo => snapshot.enabled(AppSettingKeys.showReaderPageInfo);
+  bool get showButtonsInReader =>
+      snapshot.enabled(AppSettingKeys.showReaderButtons);
   int get readingMode =>
       snapshot.integer(AppSettingKeys.readingMode, 1).clamp(1, 6);
   int get autoPageSeconds =>

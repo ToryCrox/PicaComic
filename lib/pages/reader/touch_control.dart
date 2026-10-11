@@ -2,8 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:pica_comic/base.dart';
-
 import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
@@ -103,7 +101,7 @@ class _TapDownPointer {
   _TapDownPointer(this.id) : offset = const Offset(0, 0);
 }
 
-// TODO: 后续重构触控会话时，将同步设置读取一并改为注入配置或阅读器 Provider 的方法；避免静态控制器持有全局 Ref。
+/// 静态触控回调通过当前阅读会话读取类型化配置，不直接依赖设置存储。
 class TapController {
   static ComicReaderLogic? _currentLogic;
   static String? _sessionId;
@@ -147,8 +145,9 @@ class TapController {
       return;
     }
     var logic = _currentLogic!;
+    final settings = logic.readerSettings;
 
-    if (appdata.getSetting(AppSettingKeys.longPressZoom) == "1") {
+    if (settings.longPressZoom) {
       _tapDownPointer = _TapDownPointer(event.pointer);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (event.pointer == _tapDownPointer?.id) {
@@ -158,7 +157,7 @@ class TapController {
       });
     }
 
-    if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
+    if (settings.readingMode == 4) {
       logic.scrollManager!.tapDown(event);
     }
 
@@ -270,10 +269,11 @@ class TapController {
     }
 
     var logic = _currentLogic!;
+    final settings = logic.readerSettings;
 
     _tapDownPointer = null;
 
-    if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
+    if (settings.readingMode == 4) {
       logic.scrollManager!.tapUp(detail);
     }
 
@@ -287,7 +287,7 @@ class TapController {
       return;
     }
 
-    if (appdata.getSetting(AppSettingKeys.doubleTapZoom) == "1") {
+    if (settings.doubleTapZoom) {
       if (_doubleClickRecognizer == null) {
         bool flag = false;
         _doubleClickRecognizer = (another) {
@@ -313,14 +313,14 @@ class TapController {
 
   static void onPointerMove(PointerMoveEvent event) {
     final logic = _currentLogic!;
+    final settings = logic.readerSettings;
     if (event.pointer == _tapDownPointer?.id) {
       _tapDownPointer!.offset += event.delta;
       if (_tapDownPointer!.getDistance() > 1) {
         _tapDownPointer = null;
       }
     }
-    if (appdata.getSetting(AppSettingKeys.readingMode) == "4" &&
-        logic.scrollManager!.fingers != 2) {
+    if (settings.readingMode == 4 && logic.scrollManager!.fingers != 2) {
       logic.scrollManager!.addOffset(event.delta);
     }
   }
@@ -330,20 +330,19 @@ class TapController {
     ComicReaderLogic logic,
     BuildContext context,
   ) {
+    final settings = logic.readerSettings;
     bool flag = false;
     bool flag2 = false;
-    final range =
-        int.parse(appdata.getSetting(AppSettingKeys.tapTurnPageRange)) / 100;
-    if (appdata.getSetting(AppSettingKeys.readerTapToTurnPage) == "1" &&
-        !logic.state.toolsVisible) {
+    final range = settings.tapRange / 100;
+    if (settings.flipWithTap && !logic.state.toolsVisible) {
       void updatePageWithSetting(bool next) {
-        if (appdata.getSetting(AppSettingKeys.reverseTapTurnPage) == "1") {
+        if (settings.reverseTap) {
           next = !next;
         }
         next ? logic.jumpToNextPage() : logic.jumpToLastPage();
       }
 
-      switch (appdata.getSetting(AppSettingKeys.readingMode)) {
+      switch (settings.readingMode.toString()) {
         case "1":
         case "5":
           detail.position.dx > MediaQuery.of(context).size.width * (1 - range)
@@ -389,7 +388,7 @@ class TapController {
         StateController.findOrNull<WindowFrameController>()?.resetTheme();
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-        if (appdata.getSetting(AppSettingKeys.readerDarkBackground) == "1") {
+        if (settings.readerDarkBackground) {
           StateController.findOrNull<WindowFrameController>()?.setDarkTheme();
         }
       }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pica_comic/base.dart';
-
 import '../../components/components.dart';
 import '../../components/custom_slider.dart';
 import '../../foundation/app.dart';
@@ -13,15 +11,15 @@ import 'reading_data.dart';
 import 'reading_settings.dart';
 import 'reading_type.dart';
 
-bool _isReversed() =>
-    appdata.getSetting(AppSettingKeys.readingMode) == "2" ||
-    appdata.getSetting(AppSettingKeys.readingMode) == "6";
+bool _isReversed(ReaderToolbarSettings settings) =>
+    settings.readingMode == 2 || settings.readingMode == 6;
 
 /// 构建底部工具栏
 Widget buildBottomToolBar(
   ReaderPageState state,
   ComicReaderLogic logic,
   BuildContext context, {
+  required ReaderToolbarSettings settings,
   required bool showEps,
   required bool useDarkBackground,
   required void Function() openEpsDrawer,
@@ -48,14 +46,14 @@ Widget buildBottomToolBar(
                 children: [
                   const SizedBox(width: 8),
                   IconButton.filledTonal(
-                    onPressed: () => !_isReversed()
+                    onPressed: () => !_isReversed(settings)
                         ? logic.jumpToLastChapter()
                         : logic.jumpToNextChapter(),
                     icon: const Icon(Icons.first_page),
                   ),
-                  Expanded(child: buildSlider(state, logic)),
+                  Expanded(child: buildSlider(state, logic, settings)),
                   IconButton.filledTonal(
-                    onPressed: () => !_isReversed()
+                    onPressed: () => !_isReversed(settings)
                         ? logic.jumpToNextChapter()
                         : logic.jumpToLastChapter(),
                     icon: const Icon(Icons.last_page),
@@ -86,9 +84,7 @@ Widget buildBottomToolBar(
                         },
                       ),
                     ),
-                  if (App.isAndroid &&
-                      appdata.getSetting(AppSettingKeys.readerOrientation) ==
-                          "0")
+                  if (App.isAndroid && settings.orientation == 0)
                     Tooltip(
                       message: "屏幕方向".tl,
                       child: IconButton(
@@ -207,14 +203,18 @@ Widget buildBottomToolBar(
   );
 }
 
-Widget buildSlider(ReaderPageState state, ComicReaderLogic logic) {
+Widget buildSlider(
+  ReaderPageState state,
+  ComicReaderLogic logic,
+  ReaderToolbarSettings settings,
+) {
   if (state.toolsVisible &&
       state.currentPage != 0 &&
       state.currentPage != state.urls.length + 1) {
     return CustomSlider(
       value: state.currentPage.toDouble(),
       min: 1,
-      reversed: _isReversed(),
+      reversed: _isReversed(settings),
       max: state.urls.length.toDouble(),
       divisions: state.urls.length - 1,
       onChanged: (i) {
@@ -236,10 +236,10 @@ Iterable<Widget> buildButtons(
   ReaderPageState state,
   ComicReaderLogic logic,
   BuildContext context,
+  ReaderToolbarSettings settings,
 ) sync* {
-  if (context.width > context.height &&
-      appdata.appSettings.showButtonsInReader) {
-    if (appdata.getSetting(AppSettingKeys.readingMode) != "4" &&
+  if (context.width > context.height && settings.showButtons) {
+    if (settings.readingMode != 4 &&
         state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         left: 12,
@@ -247,7 +247,7 @@ Iterable<Widget> buildButtons(
         child: Button.icon(
           icon: const Icon(Icons.keyboard_arrow_left),
           onPressed: () {
-            if (appdata.appSettings.flipPageWithClick) {
+            if (settings.flipPageWithClick) {
               return;
             }
             switch (state.readingMethod) {
@@ -262,7 +262,7 @@ Iterable<Widget> buildButtons(
         ),
       );
     }
-    if (appdata.getSetting(AppSettingKeys.readingMode) != "4" &&
+    if (settings.readingMode != 4 &&
         state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         right: 12,
@@ -270,7 +270,7 @@ Iterable<Widget> buildButtons(
         child: Button.icon(
           icon: const Icon(Icons.keyboard_arrow_right),
           onPressed: () {
-            if (appdata.getSetting(AppSettingKeys.readerTapToTurnPage) == "1") {
+            if (settings.flipPageWithClick) {
               return;
             }
             switch (state.readingMethod) {
