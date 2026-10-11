@@ -1,12 +1,14 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../base.dart';
+import '../foundation/app_settings_provider.dart';
 
 part 'network_monitor_settings.g.dart';
 
-/// 网络监控设置在旧版设置数组中的位置。
-const networkSpeedBallSettingIndex = 94;
-const networkLogCollectingSettingIndex = 95;
+/// 网络监控设置的命名 key。
+const networkSpeedBallSettingKey = AppSettingKeys.showNetworkSpeedBall;
+const networkLogCollectingSettingKey = AppSettingKeys.collectNetworkLogs;
 
 /// 网络悬浮球坐标在隐式设置中的位置。
 const networkSpeedBallXImplicitIndex = 4;
@@ -44,7 +46,11 @@ class NetworkMonitorSettingsController
   @override
   NetworkMonitorSettings build() {
     return NetworkMonitorSettings(
-      showSpeedBall: _readSetting(networkSpeedBallSettingIndex) == '1',
+      showSpeedBall: ref.watch(
+        appSettingsProvider.select(
+          (s) => s.enabled(networkSpeedBallSettingKey),
+        ),
+      ),
       ballX: _readImplicitDouble(networkSpeedBallXImplicitIndex, 16.0),
       ballY: _readImplicitDouble(networkSpeedBallYImplicitIndex, 0.0),
     );
@@ -52,9 +58,9 @@ class NetworkMonitorSettingsController
 
   /// 修改悬浮球显示状态。
   Future<void> setShowSpeedBall(bool value) async {
-    _writeSetting(networkSpeedBallSettingIndex, value ? '1' : '0');
-    state = state.copyWith(showSpeedBall: value);
-    await appdata.updateSettings();
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setValue(networkSpeedBallSettingKey, value ? '1' : '0');
   }
 
   /// 保存悬浮球位置。
@@ -65,21 +71,9 @@ class NetworkMonitorSettingsController
     await appdata.writeImplicitData();
   }
 
-  String _readSetting(int index) {
-    if (appdata.settings.length <= index) return '0';
-    return appdata.settings[index];
-  }
-
   double _readImplicitDouble(int index, double fallback) {
     if (appdata.implicitData.length <= index) return fallback;
     return double.tryParse(appdata.implicitData[index]) ?? fallback;
-  }
-
-  void _writeSetting(int index, String value) {
-    while (appdata.settings.length <= index) {
-      appdata.settings.add('0');
-    }
-    appdata.settings[index] = value;
   }
 
   void _writeImplicit(int index, String value) {

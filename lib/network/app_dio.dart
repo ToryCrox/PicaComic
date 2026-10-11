@@ -144,7 +144,7 @@ class AppHttpAdapter implements HttpClientAdapter {
               idleTimeout: const Duration(seconds: 15),
               onClientCreate: (_, config) {
                 if (proxyHttpOverrides?.proxyStr != null &&
-                    appdata.settings[58] != "1") {
+                    appdata.getSetting(AppSettingKeys.hostsEnabled) != "1") {
                   config.proxy = Uri.parse(
                     'http://${proxyHttpOverrides?.proxyStr}',
                   );
@@ -258,7 +258,7 @@ class AppHttpAdapter implements HttpClientAdapter {
       () =>
           "Network ${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}",
     );
-    if (appdata.settings[58] == "0") {
+    if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "0") {
       return checkCookie(
         await adapter!.fetch(options, requestStream, cancelFuture),
       );

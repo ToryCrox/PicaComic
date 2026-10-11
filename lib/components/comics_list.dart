@@ -94,7 +94,8 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
       return widget;
     }
 
-    final isPaged = appdata.settings[25] != "0";
+    final isPaged =
+        appdata.getSetting(AppSettingKeys.comicsListDisplayMode) != "0";
     final currentPageComics = pageState.dividedComics[pageState.current];
 
     Widget body;
@@ -159,7 +160,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
             if (title != null) _buildAppbar(),
             if (header != null) header!,
             if (showPageIndicator &&
-                appdata.settings[64] == "0" &&
+                appdata.getSetting(AppSettingKeys.showListSidePaging) == "0" &&
                 pageState.maxPage != 1)
               buildPageSelector(context, logic),
             SliverGrid(
@@ -170,7 +171,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
               gridDelegate: SliverGridDelegateWithComics(),
             ),
             if (showPageIndicator &&
-                appdata.settings[64] == "0" &&
+                appdata.getSetting(AppSettingKeys.showListSidePaging) == "0" &&
                 pageState.maxPage != 1)
               buildPageSelector(context, logic),
             SliverPadding(
@@ -200,7 +201,8 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
           child: body,
         );
 
-        if (showPageIndicator && appdata.settings[64] == "1") {
+        if (showPageIndicator &&
+            appdata.getSetting(AppSettingKeys.showListSidePaging) == "1") {
           body = Stack(
             children: [
               Positioned.fill(child: body),

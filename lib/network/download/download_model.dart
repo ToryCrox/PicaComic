@@ -196,7 +196,8 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// all image urls
   Map<int, List<String>>? links;
 
-  int get allowedLoadingNumber => int.tryParse(appdata.settings[79]) ?? 6;
+  int get allowedLoadingNumber =>
+      int.tryParse(appdata.getSetting(AppSettingKeys.parallelDownloads)) ?? 6;
 
   bool duplicate = false;
 

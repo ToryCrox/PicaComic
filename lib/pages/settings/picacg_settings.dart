@@ -1,22 +1,24 @@
 part of pica_settings;
 
-class PicacgSettings extends StatefulWidget {
+class PicacgSettings extends ConsumerStatefulWidget {
   const PicacgSettings(this.popUp, {Key? key}) : super(key: key);
   final bool popUp;
 
   @override
-  State<PicacgSettings> createState() => _PicacgSettingsState();
+  ConsumerState<PicacgSettings> createState() => _PicacgSettingsState();
 }
 
-class _PicacgSettingsState extends State<PicacgSettings> {
-  bool showFrame = appdata.settings[5] == "1";
-  bool punchIn = appdata.settings[6] == "1";
-  bool useMyServer = appdata.settings[3] == "1";
+class _PicacgSettingsState extends ConsumerState<PicacgSettings> {
+  bool get showFrame =>
+      appdata.getSetting(AppSettingKeys.picacgShowAvatarFrame) == "1";
+  bool get punchIn =>
+      appdata.getSetting(AppSettingKeys.picacgAutoCheckIn) == "1";
 
   static const _imageQualityValues = ["low", "middle", "high", "original"];
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("哔咔漫画".tl)),
@@ -48,24 +50,20 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           ),
         ),
         ListTile(
-          leading: const Icon(Icons.manage_search_outlined),
-          trailing: Select(
-            initialValue: appdata.getSearchMode(),
-            values: ["新到旧".tl, "旧到新".tl, "最多喜欢".tl, "最多指名".tl],
-            onChange: (i) {
-              appdata.setSearchMode(i);
-            },
-          ),
-          title: Text("搜索及分类排序模式".tl),
-        ),
-        ListTile(
           leading: const Icon(Icons.collections_bookmark_outlined),
           trailing: Select(
-            initialValue: int.parse(appdata.settings[30]),
+            initialValue: int.parse(
+              appdata.getSetting(AppSettingKeys.picacgFavoritesNewestFirst),
+            ),
             values: ["旧到新".tl, "新到旧".tl],
             onChange: (i) {
-              appdata.settings[30] = i.toString();
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.picacgFavoritesNewestFirst,
+                i.toString(),
+                persist: false,
+              );
+              _persistSettings(ref);
             },
           ),
           title: Text("收藏夹漫画排序模式".tl),
@@ -76,11 +74,13 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           trailing: Switch(
             value: showFrame,
             onChanged: (b) {
-              b ? appdata.settings[5] = "1" : appdata.settings[5] = "0";
-              setState(() {
-                showFrame = b;
-              });
-              appdata.writeData();
+              _saveSetting(
+                ref,
+                AppSettingKeys.picacgShowAvatarFrame,
+                b ? "1" : "0",
+                persist: false,
+              );
+              _persistSettings(ref, fullData: true);
             },
           ),
           onTap: () {},
@@ -95,14 +95,16 @@ class _PicacgSettingsState extends State<PicacgSettings> {
           trailing: Switch(
             value: punchIn,
             onChanged: (b) {
-              b ? appdata.settings[6] = "1" : appdata.settings[6] = "0";
+              _saveSetting(
+                ref,
+                AppSettingKeys.picacgAutoCheckIn,
+                b ? "1" : "0",
+                persist: false,
+              );
               if (App.isMobile) {
                 b ? runBackgroundService() : cancelBackgroundService();
               }
-              setState(() {
-                punchIn = b;
-              });
-              appdata.writeData();
+              _persistSettings(ref, fullData: true);
             },
           ),
         ),

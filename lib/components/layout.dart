@@ -90,7 +90,9 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
       displayType == 1 || displayType == 2 || useBriefMode;
 
   static int _resolveDisplayType() {
-    final values = appdata.settings[44].split(',');
+    final values = appdata
+        .getSetting(AppSettingKeys.comicTileDisplay)
+        .split(',');
     return int.tryParse(values.first) ?? 0;
   }
 
@@ -98,7 +100,9 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
     if (override != null) {
       return double.tryParse(override) ?? 1;
     }
-    final values = appdata.settings[44].split(',');
+    final values = appdata
+        .getSetting(AppSettingKeys.comicTileDisplay)
+        .split(',');
     if (values.length < 2) {
       return 1;
     }

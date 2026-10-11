@@ -8,15 +8,17 @@ import '../foundation/app.dart';
 
 ///获取系统设置中的代理, 仅windows,安卓有效
 Future<String?> getProxy() async {
-  if (appdata.settings[58] == "1") {
+  if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "1") {
     final file = File("${App.dataPath}/rule.json");
     var json = const JsonDecoder().convert(await file.readAsString());
     return "${InternetAddress.loopbackIPv4.address}:${json["port"]}";
   }
 
   //手动设置的代理
-  if (appdata.settings[8].removeAllBlank == "") return null;
-  if (appdata.settings[8] != "0") return appdata.settings[8];
+  if (appdata.getSetting(AppSettingKeys.proxy).removeAllBlank == "")
+    return null;
+  if (appdata.getSetting(AppSettingKeys.proxy) != "0")
+    return appdata.getSetting(AppSettingKeys.proxy);
   //对于安卓, 将获取WIFI设置中的代理
 
   String res;

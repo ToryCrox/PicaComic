@@ -137,7 +137,11 @@ class _SearchResultPageState extends State<_SearchResultPage> {
     if (!keyword.contains('language') &&
         ComicSource.find(sourceKey)?.searchPageData?.enableLanguageFilter ==
             true) {
-      var lang = int.tryParse(appdata.settings[69]) ?? 0;
+      var lang =
+          int.tryParse(
+            appdata.getSetting(AppSettingKeys.searchLanguageFilter),
+          ) ??
+          0;
       if (lang != 0) {
         keyword += " language:${["chinese", "english", "japanese"][lang - 1]}";
       }

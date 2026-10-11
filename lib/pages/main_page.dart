@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/startup_metrics.dart';
@@ -28,7 +29,7 @@ import 'me_page.dart';
 bool _haveClipboardDialog = false;
 
 void checkClipboard() async {
-  if (appdata.settings[61] == "0") {
+  if (appdata.getSetting(AppSettingKeys.checkClipboardLinks) == "0") {
     return;
   }
   var data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -107,9 +108,16 @@ class MainPageState extends ConsumerState<MainPage> {
           actions: [
             TextButton(
               onPressed: () {
+                final settings = ProviderScope.containerOf(
+                  dialogContext,
+                  listen: false,
+                ).read(appSettingsProvider.notifier);
                 dialogContext.pop();
-                appdata.settings[2] = "0";
-                appdata.writeData();
+                settings.setValue(
+                  AppSettingKeys.checkUpdatesOnStartup,
+                  '0',
+                  fullData: true,
+                );
               },
               child: const Text("关闭更新检查"),
             ),
@@ -208,7 +216,7 @@ class MainPageState extends ConsumerState<MainPage> {
       );
     });
     return NaviPane(
-      initialPage: int.parse(appdata.settings[23]),
+      initialPage: int.parse(appdata.getSetting(AppSettingKeys.initialPage)),
       observer: _observer,
       paneItems: [
         PaneItemEntry(

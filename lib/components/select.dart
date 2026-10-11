@@ -37,9 +37,20 @@ class _SelectState extends State<Select> {
   late int? value = widget.initialValue;
   bool isHover = false;
 
+  /// 设置导入或 Provider 更新后同步选中值。
+  @override
+  void didUpdateWidget(covariant Select oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      value = widget.initialValue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (value != null && value! < 0) value = null;
+    if (value != null && (value! < 0 || value! >= widget.values.length)) {
+      value = null;
+    }
     return MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
@@ -116,12 +127,12 @@ class _SelectState extends State<Select> {
   Color get color {
     if (widget.outline) {
       return isHover
-          ? context.colorScheme.outline.withOpacity(0.1)
+          ? context.colorScheme.outline.withValues(alpha: 0.1)
           : Colors.transparent;
     } else {
       var color = context.colorScheme.surfaceContainerHigh;
       if (isHover) {
-        color = color.withOpacity(0.8);
+        color = color.withValues(alpha: 0.8);
       }
       return color;
     }

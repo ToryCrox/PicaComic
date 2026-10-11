@@ -207,8 +207,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    bool enableAuth = appdata.settings[13] == "1";
-    if (App.isAndroid && appdata.settings[38] == "1") {
+    bool enableAuth =
+        appdata.getSetting(AppSettingKeys.requireAuthentication) == "1";
+    if (App.isAndroid &&
+        appdata.getSetting(AppSettingKeys.highRefreshRate) == "1") {
       try {
         FlutterDisplayMode.setHighRefreshRate();
       } catch (e) {
@@ -219,7 +221,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     unawaited(networkClientManager.applySettings());
     scheduleMicrotask(() {
       if (state == AppLifecycleState.hidden && enableAuth) {
-        if (!AuthPage.lock && appdata.settings[13] == "1") {
+        if (!AuthPage.lock &&
+            appdata.getSetting(AppSettingKeys.requireAuthentication) == "1") {
           AuthPage.initial = false;
           AuthPage.lock = true;
           App.to(App.globalContext!, () => const AuthPage());
@@ -245,7 +248,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     MyApp.updater = () => setState(() => forceRebuild = true);
     time = DateTime.now();
-    if (App.isAndroid && appdata.settings[38] == "1") {
+    if (App.isAndroid &&
+        appdata.getSetting(AppSettingKeys.highRefreshRate) == "1") {
       try {
         FlutterDisplayMode.setHighRefreshRate();
       } finally {}
@@ -253,7 +257,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     listenMouseSideButtonToBack();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.addObserver(this);
-    if (appdata.settings[12] == "1") {
+    if (appdata.getSetting(AppSettingKeys.preventScreenshots) == "1") {
       blockScreenshot();
     }
     PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
@@ -299,7 +303,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   themeMode: themeBundle.themeMode,
                   onGenerateRoute: (settings) => AppPageRoute(
                     builder: (context) => notFirstUse
-                        ? (appdata.settings[13] == "1"
+                        ? (appdata.getSetting(
+                                    AppSettingKeys.requireAuthentication,
+                                  ) ==
+                                  "1"
                               ? const AuthPage()
                               : const MainPage())
                         : const WelcomePage(),
@@ -320,9 +327,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       Log.e(
                         "Unhandled Exception ${details.exception}\n${details.stack}",
                       );
-                      return Center(
-                        child: Text(details.exception.toString()),
-                      );
+                      return Center(child: Text(details.exception.toString()));
                     };
                     if (widget != null) {
                       widget = NetworkSpeedWrapper(child: widget);

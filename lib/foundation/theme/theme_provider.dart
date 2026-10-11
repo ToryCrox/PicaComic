@@ -1,11 +1,12 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../app_settings_provider.dart';
 
 part 'theme_provider.g.dart';
 
@@ -140,6 +141,9 @@ class ThemeSettings extends _$ThemeSettings {
 @Riverpod(keepAlive: true)
 ThemeBundle themeBundle(Ref ref) {
   final settings = ref.watch(themeSettingsProvider);
+  final customFont = ref.watch(
+    appSettingsProvider.select((s) => s.value(AppSettingKeys.font)),
+  );
   final dynamicSchemes = ref.watch(dynamicColorSchemesProvider);
 
   final hasDynamicSchemes =
@@ -160,11 +164,16 @@ ThemeBundle themeBundle(Ref ref) {
     themeMode: settings.themeMode,
     lightColorScheme: lightScheme,
     darkColorScheme: darkScheme,
-    lightTheme: _buildTheme(lightScheme, Brightness.light),
+    lightTheme: _buildTheme(
+      lightScheme,
+      Brightness.light,
+      customFont: customFont,
+    ),
     darkTheme: _buildTheme(
       darkScheme,
       Brightness.dark,
       isAmoled: settings.isAmoled,
+      customFont: customFont,
     ),
   );
 }
@@ -173,10 +182,9 @@ ThemeData _buildTheme(
   ColorScheme colorScheme,
   Brightness brightness, {
   bool isAmoled = false,
+  String customFont = '',
 }) {
-  final fontFamily = App.isDesktop && appdata.appSettings.font.isNotEmpty
-      ? appdata.appSettings.font
-      : null;
+  final fontFamily = App.isDesktop && customFont.isNotEmpty ? customFont : null;
   final isDark = brightness == Brightness.dark;
   final surfaceContainer = colorScheme.surfaceContainer;
 

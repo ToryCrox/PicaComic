@@ -1,15 +1,15 @@
 part of pica_settings;
 
-class NhSettings extends StatefulWidget {
+class NhSettings extends ConsumerStatefulWidget {
   const NhSettings(this.popUp, {super.key});
 
   final bool popUp;
 
   @override
-  State<NhSettings> createState() => _NhSettingsState();
+  ConsumerState<NhSettings> createState() => _NhSettingsState();
 }
 
-class _NhSettingsState extends State<NhSettings> {
+class _NhSettingsState extends ConsumerState<NhSettings> {
   String baseUrl = "https://nhentai.net";
 
   void deleteAllCookie() async {
@@ -34,6 +34,7 @@ class _NhSettingsState extends State<NhSettings> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("nhentai".tl)),

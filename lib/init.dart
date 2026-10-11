@@ -56,7 +56,7 @@ Future<void> initializeCore({void Function()? configureNetworkClient}) async {
 
   // 应用设置决定日志等级，但不应因为日志配置失败而阻塞启动。
   try {
-    final code = appdata.settings.length > 90 ? appdata.settings[90] : 'auto';
+    final code = appdata.getSetting(AppSettingKeys.logLevel);
     final level = switch (code) {
       'trace' => Level.trace,
       'debug' => Level.debug,
@@ -133,7 +133,7 @@ Future<void> _startDeferredServices() async {
   unawaited(notifications.init());
   unawaited(TagsTranslation.readData());
 
-  if (appdata.settings[58] == "1") {
+  if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "1") {
     HttpProxyServer.startServer();
   }
 
@@ -165,11 +165,11 @@ Future<void> _cleanupLegacyCache() async {
 
 Future<void> _checkOldData() async {
   try {
-    if (int.parse(appdata.settings[17]) >= 4) {
-      appdata.settings[17] = '0';
+    if (int.parse(appdata.getSetting(AppSettingKeys.jmApiStream)) >= 4) {
+      appdata.setSetting(AppSettingKeys.jmApiStream, '0');
     }
-    if (int.parse(appdata.settings[40]) > 40) {
-      appdata.settings[40] = '40';
+    if (int.parse(appdata.getSetting(AppSettingKeys.tapTurnPageRange)) > 40) {
+      appdata.setSetting(AppSettingKeys.tapTurnPageRange, '40');
     }
     appdata.blockingKeyword.removeWhere((value) => value.isEmpty);
 

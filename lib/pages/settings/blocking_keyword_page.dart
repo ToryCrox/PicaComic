@@ -6,7 +6,7 @@ class BlockingKeywordPageLogic extends StateController {
   final controller = TextEditingController();
 }
 
-class BlockingKeywordPage extends StatelessWidget {
+class BlockingKeywordPage extends ConsumerWidget {
   BlockingKeywordPage({this.popUp = false, Key? key}) : super(key: key) {
     StateController.put(BlockingKeywordPageLogic());
   }
@@ -14,7 +14,8 @@ class BlockingKeywordPage extends StatelessWidget {
   final bool popUp;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(appSettingsProvider);
     var addButton = Tooltip(
       message: "添加".tl,
       child: IconButton(

@@ -227,12 +227,16 @@ abstract class ComicTile extends StatelessWidget {
     return FutureBuilder<List<String>>(
       future: LocalFavoritesManager().folderNames,
       builder: (context, snapshot) {
-        String? folder = appdata.settings[51];
+        String? folder = appdata.getSetting(
+          AppSettingKeys.defaultFavoriteFolder,
+        );
         int? initialFolderIndex;
         List<String> folderNames = [];
         if (snapshot.hasData) {
           folderNames = snapshot.data!;
-          initialFolderIndex = folderNames.indexOf(appdata.settings[51]);
+          initialFolderIndex = folderNames.indexOf(
+            appdata.getSetting(AppSettingKeys.defaultFavoriteFolder),
+          );
           if (initialFolderIndex == -1) {
             folder = null;
             initialFolderIndex = null;
@@ -571,7 +575,10 @@ abstract class ComicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var type = appdata.settings[44].split(',').first;
+    var type = appdata
+        .getSetting(AppSettingKeys.comicTileDisplay)
+        .split(',')
+        .first;
     Widget child;
     bool detailedMode;
     if (type == "0" || type == "3") {
@@ -583,7 +590,8 @@ abstract class ComicTile extends StatelessWidget {
     }
     final id = comicID;
     if (id != null) {
-      final isFavorite = appdata.settings[72] == '1'
+      final isFavorite =
+          appdata.getSetting(AppSettingKeys.showComicFavoriteStatus) == '1'
           ? LocalFavoritesManager().isExist(id)
           : false;
       child = Stack(
@@ -608,7 +616,8 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   Widget _buildHistoryTime(BuildContext context) {
-    if (comicID == null || appdata.settings[73] != '1') {
+    if (comicID == null ||
+        appdata.getSetting(AppSettingKeys.showComicReadingProgress) != '1') {
       return const SizedBox.shrink();
     }
 
@@ -662,7 +671,8 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   Widget _buildHistoryProgressBar(BuildContext context) {
-    if (comicID == null || appdata.settings[73] != '1') {
+    if (comicID == null ||
+        appdata.getSetting(AppSettingKeys.showComicReadingProgress) != '1') {
       return const SizedBox.shrink();
     }
 
@@ -1115,7 +1125,10 @@ class ComicTilePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var type = appdata.settings[44].split(',').first;
+    var type = appdata
+        .getSetting(AppSettingKeys.comicTileDisplay)
+        .split(',')
+        .first;
     Widget child;
     if (type == "0" || type == "3") {
       child = _buildDetailedMode(context);

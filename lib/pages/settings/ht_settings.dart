@@ -1,24 +1,29 @@
 part of pica_settings;
 
-class HtSettings extends StatefulWidget {
+class HtSettings extends ConsumerStatefulWidget {
   const HtSettings(this.popUp, {super.key});
 
   final bool popUp;
 
   @override
-  State<HtSettings> createState() => _HtSettingsState();
+  ConsumerState<HtSettings> createState() => _HtSettingsState();
 }
 
-class _HtSettingsState extends State<HtSettings> {
+class _HtSettingsState extends ConsumerState<HtSettings> {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("绅士漫画".tl)),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("域名".tl),
-          subtitle: Text(appdata.settings[31].replaceFirst("https://", "")),
+          subtitle: Text(
+            appdata
+                .getSetting(AppSettingKeys.htmangaDomain)
+                .replaceFirst("https://", ""),
+          ),
           trailing: IconButton(
             onPressed: () => changeDomain(context),
             icon: const Icon(Icons.edit),
@@ -31,7 +36,9 @@ class _HtSettingsState extends State<HtSettings> {
   void changeDomain(BuildContext context) {
     final FocusNode focusNode = FocusNode();
     var controller = TextEditingController(
-      text: appdata.settings[31].replaceFirst("https://", ""),
+      text: appdata
+          .getSetting(AppSettingKeys.htmangaDomain)
+          .replaceFirst("https://", ""),
     );
 
     void onFinished() {
@@ -43,8 +50,8 @@ class _HtSettingsState extends State<HtSettings> {
       if (!text.isURL) {
         showToast(message: "Invalid URL");
       } else {
-        appdata.settings[31] = text;
-        appdata.updateSettings();
+        _saveSetting(ref, AppSettingKeys.htmangaDomain, text, persist: false);
+        _persistSettings(ref);
         setState(() {});
       }
     }

@@ -26,7 +26,8 @@ class AccountSessionNotifier extends AsyncNotifier<Profile?> {
 
       final profile = network.user;
       state = AsyncData(profile);
-      if (profile?.isPunched != false || appdata.settings[6] != '1') {
+      if (profile?.isPunched != false ||
+          appdata.getSetting(AppSettingKeys.picacgAutoCheckIn) != '1') {
         return false;
       }
 

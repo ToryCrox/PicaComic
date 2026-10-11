@@ -330,7 +330,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   int get length => state.urls.length;
 
   static int _getIndex(int initPage) {
-    if (appdata.settings[9] == "5" || appdata.settings[9] == "6") {
+    if (appdata.getSetting(AppSettingKeys.readingMode) == "5" ||
+        appdata.getSetting(AppSettingKeys.readingMode) == "6") {
       return initPage % 2 == 1 ? initPage : initPage - 1;
     } else {
       return initPage;
@@ -338,7 +339,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   }
 
   static int getPage(int initPage) {
-    if (appdata.settings[9] == "5" || appdata.settings[9] == "6") {
+    if (appdata.getSetting(AppSettingKeys.readingMode) == "5" ||
+        appdata.getSetting(AppSettingKeys.readingMode) == "6") {
       return (initPage + 2) ~/ 2;
     } else {
       return initPage;
@@ -365,7 +367,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     pageController = PageController(initialPage: getPage(initialPage));
 
     final isShowOriginSize =
-        appdata.settings[43] == '0' ||
+        appdata.getSetting(AppSettingKeys.limitReaderImageWidth) == '0' ||
         readingData is LocalReadingData ||
         readingData.isDownloaded;
 
@@ -383,7 +385,11 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       isLoading: true,
       currentPage: _getIndex(initialPage),
       currentEpisode: order,
-      readingMethod: ReadingMethod.values[int.parse(appdata.settings[9]) - 1],
+      readingMethod:
+          ReadingMethod.values[int.parse(
+                appdata.getSetting(AppSettingKeys.readingMode),
+              ) -
+              1],
       isShowOriginSize: isShowOriginSize,
     );
   }
@@ -490,7 +496,9 @@ class ComicReaderLogic extends _$ComicReaderLogic {
             600,
           );
         }
-        int sec = int.parse(appdata.settings[33]);
+        int sec = int.parse(
+          appdata.getSetting(AppSettingKeys.autoPageInterval),
+        );
         final duration = Duration(
           milliseconds: (distance / 600 * 1200 * (sec / 5)).toInt(),
         );
@@ -722,7 +730,9 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     bool hasEvent = false;
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       Log.d('handleKeyboard key: $event');
-      bool reverse = appdata.settings[9] == "2" || appdata.settings[9] == "6";
+      bool reverse =
+          appdata.getSetting(AppSettingKeys.readingMode) == "2" ||
+          appdata.getSetting(AppSettingKeys.readingMode) == "6";
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowDown:
         case LogicalKeyboardKey.arrowRight:
@@ -868,7 +878,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       stopAutoPageTurning();
       return;
     }
-    int sec = int.parse(appdata.settings[33]);
+    int sec = int.parse(appdata.getSetting(AppSettingKeys.autoPageInterval));
     _autoPageTurningTimer?.cancel();
     if (state.runningAutoPageTurning) {
       _autoPageTurningTimer = Timer.periodic(Duration(seconds: sec), (timer) {

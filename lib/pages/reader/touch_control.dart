@@ -147,7 +147,7 @@ class TapController {
     }
     var logic = _currentLogic!;
 
-    if (appdata.settings[55] == "1") {
+    if (appdata.getSetting(AppSettingKeys.longPressZoom) == "1") {
       _tapDownPointer = _TapDownPointer(event.pointer);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (event.pointer == _tapDownPointer?.id) {
@@ -157,7 +157,7 @@ class TapController {
       });
     }
 
-    if (appdata.settings[9] == "4") {
+    if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
       logic.scrollManager!.tapDown(event);
     }
 
@@ -231,7 +231,12 @@ class TapController {
             text: "限制最大宽度".tl,
             icon: Icons.width_full,
             onTap: () {
-              appdata.settings[43] = appdata.settings[43] == '0' ? "1" : "0";
+              appdata.setSetting(
+                AppSettingKeys.limitReaderImageWidth,
+                appdata.getSetting(AppSettingKeys.limitReaderImageWidth) == '0'
+                    ? "1"
+                    : "0",
+              );
               appdata.updateSettings();
               Future.microtask(() => logic.notifySettingsChanged());
             },
@@ -276,7 +281,7 @@ class TapController {
 
     _tapDownPointer = null;
 
-    if (appdata.settings[9] == "4") {
+    if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
       logic.scrollManager!.tapUp(detail);
     }
 
@@ -290,7 +295,7 @@ class TapController {
       return;
     }
 
-    if (appdata.settings[49] == "1") {
+    if (appdata.getSetting(AppSettingKeys.doubleTapZoom) == "1") {
       if (_doubleClickRecognizer == null) {
         bool flag = false;
         _doubleClickRecognizer = (another) {
@@ -322,7 +327,8 @@ class TapController {
         _tapDownPointer = null;
       }
     }
-    if (appdata.settings[9] == "4" && logic.scrollManager!.fingers != 2) {
+    if (appdata.getSetting(AppSettingKeys.readingMode) == "4" &&
+        logic.scrollManager!.fingers != 2) {
       logic.scrollManager!.addOffset(event.delta);
     }
   }
@@ -334,16 +340,18 @@ class TapController {
   ) {
     bool flag = false;
     bool flag2 = false;
-    final range = int.parse(appdata.settings[40]) / 100;
-    if (appdata.settings[0] == "1" && !logic.state.toolsVisible) {
+    final range =
+        int.parse(appdata.getSetting(AppSettingKeys.tapTurnPageRange)) / 100;
+    if (appdata.getSetting(AppSettingKeys.readerTapToTurnPage) == "1" &&
+        !logic.state.toolsVisible) {
       void updatePageWithSetting(bool next) {
-        if (appdata.settings[70] == "1") {
+        if (appdata.getSetting(AppSettingKeys.reverseTapTurnPage) == "1") {
           next = !next;
         }
         next ? logic.jumpToNextPage() : logic.jumpToLastPage();
       }
 
-      switch (appdata.settings[9]) {
+      switch (appdata.getSetting(AppSettingKeys.readingMode)) {
         case "1":
         case "5":
           detail.position.dx > MediaQuery.of(context).size.width * (1 - range)
@@ -389,7 +397,7 @@ class TapController {
         StateController.findOrNull<WindowFrameController>()?.resetTheme();
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-        if (appdata.settings[81] == "1") {
+        if (appdata.getSetting(AppSettingKeys.readerDarkBackground) == "1") {
           StateController.findOrNull<WindowFrameController>()?.setDarkTheme();
         }
       }

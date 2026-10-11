@@ -963,7 +963,8 @@ class LocalFavoritesManager {
     int displayOrder;
     if (order != null) {
       displayOrder = order;
-    } else if (appdata.settings[53] == "0") {
+    } else if (appdata.getSetting(AppSettingKeys.localFavoriteInsertPosition) ==
+        "0") {
       displayOrder = (await maxValue(folder)) + 1;
     } else {
       displayOrder = (await minValue(folder)) - 1;
@@ -1148,10 +1149,14 @@ class LocalFavoritesManager {
             .substring(0, 19);
 
         Map<String, dynamic> updates = {'time': newTime};
-        if (appdata.settings[54] == "1") {
+        if (appdata.getSetting(AppSettingKeys.localFavoriteMoveAfterReading) ==
+            "1") {
           int maxValue = await this.maxValue(folder);
           updates['display_order'] = maxValue + 1;
-        } else if (appdata.settings[54] == "2") {
+        } else if (appdata.getSetting(
+              AppSettingKeys.localFavoriteMoveAfterReading,
+            ) ==
+            "2") {
           int minValue = await this.minValue(folder);
           updates['display_order'] = minValue - 1;
         }

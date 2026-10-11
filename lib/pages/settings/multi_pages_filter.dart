@@ -1,30 +1,25 @@
 part of pica_settings;
 
-class MultiPagesFilter extends StatefulWidget {
-  const MultiPagesFilter(
-    this.title,
-    this.settingsIndex,
-    this.pages, {
-    super.key,
-  });
+class MultiPagesFilter extends ConsumerStatefulWidget {
+  const MultiPagesFilter(this.title, this.settingKey, this.pages, {super.key});
 
   final String title;
 
-  final int settingsIndex;
+  final String settingKey;
 
   // key - showName
   final Map<String, String> pages;
 
   @override
-  State<MultiPagesFilter> createState() => _MultiPagesFilterState();
+  ConsumerState<MultiPagesFilter> createState() => _MultiPagesFilterState();
 }
 
-class _MultiPagesFilterState extends State<MultiPagesFilter> {
+class _MultiPagesFilterState extends ConsumerState<MultiPagesFilter> {
   late List<String> keys;
 
   @override
   void initState() {
-    keys = appdata.settings[widget.settingsIndex].split(",");
+    keys = appdata.getSetting(widget.settingKey).split(",");
     keys.remove("");
     super.initState();
   }
@@ -35,6 +30,10 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
 
   @override
   Widget build(BuildContext context) {
+    final value = ref.watch(
+      appSettingsProvider.select((s) => s.value(widget.settingKey)),
+    );
+    keys = value.split(",").where((key) => key.isNotEmpty).toList();
     var tiles = keys.map((e) => buildItem(e)).toList();
 
     var view = ReorderableBuilder(
@@ -140,8 +139,15 @@ class _MultiPagesFilterState extends State<MultiPagesFilter> {
     );
   }
 
+  /// 释放该配置面板持有的滚动控制器。
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   void updateSetting() {
-    appdata.settings[widget.settingsIndex] = keys.join(",");
-    appdata.updateSettings();
+    _saveSetting(ref, widget.settingKey, keys.join(","), persist: false);
+    _persistSettings(ref);
   }
 }

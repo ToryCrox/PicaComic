@@ -46,7 +46,7 @@ class DownloadedGallery extends DownloadedItem {
 
   @override
   String get name {
-    if (appdata.settings[78] == "1") {
+    if (appdata.getSetting(AppSettingKeys.ehDownloadedUseSubtitle) == "1") {
       return gallery.subTitle ?? gallery.title;
     } else {
       return gallery.title;
@@ -126,7 +126,8 @@ class EhDownloadingTask extends DownloadingTask {
       gallery,
       int.parse(link),
       // 每次下载页面时读取当前设置；原图不可用时允许回退到普通图。
-      preferOriginal: appdata.settings[29] == "1",
+      preferOriginal:
+          appdata.getSetting(AppSettingKeys.ehPreferOriginal) == "1",
     );
   }
 

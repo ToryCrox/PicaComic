@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/base.dart';
@@ -11,8 +13,9 @@ Future<bool> showTranslationResultDirectoryDialog(BuildContext context) async {
     builder: (_) => const _TranslationResultDirectoryDialog(),
   );
   if (directory == null) return false;
-  appdata.appSettings.translationResultDirectory = directory;
-  await appdata.updateSettings();
+  await ProviderScope.containerOf(context, listen: false)
+      .read(appSettingsProvider.notifier)
+      .setValue(AppSettingKeys.translationResultDirectory, directory);
   return true;
 }
 

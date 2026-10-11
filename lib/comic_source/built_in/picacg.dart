@@ -25,8 +25,10 @@ final picacg = ComicSource.named(
     key: "picacg",
     title: "Picacg",
     multiFolder: false,
-    loadComic: (i, [folder]) =>
-        PicacgNetwork().getFavorites(i, appdata.settings[30] == "1"),
+    loadComic: (i, [folder]) => PicacgNetwork().getFavorites(
+      i,
+      appdata.getSetting(AppSettingKeys.picacgFavoritesNewestFirst) == "1",
+    ),
     loadFolders: null,
     addOrDelFavorite: (id, folder, isAdding) async {
       var res = await PicacgNetwork().favouriteOrUnfavouriteComic(id);

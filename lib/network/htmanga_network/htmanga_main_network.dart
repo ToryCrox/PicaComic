@@ -23,7 +23,7 @@ class HtmangaNetwork {
 
   HtmangaNetwork._create();
 
-  static String get baseUrl => appdata.settings[31];
+  static String get baseUrl => appdata.getSetting(AppSettingKeys.htmangaDomain);
 
   void logout() {
     SingleInstanceCookieJar.instance?.deleteUri(Uri.parse(baseUrl));

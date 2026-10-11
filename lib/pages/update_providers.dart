@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 首帧后的更新检查结果；null 表示没有新版本或今日已经检查过。
 final updateCheckProvider = FutureProvider<String?>((ref) async {
   ref.keepAlive();
-  if (appdata.settings[2] != '1') return null;
+  if (appdata.getSetting(AppSettingKeys.checkUpdatesOnStartup) != '1')
+    return null;
 
   final preferences = await SharedPreferences.getInstance();
   final lastCheck = preferences.getInt('lastCheckUpdate');

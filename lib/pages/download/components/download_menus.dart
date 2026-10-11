@@ -1,3 +1,5 @@
+import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -381,14 +383,36 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
 
 /// 构建漫画排序下拉菜单。
 Widget buildComicSortMenuAnchor({required VoidCallback onChanged}) {
-  final currentSortType = appdata.settings[26][0];
-  final isAscending = appdata.settings[26][1] == "1";
+  return Consumer(
+    builder: (context, ref, _) => _buildComicSortMenuAnchor(ref, onChanged),
+  );
+}
 
-  void updateSetting(int index, String value) {
-    if (appdata.settings[26][index] == value) return;
-    appdata.settings[26] = appdata.settings[26].setValueAt(value, index);
-    appdata.updateSettings();
-    onChanged();
+/// 排序菜单使用统一快照，外部导入时同步选中值。
+Widget _buildComicSortMenuAnchor(WidgetRef ref, VoidCallback onChanged) {
+  final sort = ref.watch(
+    appSettingsProvider.select((s) => s.value(AppSettingKeys.downloadSort)),
+  );
+  final currentSortType = sort[0];
+  final isAscending = sort[1] == "1";
+
+  Future<void> updateSetting(int index, String value) async {
+    final current = ref
+        .read(appSettingsProvider)
+        .value(AppSettingKeys.downloadSort);
+    if (current[index] == value) return;
+    try {
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setValue(
+            AppSettingKeys.downloadSort,
+            current.setValueAt(value, index),
+          );
+      onChanged();
+    } catch (error, stack) {
+      Log.e('保存下载排序失败', error: error, stackTrace: stack);
+      showToast(message: '保存设置失败');
+    }
   }
 
   return MenuAnchor(

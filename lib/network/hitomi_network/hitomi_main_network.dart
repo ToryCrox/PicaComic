@@ -21,7 +21,7 @@ class HiNetwork {
 
   static HiNetwork? cache;
 
-  String get baseDomain => appdata.settings[87];
+  String get baseDomain => appdata.getSetting(AppSettingKeys.hitomiCdnDomain);
 
   ///基本的get请求
   Future<Res<String>> get(

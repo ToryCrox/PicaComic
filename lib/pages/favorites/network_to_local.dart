@@ -84,7 +84,8 @@ class _ChooseNetworkFolderWidgetState
   @override
   void initState() {
     var folders = <FavoriteData>[];
-    for (var key in appdata.settings[68].split(',')) {
+    for (var key
+        in appdata.getSetting(AppSettingKeys.networkFavoritePages).split(',')) {
       folders.add(getFavoriteData(key));
     }
     _folders = folders;

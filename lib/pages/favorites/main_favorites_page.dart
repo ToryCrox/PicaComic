@@ -52,7 +52,8 @@ class FavoritesPageController extends StateController {
       current = null;
     }
     if (isNetwork ?? false) {
-      final folders = appdata.settings[68]
+      final folders = appdata
+          .getSetting(AppSettingKeys.networkFavoritePages)
           .split(',')
           .map((e) => getFavoriteDataOrNull(e));
       networkData = folders.firstWhereOrNull(

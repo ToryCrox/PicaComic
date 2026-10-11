@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -103,7 +104,11 @@ Future<Map<String, TranslationResultInfo>> translationResultAvailability(
   Ref ref,
 ) async {
   final comics = await ref.watch(allDownloadedComicsProvider.future);
-  final translationRoot = appdata.appSettings.translationResultDirectory;
+  final translationRoot = ref.watch(
+    appSettingsProvider.select(
+      (s) => s.value(AppSettingKeys.translationResultDirectory),
+    ),
+  );
   return TranslationResultReplacer().scanAvailability(
     comics.map((comic) => comic.directoryPath),
     translationResultRootDirectory: translationRoot,
@@ -398,9 +403,21 @@ class DownloadPageState {
 @Riverpod(keepAlive: false, name: 'downloadPageStateProvider')
 class DownloadPageStateNotifier extends _$DownloadPageStateNotifier {
   @override
-  DownloadPageState build(String pageId) => DownloadPageState(
-    isDragDisabled: appdata.appSettings.downloadPageDragDisabled,
-  );
+  DownloadPageState build(String pageId) {
+    ref.listen(
+      appSettingsProvider.select(
+        (s) => s.enabled(AppSettingKeys.downloadPageDragDisabled),
+      ),
+      (_, disabled) {
+        state = state.copyWith(isDragDisabled: disabled);
+      },
+    );
+    return DownloadPageState(
+      isDragDisabled: ref
+          .read(appSettingsProvider)
+          .enabled(AppSettingKeys.downloadPageDragDisabled),
+    );
+  }
 
   void update(DownloadPageState Function(DownloadPageState) updater) {
     state = updater(state);
@@ -560,12 +577,12 @@ void updateExcludeLocal(WidgetRef ref, String pageId, bool exclude) {
 
 /// 切换拖动禁用状态
 Future<void> toggleDragDisabled(WidgetRef ref, String pageId) async {
-  ref.read(downloadPageStateProvider(pageId).notifier).update((state) {
-    final isDragDisabled = !state.isDragDisabled;
-    appdata.appSettings.downloadPageDragDisabled = isDragDisabled;
-    return state.copyWith(isDragDisabled: isDragDisabled);
-  });
-  await appdata.updateSettings();
+  final disabled = !ref
+      .read(appSettingsProvider)
+      .enabled(AppSettingKeys.downloadPageDragDisabled);
+  await ref
+      .read(appSettingsProvider.notifier)
+      .setValue(AppSettingKeys.downloadPageDragDisabled, disabled ? '1' : '0');
 }
 
 // ============================================================================
@@ -578,11 +595,13 @@ Future<void> toggleDragDisabled(WidgetRef ref, String pageId) async {
 @Riverpod(keepAlive: true)
 class DownloadSortSetting extends _$DownloadSortSetting {
   @override
-  String build() => appdata.settings[26];
+  String build() => ref.watch(
+    appSettingsProvider.select((s) => s.value(AppSettingKeys.downloadSort)),
+  );
 
   /// 从应用设置同步当前排序方式。
   void syncWithSettings() {
-    final nextSetting = appdata.settings[26];
+    final nextSetting = appdata.getSetting(AppSettingKeys.downloadSort);
     if (state != nextSetting) {
       state = nextSetting;
     }
@@ -596,7 +615,7 @@ void triggerSortUpdate(WidgetRef ref) {
 
 /// 在内存中对漫画列表进行排序
 ///
-/// 根据 appdata.settings[26] 的设置进行排序，避免每次排序变化都从数据库重新读取
+/// 根据 appdata.getSetting(AppSettingKeys.downloadSort) 的设置进行排序，避免每次排序变化都从数据库重新读取
 List<DownloadedItem> _sortComics(
   List<DownloadedItem> comics,
   String sortSetting,

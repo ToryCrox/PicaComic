@@ -14,7 +14,7 @@ String get jmImgUA {
 }
 
 String get jmAppVersion {
-  return appdata.settings[89];
+  return appdata.getSetting(AppSettingKeys.jmAppVersion);
 }
 
 const _jmPkgName = "com.example.app";

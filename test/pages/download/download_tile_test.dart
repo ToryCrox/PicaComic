@@ -10,7 +10,7 @@ import 'package:pica_comic/pages/download/translation_result_replacer.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 void main() {
-  late List<String> originalSettings;
+  late Map<String, String> originalSettings;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,11 +18,11 @@ void main() {
   });
 
   setUp(() {
-    originalSettings = List<String>.from(appdata.settings);
-    appdata.settings[44] = '0,1.0';
-    appdata.settings[50] = 'cn';
-    appdata.settings[72] = '0';
-    appdata.settings[73] = '0';
+    originalSettings = Map<String, String>.from(appdata.settings);
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, '0,1.0');
+    appdata.setSetting(AppSettingKeys.language, 'cn');
+    appdata.setSetting(AppSettingKeys.showComicFavoriteStatus, '0');
+    appdata.setSetting(AppSettingKeys.showComicReadingProgress, '0');
   });
 
   tearDown(() {

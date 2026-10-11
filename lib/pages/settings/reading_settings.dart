@@ -1,30 +1,22 @@
 part of pica_settings;
 
-class ReadingSettings extends StatefulWidget {
+/// 设置页与欢迎页共用的阅读器偏好面板。
+class ReadingSettings extends ConsumerWidget {
   const ReadingSettings(this.popUp, {super.key});
 
   final bool popUp;
 
   @override
-  State<ReadingSettings> createState() => _ReadingSettingsState();
-}
-
-class _ReadingSettingsState extends State<ReadingSettings> {
-  bool keepScreenOn = appdata.settings[14] == "1";
-  bool lowBrightness = appdata.settings[18] == "1";
-  bool pageChangeValue = appdata.settings[0] == "1";
-  bool showThreeButton = appdata.settings[4] == "1";
-  bool useVolumeKeyChangePage = appdata.settings[7] == "1";
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final reading = ref.watch(readerSettingsProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SelectSetting(
           leading: const Icon(Icons.chrome_reader_mode),
           title: "阅读模式".tl,
-          initialValue: int.parse(appdata.settings[9]) - 1,
+          initialValue: reading.readingMode - 1,
           values: [
             "从左至右".tl,
             "从右至左".tl,
@@ -34,24 +26,23 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             "双页(反向)".tl,
           ],
           onChanged: (i) {
-            appdata.settings[9] = (i + 1).toString();
-            appdata.updateSettings();
+            _saveSetting(ref, AppSettingKeys.readingMode, (i + 1).toString());
           },
         ),
         SwitchSetting(
           title: "点按翻页".tl,
-          settingsIndex: 0,
+          settingKey: AppSettingKeys.readerTapToTurnPage,
           icon: const Icon(Icons.touch_app_outlined),
         ),
         SwitchSetting(
           title: "反转点按翻页".tl,
-          settingsIndex: 70,
+          settingKey: AppSettingKeys.reverseTapTurnPage,
           icon: const Icon(Icons.swap_horiz),
         ),
         if (App.isAndroid)
           SwitchSetting(
             title: "使用音量键翻页".tl,
-            settingsIndex: 7,
+            settingKey: AppSettingKeys.readerVolumeKeys,
             icon: const Icon(Icons.volume_mute),
           ),
         ListTile(
@@ -69,15 +60,17 @@ class _ReadingSettingsState extends State<ReadingSettings> {
                     max: 20,
                     min: 0,
                     divisions: 20,
-                    value: int.parse(appdata.settings[33]).toDouble(),
+                    value: reading.autoPageSeconds.toDouble(),
                     overlayColor: WidgetStateColor.resolveWith(
                       (states) => Colors.transparent,
                     ),
                     onChanged: (v) {
                       if (v == 0) return;
-                      appdata.settings[33] = v.toInt().toString();
-                      appdata.updateSettings();
-                      setState(() {});
+                      _saveSetting(
+                        ref,
+                        AppSettingKeys.autoPageInterval,
+                        v.toInt().toString(),
+                      );
                     },
                   ),
                 ),
@@ -87,7 +80,7 @@ class _ReadingSettingsState extends State<ReadingSettings> {
           trailing: SizedBox(
             width: 40,
             child: Text(
-              "${appdata.settings[33]}s",
+              "${settings.value(AppSettingKeys.autoPageInterval)}s",
               style: const TextStyle(fontSize: 14),
             ),
           ),
@@ -95,29 +88,22 @@ class _ReadingSettingsState extends State<ReadingSettings> {
         ),
         SwitchSetting(
           title: "宽屏时显示控制按钮".tl,
-          settingsIndex: 4,
+          settingKey: AppSettingKeys.showReaderButtons,
           icon: const Icon(Icons.control_camera),
         ),
-        if (App.isAndroid)
-          SwitchSetting(
-            title: "保持屏幕常亮".tl,
-            settingsIndex: 14,
-            icon: const Icon(Icons.screenshot_outlined),
-          ),
         SwitchSetting(
           title: "深色模式下降低图片亮度".tl,
-          settingsIndex: 18,
+          settingKey: AppSettingKeys.dimImagesInDarkMode,
           icon: const Icon(Icons.brightness_4),
         ),
         if (App.isAndroid)
           SelectSetting(
             leading: const Icon(Icons.screen_lock_rotation),
             title: "固定屏幕方向".tl,
-            initialValue: int.parse(appdata.settings[76]),
+            initialValue: reading.screenOrientation,
             values: ["禁用".tl, "横屏".tl, "竖屏".tl],
             onChanged: (i) {
-              appdata.settings[76] = i.toString();
-              appdata.updateSettings();
+              _saveSetting(ref, AppSettingKeys.readerOrientation, i.toString());
             },
           ),
         SelectSetting(
@@ -132,40 +118,34 @@ class _ReadingSettingsState extends State<ReadingSettings> {
             "5",
             "10",
             "15",
-          ].indexOf(appdata.settings[28]),
+          ].indexOf(settings.value(AppSettingKeys.preloadPages)),
           values: const ["0", "1", "2", "3", "4", "5", "10", "15"],
           onChanged: (i) {
-            appdata.settings[28] = [
-              "0",
-              "1",
-              "2",
-              "3",
-              "4",
-              "5",
-              "10",
-              "15",
-            ][i];
-            appdata.updateSettings();
+            _saveSetting(
+              ref,
+              AppSettingKeys.preloadPages,
+              ["0", "1", "2", "3", "4", "5", "10", "15"][i],
+            );
           },
         ),
         SwitchSetting(
           title: "双击缩放".tl,
-          settingsIndex: 49,
+          settingKey: AppSettingKeys.doubleTapZoom,
           icon: const Icon(Icons.zoom_out_map),
         ),
         SwitchSetting(
           title: "长按缩放".tl,
-          settingsIndex: 55,
+          settingKey: AppSettingKeys.longPressZoom,
           icon: const Icon(Icons.zoom_in),
         ),
         SwitchSetting(
           title: "显示页面信息".tl,
-          settingsIndex: 57,
+          settingKey: AppSettingKeys.showReaderPageInfo,
           icon: const Icon(Icons.insert_drive_file_outlined),
         ),
         SwitchSetting(
           title: "使用深色背景".tl,
-          settingsIndex: 81,
+          settingKey: AppSettingKeys.readerDarkBackground,
           icon: const Icon(Icons.dark_mode),
         ),
         Padding(

@@ -43,10 +43,12 @@ class Webdav {
     }
     _haveWaitingTask = false;
     _isOperating = true;
-    appdata.settings[46] = (DateTime.now().millisecondsSinceEpoch ~/ 1000)
-        .toString();
+    appdata.setSetting(
+      AppSettingKeys.webdavVersion,
+      (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+    );
     appdata.updateSettings(false);
-    config ??= appdata.settings[45];
+    config ??= appdata.getSetting(AppSettingKeys.webdavConfig);
     var configs = config.split(';');
     if (configs.length != 4 || configs.elementAtOrNull(0) == "") {
       _isOperating = false;
@@ -82,7 +84,7 @@ class Webdav {
       }
       await client.writeFromFile(
         await exportDataToFile(false, "${App.cachePath}/userdata.picadata"),
-        "${configs[3]}${appdata.settings[46]}.picadata",
+        "${configs[3]}${appdata.getSetting(AppSettingKeys.webdavVersion)}.picadata",
       );
     } catch (e, s) {
       Log.e("Sync Failed to upload data to webdav server.\n$e\n$s");
@@ -97,7 +99,7 @@ class Webdav {
     _isOperating = true;
     bool force = config != null;
     try {
-      config ??= appdata.settings[45];
+      config ??= appdata.getSetting(AppSettingKeys.webdavConfig);
       var configs = config.split(';');
       if (configs.length != 4 || configs.elementAtOrNull(0) == "") {
         return true;
@@ -126,7 +128,9 @@ class Webdav {
           }
         }
 
-        if (!force && maxVersion.toString() == appdata.settings[46]) {
+        if (!force &&
+            maxVersion.toString() ==
+                appdata.getSetting(AppSettingKeys.webdavVersion)) {
           Log.i("Sync No updated version of data.\nStop downloading data.");
           return true;
         }
@@ -149,7 +153,7 @@ class Webdav {
   }
 
   static void syncData() async {
-    var configs = appdata.settings[45].split(';');
+    var configs = appdata.getSetting(AppSettingKeys.webdavConfig).split(';');
     if (configs.length != 4 || configs.elementAtOrNull(0) == "") {
       return;
     }
@@ -164,12 +168,15 @@ class Webdav {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!res) {
       controller.close();
-      appdata.settings[45] = "${appdata.settings[45]};0";
+      appdata.setSetting(
+        AppSettingKeys.webdavConfig,
+        "${appdata.getSetting(AppSettingKeys.webdavConfig)};0",
+      );
       showToast(
         message: "下载数据失败, 已禁用同步".tl,
         trailing: Button.icon(
           onPressed: () {
-            appdata.settings[45] = configs.join(';');
+            appdata.setSetting(AppSettingKeys.webdavConfig, configs.join(';'));
             syncData();
           },
           icon: const Icon(Icons.refresh),

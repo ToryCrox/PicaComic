@@ -51,22 +51,25 @@ void setProxy(BuildContext context) {
 }
 
 /// 代理设置弹窗。
-class _ProxyDialog extends StatefulWidget {
+class _ProxyDialog extends ConsumerStatefulWidget {
   const _ProxyDialog();
 
   @override
-  State<_ProxyDialog> createState() => _ProxyDialogState();
+  ConsumerState<_ProxyDialog> createState() => _ProxyDialogState();
 }
 
-class _ProxyDialogState extends State<_ProxyDialog> {
+class _ProxyDialogState extends ConsumerState<_ProxyDialog> {
   late final TextEditingController _controller;
-  bool _useSystemProxy = appdata.settings[8] == "0";
+  late bool _useSystemProxy;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    final settings = ref.read(networkSettingsControllerProvider);
+    _useSystemProxy = settings.useSystemProxy;
     _controller = TextEditingController(
-      text: _useSystemProxy ? "" : appdata.settings[8],
+      text: _useSystemProxy ? "" : settings.proxy,
     );
   }
 
@@ -76,16 +79,26 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     super.dispose();
   }
 
-  void _save() {
-    appdata.settings[8] = _useSystemProxy ? "0" : _controller.text;
-    appdata.writeData();
-    setNetworkProxy();
-    unawaited(networkClientManager.applySettings());
-    App.globalBack();
+  /// 保存成功后应用网络配置，失败时保留弹窗供用户重试。
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(networkSettingsControllerProvider.notifier)
+          .setProxy(_useSystemProxy ? '0' : _controller.text);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error, stack) {
+      Log.e('网络设置应用失败', error: error, stackTrace: stack);
+      if (mounted) showToast(message: '网络设置应用失败');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return SimpleDialog(
       title: Text("设置代理".tl),
       children: [
@@ -126,7 +139,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ),
           ),
         Center(
-          child: FilledButton(onPressed: _save, child: Text("确认".tl)),
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            child: Text("确认".tl),
+          ),
         ),
       ],
     );
@@ -163,7 +179,7 @@ void setDownloadFolder() async {
   }
 }
 
-class SetDownloadFolderDialog extends StatefulWidget {
+class SetDownloadFolderDialog extends ConsumerStatefulWidget {
   const SetDownloadFolderDialog({
     this.paths,
     this.haveManageFilesPermission = false,
@@ -173,17 +189,19 @@ class SetDownloadFolderDialog extends StatefulWidget {
   final bool haveManageFilesPermission;
 
   @override
-  State<SetDownloadFolderDialog> createState() =>
+  ConsumerState<SetDownloadFolderDialog> createState() =>
       _SetDownloadFolderDialogState();
 }
 
-class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
+class _SetDownloadFolderDialogState
+    extends ConsumerState<SetDownloadFolderDialog> {
   final controller = TextEditingController();
-  String current = appdata.settings[22];
+  String current = appdata.getSetting(AppSettingKeys.downloadDirectory);
   bool transform = true;
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return SimpleDialog(
       title: Text("设置下载目录".tl),
       children: [
@@ -232,11 +250,20 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                 Center(
                   child: FilledButton(
                     onPressed: () async {
-                      if (controller.text == appdata.settings[22]) return;
+                      if (controller.text ==
+                          appdata.getSetting(AppSettingKeys.downloadDirectory))
+                        return;
                       var directory = Directory(controller.text);
                       if (directory.existsSync() || controller.text == "") {
-                        var oldPath = appdata.settings[22];
-                        appdata.settings[22] = controller.text;
+                        var oldPath = appdata.getSetting(
+                          AppSettingKeys.downloadDirectory,
+                        );
+                        _saveSetting(
+                          ref,
+                          AppSettingKeys.downloadDirectory,
+                          controller.text,
+                          persist: false,
+                        );
                         if (transform) {
                           showToast(message: "正在复制文件".tl);
                           await Future.delayed(
@@ -253,9 +280,14 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                             context.pop();
                           }
                           showToast(message: "更新成功".tl);
-                          appdata.updateSettings();
+                          _persistSettings(ref);
                         } else {
-                          appdata.settings[22] = oldPath;
+                          _saveSetting(
+                            ref,
+                            AppSettingKeys.downloadDirectory,
+                            oldPath,
+                            persist: false,
+                          );
                           showToast(message: res);
                         }
                       } else {
@@ -340,9 +372,19 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                     child: FilledButton(
                       child: Text("确认".tl),
                       onPressed: () async {
-                        if (appdata.settings[22] != current) {
-                          var oldPath = appdata.settings[22];
-                          appdata.settings[22] = current;
+                        if (appdata.getSetting(
+                              AppSettingKeys.downloadDirectory,
+                            ) !=
+                            current) {
+                          var oldPath = appdata.getSetting(
+                            AppSettingKeys.downloadDirectory,
+                          );
+                          _saveSetting(
+                            ref,
+                            AppSettingKeys.downloadDirectory,
+                            current,
+                            persist: false,
+                          );
                           if (transform) {
                             showToast(message: "正在复制文件".tl);
                             await Future.delayed(
@@ -356,9 +398,14 @@ class _SetDownloadFolderDialogState extends State<SetDownloadFolderDialog> {
                           if (res == "ok") {
                             App.globalBack();
                             showToast(message: "更新成功".tl);
-                            appdata.updateSettings();
+                            _persistSettings(ref);
                           } else {
-                            appdata.settings[22] = oldPath;
+                            _saveSetting(
+                              ref,
+                              AppSettingKeys.downloadDirectory,
+                              oldPath,
+                              persist: false,
+                            );
                             showToast(message: res);
                           }
                         } else {
@@ -380,17 +427,16 @@ void setExplorePages(BuildContext context) {
   showPopUpWidget(App.globalContext!, const SetExplorePages());
 }
 
-class SetExplorePages extends StatefulWidget {
+class SetExplorePages extends ConsumerStatefulWidget {
   const SetExplorePages({Key? key}) : super(key: key);
 
   @override
-  State<SetExplorePages> createState() => _SetExplorePagesState();
+  ConsumerState<SetExplorePages> createState() => _SetExplorePagesState();
 }
 
-class _SetExplorePagesState extends State<SetExplorePages> {
+class _SetExplorePagesState extends ConsumerState<SetExplorePages> {
   @override
   void dispose() {
-    appdata.updateSettings();
     Future.microtask(() {
       MyApp.updater?.call();
     });
@@ -405,7 +451,7 @@ class _SetExplorePagesState extends State<SetExplorePages> {
           setState(() {
             var config = appdata.appSettings.explorePages;
             config.remove(i);
-            appdata.appSettings.explorePages = config;
+            _saveSetting(ref, AppSettingKeys.explorePages, config.join(','));
           });
         },
         icon: const Icon(Icons.delete),
@@ -430,8 +476,8 @@ class _SetExplorePagesState extends State<SetExplorePages> {
       onTap: () {
         App.back(context);
         setState(() {
-          appdata.appSettings.explorePages = appdata.appSettings.explorePages
-            ..add(i);
+          final pages = appdata.appSettings.explorePages..add(i);
+          _saveSetting(ref, AppSettingKeys.explorePages, pages.join(','));
         });
       },
     );
@@ -443,6 +489,7 @@ class _SetExplorePagesState extends State<SetExplorePages> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     var notShowPages = <String>[];
     var allPages = <String>[];
     for (var source in ComicSource.sources) {
@@ -479,9 +526,10 @@ class _SetExplorePagesState extends State<SetExplorePages> {
       ),
       onReorder: (reorderFunc) {
         setState(() {
-          appdata.appSettings.explorePages = List.from(
+          final pages = List<String>.from(
             reorderFunc(appdata.appSettings.explorePages),
           );
+          _saveSetting(ref, AppSettingKeys.explorePages, pages.join(','));
         });
       },
       children: tiles,
@@ -651,8 +699,8 @@ void importDataSetting(BuildContext context) {
 
 void syncDataSettings(BuildContext context) {
   var configs = ["", "", "", ""];
-  if (appdata.settings[45] != "") {
-    configs = appdata.settings[45].split(';');
+  if (appdata.getSetting(AppSettingKeys.webdavConfig) != "") {
+    configs = appdata.getSetting(AppSettingKeys.webdavConfig).split(';');
   }
   String url = configs[0];
   String username = configs[1];
@@ -732,8 +780,11 @@ void syncDataSettings(BuildContext context) {
               child: Text("提交".tl),
               onPressed: () async {
                 if (url.isEmpty) {
-                  appdata.settings[45] = "$url;$username;$pwd;$path";
-                  appdata.updateSettings();
+                  _saveSettingContext(
+                    context,
+                    AppSettingKeys.webdavConfig,
+                    "$url;$username;$pwd;$path",
+                  );
                   App.globalBack();
                   return;
                 }
@@ -749,8 +800,11 @@ void syncDataSettings(BuildContext context) {
                   dialog.close();
                   showToast(message: "Failed to sync data");
                 } else {
-                  appdata.settings[45] = "$url;$username;$pwd;$path";
-                  appdata.updateSettings();
+                  _saveSettingContext(
+                    context,
+                    AppSettingKeys.webdavConfig,
+                    "$url;$username;$pwd;$path",
+                  );
                   dialog.close();
                   App.globalBack();
                 }
@@ -828,8 +882,12 @@ void setCacheLimit() {
                   });
                   return;
                 } else {
-                  appdata.appSettings.cacheLimit = size;
-                  appdata.writeData();
+                  _saveSettingContext(
+                    context,
+                    AppSettingKeys.cacheLimitMb,
+                    size.toString(),
+                    fullData: true,
+                  );
                   CacheManager().setLimitSize(size);
                   App.globalBack();
                 }
@@ -897,7 +955,7 @@ void setFont(BuildContext context) {
               Center(
                 child: FilledButton(
                   onPressed: () {
-                    appdata.appSettings.font = current;
+                    _saveSettingContext(context, AppSettingKeys.font, current);
                     MyApp.updater?.call();
                     App.globalBack();
                   },

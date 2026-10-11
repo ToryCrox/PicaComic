@@ -126,7 +126,10 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   // -------- B. 数据加载 --------
   @override
   Future<Res<Gallery>> loadData(String id) async {
-    var res = await EhNetwork().getGalleryInfo(id, appdata.settings[47] == "1");
+    var res = await EhNetwork().getGalleryInfo(
+      id,
+      appdata.getSetting(AppSettingKeys.ehIgnoreWarnings) == "1",
+    );
     if (res.error && res.errorMessage == "Content Warning") {
       bool shouldIgnore = false;
       await showDialog(

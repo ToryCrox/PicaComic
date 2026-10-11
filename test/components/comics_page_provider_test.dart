@@ -65,15 +65,20 @@ void main() {
   late String originalDisplayType;
 
   setUp(() {
-    originalDisplayType = appdata.settings[25];
+    originalDisplayType = appdata.getSetting(
+      AppSettingKeys.comicsListDisplayMode,
+    );
   });
 
   tearDown(() {
-    appdata.settings[25] = originalDisplayType;
+    appdata.setSetting(
+      AppSettingKeys.comicsListDisplayMode,
+      originalDisplayType,
+    );
   });
 
   testWidgets('分页模式不会在构建期间触发 Provider 写入', (tester) async {
-    appdata.settings[25] = '1';
+    appdata.setSetting(AppSettingKeys.comicsListDisplayMode, '1');
     final calls = <int>[];
 
     await tester.pumpWidget(
@@ -98,7 +103,7 @@ void main() {
   });
 
   testWidgets('连续模式最后一项触发下一页不会在构建期间写 Provider', (tester) async {
-    appdata.settings[25] = '0';
+    appdata.setSetting(AppSettingKeys.comicsListDisplayMode, '0');
     final calls = <int>[];
 
     await tester.pumpWidget(

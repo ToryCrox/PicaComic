@@ -352,7 +352,9 @@ class ImageManager {
     bool requireOriginal = false,
   }) {
     final useOriginal =
-        requireOriginal || (preferOriginal ?? appdata.settings[29] == "1");
+        requireOriginal ||
+        (preferOriginal ??
+            appdata.getSetting(AppSettingKeys.ehPreferOriginal) == "1");
     final controller = StreamController<DownloadProgress>();
     _putEhImageStream(
       controller: controller,

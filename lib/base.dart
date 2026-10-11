@@ -8,16 +8,22 @@ import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/notification.dart';
-import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synchronized/synchronized.dart';
 import 'foundation/def.dart';
+import 'foundation/settings_events.dart';
+import 'foundation/app_setting_keys.dart';
+export 'foundation/app_setting_keys.dart';
 import 'network/network_config.dart';
 export 'foundation/def.dart';
 export 'package:pica_comic/network/download/download_manager.dart';
 
 String get pathSep => Platform.pathSeparator;
+
+/// 页面保存与 WebDAV 版本更新共用的文件写入锁。
+final _settingsFileLock = Lock();
 
 class Appdata {
   ///搜索历史
@@ -27,106 +33,37 @@ class Appdata {
   ///历史记录管理器, 可以通过factory构造函数访问, 也可以通过这里访问
   var history = HistoryManager();
 
-  ///设置
-  List<String> settings = [
-    "1", //0 点击屏幕左右区域翻页
-    "dd", //1 排序方式
-    "1", //2 启动时检查更新
-    "0", //3 Api请求地址, 为0时表示使用哔咔官方Api, 为1表示使用转发服务器
-    "1", //4 宽屏时显示前进后退关闭按钮
-    "1", //5 是否显示头像框
-    "1", //6 启动时签到
-    "1", //7 使用音量键翻页
-    "0", //8 代理设置, 0代表使用系统代理
-    "1", //9 翻页方式: 1从左向右,2从右向左,3从上至下,4从上至下(连续)
-    "0", //10 是否第一次使用
-    "0", //11 收藏夹浏览方式, 0为正常浏览, 1为分页浏览
-    "0", //12 阻止屏幕截图
-    "0", //13 需要生物识别
-    "1", //14 阅读器中保持屏幕常亮
-    "1", //15 Jm自动选择域名
-    "0", //16 Jm分类漫画排序模式, 值为 ComicsOrder 的索引
-    "0", //17 Jm分流
-    "0", //18 夜间模式降低图片亮度
-    "0", //19 Jm搜索漫画排序模式, 值为 ComicsOrder 的索引
-    "0", //20 Eh画廊站点, 1表示e-hentai, 2表示exhentai
-    "111111", //21 启用的漫画源
-    "", //22 下载目录, 仅Windows端, 为空表示使用App数据目录
-    "0", //23 初始页面,
-    "1111111111", //24 [废弃]分类页面
-    "0", //25 漫画列表显示模式
-    "00", //26 已下载页面排序模式: 时间, 漫画名, 作者名, 大小
-    "0", //27 颜色
-    "2", //28 预加载页数
-    "0", //29 eh优先加载原图
-    "1", //30 picacg收藏夹新到旧
-    "https://www.wn10.cfd", //31 绅士漫画域名
-    "0", //32  深色模式: 0-跟随系统, 1-禁用, 2-启用
-    "5", //33 自动翻页时间
-    "1000", //34 缓存数量限制
-    "500", //35 缓存大小限制
-    "1", //36 翻页动画
-    "0", //37 禁漫图片分流
-    "0", //38 高刷新率
-    "0", //39 nhentai搜索排序
-    "25", //40 点按翻页识别范围(0-50),
-    "0", //41 阅读器图片布局方式, 0-contain, 1-fitWidth, 2-fitHeight
-    "0", //42 禁漫收藏夹排序模式, 0-最新收藏, 1-最新更新
-    "1", //43 限制图片宽度
-    "0,1.0", //44 comic display type
-    "", //45 webdav
-    "0", //46 webdav version
-    "0", //47 eh warning
-    "https://nhentai.net", //48 nhentai domain (deprecated)
-    "1", //49 阅读器中双击放缩
-    "", //50 language, empty=system
-    "", //51 默认收藏夹
-    "1", //52 favorites
-    "0", //53 本地收藏添加位置(尾/首)
-    "0", //54 阅读后移动本地收藏(否/尾/首)
-    "1", //55 长按缩放
-    "https://18comic.vip", //56 jm domain
-    "1", //57 show page info in reader
-    "0", //58 hosts
-    "012345678", //59 explore page(废弃)
-    "0", //60 action when local favorite is tapped
-    "0", //61 check link in clipboard
-    "10000", //62 漫画信息页面工具栏: "快速收藏".tl, "复制标题".tl, "复制链接".tl, "分享".tl, "搜索相似".tl
-    "0", //63 初始搜索目标
-    "0", //64 启用侧边翻页
-    "0", //65 本地收藏显示数量
-    "0", //66 缩略图布局: 覆盖, 容纳
-    "picacg,ehentai,jm,htmanga,nhentai", //67 分类页面
-    "picacg,ehentai,jm,htmanga,nhentai", //68 收藏页面
-    "0", //69 自动添加语言筛选
-    "0", //70 反转点按识别
-    "1", // 71 关联网络收藏夹后每次刷新拉取几页
-    "1", //72 漫画块显示收藏状态
-    "0", //73 漫画块显示阅读位置
-    "1.0", //74 图片收藏大小
-    "", //75 eh profile
-    "0", //76 阅读器内固定屏幕方向: 0-禁用, 1-横屏, 2-竖屏
-    "picacg,Eh主页,Eh热门,禁漫主页,禁漫最新,hitomi,绅士漫画,nhentai", //77 探索页面
-    "0", //78 已下载的eh漫画优先显示副标题
-    "6", //79 下载并行
-    "1", //80 启动时检查自定义漫画源的更新
-    "0", //81 使用深色背景
-    "1111111", //82 内置漫画源启用状态,
-    "1", //83 完全隐藏屏蔽的作品
-    "0", //84 纯黑色模式
-    "www.cdntwice.org,www.cdnsha.org,www.cdnaspa.cc,www.cdnntr.cc", //85 jm api domains
-    "https://cdn-msp.jmapiproxy3.cc", //86 jm image url
-    "gold-usergeneratedcontent.net", //87 hitomi cdn url
-    "0", //88 jm auto checkin
-    "2.0.11", //89 jm app version
-    "auto", //90 日志级别: auto/trace/debug/info/warning/error
-    "", //91 漫画翻译结果目录
-    "rhttp", //92 网络后端: rhttp/dio
-    "auto", //93 HTTP协议: auto/http1/http2
-    "0", //94 显示网速悬浮球
-    "0", //95 网络日志采集
-    "1", //96 下载页是否禁用拖动: 1-禁用, 0-启用
-  ];
+  Map<String, String> _settings = Map.of(defaultAppSettings);
+
+  /// 设置的只读 key-value 视图，业务代码不能直接修改内部 Map。
+  Map<String, String> get settings => Map.unmodifiable(_settings);
+
+  /// 用完整命名配置替换设置，缺失项使用默认值。
+  set settings(Map<String, String> values) {
+    _settings = Map.of(defaultAppSettings);
+    for (final entry in values.entries) {
+      if (defaultAppSettings.containsKey(entry.key)) {
+        _settings[entry.key] = entry.value;
+      }
+    }
+    notifySettingsChanged();
+  }
+
+  /// 同步读取设置，未知 key 表示调用方存在错误。
+  String getSetting(String key) {
+    final value = _settings[key];
+    if (value == null) throw ArgumentError.value(key, 'key', '未知设置项');
+    return value;
+  }
+
+  /// 统一内存写入入口，所有变更都会通知 Riverpod 设置消费者。
+  void setSetting(String key, String value) {
+    if (!defaultAppSettings.containsKey(key)) {
+      throw ArgumentError.value(key, 'key', '未知设置项');
+    }
+    _settings[key] = value;
+    notifySettingsChanged();
+  }
 
   /// 隐式数据, 用于存储一些不需要用户设置的数据, 此数据通常为某些组件的状态, 此设置不应当被同步
   List<String> implicitData = [
@@ -167,42 +104,24 @@ class Appdata {
     "1", //显示本地收藏夹的管理提示
   ];
 
-  int getSearchMode() {
-    var modes = ["dd", "da", "ld", "vd"];
-    return modes.indexOf(settings[1]);
-  }
-
-  void setSearchMode(int mode) async {
-    var modes = ["dd", "da", "ld", "vd"];
-    settings[1] = modes[mode];
-    var s = await SharedPreferences.getInstance();
-    await s.setStringList("settings", settings);
-  }
-
-  Future<void> readSettings(SharedPreferences s) async {
-    var settingsFile = File("${App.dataPath}/settings");
-    List<String> st;
-    if (settingsFile.existsSync()) {
-      var json = jsonDecode(await settingsFile.readAsString());
-      if (json is List) {
-        st = List.from(json);
-      } else {
-        st = [];
-      }
+  /// 读取命名 key 的设置文件；不再支持旧数组格式。
+  Future<void> readSettings() async {
+    final file = File('${App.dataPath}/settings');
+    if (await file.exists()) {
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map) throw const FormatException('设置文件必须是 JSON 对象');
+      settings = Map<String, String>.from(decoded);
     } else {
-      st = s.getStringList("settings") ?? [];
-    }
-    for (int i = 0; i < st.length && i < settings.length; i++) {
-      settings[i] = st[i];
-    }
-    if (settings[26].length < 2) {
-      settings[26] += "0";
+      notifySettingsChanged();
     }
   }
 
   Future<void> updateSettings([bool syncData = true]) async {
-    var settingsFile = File("${App.dataPath}/settings");
-    await settingsFile.writeAsString(jsonEncode(settings));
+    notifySettingsChanged();
+    await _settingsFileLock.synchronized(() async {
+      final settingsFile = File("${App.dataPath}/settings");
+      await settingsFile.writeAsString(jsonEncode(settings));
+    });
     if (syncData) {
       Webdav.uploadData();
     }
@@ -224,7 +143,7 @@ class Appdata {
       Webdav.uploadData();
     }
     var s = await SharedPreferences.getInstance();
-    await updateSettings();
+    await updateSettings(false);
     await s.setStringList("blockingKeyword", blockingKeyword);
     await s.setStringList("firstUse", firstUse);
   }
@@ -232,7 +151,7 @@ class Appdata {
   Future<bool> readData() async {
     var s = await SharedPreferences.getInstance();
     try {
-      await readSettings(s);
+      await readSettings();
       searchHistory = s.getStringList("search") ?? [];
       favoriteTags = (s.getStringList("favoriteTags") ?? []).toSet();
       blockingKeyword = s.getStringList("blockingKeyword") ?? [];
@@ -258,14 +177,14 @@ class Appdata {
 
   bool readDataFromJson(Map<String, dynamic> json) {
     try {
-      var newSettings = List<String>.from(json["settings"]);
-      var downloadPath = settings[22];
-      var authRequired = settings[13];
-      for (var i = 0; i < settings.length && i < newSettings.length; i++) {
-        settings[i] = newSettings[i];
-      }
-      settings[22] = downloadPath;
-      settings[13] = authRequired;
+      final newSettings = Map<String, String>.from(json['settings'] as Map);
+      final downloadPath = getSetting(AppSettingKeys.downloadDirectory);
+      final authRequired = getSetting(AppSettingKeys.requireAuthentication);
+      settings = {
+        ...newSettings,
+        AppSettingKeys.downloadDirectory: downloadPath,
+        AppSettingKeys.requireAuthentication: authRequired,
+      };
       var newFirstUse = List<String>.from(json["firstUse"]);
       for (var i = 0; i < firstUse.length && i < newFirstUse.length; i++) {
         firstUse[i] = newFirstUse[i];
@@ -292,7 +211,17 @@ class Appdata {
   final appSettings = _Settings();
 }
 
-var appdata = Appdata();
+Appdata _appdata = Appdata();
+
+/// 当前应用数据，旧业务代码仍可同步读取。
+Appdata get appdata => _appdata;
+
+/// 替换数据后通知设置消费者，兼容清空数据及后台独立实例。
+set appdata(Appdata value) {
+  _appdata = value;
+  notifySettingsChanged();
+}
+
 var notifications = Notifications();
 
 /// clear all data
@@ -311,178 +240,185 @@ Future<void> clearAppdata() async {
   await LocalFavoritesManager().clearAll();
 }
 
+/// 网络、阅读器及后台任务使用的同步设置视图。
 class _Settings {
-  /// 0/1 (detailed/brief)
-  int get comicTileDisplayType =>
-      int.parse(appdata.settings[44].split(',').first);
+  /// 漫画块显示模式：0 详细，1 简略。
+  int get comicTileDisplayType => int.parse(
+    appdata.getSetting(AppSettingKeys.comicTileDisplay).split(',').first,
+  );
 
   set comicTileDisplayType(int v) {
-    var values = appdata.settings[44].split(',');
+    var values = appdata.getSetting(AppSettingKeys.comicTileDisplay).split(',');
     if (values.length != 2) {
       values = ['0', '1.0'];
     }
     values[0] = v.toString();
-    appdata.settings[44] = values.join(',');
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, values.join(','));
   }
 
-  /// 0/1 (Continuous mode/Paging mode)
-  int get comicsListDisplayType => int.parse(appdata.settings[25]);
+  /// 漫画列表模式：0 连续，1 分页。
+  int get comicsListDisplayType =>
+      int.parse(appdata.getSetting(AppSettingKeys.comicsListDisplayMode));
 
   set comicsListDisplayType(int value) {
-    appdata.settings[25] = value.toString();
+    appdata.setSetting(AppSettingKeys.comicsListDisplayMode, value.toString());
   }
 
-  /// build-in comic sources
+  /// 判断指定内置漫画源是否启用。
   bool isComicSourceEnabled(String key) {
     var index = builtInSources.indexWhere((e) => e.name == key);
     if (index == -1) {
       throw "Not Found";
     }
     // 处理旧版本设置字符串长度不足的情况,新增的漫画源默认启用
-    if (index >= appdata.settings[82].length) {
+    if (index >=
+        appdata.getSetting(AppSettingKeys.enabledBuiltInSources).length) {
       return true;
     }
-    return appdata.settings[82][index] == '1';
+    return appdata.getSetting(AppSettingKeys.enabledBuiltInSources)[index] ==
+        '1';
   }
 
-  void setComicSourceEnabled(String key, bool enabled) {
-    var index = builtInSources.indexWhere((e) => e.name == key);
-    if (index == -1) {
-      throw "Not Found";
-    }
-    // 如果设置字符串长度不足,先扩展到足够的长度
-    while (appdata.settings[82].length <= index) {
-      appdata.settings[82] += '1'; // 默认启用
-    }
-    appdata.settings[82] = appdata.settings[82].setValueAt(
-      enabled ? '1' : '0',
-      index,
-    );
+  /// 生成内置漫画源开关的新值，保存由页面的 Notifier 完成。
+  String comicSourceEnabledValue(String key, bool enabled) {
+    final index = builtInSources.indexWhere((e) => e.name == key);
+    if (index == -1) throw ArgumentError.value(key, 'key', '未知漫画源');
+    var values = appdata.getSetting(AppSettingKeys.enabledBuiltInSources);
+    values = values.padRight(index + 1, '1');
+    return values.setValueAt(enabled ? '1' : '0', index);
   }
 
-  List<String> get jmApiDomains => appdata.settings[85].split(',');
+  List<String> get jmApiDomains =>
+      appdata.getSetting(AppSettingKeys.jmApiDomains).split(',');
 
   set jmApiDomains(List<String> domains) {
-    appdata.settings[85] = domains.join(',');
+    appdata.setSetting(AppSettingKeys.jmApiDomains, domains.join(','));
   }
 
   String get jmImgUrlIndex =>
-      int.parse(appdata.settings[37]) < 4 ? appdata.settings[37] : "0";
+      int.parse(appdata.getSetting(AppSettingKeys.jmImageStream)) < 4
+      ? appdata.getSetting(AppSettingKeys.jmImageStream)
+      : "0";
 
-  List<String> get explorePages => appdata.settings[77].split(',');
+  List<String> get explorePages =>
+      appdata.getSetting(AppSettingKeys.explorePages).split(',');
 
   set explorePages(List<String> pages) {
-    appdata.settings[77] = pages.join(',');
+    appdata.setSetting(AppSettingKeys.explorePages, pages.join(','));
   }
 
-  List<String> get categoryPages => appdata.settings[67].split(',');
+  List<String> get categoryPages =>
+      appdata.getSetting(AppSettingKeys.categoryPages).split(',');
 
   set categoryPages(List<String> pages) {
-    appdata.settings[67] = pages.join(',');
+    appdata.setSetting(AppSettingKeys.categoryPages, pages.join(','));
   }
 
-  String get initialSearchTarget => appdata.settings[63];
+  String get initialSearchTarget =>
+      appdata.getSetting(AppSettingKeys.defaultSearchSource);
 
   set initialSearchTarget(String value) {
-    appdata.settings[63] = value;
+    appdata.setSetting(AppSettingKeys.defaultSearchSource, value);
   }
 
-  bool get reduceBrightnessInDarkMode => appdata.settings[18] == "1";
+  bool get reduceBrightnessInDarkMode =>
+      appdata.getSetting(AppSettingKeys.dimImagesInDarkMode) == "1";
 
   set reduceBrightnessInDarkMode(bool value) {
-    appdata.settings[18] = value ? "1" : "0";
+    appdata.setSetting(AppSettingKeys.dimImagesInDarkMode, value ? "1" : "0");
   }
 
-  bool get showPageInfoInReader => appdata.settings[57] == "1";
+  bool get showPageInfoInReader =>
+      appdata.getSetting(AppSettingKeys.showReaderPageInfo) == "1";
 
   set showPageInfoInReader(bool value) {
-    appdata.settings[57] = value ? "1" : "0";
+    appdata.setSetting(AppSettingKeys.showReaderPageInfo, value ? "1" : "0");
   }
 
-  bool get showButtonsInReader => appdata.settings[4] == "1";
+  bool get showButtonsInReader =>
+      appdata.getSetting(AppSettingKeys.showReaderButtons) == "1";
 
   set showButtonsInReader(bool value) {
-    appdata.settings[4] = value ? "1" : "0";
+    appdata.setSetting(AppSettingKeys.showReaderButtons, value ? "1" : "0");
   }
 
-  bool get flipPageWithClick => appdata.settings[0] == "1";
+  bool get flipPageWithClick =>
+      appdata.getSetting(AppSettingKeys.readerTapToTurnPage) == "1";
 
   set flipPageWithClick(bool value) {
-    appdata.settings[0] = value ? "1" : "0";
+    appdata.setSetting(AppSettingKeys.readerTapToTurnPage, value ? "1" : "0");
   }
 
-  bool get useDarkBackground => appdata.settings[81] == "1";
+  bool get useDarkBackground =>
+      appdata.getSetting(AppSettingKeys.readerDarkBackground) == "1";
 
   set useDarkBackground(bool value) {
-    appdata.settings[81] = value ? "1" : "0";
+    appdata.setSetting(AppSettingKeys.readerDarkBackground, value ? "1" : "0");
   }
 
-  bool get fullyHideBlockedWorks => appdata.settings[83] == "1";
+  bool get fullyHideBlockedWorks =>
+      appdata.getSetting(AppSettingKeys.fullyHideBlockedComics) == "1";
 
   set fullyHideBlockedWorks(bool value) {
-    appdata.settings[83] = value ? "1" : "0";
+    appdata.setSetting(
+      AppSettingKeys.fullyHideBlockedComics,
+      value ? "1" : "0",
+    );
   }
 
   /// 下载页是否禁用拖动。
   bool get downloadPageDragDisabled =>
-      appdata.settings.length <= 96 || appdata.settings[96] == "1";
+      appdata.getSetting(AppSettingKeys.downloadPageDragDisabled) == "1";
 
   set downloadPageDragDisabled(bool value) {
-    while (appdata.settings.length <= 96) {
-      appdata.settings.add("1");
-    }
-    appdata.settings[96] = value ? "1" : "0";
+    appdata.setSetting(
+      AppSettingKeys.downloadPageDragDisabled,
+      value ? "1" : "0",
+    );
   }
 
-  /// cache size limit in MB
-  int get cacheLimit => int.tryParse(appdata.settings[35]) ?? 500;
+  /// 图片缓存容量上限，单位 MB。
+  int get cacheLimit =>
+      int.tryParse(appdata.getSetting(AppSettingKeys.cacheLimitMb)) ?? 500;
 
   set cacheLimit(int value) {
-    appdata.settings[35] = value.toString();
+    appdata.setSetting(AppSettingKeys.cacheLimitMb, value.toString());
   }
 
-  List<String> get networkFavorites => appdata.settings[68].split(',');
+  List<String> get networkFavorites =>
+      appdata.getSetting(AppSettingKeys.networkFavoritePages).split(',');
 
   set networkFavorites(List<String> pages) {
-    appdata.settings[68] = pages.join(',');
+    appdata.setSetting(AppSettingKeys.networkFavoritePages, pages.join(','));
   }
 
-  String get font => PrefsHelper.getString("font");
+  String get font => appdata.getSetting(AppSettingKeys.font);
 
-  set font(String value) => PrefsHelper.setString("font", value);
+  set font(String value) => appdata.setSetting(AppSettingKeys.font, value);
 
   /// 漫画翻译结果根目录，为空时仅扫描原漫画目录内的 `result` 目录。
   String get translationResultDirectory =>
-      appdata.settings.length > 91 ? appdata.settings[91] : '';
+      appdata.getSetting(AppSettingKeys.translationResultDirectory);
 
   set translationResultDirectory(String value) {
-    while (appdata.settings.length <= 91) {
-      appdata.settings.add('');
-    }
-    appdata.settings[91] = value;
+    appdata.setSetting(AppSettingKeys.translationResultDirectory, value);
   }
 
   /// 网络后端，默认为 rhttp。
   NetworkBackend get networkBackend => NetworkConfigExtension.fromValue(
-    appdata.settings.length > 92 ? appdata.settings[92] : null,
+    appdata.getSetting(AppSettingKeys.networkBackend),
   );
 
   set networkBackend(NetworkBackend value) {
-    while (appdata.settings.length <= 92) {
-      appdata.settings.add('');
-    }
-    appdata.settings[92] = value.value;
+    appdata.setSetting(AppSettingKeys.networkBackend, value.value);
   }
 
   /// HTTP 协议偏好，默认为自动协商。
   NetworkProtocol get networkProtocol => NetworkProtocolExtension.fromValue(
-    appdata.settings.length > 93 ? appdata.settings[93] : null,
+    appdata.getSetting(AppSettingKeys.networkProtocol),
   );
 
   set networkProtocol(NetworkProtocol value) {
-    while (appdata.settings.length <= 93) {
-      appdata.settings.add('');
-    }
-    appdata.settings[93] = value.value;
+    appdata.setSetting(AppSettingKeys.networkProtocol, value.value);
   }
 }

@@ -1,11 +1,11 @@
 part of pica_settings;
 
-class JmSettings extends StatefulWidget {
+class JmSettings extends ConsumerStatefulWidget {
   const JmSettings(this.popUp, {Key? key}) : super(key: key);
   final bool popUp;
 
   @override
-  State<JmSettings> createState() => _JmSettingsState();
+  ConsumerState<JmSettings> createState() => _JmSettingsState();
 
   static const builtInApiDomains = <String>[
     "www.cdntwice.org",
@@ -33,7 +33,9 @@ class JmSettings extends StatefulWidget {
     }
     msg = msg.trim();
     showConfirmDialog(App.globalContext!, title, msg, () async {
-      appdata.appSettings.jmApiDomains = domains;
+      await _settingsController(
+        App.globalContext!,
+      ).setValue(AppSettingKeys.jmApiDomains, domains.join(','));
       await updateAppVersionCode();
       JmNetwork().loginFromAppdata();
     });
@@ -55,18 +57,22 @@ class JmSettings extends StatefulWidget {
   static Future<void> updateAppVersionCode() async {
     var res = await JmNetwork().getAppVersionCode();
     if (!res.error) {
-      appdata.settings[89] = res.data;
-      appdata.updateSettings();
+      await _settingsController(
+        App.globalContext!,
+      ).setValue(AppSettingKeys.jmAppVersion, res.data);
     }
   }
 }
 
-class _JmSettingsState extends State<JmSettings> {
-  bool autoSelectStream = appdata.settings[15] == "1";
-  bool autoCheckIn = appdata.settings[88] == "1";
+class _JmSettingsState extends ConsumerState<JmSettings> {
+  bool get autoSelectStream =>
+      appdata.getSetting(AppSettingKeys.jmAutoSelectDomain) == "1";
+  bool get autoCheckIn =>
+      appdata.getSetting(AppSettingKeys.jmAutoCheckIn) == "1";
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("禁漫天堂".tl)),
@@ -77,11 +83,14 @@ class _JmSettingsState extends State<JmSettings> {
           trailing: Switch(
             value: autoSelectStream,
             onChanged: (b) {
-              b ? appdata.settings[15] = "1" : appdata.settings[15] = "0";
-              setState(() {
-                autoSelectStream = b;
-              });
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.jmAutoSelectDomain,
+                b ? "1" : "0",
+                persist: false,
+              );
+              setState(() {});
+              _persistSettings(ref);
               if (autoSelectStream) JmNetwork().loginFromAppdata();
             },
           ),
@@ -94,11 +103,18 @@ class _JmSettingsState extends State<JmSettings> {
             child: Opacity(
               opacity: !autoSelectStream ? 1.0 : 0.5,
               child: Select(
-                initialValue: int.parse(appdata.settings[17]),
+                initialValue: int.parse(
+                  appdata.getSetting(AppSettingKeys.jmApiStream),
+                ),
                 values: ["分流1".tl, "分流2".tl, "分流3".tl, "分流4".tl],
                 onChange: (i) {
-                  appdata.settings[17] = i.toString();
-                  appdata.updateSettings();
+                  _saveSetting(
+                    ref,
+                    AppSettingKeys.jmApiStream,
+                    i.toString(),
+                    persist: false,
+                  );
+                  _persistSettings(ref);
                   JmNetwork().loginFromAppdata();
                 },
               ),
@@ -112,8 +128,13 @@ class _JmSettingsState extends State<JmSettings> {
             initialValue: int.parse(appdata.appSettings.jmImgUrlIndex),
             values: ["分流1".tl, "分流2".tl, "分流3".tl, "分流4".tl],
             onChange: (i) {
-              appdata.settings[37] = i.toString();
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.jmImageStream,
+                i.toString(),
+                persist: false,
+              );
+              _persistSettings(ref);
               if (jm.isLogin) JmNetwork().updateImgUrl(i + 1);
             },
           ),
@@ -122,12 +143,19 @@ class _JmSettingsState extends State<JmSettings> {
           leading: const Icon(Icons.favorite_border),
           title: Text("收藏夹漫画排序模式".tl),
           trailing: Select(
-            initialValue: int.parse(appdata.settings[42]),
+            initialValue: int.parse(
+              appdata.getSetting(AppSettingKeys.jmFavoritesOrder),
+            ),
             width: App.locale.languageCode == "en" ? 130 : 120,
             values: ["最新收藏".tl, "最新更新".tl],
             onChange: (i) {
-              appdata.settings[42] = i.toString();
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.jmFavoritesOrder,
+                i.toString(),
+                persist: false,
+              );
+              _persistSettings(ref);
             },
           ),
         ),
@@ -145,11 +173,14 @@ class _JmSettingsState extends State<JmSettings> {
           trailing: Switch(
             value: autoCheckIn,
             onChanged: (b) {
-              b ? appdata.settings[88] = "1" : appdata.settings[88] = "0";
-              setState(() {
-                autoCheckIn = b;
-              });
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.jmAutoCheckIn,
+                b ? "1" : "0",
+                persist: false,
+              );
+              setState(() {});
+              _persistSettings(ref);
               if (autoCheckIn && jm.isLogin) JmSettings.daily(false);
             },
           ),

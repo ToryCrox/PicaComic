@@ -13,7 +13,9 @@ import 'reading_data.dart';
 import 'reading_settings.dart';
 import 'reading_type.dart';
 
-bool _isReversed() => appdata.settings[9] == "2" || appdata.settings[9] == "6";
+bool _isReversed() =>
+    appdata.getSetting(AppSettingKeys.readingMode) == "2" ||
+    appdata.getSetting(AppSettingKeys.readingMode) == "6";
 
 /// 构建底部工具栏
 Widget buildBottomToolBar(
@@ -84,7 +86,9 @@ Widget buildBottomToolBar(
                         },
                       ),
                     ),
-                  if (App.isAndroid && appdata.settings[76] == "0")
+                  if (App.isAndroid &&
+                      appdata.getSetting(AppSettingKeys.readerOrientation) ==
+                          "0")
                     Tooltip(
                       message: "屏幕方向".tl,
                       child: IconButton(
@@ -235,7 +239,7 @@ Iterable<Widget> buildButtons(
 ) sync* {
   if (context.width > context.height &&
       appdata.appSettings.showButtonsInReader) {
-    if (appdata.settings[9] != "4" &&
+    if (appdata.getSetting(AppSettingKeys.readingMode) != "4" &&
         state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         left: 12,
@@ -258,7 +262,7 @@ Iterable<Widget> buildButtons(
         ),
       );
     }
-    if (appdata.settings[9] != "4" &&
+    if (appdata.getSetting(AppSettingKeys.readingMode) != "4" &&
         state.readingMethod != ReadingMethod.topToBottom) {
       yield Positioned(
         right: 12,
@@ -266,7 +270,7 @@ Iterable<Widget> buildButtons(
         child: Button.icon(
           icon: const Icon(Icons.keyboard_arrow_right),
           onPressed: () {
-            if (appdata.settings[0] == "1") {
+            if (appdata.getSetting(AppSettingKeys.readerTapToTurnPage) == "1") {
               return;
             }
             switch (state.readingMethod) {

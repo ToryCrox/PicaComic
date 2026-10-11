@@ -12,18 +12,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/network/network_settings_provider.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/app_dio.dart';
 import 'package:pica_comic/pages/settings/ai_settings_page.dart';
 import 'package:pica_comic/pages/settings/theme_page.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/main.dart';
-import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/network_config.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_monitor_settings.dart';
@@ -38,7 +39,6 @@ import '../../foundation/app.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/cookie_jar.dart';
 import '../../network/eh_network/eh_main_network.dart';
-import '../../network/http_client.dart';
 import '../../network/http_proxy.dart';
 import '../../network/jm_network/jm_network.dart';
 import '../../network/nhentai_network/nhentai_main_network.dart';
@@ -80,9 +80,9 @@ part "app_settings.dart";
 
 part 'components.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   static void open({BuildContext? context, int initialPage = -1}) {
-    final page = () => SettingsPage(initialPage: initialPage);
+    Widget page() => SettingsPage(initialPage: initialPage);
     if (context != null) {
       App.to(context, page);
     } else {
@@ -95,10 +95,11 @@ class SettingsPage extends StatefulWidget {
   final int initialPage;
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> implements PopEntry {
+class _SettingsPageState extends ConsumerState<SettingsPage>
+    implements PopEntry {
   int currentPage = -1;
 
   ColorScheme get colors => Theme.of(context).colorScheme;
@@ -201,6 +202,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     if (currentPage != -1 && !enableTwoViews) {
       canPop.value = false;
       App.temporaryDisablePopGesture = true;
@@ -384,12 +386,17 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
               ],
             ),
             trailing: Switch(
-              value: appdata.settings[38] == "1",
+              value: ref.watch(
+                appSettingsProvider.select(
+                  (s) => s.enabled(AppSettingKeys.highRefreshRate),
+                ),
+              ),
               onChanged: (b) {
-                setState(() {
-                  appdata.settings[38] = b ? "1" : "0";
-                });
-                appdata.updateSettings();
+                _saveSetting(
+                  ref,
+                  AppSettingKeys.highRefreshRate,
+                  b ? "1" : "0",
+                );
                 if (b) {
                   try {
                     FlutterDisplayMode.setHighRefreshRate();
@@ -447,10 +454,14 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           leading: const Icon(Icons.sort),
           title: Text("日志级别".tl),
           trailing: Select(
-            initialValue: ['auto', 'trace', 'debug', 'info', 'warning', 'error']
-                .indexOf(
-                  appdata.settings.length > 90 ? appdata.settings[90] : 'auto',
-                ),
+            initialValue: [
+              'auto',
+              'trace',
+              'debug',
+              'info',
+              'warning',
+              'error',
+            ].indexOf(appdata.getSetting(AppSettingKeys.logLevel)),
             values: ["自动".tl, "Trace", "Debug", "Info", "Warning", "Error"],
             onChange: (i) {
               final codes = [
@@ -461,9 +472,14 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
                 'warning',
                 'error',
               ];
-              appdata.settings[90] = codes[i];
-              appdata.updateSettings();
-              final code = appdata.settings[90];
+              _saveSetting(
+                ref,
+                AppSettingKeys.logLevel,
+                codes[i],
+                persist: false,
+              );
+              _persistSettings(ref);
+              final code = appdata.getSetting(AppSettingKeys.logLevel);
               final level = switch (code) {
                 'trace' => Level.trace,
                 'debug' => Level.debug,
@@ -493,7 +509,7 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
         ),
         SwitchSetting(
           title: "启动时检查更新".tl,
-          settingsIndex: 2,
+          settingKey: AppSettingKeys.checkUpdatesOnStartup,
           icon: const Icon(Icons.security_update),
         ),
         ListTile(title: Text("数据".tl)),
@@ -563,18 +579,24 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
             title: Text("阻止屏幕截图".tl),
             subtitle: Text("需要重启App以应用更改".tl),
             trailing: Switch(
-              value: appdata.settings[12] == "1",
+              value:
+                  appdata.getSetting(AppSettingKeys.preventScreenshots) == "1",
               onChanged: (b) {
-                b ? appdata.settings[12] = "1" : appdata.settings[12] = "0";
+                _saveSetting(
+                  ref,
+                  AppSettingKeys.preventScreenshots,
+                  b ? "1" : "0",
+                  persist: false,
+                );
                 setState(() {});
-                appdata.writeData();
+                _persistSettings(ref, fullData: true);
               },
             ),
           ),
         SwitchSetting(
           title: "需要身份验证".tl,
           subTitle: "如果系统中未设置任何认证方法请勿开启".tl,
-          settingsIndex: 13,
+          settingKey: AppSettingKeys.requireAuthentication,
           icon: const Icon(Icons.security),
         ),
         ListTile(title: Text("其它".tl)),
@@ -582,11 +604,21 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
           title: Text("语言".tl),
           leading: const Icon(Icons.language),
           trailing: Select(
-            initialValue: ["", "cn", "tw", "en"].indexOf(appdata.settings[50]),
+            initialValue: [
+              "",
+              "cn",
+              "tw",
+              "en",
+            ].indexOf(appdata.getSetting(AppSettingKeys.language)),
             values: const ["System", "中文(简体)", "中文(繁體)", "English"],
             onChange: (value) {
-              appdata.settings[50] = ["", "cn", "tw", "en"][value];
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.language,
+                ["", "cn", "tw", "en"][value],
+                persist: false,
+              );
+              _persistSettings(ref);
               MyApp.updater?.call();
             },
           ),
@@ -602,11 +634,16 @@ class _SettingsPageState extends State<SettingsPage> implements PopEntry {
               "6",
               "8",
               "16",
-            ].indexOf(appdata.settings[79]),
+            ].indexOf(appdata.getSetting(AppSettingKeys.parallelDownloads)),
             values: const ["1", "2", "4", "6", "8", "16"],
             onChange: (value) {
-              appdata.settings[79] = ["1", "2", "4", "6", "8", "16"][value];
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.parallelDownloads,
+                ["1", "2", "4", "6", "8", "16"][value],
+                persist: false,
+              );
+              _persistSettings(ref);
             },
           ),
         ),

@@ -1,43 +1,93 @@
 part of pica_settings;
 
-class SwitchSetting extends StatefulWidget {
+/// 通过统一设置入口读写布尔值。
+class SwitchSetting extends ConsumerWidget {
   const SwitchSetting({
     required this.title,
     this.subTitle,
     required this.icon,
-    required this.settingsIndex,
+    required this.settingKey,
     super.key,
   });
 
   final String title;
-
   final String? subTitle;
-
   final Widget icon;
-
-  final int settingsIndex;
+  final String settingKey;
 
   @override
-  State<SwitchSetting> createState() => _SwitchSettingState();
-}
-
-class _SwitchSettingState extends State<SwitchSetting> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(
+      appSettingsProvider.select((s) => s.enabled(settingKey)),
+    );
     return ListTile(
-      title: Text(widget.title),
-      subtitle: widget.subTitle == null ? null : Text(widget.subTitle!),
-      leading: widget.icon,
+      title: Text(title),
+      subtitle: subTitle == null ? null : Text(subTitle!),
+      leading: icon,
       trailing: Switch(
-        value: appdata.settings[widget.settingsIndex] == '1',
-        onChanged: (value) {
-          setState(() {
-            appdata.settings[widget.settingsIndex] = value ? '1' : '0';
-            appdata.updateSettings();
-          });
-        },
+        value: enabled,
+        onChanged: (value) => _saveSetting(ref, settingKey, value ? '1' : '0'),
       ),
     );
+  }
+}
+
+/// 设置页统一处理持久化错误，空值表示只保存滑块预览。
+Future<void> _saveSetting(
+  WidgetRef ref,
+  String key,
+  String? value, {
+  bool fullData = false,
+  bool persist = true,
+}) async {
+  try {
+    final controller = ref.read(appSettingsProvider.notifier);
+    if (value == null) {
+      await controller.save(fullData: fullData);
+    } else {
+      await controller.setValue(
+        key,
+        value,
+        fullData: fullData,
+        persist: persist,
+      );
+    }
+  } catch (error, stack) {
+    Log.e('保存设置失败', error: error, stackTrace: stack);
+    showToast(message: '保存设置失败');
+  }
+}
+
+/// 保存已经通过统一入口修改的设置，处理异步持久化错误。
+Future<void> _persistSettings(WidgetRef ref, {bool fullData = false}) async {
+  try {
+    await ref.read(appSettingsProvider.notifier).save(fullData: fullData);
+  } catch (error, stack) {
+    Log.e('保存设置失败', error: error, stackTrace: stack);
+    showToast(message: '保存设置失败');
+  }
+}
+
+/// 从当前弹窗所属的容器读取统一设置控制器。
+AppSettings _settingsController(BuildContext context) {
+  return ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appSettingsProvider.notifier);
+}
+
+/// 普通函数中的设置弹窗复用统一写入，并展示持久化错误。
+Future<void> _saveSettingContext(
+  BuildContext context,
+  String key,
+  String value, {
+  bool fullData = false,
+}) async {
+  try {
+    await _settingsController(context).setValue(key, value, fullData: fullData);
+  } catch (error, stack) {
+    Log.e('保存设置失败', error: error, stackTrace: stack);
+    if (context.mounted) showToast(message: '保存设置失败');
   }
 }
 
@@ -77,12 +127,13 @@ class NewPageSetting extends StatelessWidget {
   }
 }
 
-class SelectSettingWithAppdata extends StatelessWidget {
+/// 保留原调用接口的索引选择控件，通过 Provider 读写设置。
+class SelectSettingWithAppdata extends ConsumerWidget {
   const SelectSettingWithAppdata({
     super.key,
     required this.icon,
     required this.title,
-    required this.settingsIndex,
+    required this.settingKey,
     required this.options,
     this.onChanged,
   });
@@ -91,24 +142,25 @@ class SelectSettingWithAppdata extends StatelessWidget {
 
   final String title;
 
-  final int settingsIndex;
+  final String settingKey;
 
   final List<String> options;
 
   final void Function()? onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SelectSetting(
       leading: icon,
       title: title,
       values: options,
       onChanged: (i) {
-        appdata.settings[settingsIndex] = i.toString();
-        appdata.updateSettings();
+        _saveSetting(ref, settingKey, i.toString());
         onChanged?.call();
       },
-      initialValue: int.parse(appdata.settings[settingsIndex]),
+      initialValue: ref.watch(
+        appSettingsProvider.select((s) => s.integer(settingKey)),
+      ),
     );
   }
 }
@@ -194,12 +246,25 @@ class _SelectTileState extends State<_SelectTile> {
     super.initState();
   }
 
+  /// 外部设置重载后同步选中项。
+  @override
+  void didUpdateWidget(covariant _SelectTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      value = widget.initialValue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: widget.icon,
       title: Text(widget.title),
-      subtitle: Text(value == -1 ? "无".tl : widget.options[value]),
+      subtitle: Text(
+        value < 0 || value >= widget.options.length
+            ? "无".tl
+            : widget.options[value],
+      ),
       onTap: showOptions,
       trailing: const Icon(Icons.arrow_drop_down),
     );

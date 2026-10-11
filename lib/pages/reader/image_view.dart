@@ -110,7 +110,7 @@ Widget buildComicView(
         }
         if (!hasOriginSize &&
             height / width < 1 &&
-            appdata.settings[43] == "1") {
+            appdata.getSetting(AppSettingKeys.limitReaderImageWidth) == "1") {
           imageWidth = min(height / 0.8, 2160 / mediaQuery.devicePixelRatio);
         }
 
@@ -169,8 +169,8 @@ Widget buildComicView(
     return PhotoViewGallery.builder(
       backgroundDecoration: decoration,
       key: Key(state.readingMethod.index.toString()),
-      reverse: appdata.settings[9] == "2",
-      scrollDirection: appdata.settings[9] != "3"
+      reverse: appdata.getSetting(AppSettingKeys.readingMode) == "2",
+      scrollDirection: appdata.getSetting(AppSettingKeys.readingMode) != "3"
           ? Axis.horizontal
           : Axis.vertical,
       itemCount: state.urls.length + 2,
@@ -193,7 +193,7 @@ Widget buildComicView(
         precacheComicImage(state, logic, context, index, target, readingData);
 
         BoxFit getFit() {
-          switch (appdata.settings[41]) {
+          switch (appdata.getSetting(AppSettingKeys.readerImageLayout)) {
             case "1":
               return BoxFit.fitWidth;
             case "2":
@@ -410,9 +410,13 @@ Widget buildComicView(
 
   Widget body;
 
-  if (["1", "2", "3"].contains(appdata.settings[9])) {
+  if ([
+    "1",
+    "2",
+    "3",
+  ].contains(appdata.getSetting(AppSettingKeys.readingMode))) {
     body = buildType123();
-  } else if (appdata.settings[9] == "4") {
+  } else if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
     logic.photoViewControllers[0] ??= PhotoViewController();
     body = PhotoView.customChild(
       backgroundDecoration: decoration,
@@ -424,7 +428,7 @@ Widget buildComicView(
       onScaleEnd: (context, detail, value) {
         var prev = state.currentScale;
         logic.setCurrentScale(value.scale ?? 1.0);
-        if (appdata.settings[43] != "1") {
+        if (appdata.getSetting(AppSettingKeys.limitReaderImageWidth) != "1") {
           return false;
         }
         return updateLocation(context, logic.photoViewController);
@@ -652,7 +656,8 @@ void precacheComicImage(
   if (logic.requestedLoadingItems.length != logic.length) {
     logic.requestedLoadingItems = List.filled(logic.length + 1, false);
   }
-  int precacheNum = int.parse(appdata.settings[28]) + index;
+  int precacheNum =
+      int.parse(appdata.getSetting(AppSettingKeys.preloadPages)) + index;
   for (; index < precacheNum; index++) {
     if (index >= state.urls.length || logic.requestedLoadingItems[index]) {
       return;

@@ -43,12 +43,12 @@ class EhNetwork {
   }
 
   ///e-hentai的url
-  String get ehBaseUrl => appdata.settings[20] == "0"
+  String get ehBaseUrl => appdata.getSetting(AppSettingKeys.ehSite) == "0"
       ? "https://e-hentai.org"
       : "https://exhentai.org";
 
   ///api url
-  get ehApiUrl => appdata.settings[20] == "0"
+  get ehApiUrl => appdata.getSetting(AppSettingKeys.ehSite) == "0"
       ? "https://api.e-hentai.org/api.php"
       : "https://exhentai.org/api.php";
 
@@ -68,7 +68,8 @@ class EhNetwork {
 
     var shouldAdd = [
       if (setNW) Cookie("nw", "1") else Cookie("nw", "0"),
-      if (appdata.settings[75] != "") Cookie("sp", appdata.settings[75]),
+      if (appdata.getSetting(AppSettingKeys.ehProfile) != "")
+        Cookie("sp", appdata.getSetting(AppSettingKeys.ehProfile)),
     ];
 
     var cookies = await cookieJar.loadForRequest(Uri.parse(url));

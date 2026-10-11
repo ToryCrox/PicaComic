@@ -1,16 +1,17 @@
 part of pica_settings;
 
-class EhSettings extends StatefulWidget {
+class EhSettings extends ConsumerStatefulWidget {
   const EhSettings(this.popUp, {Key? key}) : super(key: key);
   final bool popUp;
 
   @override
-  State<EhSettings> createState() => _EhSettingsState();
+  ConsumerState<EhSettings> createState() => _EhSettingsState();
 }
 
-class _EhSettingsState extends State<EhSettings> {
+class _EhSettingsState extends ConsumerState<EhSettings> {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         const ListTile(title: Text("E-Hentai")),
@@ -18,12 +19,17 @@ class _EhSettingsState extends State<EhSettings> {
           leading: const Icon(Icons.dns),
           title: Text("画廊站点".tl),
           trailing: Select(
-            initialValue: int.parse(appdata.settings[20]),
+            initialValue: int.parse(appdata.getSetting(AppSettingKeys.ehSite)),
             width: 150,
             values: const ["e-hentai.org", "exhentai.org"],
             onChange: (i) {
-              appdata.settings[20] = i.toString();
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.ehSite,
+                i.toString(),
+                persist: false,
+              );
+              _persistSettings(ref);
             },
           ),
           //onTap: () => setEhDomain(context),
@@ -33,12 +39,17 @@ class _EhSettingsState extends State<EhSettings> {
           title: Text("优先加载原图".tl),
           subtitle: Text("可能导致加载失败".tl),
           trailing: Switch(
-            value: appdata.settings[29] == "1",
+            value: appdata.getSetting(AppSettingKeys.ehPreferOriginal) == "1",
             onChanged: (b) {
               setState(() {
-                appdata.settings[29] = b ? "1" : "0";
+                _saveSetting(
+                  ref,
+                  AppSettingKeys.ehPreferOriginal,
+                  b ? "1" : "0",
+                  persist: false,
+                );
               });
-              appdata.updateSettings();
+              _persistSettings(ref);
             },
           ),
         ),
@@ -46,12 +57,17 @@ class _EhSettingsState extends State<EhSettings> {
           leading: const Icon(Icons.notifications_off_outlined),
           title: Text("忽略警告".tl),
           trailing: Switch(
-            value: appdata.settings[47] == "1",
+            value: appdata.getSetting(AppSettingKeys.ehIgnoreWarnings) == "1",
             onChanged: (b) {
               setState(() {
-                appdata.settings[47] = b ? "1" : "0";
+                _saveSetting(
+                  ref,
+                  AppSettingKeys.ehIgnoreWarnings,
+                  b ? "1" : "0",
+                  persist: false,
+                );
               });
-              appdata.updateSettings();
+              _persistSettings(ref);
             },
           ),
         ),
@@ -60,12 +76,19 @@ class _EhSettingsState extends State<EhSettings> {
           title: Text("优先显示副标题".tl),
           subtitle: Text("适用于已下载的画廊".tl),
           trailing: Switch(
-            value: appdata.settings[78] == "1",
+            value:
+                appdata.getSetting(AppSettingKeys.ehDownloadedUseSubtitle) ==
+                "1",
             onChanged: (b) {
               setState(() {
-                appdata.settings[78] = b ? "1" : "0";
+                _saveSetting(
+                  ref,
+                  AppSettingKeys.ehDownloadedUseSubtitle,
+                  b ? "1" : "0",
+                  persist: false,
+                );
               });
-              appdata.updateSettings();
+              _persistSettings(ref);
             },
           ),
         ),
@@ -80,14 +103,15 @@ class _EhSettingsState extends State<EhSettings> {
   }
 }
 
-class EhProfileSelectPage extends StatefulWidget {
+class EhProfileSelectPage extends ConsumerStatefulWidget {
   const EhProfileSelectPage({super.key});
 
   @override
-  State<EhProfileSelectPage> createState() => _EhProfileSelectPageState();
+  ConsumerState<EhProfileSelectPage> createState() =>
+      _EhProfileSelectPageState();
 }
 
-class _EhProfileSelectPageState extends State<EhProfileSelectPage> {
+class _EhProfileSelectPageState extends ConsumerState<EhProfileSelectPage> {
   bool loading = true;
 
   Map<String, String>? profiles;
@@ -110,6 +134,7 @@ class _EhProfileSelectPageState extends State<EhProfileSelectPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     if (loading) {
       loadData();
     }
@@ -139,12 +164,12 @@ class _EhProfileSelectPageState extends State<EhProfileSelectPage> {
         return RadioListTile<String>(
           title: Text(value),
           value: key,
-          groupValue: appdata.settings[75],
+          groupValue: appdata.getSetting(AppSettingKeys.ehProfile),
           onChanged: (value) async {
             setState(() {
-              appdata.settings[75] = key;
+              _saveSetting(ref, AppSettingKeys.ehProfile, key, persist: false);
             });
-            appdata.updateSettings();
+            _persistSettings(ref);
           },
         );
       },

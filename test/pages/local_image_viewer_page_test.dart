@@ -10,7 +10,7 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  late List<String> originalSettings;
+  late Map<String, String> originalSettings;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,8 +21,8 @@ void main() {
 
   setUp(() async {
     await PrefsHelper.remove('local_image_viewer_comparison_mode');
-    originalSettings = List<String>.from(appdata.settings);
-    appdata.settings[50] = 'cn';
+    originalSettings = Map<String, String>.from(appdata.settings);
+    appdata.setSetting(AppSettingKeys.language, 'cn');
   });
 
   tearDown(() {

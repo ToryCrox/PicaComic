@@ -876,7 +876,7 @@ class LocalFavoriteTile extends ComicTile {
       showToast(message: "无效的漫画".tl);
       return;
     }
-    if (appdata.settings[60] == "0") {
+    if (appdata.getSetting(AppSettingKeys.localFavoriteTapAction) == "0") {
       showInfo();
     } else {
       read();

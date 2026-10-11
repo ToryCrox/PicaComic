@@ -196,7 +196,7 @@ class App {
         deviceLocale.scriptCode == "Hant") {
       deviceLocale = const Locale("zh", "TW");
     }
-    return switch (appdata.settings[50]) {
+    return switch (appdata.getSetting(AppSettingKeys.language)) {
       "cn" => const Locale("zh", "CN"),
       "tw" => const Locale("zh", "TW"),
       "en" => const Locale("en", "US"),

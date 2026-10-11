@@ -23,6 +23,8 @@ import 'package:silky_scroll/src/silky_scroll_widget.dart';
 
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
 
 import 'download_providers.dart';
@@ -259,21 +261,25 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   /// 构建 FAB - 切换正序/倒序排序
   Widget _buildFAB(BuildContext context) {
-    // 判断当前是否为倒序（desc），settings[26][1] == "1" 表示升序（asc），否则为降序（desc）
-    final isDescending = appdata.settings[26][1] != "1";
+    // 判断当前是否为倒序（desc），downloadSort 的第二位为 "1" 表示升序（asc），否则为降序（desc）
+    final isDescending =
+        appdata.getSetting(AppSettingKeys.downloadSort)[1] != "1";
 
     return FloatingActionButton(
       enableFeedback: true,
-      onPressed: () {
-        // 切换正序/倒序
-        if (isDescending) {
-          // 当前是倒序，切换为正序
-          appdata.settings[26] = appdata.settings[26].setValueAt("1", 1);
-        } else {
-          // 当前是正序，切换为倒序
-          appdata.settings[26] = appdata.settings[26].setValueAt("0", 1);
+      onPressed: () async {
+        try {
+          final current = ref
+              .read(appSettingsProvider)
+              .value(AppSettingKeys.downloadSort);
+          final next = current.setValueAt(isDescending ? '1' : '0', 1);
+          await ref
+              .read(appSettingsProvider.notifier)
+              .setValue(AppSettingKeys.downloadSort, next);
+        } catch (error, stack) {
+          Log.e('保存下载排序失败', error: error, stackTrace: stack);
+          if (mounted) showToast(message: '保存设置失败');
         }
-        appdata.updateSettings();
         // 触发排序更新（内存排序，不重新从数据库读取）
         triggerSortUpdate(ref);
       },

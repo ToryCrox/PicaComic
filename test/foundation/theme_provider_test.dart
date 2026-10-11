@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pica_comic/foundation/theme/theme_provider.dart';
+import 'package:pica_comic/base.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,6 +13,27 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await PrefsHelper.init();
+  });
+
+  test('命名字体设置更新后自动重新生成主题', () async {
+    final original = appdata.getSetting(AppSettingKeys.font);
+    final container = ProviderContainer();
+    addTearDown(() {
+      container.dispose();
+      appdata.setSetting(AppSettingKeys.font, original);
+    });
+    container.read(themeBundleProvider);
+    appdata.setSetting(AppSettingKeys.font, 'Test Font');
+    await container.pump();
+    expect(
+      container
+          .read(themeBundleProvider)
+          .lightTheme
+          .textTheme
+          .bodyMedium!
+          .fontFamily,
+      'Test Font',
+    );
   });
 
   test('默认主题状态符合 PixEz 配置', () {

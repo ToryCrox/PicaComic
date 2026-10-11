@@ -6,7 +6,7 @@ import 'package:pica_comic/base.dart';
 const String kJmScrambleId = "220980";
 
 String getBaseUrl() {
-  return appdata.settings[86];
+  return appdata.getSetting(AppSettingKeys.jmImageDomain);
 }
 
 String getJmCoverUrl(String id) {

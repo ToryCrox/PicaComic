@@ -180,11 +180,11 @@ class DownloadManager extends ChangeNotifier {
 
   ///获取下载目录
   Future<void> _getPath() async {
-    if (appdata.settings[22] == "") {
+    if (appdata.getSetting(AppSettingKeys.downloadDirectory) == "") {
       final appPath = await getApplicationSupportDirectory();
       path = "${appPath.path}/download";
     } else {
-      path = appdata.settings[22];
+      path = appdata.getSetting(AppSettingKeys.downloadDirectory);
     }
     Log.d(() => 'DownloadManager: 下载路径设置为 $path');
     if (App.isIOS) {

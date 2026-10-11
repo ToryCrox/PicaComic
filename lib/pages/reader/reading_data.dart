@@ -267,7 +267,7 @@ class EhReadingData extends ReadingData {
   String buildImageKey(int ep, int page, String url) => buildEhImageCacheKey(
     gallery.link,
     page + 1,
-    preferOriginal: appdata.settings[29] == "1",
+    preferOriginal: appdata.getSetting(AppSettingKeys.ehPreferOriginal) == "1",
   );
 
   @override

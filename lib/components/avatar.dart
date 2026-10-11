@@ -65,7 +65,9 @@ class Avatar extends StatelessWidget {
                       : PicaImage(url: avatarUrl, fit: BoxFit.cover),
                 ),
               ),
-              if (frame != null && appdata.settings[5] == "1")
+              if (frame != null &&
+                  appdata.getSetting(AppSettingKeys.picacgShowAvatarFrame) ==
+                      "1")
                 Positioned(child: PicaImage(url: frame!)),
             ],
           ),

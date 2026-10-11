@@ -1,5 +1,6 @@
 part of pica_settings;
 
+/// 网络配置面板，观察已保存配置并通过 Notifier 应用修改。
 class NetworkSettings extends ConsumerStatefulWidget {
   const NetworkSettings({super.key});
 
@@ -8,9 +9,10 @@ class NetworkSettings extends ConsumerStatefulWidget {
 }
 
 class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
-  Future<void> _applyNetworkSettings() async {
+  /// 保存及应用失败时显示现有网络错误提示。
+  Future<void> _applyNetworkSettings(Future<void> Function() action) async {
     try {
-      await ref.read(networkClientManagerProvider).applySettings();
+      await action();
     } catch (e, s) {
       Log.e('Apply network settings failed.\n$e\n$s');
       if (mounted) {
@@ -36,10 +38,11 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final backend = kIsWeb
-        ? NetworkBackend.dio
-        : appdata.appSettings.networkBackend;
-    final protocol = appdata.appSettings.networkProtocol;
+    ref.watch(appSettingsProvider);
+    final settings = ref.watch(networkSettingsControllerProvider);
+    final controller = ref.read(networkSettingsControllerProvider.notifier);
+    final backend = settings.backend;
+    final protocol = settings.protocol;
     final showSpeedBall = ref.watch(networkSpeedBallEnabledProvider);
     final collectNetworkLogs = ref.watch(networkLogCollectingProvider);
     return Column(
@@ -66,9 +69,9 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
                 ? null
                 : (value) {
                     if (value == null) return;
-                    setState(() => appdata.appSettings.networkBackend = value);
-                    appdata.updateSettings();
-                    unawaited(_applyNetworkSettings());
+                    unawaited(
+                      _applyNetworkSettings(() => controller.setBackend(value)),
+                    );
                   },
             items: NetworkBackend.values
                 .map(
@@ -89,9 +92,9 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
             value: protocol,
             onChanged: (value) {
               if (value == null) return;
-              setState(() => appdata.appSettings.networkProtocol = value);
-              appdata.updateSettings();
-              unawaited(_applyNetworkSettings());
+              unawaited(
+                _applyNetworkSettings(() => controller.setProtocol(value)),
+              );
             },
             items: NetworkProtocol.values
                 .map(
@@ -157,16 +160,11 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
           leading: const Icon(Icons.dns),
           title: Text("启用".tl),
           trailing: Switch(
-            value: appdata.settings[58] == "1",
+            value: settings.hostsEnabled,
             onChanged: (value) {
-              setState(() {
-                appdata.settings[58] = value ? "1" : "0";
-              });
-              appdata.updateSettings();
-              if (value) {
-                HttpProxyServer.reload();
-              }
-              unawaited(networkClientManager.applySettings());
+              unawaited(
+                _applyNetworkSettings(() => controller.setHostsEnabled(value)),
+              );
             },
           ),
         ),
@@ -196,14 +194,14 @@ class _NetworkSettingsState extends ConsumerState<NetworkSettings> {
   }
 }
 
-class EditRuleView extends StatefulWidget {
+class EditRuleView extends ConsumerStatefulWidget {
   const EditRuleView({super.key});
 
   @override
-  State<EditRuleView> createState() => _EditRuleViewState();
+  ConsumerState<EditRuleView> createState() => _EditRuleViewState();
 }
 
-class _EditRuleViewState extends State<EditRuleView> {
+class _EditRuleViewState extends ConsumerState<EditRuleView> {
   final file = File("${App.dataPath}/rule.json");
 
   late TextEditingController controller;
@@ -223,6 +221,7 @@ class _EditRuleViewState extends State<EditRuleView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text("rule.json")),
       body: SingleChildScrollView(

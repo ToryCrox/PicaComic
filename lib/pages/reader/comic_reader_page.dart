@@ -96,12 +96,12 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     WakelockPlus.enable();
-    if (appdata.settings[76] == "1") {
+    if (appdata.getSetting(AppSettingKeys.readerOrientation) == "1") {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-    } else if (appdata.settings[76] == "2") {
+    } else if (appdata.getSetting(AppSettingKeys.readerOrientation) == "2") {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -168,7 +168,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       ComicReaderPage.updateActiveComicPageHistory(readingData.history);
     });
 
-    if (appdata.settings[76] != "0") {
+    if (appdata.getSetting(AppSettingKeys.readerOrientation) != "0") {
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
     if (useDarkBackground) {
@@ -260,7 +260,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 });
               }
 
-              if (appdata.settings[7] == "1") {
+              if (appdata.getSetting(AppSettingKeys.readerVolumeKeys) == "1") {
                 if (logic.listenVolume == null) {
                   logic.listenVolume = ListenVolumeController(
                     () => logic.jumpToLastPage(),
@@ -273,7 +273,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 logic.listenVolume = null;
               }
 
-              if (appdata.settings[9] == "4") {
+              if (appdata.getSetting(AppSettingKeys.readingMode) == "4") {
                 logic.scrollManager ??= ScrollManager(logic);
               }
 

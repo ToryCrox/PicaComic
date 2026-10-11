@@ -545,7 +545,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 () => adapter.openFavoritePanel(data, notifier, context),
                 () async {
                   // 长按直接收藏到默认本地文件夹
-                  var folder = appdata.settings[51];
+                  var folder = appdata.getSetting(
+                    AppSettingKeys.defaultFavoriteFolder,
+                  );
                   if ((await LocalFavoritesManager().folderNames).contains(
                     folder,
                   )) {

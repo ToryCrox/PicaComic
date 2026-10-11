@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../base.dart';
+import '../foundation/app_settings_provider.dart';
 import 'jm_network/jm_crypto.dart';
 import 'network_monitor_settings.dart';
 
@@ -555,6 +557,14 @@ class NetworkLogController extends _$NetworkLogController
 
   @override
   NetworkLogState build() {
+    ref.listen(
+      appSettingsProvider.select(
+        (s) => s.enabled(networkLogCollectingSettingKey),
+      ),
+      (_, collecting) {
+        state = state.copyWith(isCollecting: collecting);
+      },
+    );
     return NetworkLogState(
       logs: const [],
       searchQuery: '',
@@ -661,12 +671,10 @@ class NetworkLogController extends _$NetworkLogController
 
   /// 设置是否采集网络日志。
   Future<void> setCollecting(bool value) async {
-    while (appdata.settings.length <= networkLogCollectingSettingIndex) {
-      appdata.settings.add('0');
-    }
-    appdata.settings[networkLogCollectingSettingIndex] = value ? '1' : '0';
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setValue(networkLogCollectingSettingKey, value ? '1' : '0');
     state = state.copyWith(isCollecting: value);
-    await appdata.updateSettings();
   }
 
   /// 修改搜索关键字。
@@ -756,8 +764,9 @@ class NetworkLogController extends _$NetworkLogController
   }
 
   bool _readCollectingSetting() {
-    return appdata.settings.length > networkLogCollectingSettingIndex &&
-        appdata.settings[networkLogCollectingSettingIndex] == '1';
+    return ref
+        .read(appSettingsProvider)
+        .enabled(networkLogCollectingSettingKey);
   }
 }
 

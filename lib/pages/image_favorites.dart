@@ -118,7 +118,10 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     }
 
     return GridView.builder(
-      gridDelegate: SliverGridDelegateWithComics(true, appdata.settings[74]),
+      gridDelegate: SliverGridDelegateWithComics(
+        true,
+        appdata.getSetting(AppSettingKeys.imageFavoriteScale),
+      ),
       itemCount: _imageList.length,
       itemBuilder: (context, index) {
         return FavoriteImageTile(_imageList[index], onDeleted: _refresh);

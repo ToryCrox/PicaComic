@@ -161,7 +161,8 @@ class JmNetwork {
 
   static List<String> get domains => appdata.appSettings.jmApiDomains;
 
-  String get baseUrl => "https://${domains[int.parse(appdata.settings[17])]}";
+  String get baseUrl =>
+      "https://${domains[int.parse(appdata.getSetting(AppSettingKeys.jmApiStream))]}";
 
   static const domainUrls = [
     "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
@@ -422,7 +423,7 @@ class JmNetwork {
     try {
       var res = await get("$baseUrl/setting?app_img_shunt=$index");
       var url = res.data["img_host"];
-      appdata.settings[86] = url;
+      appdata.setSetting(AppSettingKeys.jmImageDomain, url);
       appdata.updateSettings();
       Log.i("Network Updated JM Image URL: $url");
     } on DioException catch (e) {
@@ -773,10 +774,10 @@ class JmNetwork {
   }
 
   Future<Res<bool>> login(String account, String pwd) async {
-    if (appdata.settings[15] == "1") {
+    if (appdata.getSetting(AppSettingKeys.jmAutoSelectDomain) == "1") {
       var i = await selectDomain();
       if (i != null) {
-        appdata.settings[17] = i.toString();
+        appdata.setSetting(AppSettingKeys.jmApiStream, i.toString());
         Log.i("Network Selected JM API Stream ${i + 1}: ${domains[i]}");
       }
     }
@@ -795,8 +796,10 @@ class JmNetwork {
       return const Res(true);
     } finally {
       _performingLogin = false;
-      await updateImgUrl(int.parse(appdata.settings[37]) + 1);
-      if (appdata.settings[88] == "1") {
+      await updateImgUrl(
+        int.parse(appdata.getSetting(AppSettingKeys.jmImageStream)) + 1,
+      );
+      if (appdata.getSetting(AppSettingKeys.jmAutoCheckIn) == "1") {
         var res = await dailyChk();
         if (res.error) {
           Log.e("Network JM auto check-in failed\n${res.errorMessage}");
@@ -838,7 +841,8 @@ class JmNetwork {
     String id,
     int page,
   ) async {
-    ComicsOrder order = appdata.settings[42] == "0"
+    ComicsOrder order =
+        appdata.getSetting(AppSettingKeys.jmFavoritesOrder) == "0"
         ? ComicsOrder.latest
         : ComicsOrder.update;
     var res = await get(

@@ -58,10 +58,10 @@ void main() {
   });
 
   test('NetworkLogController 记录请求、响应并限制 500 条', () {
-    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
-    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    final oldValue = appdata.getSetting(networkLogCollectingSettingKey);
+    appdata.setSetting(networkLogCollectingSettingKey, '1');
     addTearDown(
-      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+      () => appdata.setSetting(networkLogCollectingSettingKey, oldValue),
     );
 
     final container = ProviderContainer();
@@ -220,10 +220,10 @@ void main() {
   });
 
   test('网络日志可以分类、关联图片路径并合并分片', () {
-    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
-    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    final oldValue = appdata.getSetting(networkLogCollectingSettingKey);
+    appdata.setSetting(networkLogCollectingSettingKey, '1');
     addTearDown(
-      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+      () => appdata.setSetting(networkLogCollectingSettingKey, oldValue),
     );
 
     final container = ProviderContainer();
@@ -326,10 +326,10 @@ void main() {
   });
 
   test('显式图片请求保留 Image 类型并记录实际 HTML 响应类型', () {
-    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
-    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    final oldValue = appdata.getSetting(networkLogCollectingSettingKey);
+    appdata.setSetting(networkLogCollectingSettingKey, '1');
     addTearDown(
-      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+      () => appdata.setSetting(networkLogCollectingSettingKey, oldValue),
     );
 
     final container = ProviderContainer();
@@ -359,10 +359,10 @@ void main() {
   });
 
   test('应用层图片解析失败会回写网络日志', () {
-    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
-    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    final oldValue = appdata.getSetting(networkLogCollectingSettingKey);
+    appdata.setSetting(networkLogCollectingSettingKey, '1');
     addTearDown(
-      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+      () => appdata.setSetting(networkLogCollectingSettingKey, oldValue),
     );
 
     final container = ProviderContainer();
@@ -421,10 +421,10 @@ void main() {
   });
 
   test('图片下载上下文不会把 api.php 关联到最终图片文件', () {
-    final oldValue = appdata.settings[networkLogCollectingSettingIndex];
-    appdata.settings[networkLogCollectingSettingIndex] = '1';
+    final oldValue = appdata.getSetting(networkLogCollectingSettingKey);
+    appdata.setSetting(networkLogCollectingSettingKey, '1');
     addTearDown(
-      () => appdata.settings[networkLogCollectingSettingIndex] = oldValue,
+      () => appdata.setSetting(networkLogCollectingSettingKey, oldValue),
     );
 
     final container = ProviderContainer();

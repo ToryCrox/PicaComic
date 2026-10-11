@@ -1,24 +1,25 @@
 part of pica_settings;
 
-class HitomiSettings extends StatefulWidget {
+class HitomiSettings extends ConsumerStatefulWidget {
   const HitomiSettings(this.popUp, {super.key});
 
   final bool popUp;
 
   @override
-  State<HitomiSettings> createState() => _HitomiSettingsState();
+  ConsumerState<HitomiSettings> createState() => _HitomiSettingsState();
 }
 
-class _HitomiSettingsState extends State<HitomiSettings> {
+class _HitomiSettingsState extends ConsumerState<HitomiSettings> {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         ListTile(title: Text("Hitomi".tl)),
         ListTile(
           leading: const Icon(Icons.dns),
           title: Text("CDN ${"域名".tl}"),
-          subtitle: Text(appdata.settings[87]),
+          subtitle: Text(appdata.getSetting(AppSettingKeys.hitomiCdnDomain)),
           trailing: IconButton(
             onPressed: () => changeDomain(context),
             icon: const Icon(Icons.edit),
@@ -30,7 +31,9 @@ class _HitomiSettingsState extends State<HitomiSettings> {
 
   void changeDomain(BuildContext context) {
     final FocusNode focusNode = FocusNode();
-    var controller = TextEditingController(text: appdata.settings[87]);
+    var controller = TextEditingController(
+      text: appdata.getSetting(AppSettingKeys.hitomiCdnDomain),
+    );
 
     void onFinished() {
       var text = controller.text;
@@ -38,8 +41,8 @@ class _HitomiSettingsState extends State<HitomiSettings> {
       if (!text.isURL) {
         showToast(message: "Invalid Domain");
       } else {
-        appdata.settings[87] = text;
-        appdata.updateSettings();
+        _saveSetting(ref, AppSettingKeys.hitomiCdnDomain, text, persist: false);
+        _persistSettings(ref);
         setState(() {});
       }
     }

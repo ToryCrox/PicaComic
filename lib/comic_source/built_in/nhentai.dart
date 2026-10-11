@@ -58,7 +58,11 @@ final nhentai = ComicSource.named(
   categoryComicsData: CategoryComicsData.named(
     load: (category, param, options, page) async {
       var [_, type, name] = param!.split('/');
-      var lang = int.tryParse(appdata.settings[69]) ?? 0;
+      var lang =
+          int.tryParse(
+            appdata.getSetting(AppSettingKeys.searchLanguageFilter),
+          ) ??
+          0;
       if (lang != 0) {
         return NhentaiNetwork().search(
           "$type:$name language:${["chinese", "english", "japanese"][lang - 1]}",

@@ -6,15 +6,15 @@ void main() {
   late String originalSetting;
 
   setUp(() {
-    originalSetting = appdata.settings[44];
+    originalSetting = appdata.getSetting(AppSettingKeys.comicTileDisplay);
   });
 
   tearDown(() {
-    appdata.settings[44] = originalSetting;
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, originalSetting);
   });
 
   test('相同漫画网格配置不触发重新布局', () {
-    appdata.settings[44] = '0,1.0';
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, '0,1.0');
 
     final previous = SliverGridDelegateWithComics();
     final current = SliverGridDelegateWithComics();
@@ -23,10 +23,10 @@ void main() {
   });
 
   test('显示模式或缩放变化时触发重新布局', () {
-    appdata.settings[44] = '0,1.0';
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, '0,1.0');
     final detailed = SliverGridDelegateWithComics();
 
-    appdata.settings[44] = '1,1.0';
+    appdata.setSetting(AppSettingKeys.comicTileDisplay, '1,1.0');
     final brief = SliverGridDelegateWithComics();
     expect(brief.shouldRelayout(detailed), isTrue);
 

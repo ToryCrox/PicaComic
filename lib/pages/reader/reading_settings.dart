@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 
 import '../../components/components.dart';
 import '../../foundation/app.dart';
@@ -10,7 +11,6 @@ import '../../foundation/log.dart';
 import '../../foundation/ui_mode.dart';
 import '../../tools/translations.dart';
 import 'reader_logic.dart';
-import 'reading_data.dart';
 import 'reading_type.dart';
 
 void showSettings(BuildContext context, String sessionId) {
@@ -32,6 +32,7 @@ void showSettings(BuildContext context, String sessionId) {
   }
 }
 
+/// 阅读器会话设置面板，持久化偏好由应用设置 Provider 共享。
 class ReadingSettings extends ConsumerStatefulWidget {
   const ReadingSettings({required this.sessionId, Key? key}) : super(key: key);
   final String sessionId;
@@ -41,13 +42,7 @@ class ReadingSettings extends ConsumerStatefulWidget {
 }
 
 class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
-  bool pageChangeValue = appdata.settings[0] == "1";
-  bool useVolumeKeyChangePage = appdata.settings[7] == "1";
-  bool keepScreenOn = appdata.settings[14] == "1";
-  bool lowBrightness = appdata.settings[18] == "1";
-  var value = int.parse(appdata.settings[9]);
   int i = 0;
-  double opacityLevel = 1.0;
 
   ComicReaderLogic get _logic =>
       ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
@@ -56,297 +51,15 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
 
   @override
   Widget build(BuildContext context) {
+    final reading = ref.watch(readerSettingsProvider);
     final state = ref.watch(comicReaderLogicProvider(widget.sessionId));
     final logic = ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
     var pages = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 0, 5),
-            child: Text("阅读设置".tl, style: const TextStyle(fontSize: 18)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.chrome_reader_mode),
-            title: Text("阅读模式".tl),
-            subtitle: Text(
-              [
-                "从左至右".tl,
-                "从右至左".tl,
-                "从上至下".tl,
-                "从上至下(连续)".tl,
-                "双页".tl,
-                "双页(反向)".tl,
-              ][int.parse(appdata.settings[9]) - 1],
-            ),
-            trailing: const Icon(Icons.arrow_right),
-            onTap: () => setState(() {
-              i = 1;
-            }),
-          ),
-          if (appdata.settings[9] == "5" || appdata.settings[9] == "6")
-            ListTile(
-              leading: const Icon(Icons.auto_awesome_motion),
-              title: Text("首页显示单张图片".tl),
-              trailing: Switch(
-                value: appdata.implicitData[1] == '1',
-                onChanged: (b) {
-                  appdata.implicitData[1] = b ? '1' : '0';
-                  appdata.writeData();
-                  setState(() {});
-                  logic.notifySettingsChanged();
-                },
-              ),
-              onTap: () {},
-            ),
-          ListTile(
-            leading: const Icon(Icons.touch_app_outlined),
-            title: Text("点按翻页".tl),
-            trailing: Switch(
-              value: pageChangeValue,
-              onChanged: (b) {
-                b ? appdata.settings[0] = "1" : appdata.settings[0] = "0";
-                setState(() {
-                  pageChangeValue = b;
-                });
-                appdata.writeData();
-              },
-            ),
-            onTap: () {},
-          ),
-          if (appdata.settings[0] == "1")
-            ListTile(
-              leading: const SizedBox(),
-              title: Text("点按翻页识别范围".tl),
-              subtitle: SizedBox(
-                height: 25,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: -20,
-                      right: 0,
-                      child: Slider(
-                        max: 40,
-                        min: 0,
-                        divisions: 40,
-                        value: int.parse(appdata.settings[40]).toDouble(),
-                        overlayColor: WidgetStateColor.resolveWith(
-                          (states) => Colors.transparent,
-                        ),
-                        onChanged: (v) {
-                          if (v == 0) return;
-                          appdata.settings[40] = v.toInt().toString();
-                          appdata.updateSettings();
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              trailing: SizedBox(
-                width: 40,
-                child: Text(
-                  "${appdata.settings[40]}%",
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ),
-          ListTile(
-            leading: const Icon(Icons.swap_horiz),
-            title: Text("反转点按翻页".tl),
-            trailing: Switch(
-              value: appdata.settings[70] == "1",
-              onChanged: (b) => setState(() {
-                appdata.settings[70] = b ? "1" : "0";
-                appdata.updateSettings();
-              }),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.volume_mute),
-            title: Text("使用音量键翻页".tl),
-            trailing: Switch(
-              value: useVolumeKeyChangePage,
-              onChanged: (b) {
-                b ? appdata.settings[7] = "1" : appdata.settings[7] = "0";
-                setState(() {
-                  useVolumeKeyChangePage = b;
-                });
-                appdata.writeData();
-                logic.notifySettingsChanged();
-              },
-            ),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.timer_sharp),
-            subtitle: SizedBox(
-              height: 25,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: -20,
-                    right: 0,
-                    child: Slider(
-                      max: 20,
-                      min: 0,
-                      divisions: 20,
-                      value: int.parse(appdata.settings[33]).toDouble(),
-                      overlayColor: WidgetStateColor.resolveWith(
-                        (states) => Colors.transparent,
-                      ),
-                      onChanged: (v) {
-                        if (v == 0) return;
-                        appdata.settings[33] = v.toInt().toString();
-                        appdata.updateSettings();
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            trailing: SizedBox(
-              width: 40,
-              child: Text(
-                "${appdata.settings[33]}s",
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-            title: Text("自动翻页时间间隔".tl),
-          ),
-          ListTile(
-            leading: const Icon(Icons.brightness_4),
-            title: Text("深色模式下降低图片亮度".tl),
-            onTap: () {},
-            trailing: Switch(
-              value: lowBrightness,
-              onChanged: (b) {
-                b ? appdata.settings[18] = "1" : appdata.settings[18] = "0";
-                setState(() {
-                  lowBrightness = b;
-                });
-                appdata.writeData();
-                logic.notifySettingsChanged();
-              },
-            ),
-          ),
-          if (App.isAndroid)
-            ListTile(
-              leading: const Icon(Icons.screen_lock_rotation),
-              title: Text("固定屏幕方向".tl),
-              onTap: () {},
-              trailing: Select(
-                initialValue: int.parse(appdata.settings[76]),
-                values: ["禁用".tl, "横屏".tl, "竖屏".tl],
-                onChange: (int i) {
-                  appdata.settings[76] = i.toString();
-                  logic.notifySettingsChanged();
-                  appdata.updateSettings();
-                  if (i == 1) {
-                    SystemChrome.setPreferredOrientations([
-                      DeviceOrientation.landscapeLeft,
-                      DeviceOrientation.landscapeRight,
-                    ]);
-                  } else if (i == 2) {
-                    SystemChrome.setPreferredOrientations([
-                      DeviceOrientation.portraitUp,
-                      DeviceOrientation.portraitDown,
-                    ]);
-                  }
-                  setState(() {});
-                },
-              ),
-            ),
-          if (state.readingMethod != ReadingMethod.topToBottomContinuously)
-            ListTile(
-              leading: const Icon(Icons.fit_screen_outlined),
-              title: Text("图片缩放".tl),
-              onTap: () {},
-              trailing: Select(
-                initialValue: int.parse(appdata.settings[41]),
-                values: ["容纳".tl, "适应宽度".tl, "适应高度".tl],
-                onChange: (int i) {
-                  appdata.settings[41] = i.toString();
-                  appdata.updateSettings();
-                  logic.photoViewController.resetWithNewBoxFit(switch (i) {
-                    0 => BoxFit.contain,
-                    1 => BoxFit.fitWidth,
-                    2 => BoxFit.fitHeight,
-                    _ => BoxFit.contain,
-                  });
-                },
-              ),
-            ),
-          ListTile(
-            leading: const Icon(Icons.zoom_out_map),
-            title: Text("双击缩放".tl),
-            onTap: () {},
-            trailing: Switch(
-              value: appdata.settings[49] == "1",
-              onChanged: (value) {
-                appdata.settings[49] = value ? "1" : "0";
-                logic.notifySettingsChanged();
-                appdata.updateSettings();
-                setState(() {});
-              },
-            ),
-          ),
-          if (state.readingMethod == ReadingMethod.topToBottomContinuously)
-            ListTile(
-              leading: const Icon(Icons.width_normal_sharp),
-              title: Text("限制图片最大显示宽度".tl),
-              trailing: Switch(
-                value: appdata.settings[43] == "1",
-                onChanged: (b) => setState(() {
-                  appdata.settings[43] = b ? "1" : "0";
-                  appdata.updateSettings();
-                  Future.microtask(() => logic.notifySettingsChanged());
-                }),
-              ),
-            ),
-          ListTile(
-            leading: const Icon(Icons.zoom_in),
-            title: Text("长按缩放".tl),
-            trailing: Switch(
-              value: appdata.settings[55] == "1",
-              onChanged: (b) => setState(() {
-                appdata.settings[55] = b ? "1" : "0";
-                appdata.updateSettings();
-                Future.microtask(() => logic.notifySettingsChanged());
-              }),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.insert_drive_file_outlined),
-            title: Text("显示页面信息".tl),
-            trailing: Switch(
-              value: appdata.settings[57] == "1",
-              onChanged: (b) => setState(() {
-                appdata.settings[57] = b ? "1" : "0";
-                appdata.updateSettings();
-                Future.microtask(() => logic.notifySettingsChanged());
-              }),
-            ),
-          ),
-          if (!logic.readingData.isDownloaded &&
-              (logic.readingData.type == ReadingType.picacg ||
-                  logic.readingData.type == ReadingType.jm))
-            ListTile(
-              leading: const Icon(Icons.account_tree_sharp),
-              title: Text("设置分流".tl),
-              trailing: const Icon(Icons.arrow_right),
-              onTap: () => setState(() {
-                i = 2;
-              }),
-            ),
+          ..._buildInteractionSettings(reading, logic),
+          ..._buildImageSettings(reading, logic, state),
         ],
       ),
       buildReadingMethodSetting(),
@@ -421,11 +134,328 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
     );
   }
 
+  /// 阅读模式、点按和按键设置。
+  List<Widget> _buildInteractionSettings(
+    ReaderSettingsState reading,
+    ComicReaderLogic logic,
+  ) {
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 0, 5),
+        child: Text("阅读设置".tl, style: const TextStyle(fontSize: 18)),
+      ),
+      ListTile(
+        leading: const Icon(Icons.chrome_reader_mode),
+        title: Text("阅读模式".tl),
+        subtitle: Text(
+          [
+            "从左至右".tl,
+            "从右至左".tl,
+            "从上至下".tl,
+            "从上至下(连续)".tl,
+            "双页".tl,
+            "双页(反向)".tl,
+          ][reading.readingMode - 1],
+        ),
+        trailing: const Icon(Icons.arrow_right),
+        onTap: () => setState(() {
+          i = 1;
+        }),
+      ),
+      if (reading.readingMode == 5 || reading.readingMode == 6)
+        ListTile(
+          leading: const Icon(Icons.auto_awesome_motion),
+          title: Text("首页显示单张图片".tl),
+          trailing: Switch(
+            value: appdata.implicitData[1] == '1',
+            onChanged: (b) {
+              appdata.implicitData[1] = b ? '1' : '0';
+              appdata.writeData();
+              setState(() {});
+              logic.notifySettingsChanged();
+            },
+          ),
+          onTap: () {},
+        ),
+      ListTile(
+        leading: const Icon(Icons.touch_app_outlined),
+        title: Text("点按翻页".tl),
+        trailing: Switch(
+          value: reading.flipWithTap,
+          onChanged: (b) {
+            _saveSetting(
+              AppSettingKeys.readerTapToTurnPage,
+              b ? "1" : "0",
+              fullData: true,
+            );
+          },
+        ),
+        onTap: () {},
+      ),
+      if (reading.flipWithTap)
+        ListTile(
+          leading: const SizedBox(),
+          title: Text("点按翻页识别范围".tl),
+          subtitle: SizedBox(
+            height: 25,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: -20,
+                  right: 0,
+                  child: Slider(
+                    max: 40,
+                    min: 0,
+                    divisions: 40,
+                    value: reading.tapRange.toDouble(),
+                    overlayColor: WidgetStateColor.resolveWith(
+                      (states) => Colors.transparent,
+                    ),
+                    onChanged: (v) {
+                      if (v == 0) return;
+                      _saveSetting(
+                        AppSettingKeys.tapTurnPageRange,
+                        v.toInt().toString(),
+                      );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          trailing: SizedBox(
+            width: 40,
+            child: Text(
+              "${reading.tapRange}%",
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+      ListTile(
+        leading: const Icon(Icons.swap_horiz),
+        title: Text("反转点按翻页".tl),
+        trailing: Switch(
+          value: reading.reverseTap,
+          onChanged: (b) => setState(() {
+            _saveSetting(AppSettingKeys.reverseTapTurnPage, b ? "1" : "0");
+          }),
+        ),
+      ),
+      ListTile(
+        leading: const Icon(Icons.volume_mute),
+        title: Text("使用音量键翻页".tl),
+        trailing: Switch(
+          value: reading.useVolumeKeys,
+          onChanged: (b) {
+            _saveSetting(
+              AppSettingKeys.readerVolumeKeys,
+              b ? "1" : "0",
+              fullData: true,
+            );
+            logic.notifySettingsChanged();
+          },
+        ),
+        onTap: () {},
+      ),
+    ];
+  }
+
+  /// 图片显示、方向和自动翻页设置。
+  List<Widget> _buildImageSettings(
+    ReaderSettingsState reading,
+    ComicReaderLogic logic,
+    ReaderPageState state,
+  ) {
+    return [
+      ListTile(
+        leading: const Icon(Icons.timer_sharp),
+        subtitle: SizedBox(
+          height: 25,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: -20,
+                right: 0,
+                child: Slider(
+                  max: 20,
+                  min: 0,
+                  divisions: 20,
+                  value: reading.autoPageSeconds.toDouble(),
+                  overlayColor: WidgetStateColor.resolveWith(
+                    (states) => Colors.transparent,
+                  ),
+                  onChanged: (v) {
+                    if (v == 0) return;
+                    _saveSetting(
+                      AppSettingKeys.autoPageInterval,
+                      v.toInt().toString(),
+                    );
+                    setState(() {});
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: SizedBox(
+          width: 40,
+          child: Text(
+            "${reading.autoPageSeconds}s",
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        title: Text("自动翻页时间间隔".tl),
+      ),
+      ListTile(
+        leading: const Icon(Icons.brightness_4),
+        title: Text("深色模式下降低图片亮度".tl),
+        onTap: () {},
+        trailing: Switch(
+          value: reading.reduceBrightness,
+          onChanged: (b) {
+            _saveSetting(
+              AppSettingKeys.dimImagesInDarkMode,
+              b ? "1" : "0",
+              fullData: true,
+            );
+            logic.notifySettingsChanged();
+          },
+        ),
+      ),
+      if (App.isAndroid)
+        ListTile(
+          leading: const Icon(Icons.screen_lock_rotation),
+          title: Text("固定屏幕方向".tl),
+          onTap: () {},
+          trailing: Select(
+            initialValue: reading.screenOrientation,
+            values: ["禁用".tl, "横屏".tl, "竖屏".tl],
+            onChange: (int i) {
+              _saveSetting(AppSettingKeys.readerOrientation, i.toString());
+              logic.notifySettingsChanged();
+              if (i == 1) {
+                SystemChrome.setPreferredOrientations([
+                  DeviceOrientation.landscapeLeft,
+                  DeviceOrientation.landscapeRight,
+                ]);
+              } else if (i == 2) {
+                SystemChrome.setPreferredOrientations([
+                  DeviceOrientation.portraitUp,
+                  DeviceOrientation.portraitDown,
+                ]);
+              }
+              setState(() {});
+            },
+          ),
+        ),
+      if (state.readingMethod != ReadingMethod.topToBottomContinuously)
+        ListTile(
+          leading: const Icon(Icons.fit_screen_outlined),
+          title: Text("图片缩放".tl),
+          onTap: () {},
+          trailing: Select(
+            initialValue: reading.imageLayout,
+            values: ["容纳".tl, "适应宽度".tl, "适应高度".tl],
+            onChange: (int i) {
+              _saveSetting(AppSettingKeys.readerImageLayout, i.toString());
+              logic.photoViewController.resetWithNewBoxFit(switch (i) {
+                0 => BoxFit.contain,
+                1 => BoxFit.fitWidth,
+                2 => BoxFit.fitHeight,
+                _ => BoxFit.contain,
+              });
+            },
+          ),
+        ),
+      ListTile(
+        leading: const Icon(Icons.zoom_out_map),
+        title: Text("双击缩放".tl),
+        onTap: () {},
+        trailing: Switch(
+          value: reading.doubleTapZoom,
+          onChanged: (value) {
+            _saveSetting(AppSettingKeys.doubleTapZoom, value ? "1" : "0");
+            logic.notifySettingsChanged();
+            setState(() {});
+          },
+        ),
+      ),
+      if (state.readingMethod == ReadingMethod.topToBottomContinuously)
+        ListTile(
+          leading: const Icon(Icons.width_normal_sharp),
+          title: Text("限制图片最大显示宽度".tl),
+          trailing: Switch(
+            value: reading.limitImageWidth,
+            onChanged: (b) => setState(() {
+              _saveSetting(AppSettingKeys.limitReaderImageWidth, b ? "1" : "0");
+              Future.microtask(() => logic.notifySettingsChanged());
+            }),
+          ),
+        ),
+      ListTile(
+        leading: const Icon(Icons.zoom_in),
+        title: Text("长按缩放".tl),
+        trailing: Switch(
+          value: reading.longPressZoom,
+          onChanged: (b) => setState(() {
+            _saveSetting(AppSettingKeys.longPressZoom, b ? "1" : "0");
+            Future.microtask(() => logic.notifySettingsChanged());
+          }),
+        ),
+      ),
+      ListTile(
+        leading: const Icon(Icons.insert_drive_file_outlined),
+        title: Text("显示页面信息".tl),
+        trailing: Switch(
+          value: reading.showPageInfo,
+          onChanged: (b) => setState(() {
+            _saveSetting(AppSettingKeys.showReaderPageInfo, b ? "1" : "0");
+            Future.microtask(() => logic.notifySettingsChanged());
+          }),
+        ),
+      ),
+      if (!logic.readingData.isDownloaded &&
+          (logic.readingData.type == ReadingType.picacg ||
+              logic.readingData.type == ReadingType.jm))
+        ListTile(
+          leading: const Icon(Icons.account_tree_sharp),
+          title: Text("设置分流".tl),
+          trailing: const Icon(Icons.arrow_right),
+          onTap: () => setState(() {
+            i = 2;
+          }),
+        ),
+    ];
+  }
+
+  /// 保存设置并保留阅读器立即读取 appdata 的行为。
+  Future<void> _saveSetting(
+    String key,
+    String value, {
+    bool fullData = false,
+  }) async {
+    try {
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setValue(key, value, fullData: fullData);
+    } catch (error, stack) {
+      Log.e('保存阅读设置失败', error: error, stackTrace: stack);
+      if (mounted) showToast(message: '保存设置失败');
+    }
+  }
+
+  /// 保存阅读模式并恢复当前会话的翻页控制器。
   void setValue(int i) {
     App.globalBack();
-    value = i;
-    appdata.settings[9] = value.toString();
-    appdata.writeData();
+    final value = i;
+    _saveSetting(AppSettingKeys.readingMode, value.toString(), fullData: true);
     _logic.hideToolsAndSettings();
     final index = _state.currentPage;
     final page = ComicReaderLogic.getPage(_state.currentPage);
@@ -441,6 +471,7 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
     }
   }
 
+  /// 阅读模式选择与当前持久化设置保持同步。
   Widget buildReadingMethodSetting() {
     var options = [
       "从左至右".tl,
@@ -450,43 +481,43 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
       "双页".tl,
       "双页(反向)".tl,
     ];
-    return Column(
-      children: [
-        SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              const SizedBox(width: 6),
-              IconButton(
-                icon: Icon(
-                  Icons.arrow_back_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
+    return RadioGroup<int>(
+      groupValue: ref.watch(readerSettingsProvider).readingMode,
+      onChanged: (value) {
+        if (value != null) setValue(value);
+      },
+      child: Column(
+        children: [
+          SizedBox(
+            height: 60,
+            child: Row(
+              children: [
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_outlined,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  onPressed: () => setState(() {
+                    i = 0;
+                  }),
                 ),
-                onPressed: () => setState(() {
-                  i = 0;
-                }),
-              ),
-              Text("阅读模式".tl, style: const TextStyle(fontSize: 18)),
-            ],
+                Text("阅读模式".tl, style: const TextStyle(fontSize: 18)),
+              ],
+            ),
           ),
-        ),
-        ...List.generate(
-          6,
-          (index) => ListTile(
-            trailing: Radio<int>(
-              value: index + 1,
-              groupValue: value,
-              onChanged: (i) {
-                setValue(i!);
+          ...List.generate(
+            6,
+            (index) => ListTile(
+              trailing: Radio<int>(value: index + 1),
+              title: Text(options[index]),
+              onTap: () {
+                setValue(index + 1);
               },
             ),
-            title: Text(options[index]),
-            onTap: () {
-              setValue(index + 1);
-            },
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

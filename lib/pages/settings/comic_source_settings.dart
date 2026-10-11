@@ -1,10 +1,11 @@
 part of pica_settings;
 
-class ComicSourceSettings extends StatefulWidget {
+class ComicSourceSettings extends ConsumerStatefulWidget {
   const ComicSourceSettings({super.key});
 
   @override
-  State<ComicSourceSettings> createState() => _ComicSourceSettingsState();
+  ConsumerState<ComicSourceSettings> createState() =>
+      _ComicSourceSettingsState();
 
   // static void checkCustomComicSourceUpdate([bool showLoading = false]) async {
   //   if (ComicSource.sources.isEmpty) {
@@ -54,11 +55,12 @@ extension _WidgetExt on Widget {
   }
 }
 
-class _ComicSourceSettingsState extends State<ComicSourceSettings> {
+class _ComicSourceSettingsState extends ConsumerState<ComicSourceSettings> {
   var url = "";
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         const _BuiltInSources(),
@@ -84,16 +86,16 @@ class _ComicSourceSettingsState extends State<ComicSourceSettings> {
   }
 }
 
-class _ComicSourceList extends StatefulWidget {
+class _ComicSourceList extends ConsumerStatefulWidget {
   const _ComicSourceList(this.onAdd);
 
   final Future<void> Function(String) onAdd;
 
   @override
-  State<_ComicSourceList> createState() => _ComicSourceListState();
+  ConsumerState<_ComicSourceList> createState() => _ComicSourceListState();
 }
 
-class _ComicSourceListState extends State<_ComicSourceList> {
+class _ComicSourceListState extends ConsumerState<_ComicSourceList> {
   bool loading = true;
   List? json;
 
@@ -114,6 +116,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text("漫画源".tl),
@@ -161,16 +164,17 @@ class _ComicSourceListState extends State<_ComicSourceList> {
   }
 }
 
-class _BuiltInSources extends StatefulWidget {
+class _BuiltInSources extends ConsumerStatefulWidget {
   const _BuiltInSources();
 
   @override
-  State<_BuiltInSources> createState() => _BuiltInSourcesState();
+  ConsumerState<_BuiltInSources> createState() => _BuiltInSourcesState();
 }
 
-class _BuiltInSourcesState extends State<_BuiltInSources> {
+class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         const Divider(),
@@ -193,16 +197,20 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
         onChanged: (v) async {
           if (isLoading) return;
           isLoading = true;
-          appdata.appSettings.setComicSourceEnabled(key.name, v);
-          await appdata.updateSettings();
+          await ref
+              .read(appSettingsProvider.notifier)
+              .setValue(
+                AppSettingKeys.enabledBuiltInSources,
+                appdata.appSettings.comicSourceEnabledValue(key.name, v),
+              );
           if (!v) {
             ComicSource.sources.removeWhere((e) => e.key == key);
-            _validatePages();
+            await _validatePages(ref);
           } else {
             var source = ComicSource.builtIn.firstWhere((e) => e.key == key);
             ComicSource.sources.add(source);
             source.loadData();
-            _addAllPagesWithComicSource(source);
+            await _addAllPagesWithComicSource(source, ref);
           }
           isLoading = false;
           if (mounted) {
@@ -217,7 +225,8 @@ class _BuiltInSourcesState extends State<_BuiltInSources> {
   }
 }
 
-void _validatePages() {
+/// 禁用漫画源后批量移除对应的页面配置。
+Future<void> _validatePages(WidgetRef ref) async {
   var explorePages = appdata.appSettings.explorePages;
   var categoryPages = appdata.appSettings.categoryPages;
   var networkFavorites = appdata.appSettings.networkFavorites;
@@ -253,14 +262,18 @@ void _validatePages() {
     }
   }
 
-  appdata.appSettings.explorePages = explorePages;
-  appdata.appSettings.categoryPages = categoryPages;
-  appdata.appSettings.networkFavorites = networkFavorites;
-
-  appdata.updateSettings();
+  await ref.read(appSettingsProvider.notifier).setValues({
+    AppSettingKeys.explorePages: (explorePages).join(','),
+    AppSettingKeys.categoryPages: (categoryPages).join(','),
+    AppSettingKeys.networkFavoritePages: (networkFavorites).join(','),
+  });
 }
 
-void _addAllPagesWithComicSource(ComicSource source) {
+/// 启用漫画源后批量补充对应的页面配置。
+Future<void> _addAllPagesWithComicSource(
+  ComicSource source,
+  WidgetRef ref,
+) async {
   var explorePages = appdata.appSettings.explorePages;
   var categoryPages = appdata.appSettings.categoryPages;
   var networkFavorites = appdata.appSettings.networkFavorites;
@@ -281,9 +294,10 @@ void _addAllPagesWithComicSource(ComicSource source) {
     networkFavorites.add(source.favoriteData!.key);
   }
 
-  appdata.appSettings.explorePages = explorePages.toSet().toList();
-  appdata.appSettings.categoryPages = categoryPages.toSet().toList();
-  appdata.appSettings.networkFavorites = networkFavorites.toSet().toList();
-
-  appdata.updateSettings();
+  await ref.read(appSettingsProvider.notifier).setValues({
+    AppSettingKeys.explorePages: (explorePages.toSet().toList()).join(','),
+    AppSettingKeys.categoryPages: (categoryPages.toSet().toList()).join(','),
+    AppSettingKeys.networkFavoritePages: (networkFavorites.toSet().toList())
+        .join(','),
+  });
 }

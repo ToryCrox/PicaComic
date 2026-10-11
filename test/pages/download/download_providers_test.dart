@@ -8,12 +8,12 @@ void main() {
   late String originalSortSetting;
 
   setUp(() {
-    originalSortSetting = appdata.settings[26];
-    appdata.settings[26] = '00';
+    originalSortSetting = appdata.getSetting(AppSettingKeys.downloadSort);
+    appdata.setSetting(AppSettingKeys.downloadSort, '00');
   });
 
   tearDown(() {
-    appdata.settings[26] = originalSortSetting;
+    appdata.setSetting(AppSettingKeys.downloadSort, originalSortSetting);
   });
 
   test('无筛选列表复用全局排序结果和摘要', () async {

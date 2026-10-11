@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/pages/main_page.dart';
@@ -237,6 +239,7 @@ class _AppAppearance extends ConsumerWidget with _WelcomePageComponents {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appearance = ref.watch(appearanceSettingsProvider);
     final settings = ref.watch(themeSettingsProvider);
     final modeName = switch (settings.themeMode) {
       ThemeMode.system => "跟随系统".tl,
@@ -260,10 +263,13 @@ class _AppAppearance extends ConsumerWidget with _WelcomePageComponents {
           leading: const Icon(Icons.crop_square),
           title: "漫画块显示模式".tl,
           values: ["详细".tl, "简略".tl],
-          initialValue: appdata.appSettings.comicTileDisplayType,
+          initialValue: appearance.comicTileMode,
           onChanged: (i) {
-            appdata.appSettings.comicTileDisplayType = i;
-            appdata.updateSettings();
+            _saveWelcomeSetting(
+              ref,
+              AppSettingKeys.comicTileDisplay,
+              '$i,${appearance.comicTileScale}',
+            );
             MyApp.updater?.call();
           },
         ),
@@ -274,48 +280,38 @@ class _AppAppearance extends ConsumerWidget with _WelcomePageComponents {
   }
 }
 
-class _ComicsDisplaySettings extends StatefulWidget {
+class _ComicsDisplaySettings extends ConsumerWidget
+    with _WelcomePageComponents {
   const _ComicsDisplaySettings();
 
   @override
-  State<_ComicsDisplaySettings> createState() => _ComicsDisplaySettingsState();
-}
-
-class _ComicsDisplaySettingsState extends State<_ComicsDisplaySettings>
-    with _WelcomePageComponents {
-  @override
-  Widget build(BuildContext context) {
-    return buildView(
-      children: [
-        buildTitle("漫画列表显示方式".tl),
-        RadioListTile<int>(
-          title: Text("连续模式".tl),
-          value: 0,
-          groupValue: appdata.appSettings.comicsListDisplayType,
-          onChanged: (s) {
-            setState(() {
-              appdata.appSettings.comicsListDisplayType = s!;
-            });
-            appdata.updateSettings();
-          },
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RadioGroup<int>(
+      groupValue: ref.watch(
+        appSettingsProvider.select(
+          (s) => s.integer(AppSettingKeys.comicsListDisplayMode),
         ),
-        Text("滑动到底部时自动加载下一页并追加到页面末尾".tl).paddingHorizontal(16),
-        const SizedBox(height: 16),
-        RadioListTile<int>(
-          title: Text("分页模式".tl),
-          value: 1,
-          groupValue: appdata.appSettings.comicsListDisplayType,
-          onChanged: (s) {
-            setState(() {
-              appdata.appSettings.comicsListDisplayType = s!;
-            });
-            appdata.updateSettings();
-          },
-        ),
-        Text("需要手动切换页面".tl).paddingHorizontal(16),
-        const Spacer(),
-        buildBottom(context, 3),
-      ],
+      ),
+      onChanged: (value) {
+        if (value != null)
+          _saveWelcomeSetting(
+            ref,
+            AppSettingKeys.comicsListDisplayMode,
+            value.toString(),
+          );
+      },
+      child: buildView(
+        children: [
+          buildTitle("漫画列表显示方式".tl),
+          RadioListTile<int>(title: Text("连续模式".tl), value: 0),
+          Text("滑动到底部时自动加载下一页并追加到页面末尾".tl).paddingHorizontal(16),
+          const SizedBox(height: 16),
+          RadioListTile<int>(title: Text("分页模式".tl), value: 1),
+          Text("需要手动切换页面".tl).paddingHorizontal(16),
+          const Spacer(),
+          buildBottom(context, 3),
+        ],
+      ),
     );
   }
 }
@@ -337,17 +333,18 @@ class _ReadingSettings extends StatelessWidget with _WelcomePageComponents {
   }
 }
 
-class _ComicSource extends StatefulWidget {
+class _ComicSource extends ConsumerStatefulWidget {
   const _ComicSource();
 
   @override
-  State<_ComicSource> createState() => _ComicSourceState();
+  ConsumerState<_ComicSource> createState() => _ComicSourceState();
 }
 
-class _ComicSourceState extends State<_ComicSource>
+class _ComicSourceState extends ConsumerState<_ComicSource>
     with _WelcomePageComponents {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return buildView(
       children: [
         buildTitle("漫画源".tl),
@@ -363,8 +360,11 @@ class _ComicSourceState extends State<_ComicSource>
                 trailing: Switch(
                   value: appdata.appSettings.isComicSourceEnabled(key.name),
                   onChanged: (v) {
-                    appdata.appSettings.setComicSourceEnabled(key.name, v);
-                    appdata.updateSettings();
+                    _saveWelcomeSetting(
+                      ref,
+                      AppSettingKeys.enabledBuiltInSources,
+                      appdata.appSettings.comicSourceEnabledValue(key.name, v),
+                    );
                     setState(() {});
                   },
                 ),
@@ -402,5 +402,19 @@ class _More extends StatelessWidget with _WelcomePageComponents {
         buildBottom(context, 6),
       ],
     );
+  }
+}
+
+/// 欢迎页复用统一设置入口，并展示保存失败信息。
+Future<void> _saveWelcomeSetting(
+  WidgetRef ref,
+  String key,
+  String value,
+) async {
+  try {
+    await ref.read(appSettingsProvider.notifier).setValue(key, value);
+  } catch (error, stack) {
+    Log.e('保存设置失败', error: error, stackTrace: stack);
+    showToast(message: '保存设置失败');
   }
 }

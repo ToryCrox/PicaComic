@@ -144,7 +144,7 @@ void startFolderSync<T extends Object>(
   int addValue = 0;
   final loadComicObj = LoadComicClass();
   final fData = getFavoriteData(key);
-  final total = int.parse(appdata.settings[71]);
+  final total = int.parse(appdata.getSetting(AppSettingKeys.favoriteSyncPages));
   List<BaseComic> comics = await getFavorites(
     context,
     (page) => loadComicObj.loadComic(fData, page, syncDataObj["folderId"]),

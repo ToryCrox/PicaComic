@@ -342,11 +342,11 @@ Future<void> moveDirectory(Directory source, Directory destination) async {
 
 ///检查下载目录是否可用, 不可用则重置
 Future<void> checkDownloadPath() async {
-  var path = appdata.settings[22];
+  var path = appdata.getSetting(AppSettingKeys.downloadDirectory);
   if (path != "") {
     var directory = Directory(path);
     if (!directory.existsSync()) {
-      appdata.settings[22] = "";
+      appdata.setSetting(AppSettingKeys.downloadDirectory, "");
       appdata.updateSettings();
     }
   }
@@ -517,8 +517,9 @@ Future<bool> importData([String? filePath]) async {
         }
         final json = File("$path/dataTemp/appdata").readAsStringSync();
         int fileVersion = int.parse(
-          ((const JsonDecoder().convert(json))["settings"] as List)
-                  .elementAtOrNull(46) ??
+          (const JsonDecoder().convert(
+                json,
+              ))["settings"][AppSettingKeys.webdavVersion] ??
               "1",
         );
         if (fileVersion <= int.parse(data[3]) && data[4] == "1") {
@@ -556,7 +557,7 @@ Future<bool> importData([String? filePath]) async {
         path,
         filePath,
         downloadManager.path!,
-        appdata.settings[46],
+        appdata.getSetting(AppSettingKeys.webdavVersion),
         (enableCheck ? "1" : "0"),
       ],
     );
@@ -571,9 +572,9 @@ Future<bool> importData([String? filePath]) async {
   }
   var json = const JsonDecoder().convert(data);
   int fileVersion = int.parse(
-    (json["settings"] as List).elementAtOrNull(46) ?? "1",
+    json["settings"][AppSettingKeys.webdavVersion] ?? "1",
   );
-  int appVersion = int.parse(appdata.settings[46]);
+  int appVersion = int.parse(appdata.getSetting(AppSettingKeys.webdavVersion));
   if (fileVersion <= appVersion && enableCheck) {
     Log.i(
       "Appdata The data file version is $fileVersion, while the app data version is "

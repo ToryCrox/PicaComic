@@ -1,15 +1,18 @@
 part of pica_settings;
 
-class LocalFavoritesSettings extends StatefulWidget {
+class LocalFavoritesSettings extends ConsumerStatefulWidget {
   const LocalFavoritesSettings({super.key});
 
   @override
-  State<LocalFavoritesSettings> createState() => _LocalFavoritesSettingsState();
+  ConsumerState<LocalFavoritesSettings> createState() =>
+      _LocalFavoritesSettingsState();
 }
 
-class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
+class _LocalFavoritesSettingsState
+    extends ConsumerState<LocalFavoritesSettings> {
   @override
   Widget build(BuildContext context) {
+    ref.watch(appSettingsProvider);
     return Column(
       children: [
         FutureBuilder<List<String>>(
@@ -21,10 +24,17 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
               title: Text("快速收藏".tl),
               subtitle: Text("长按收藏按钮执行快速收藏".tl),
               trailing: Select(
-                initialValue: folderNames.indexOf(appdata.settings[51]),
+                initialValue: folderNames.indexOf(
+                  appdata.getSetting(AppSettingKeys.defaultFavoriteFolder),
+                ),
                 onChange: (i) {
-                  appdata.settings[51] = folderNames[i];
-                  appdata.updateSettings();
+                  _saveSetting(
+                    ref,
+                    AppSettingKeys.defaultFavoriteFolder,
+                    folderNames[i],
+                    persist: false,
+                  );
+                  _persistSettings(ref);
                 },
                 values: folderNames,
               ),
@@ -35,19 +45,19 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           icon: const Icon(Icons.bookmark_add),
           title: "新收藏添加至".tl,
           options: ["最后".tl, "最前".tl],
-          settingsIndex: 53,
+          settingKey: AppSettingKeys.localFavoriteInsertPosition,
         ),
         SelectSettingWithAppdata(
           icon: const Icon(Icons.move_up),
           title: "阅读后移动本地收藏至".tl,
           options: ["无操作".tl, "最后".tl, "最前".tl],
-          settingsIndex: 54,
+          settingKey: AppSettingKeys.localFavoriteMoveAfterReading,
         ),
         SelectSettingWithAppdata(
           icon: const Icon(Icons.touch_app),
           title: "点击漫画时".tl,
           options: ["查看信息".tl, "阅读".tl],
-          settingsIndex: 60,
+          settingKey: AppSettingKeys.localFavoriteTapAction,
         ),
         ListTile(
           leading: const Icon(Icons.sync),
@@ -61,11 +71,16 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
               "5",
               "10",
               "99",
-            ].indexOf(appdata.settings[71]),
+            ].indexOf(appdata.getSetting(AppSettingKeys.favoriteSyncPages)),
             values: const ["1", "2", "3", "4", "5", "10", "99"],
             onChange: (i) {
-              appdata.settings[71] = ["1", "2", "3", "4", "5", "10", "99"][i];
-              appdata.updateSettings();
+              _saveSetting(
+                ref,
+                AppSettingKeys.favoriteSyncPages,
+                ["1", "2", "3", "4", "5", "10", "99"][i],
+                persist: false,
+              );
+              _persistSettings(ref);
             },
             width: 140,
           ),

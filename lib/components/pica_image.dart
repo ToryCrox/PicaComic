@@ -53,7 +53,10 @@ class PicaImage extends StatelessWidget {
   Widget build(BuildContext context) {
     // 决定 BoxFit
     final imageFit =
-        fit ?? (appdata.settings[66] == "0" ? BoxFit.cover : BoxFit.contain);
+        fit ??
+        (appdata.getSetting(AppSettingKeys.thumbnailFit) == "0"
+            ? BoxFit.cover
+            : BoxFit.contain);
 
     final Map<String, String> finalHeaders = {
       ...?headers,
