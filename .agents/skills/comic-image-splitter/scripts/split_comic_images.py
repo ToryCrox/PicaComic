@@ -2017,9 +2017,9 @@ def execute_chapter(job: ChapterJob, args: argparse.Namespace) -> None:
             plans = {id(plan): replace(plan, source=by_name[plan.source.path.name]) for plan in job.plans}
             parts = [replace(part, plan=plans[id(part.plan)]) for part in job.parts]
             input_dir = temporary
+        blank_records = json.loads(manifest_for_job(job).decode("utf-8"))["sources"]
         backup, actual = apply_plans(input_dir, sources, parts, args.reference_width,
                                      args.min_equivalent_height, args.max_equivalent_height, job.backup_dir, job)
-        blank_records = json.loads(manifest_for_job(job).decode("utf-8"))["sources"]
         moved_blank_copies = cleanup_duplicate_blank_backups(
             job.directory, job.backup_dir, job.blank_backup_dir, blank_records
         )
