@@ -27,6 +27,9 @@ abstract final class AppSettingKeys {
   /// 阅读模式：1 左至右，2 右至左，3 上至下，4 连续竖向，5 双页，6 反向双页。
   static const readingMode = "readingMode";
 
+  /// 上下连续模式自动衔接相邻章节：1 启用，0 禁用。
+  static const continuousChapterReading = "continuousChapterReading";
+
   /// 阻止屏幕截图
   static const preventScreenshots = "preventScreenshots";
 
@@ -240,6 +243,7 @@ const defaultAppSettings = <String, String>{
   AppSettingKeys.readerVolumeKeys: "1",
   AppSettingKeys.proxy: "0",
   AppSettingKeys.readingMode: "1",
+  AppSettingKeys.continuousChapterReading: "1",
   AppSettingKeys.preventScreenshots: "0",
   AppSettingKeys.requireAuthentication: "0",
   AppSettingKeys.jmAutoSelectDomain: "1",

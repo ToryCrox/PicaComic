@@ -1,5 +1,12 @@
 {
   "zh_TW": {
+    "跨章节连续阅读": "跨章節連續閱讀",
+    "自动衔接相邻章节": "自動銜接相鄰章節",
+    "章节加载失败": "章節載入失敗",
+    "本章暂无图片": "本章暫無圖片",
+    "正在加载章节": "正在載入章節",
+    "章节结束": "章節結束",
+    "跳过本章": "跳過本章",
     "有可用更新": "有可用更新",
     "下载管理器": "下載管理器",
     "继续未完成的下载?": "繼續未完成的下載?",
@@ -635,6 +642,13 @@
     "存在未处理或替换失败的翻译结果，暂不能标记完成": "存在未處理或替換失敗的翻譯結果，暫不能標記完成"
   },
   "en_US": {
+    "跨章节连续阅读": "Continuous chapter reading",
+    "自动衔接相邻章节": "Automatically connect adjacent chapters",
+    "章节加载失败": "Failed to load chapter",
+    "本章暂无图片": "This chapter has no images",
+    "正在加载章节": "Loading chapter",
+    "章节结束": "End of chapter",
+    "跳过本章": "Skip chapter",
     "有可用更新": "Updates available",
     "下载管理器": "Download manager",
     "继续未完成的下载?": "Continue unfinished download?",

@@ -15,6 +15,7 @@ import '../../foundation/app_settings_provider.dart';
 import '../../network/comic_source_services.dart';
 import '../../network/download/download_manager.dart';
 import '../../foundation/history.dart';
+import '../../foundation/log.dart';
 import '../../foundation/image_loader/base_image_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
@@ -23,6 +24,7 @@ import '../../tools/save_image.dart';
 import '../../tools/translations.dart';
 import '../comic_page/comic_page_widget.dart';
 import 'eps_view.dart';
+import 'continuous_reader_data.dart';
 import 'image.dart';
 import 'image_view.dart';
 import 'reader_logic.dart';
@@ -71,7 +73,8 @@ class ComicReaderPage extends ConsumerStatefulWidget
   ConsumerState<ComicReaderPage> createState() => _ComicReaderPageState();
 }
 
-class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
+class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final String _sessionId;
   ComicReaderLogic? _logicCache;
@@ -89,6 +92,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     readingData.bindDependencies(
       downloadManager: ref.read(downloadManagerProvider.notifier),
       sourceServices: ref.read(comicSourceServicesProvider),
@@ -134,6 +138,8 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
   @override
   void dispose() {
     final logic = _logic();
+    WidgetsBinding.instance.removeObserver(this);
+    logic.saveLocalReadingHistory();
 
     PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
     BaseImageProvider.clearCache();
@@ -161,7 +167,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     _updateHistory(logic, true);
 
     // Exit fullscreen if active — only touch the window manager, not state.
-    if (logic.state.isFullScreen) {
+    if (logic.snapshot.isFullScreen) {
       WindowManager.instance.setFullScreen(false);
       StateController.findOrNull<WindowFrameController>()?.showWindowFrame();
     }
@@ -185,30 +191,44 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     super.dispose();
   }
 
+  /// 进入后台及时保存当前阅读位置。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _updateHistory(_logic(), false);
+    }
+  }
+
   void _updateHistory(ComicReaderLogic logic, bool updateMePage) {
+    if (readingData is LocalReadingData) {
+      logic.saveLocalReadingHistory();
+      return;
+    }
     final history = readingData.history;
     if (history == null) return;
     if (readingData.hasEp) {
-      if (logic.state.currentEpisode == 1 && logic.state.currentPage == 1) {
+      if (logic.snapshot.currentEpisode == 1 &&
+          logic.snapshot.currentPage == 1) {
         history.ep = 0;
         history.page = 0;
       } else {
-        if (logic.state.currentEpisode == readingData.eps?.length &&
-            logic.state.currentPage == logic.length) {
+        if (logic.snapshot.currentEpisode == readingData.eps?.length &&
+            logic.snapshot.currentPage == logic.length) {
           history.ep = 0;
           history.page = 0;
         } else {
-          history.ep = logic.state.currentEpisode;
-          history.page = logic.state.currentPage;
+          history.ep = logic.snapshot.currentEpisode;
+          history.page = logic.snapshot.currentPage;
         }
       }
     } else {
-      if (logic.state.currentPage == 1) {
+      if (logic.snapshot.currentPage == 1) {
         history.ep = 0;
         history.page = 0;
       } else {
         history.ep = 1;
-        history.page = logic.state.currentPage;
+        history.page = logic.snapshot.currentPage;
       }
     }
     history.maxPage = logic.length;
@@ -278,11 +298,15 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                   ],
                 ),
               );
-            } else if (state.urls.isNotEmpty) {
+            } else if (state.urls.isNotEmpty || state.readingItems.isNotEmpty) {
+              if (!state.continuousReading && state.urls.isNotEmpty) {
+                logic.markCurrentEpisodeRead();
+              }
               if (state.readingMethod ==
                       ReadingMethod.topToBottomContinuously &&
                   !logic.haveUsedInitialPage &&
-                  widget.initialPage != 0) {
+                  widget.initialPage != 0 &&
+                  state.urls.isNotEmpty) {
                 Future.microtask(() {
                   logic.jumpToPage(widget.initialPage);
                   logic.haveUsedInitialPage = true;
@@ -504,13 +528,17 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     }
   }
 
-  Future<int?> selectImage(ComicReaderLogic logic) async {
-    var items = logic.itemScrollListener.itemPositions.value.toList();
+  Future<ReaderItem?> selectImage(ComicReaderLogic logic) async {
+    var items = logic.visibleImages;
+    if (items.isEmpty) return null;
     if (items.length == 1) {
-      return items[0].index;
+      return logic.imageAtListIndex(items[0].index);
     }
+    final images = {
+      for (final item in items) item.index: logic.imageAtListIndex(item.index),
+    };
     logic.isShowSelectImage = true;
-    int? res;
+    ReaderItem? res;
     await showDialog(
       context: App.globalContext!,
       builder: (context) {
@@ -523,9 +551,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
                 children: [
                   for (var item in items)
                     ListTile(
-                      title: Text((item.index + 1).toString()),
+                      title: Text(logic.imageLabel(item.index)),
                       onTap: () {
-                        res = item.index;
+                        res = images[item.index];
                         App.globalBack();
                       },
                       trailing: const Icon(Icons.arrow_right),
@@ -550,44 +578,40 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
     throw "failed";
   }
 
+  /// 解析目标图片时保存章节身份，避免弹窗期间列表刷新改变索引。
+  Future<ReaderItem?> _selectCurrentImage(ComicReaderLogic logic) async {
+    if (logic.snapshot.readingMethod == ReadingMethod.topToBottomContinuously) {
+      return selectImage(logic);
+    }
+    return logic.imageAtListIndex(logic.snapshot.currentPage - 1);
+  }
+
   void _share(ComicReaderLogic logic) async {
-    int? index = logic.state.currentPage - 1;
-    if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
-      index = await selectImage(logic);
+    final image = await _selectCurrentImage(logic);
+    if (image == null) return;
+    try {
+      final file = await _getFileFromStream(
+        readingData.loadImage(image.episode, image.page, image.url),
+      );
+      if (mounted) shareImage(file);
+    } catch (error, stack) {
+      Log.e('分享阅读图片失败', error: error, stackTrace: stack);
+      if (mounted) showToast(message: '加载图片失败'.tl);
     }
-    if (index == null) {
-      return;
-    }
-
-    var file = await _getFileFromStream(
-      readingData.loadImage(
-        logic.state.currentEpisode,
-        index,
-        logic.state.urls[index],
-      ),
-    );
-
-    shareImage(file);
   }
 
   void _saveCurrentImage(ComicReaderLogic logic) async {
-    int? index = logic.state.currentPage - 1;
-    if (logic.state.readingMethod == ReadingMethod.topToBottomContinuously) {
-      index = await selectImage(logic);
+    final image = await _selectCurrentImage(logic);
+    if (image == null) return;
+    try {
+      final file = await _getFileFromStream(
+        readingData.loadImage(image.episode, image.page, image.url),
+      );
+      if (mounted) saveImage(file);
+    } catch (error, stack) {
+      Log.e('保存阅读图片失败', error: error, stackTrace: stack);
+      if (mounted) showToast(message: '加载图片失败'.tl);
     }
-    if (index == null) {
-      return;
-    }
-
-    var file = await _getFileFromStream(
-      readingData.loadImage(
-        logic.state.currentEpisode,
-        index,
-        logic.state.urls[index],
-      ),
-    );
-
-    saveImage(file);
   }
 
   Widget? buildEpChangeButton(ReaderPageState state, ComicReaderLogic logic) {

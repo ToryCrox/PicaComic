@@ -54,6 +54,8 @@ class ScrollablePositionedList extends StatefulWidget {
     this.minCacheExtent,
     required this.scrollController,
     this.scrollBehavior,
+    this.itemKeyBuilder,
+    this.maintainVisibleContentPosition = false,
   }) : itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
        separatorBuilder = null,
        super(key: key);
@@ -81,6 +83,8 @@ class ScrollablePositionedList extends StatefulWidget {
     this.addRepaintBoundaries = true,
     this.minCacheExtent,
     this.scrollBehavior,
+    this.itemKeyBuilder,
+    this.maintainVisibleContentPosition = false,
   }) : assert(separatorBuilder != null),
        itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
        super(key: key);
@@ -174,6 +178,12 @@ class ScrollablePositionedList extends StatefulWidget {
   final double? minCacheExtent;
 
   final ScrollBehavior? scrollBehavior;
+
+  /// 可选稳定条目标识，仅动态阅读列表启用。
+  final Object Function(int index)? itemKeyBuilder;
+
+  /// 插入、替换或图片尺寸变化时保持可见条目的屏幕位置。
+  final bool maintainVisibleContentPosition;
 
   @override
   State<StatefulWidget> createState() => _ScrollablePositionedListState();
@@ -318,6 +328,7 @@ class _ScrollablePositionedListState extends State<ScrollablePositionedList>
   @override
   void didUpdateWidget(ScrollablePositionedList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _preserveVisiblePosition(oldWidget);
     if (oldWidget.itemScrollController?._scrollableListState == this) {
       oldWidget.itemScrollController?._detach();
     }
@@ -350,58 +361,60 @@ class _ScrollablePositionedListState extends State<ScrollablePositionedList>
     return LayoutBuilder(
       builder: (context, constraints) {
         final cacheExtent = _cacheExtent(constraints);
-        return GestureDetector(
-          child: Stack(
-            children: <Widget>[
-              PostMountCallback(
-                key: primary.key,
-                callback: startAnimationCallback,
-                child: FadeTransition(
-                  opacity: ReverseAnimation(opacity),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (_) => _isTransitioning,
-                    child: PositionedList(
-                      itemBuilder: widget.itemBuilder,
-                      separatorBuilder: widget.separatorBuilder,
-                      itemCount: widget.itemCount,
-                      positionedIndex: primary.target,
-                      controller: primary.scrollController,
-                      itemPositionsNotifier: primary.itemPositionsNotifier,
-                      scrollDirection: widget.scrollDirection,
-                      reverse: widget.reverse,
-                      cacheExtent: cacheExtent,
-                      alignment: primary.alignment,
-                      physics: widget.physics,
-                      shrinkWrap: widget.shrinkWrap,
-                      addSemanticIndexes: widget.addSemanticIndexes,
-                      semanticChildCount: widget.semanticChildCount,
-                      padding: widget.padding,
-                      addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
-                      addRepaintBoundaries: widget.addRepaintBoundaries,
-                      scrollBehavior: widget.scrollBehavior,
-                    ),
-                  ),
-                ),
-              ),
-              if (_isTransitioning)
+        return NotificationListener<SizeChangedLayoutNotification>(
+          onNotification: (_) {
+            if (widget.maintainVisibleContentPosition &&
+                !_sizeRestoreScheduled) {
+              _sizeRestoreScheduled = true;
+              final anchor = _visibleAnchor();
+              final anchorScrollOffset = _lastReportedScrollOffset;
+              Object? identity;
+              if (anchor != null && anchor.index < widget.itemCount) {
+                identity = widget.itemKeyBuilder?.call(anchor.index);
+              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _sizeRestoreScheduled = false;
+                if (mounted && anchor != null) {
+                  var index = anchor.index;
+                  if (identity != null) {
+                    index = _indexOfIdentity(identity);
+                  }
+                  if (index >= 0) {
+                    setState(
+                      () => _restoreAnchor(
+                        index,
+                        anchor.itemLeadingEdge,
+                        scrollOffset: anchorScrollOffset,
+                      ),
+                    );
+                  }
+                }
+              });
+            }
+            return false;
+          },
+          child: GestureDetector(
+            child: Stack(
+              children: <Widget>[
                 PostMountCallback(
-                  key: secondary.key,
+                  key: primary.key,
                   callback: startAnimationCallback,
                   child: FadeTransition(
-                    opacity: opacity,
+                    opacity: ReverseAnimation(opacity),
                     child: NotificationListener<ScrollNotification>(
-                      onNotification: (_) => false,
+                      onNotification: (_) => _isTransitioning,
                       child: PositionedList(
                         itemBuilder: widget.itemBuilder,
+                        itemKeyBuilder: widget.itemKeyBuilder,
                         separatorBuilder: widget.separatorBuilder,
                         itemCount: widget.itemCount,
-                        itemPositionsNotifier: secondary.itemPositionsNotifier,
-                        positionedIndex: secondary.target,
-                        controller: secondary.scrollController,
+                        positionedIndex: primary.target,
+                        controller: primary.scrollController,
+                        itemPositionsNotifier: primary.itemPositionsNotifier,
                         scrollDirection: widget.scrollDirection,
                         reverse: widget.reverse,
                         cacheExtent: cacheExtent,
-                        alignment: secondary.alignment,
+                        alignment: primary.alignment,
                         physics: widget.physics,
                         shrinkWrap: widget.shrinkWrap,
                         addSemanticIndexes: widget.addSemanticIndexes,
@@ -414,11 +427,112 @@ class _ScrollablePositionedListState extends State<ScrollablePositionedList>
                     ),
                   ),
                 ),
-            ],
+                if (_isTransitioning)
+                  PostMountCallback(
+                    key: secondary.key,
+                    callback: startAnimationCallback,
+                    child: FadeTransition(
+                      opacity: opacity,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (_) => false,
+                        child: PositionedList(
+                          itemBuilder: widget.itemBuilder,
+                          itemKeyBuilder: widget.itemKeyBuilder,
+                          separatorBuilder: widget.separatorBuilder,
+                          itemCount: widget.itemCount,
+                          itemPositionsNotifier:
+                              secondary.itemPositionsNotifier,
+                          positionedIndex: secondary.target,
+                          controller: secondary.scrollController,
+                          scrollDirection: widget.scrollDirection,
+                          reverse: widget.reverse,
+                          cacheExtent: cacheExtent,
+                          alignment: secondary.alignment,
+                          physics: widget.physics,
+                          shrinkWrap: widget.shrinkWrap,
+                          addSemanticIndexes: widget.addSemanticIndexes,
+                          semanticChildCount: widget.semanticChildCount,
+                          padding: widget.padding,
+                          addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
+                          addRepaintBoundaries: widget.addRepaintBoundaries,
+                          scrollBehavior: widget.scrollBehavior,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
     );
+  }
+
+  bool _sizeRestoreScheduled = false;
+  double _lastReportedScrollOffset = 0;
+
+  /// 选择参考线附近条目，允许长图头部处于屏幕上方。
+  ItemPosition? _visibleAnchor() {
+    final positions = primary.itemPositionsNotifier.itemPositions.value
+        .where((item) => item.itemLeadingEdge < 1 && item.itemTrailingEdge > 0)
+        .toList();
+    if (positions.isEmpty) return null;
+    positions.sort((a, b) {
+      double distance(ItemPosition item) {
+        if (item.itemLeadingEdge > 0.25) return item.itemLeadingEdge - 0.25;
+        if (item.itemTrailingEdge < 0.25) return 0.25 - item.itemTrailingEdge;
+        return 0;
+      }
+
+      return distance(a).compareTo(distance(b));
+    });
+    return positions.first;
+  }
+
+  /// 结构变更后通过稳定标识找回图片，而非估算新增内容高度。
+  void _preserveVisiblePosition(ScrollablePositionedList oldWidget) {
+    if (!widget.maintainVisibleContentPosition ||
+        oldWidget.itemKeyBuilder == null ||
+        widget.itemKeyBuilder == null ||
+        !primary.scrollController.hasClients) {
+      return;
+    }
+    final anchor = _visibleAnchor();
+    if (anchor == null || anchor.index >= oldWidget.itemCount) return;
+    final identity = oldWidget.itemKeyBuilder!(anchor.index);
+    for (var index = 0; index < widget.itemCount; index++) {
+      if (widget.itemKeyBuilder!(index) == identity) {
+        if (index != anchor.index) {
+          _restoreAnchor(index, anchor.itemLeadingEdge);
+        }
+        break;
+      }
+    }
+  }
+
+  /// 现有无界 viewport 支持负对齐，保持部分可见长图。
+  void _restoreAnchor(int index, double alignment, {double? scrollOffset}) {
+    if (!primary.scrollController.hasClients ||
+        _isTransitioning ||
+        index >= widget.itemCount) {
+      return;
+    }
+    primary.target = index;
+    // 保留 ScrollPosition 的像素及活动，只移动无界 viewport 的布局锚点。
+    // 图片高度变化期间的拖动和惯性不会被 jumpTo 打断。
+    primary.alignment =
+        alignment +
+        (scrollOffset ?? primary.scrollController.offset) /
+            primary.scrollController.position.viewportDimension;
+    primary.itemPositionsNotifier.itemPositions.value = const [];
+  }
+
+  /// 尺寸补偿执行前重新查找身份，避免异步回调使用旧列表索引。
+  int _indexOfIdentity(Object identity) {
+    for (var index = 0; index < widget.itemCount; index++) {
+      if (widget.itemKeyBuilder?.call(index) == identity) return index;
+    }
+    return -1;
   }
 
   double _cacheExtent(BoxConstraints constraints) => max(
@@ -594,6 +708,9 @@ class _ScrollablePositionedListState extends State<ScrollablePositionedList>
   }
 
   void _updatePositions() {
+    if (primary.scrollController.hasClients) {
+      _lastReportedScrollOffset = primary.scrollController.offset;
+    }
     final itemPositions = primary.itemPositionsNotifier.itemPositions.value
         .where(
           (ItemPosition position) =>

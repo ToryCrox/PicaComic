@@ -45,6 +45,7 @@ class PositionedList extends StatefulWidget {
     this.addRepaintBoundaries = true,
     this.addAutomaticKeepAlives = true,
     this.scrollBehavior,
+    this.itemKeyBuilder,
   }) : assert((positionedIndex == 0) || (positionedIndex < itemCount)),
        super(key: key);
 
@@ -131,6 +132,9 @@ class PositionedList extends StatefulWidget {
   final bool addAutomaticKeepAlives;
 
   final ScrollBehavior? scrollBehavior;
+
+  /// 稳定标识可防止头部插入后复用另一张图片的状态。
+  final Object Function(int index)? itemKeyBuilder;
 
   @override
   State<StatefulWidget> createState() => _PositionedListState();
@@ -249,13 +253,17 @@ class _PositionedListState extends State<PositionedList> {
 
   Widget _buildItem(int index) {
     return RegisteredElementWidget(
-      key: ValueKey(index),
+      key: _ReaderItemKey(widget.itemKeyBuilder?.call(index) ?? index, index),
       child: widget.addSemanticIndexes
           ? IndexedSemantics(
               index: index,
-              child: widget.itemBuilder(context, index),
+              child: SizeChangedLayoutNotifier(
+                child: widget.itemBuilder(context, index),
+              ),
             )
-          : widget.itemBuilder(context, index),
+          : SizeChangedLayoutNotifier(
+              child: widget.itemBuilder(context, index),
+            ),
     );
   }
 
@@ -335,7 +343,7 @@ class _PositionedListState extends State<PositionedList> {
             anchor = viewport.anchor;
           }
 
-          final ValueKey<int> key = element.widget.key as ValueKey<int>;
+          final key = element.widget.key as _ReaderItemKey;
           // Skip this element if `box` has never been laid out.
           if (!box.hasSize) continue;
           if (widget.scrollDirection == Axis.vertical) {
@@ -345,12 +353,11 @@ class _PositionedListState extends State<PositionedList> {
                 reveal - viewport.offset.pixels + anchor * viewport.size.height;
             positions.add(
               ItemPosition(
-                index: key.value,
+                index: key.index,
                 itemLeadingEdge:
-                    itemOffset.round() /
-                    scrollController.position.viewportDimension,
+                    itemOffset / scrollController.position.viewportDimension,
                 itemTrailingEdge:
-                    (itemOffset + box.size.height).round() /
+                    (itemOffset + box.size.height) /
                     scrollController.position.viewportDimension,
               ),
             );
@@ -360,7 +367,7 @@ class _PositionedListState extends State<PositionedList> {
                 .dx;
             positions.add(
               ItemPosition(
-                index: key.value,
+                index: key.index,
                 itemLeadingEdge:
                     (widget.reverse
                             ? scrollController.position.viewportDimension -
@@ -384,4 +391,10 @@ class _PositionedListState extends State<PositionedList> {
       });
     }
   }
+}
+
+/// 键的等值关系使用稳定标识，位置报告另外保存最新索引。
+class _ReaderItemKey extends ValueKey<Object> {
+  const _ReaderItemKey(super.value, this.index);
+  final int index;
 }

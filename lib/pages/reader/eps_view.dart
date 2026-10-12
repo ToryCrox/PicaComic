@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../foundation/app.dart';
-import '../../foundation/state_controller.dart';
 import '../../foundation/theme/app_mouse_cursor.dart';
-import '../../foundation/def.dart';
 import '../../tools/translations.dart';
 import '../jm/jm_comments_page.dart';
 import 'reader_logic.dart';
@@ -31,7 +29,6 @@ class _EpsViewState extends ConsumerState<EpsView> {
     final logic = ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
     var type = widget.data.type;
     var data = widget.data;
-    var epsWidgets = <Widget>[];
 
     return Container(
       constraints: const BoxConstraints(
@@ -63,7 +60,10 @@ class _EpsViewState extends ConsumerState<EpsView> {
                       showComments(
                         context,
                         data.eps!.keys.elementAt(state.currentEpisode - 1),
-                        (logic.readingData as JmReadingData).commentsLength ??
+                        (logic.readingData as JmReadingData)
+                                .commentsLengthForEpisode(
+                                  state.currentEpisode,
+                                ) ??
                             9999,
                       );
                     },

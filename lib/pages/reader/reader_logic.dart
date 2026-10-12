@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -15,34 +16,24 @@ import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_settings_provider.dart';
-import '../../foundation/image_manager.dart';
-import '../../foundation/local_favorites.dart';
 import '../../foundation/log.dart';
 import '../../foundation/state_controller.dart';
-import '../../network/eh_network/eh_models.dart';
-import '../../network/hitomi_network/hitomi_models.dart';
-import '../../network/jm_network/jm_image.dart';
-import '../../network/res.dart';
-import '../../tools/image_size_getter.dart';
+import '../../tools/image_size_getter.dart' as image_sizes;
 import '../../tools/save_image.dart';
 import '../../tools/translations.dart';
-import '../../tools/type_util.dart';
-import '../jm/jm_comments_page.dart';
-import 'eps_view.dart';
-import 'image.dart';
-import 'image_view.dart';
 import 'reading_data.dart';
-import 'reading_settings.dart';
 import 'reading_type.dart';
-import 'tool_bar.dart';
 import 'touch_control.dart';
 import 'package:pica_comic/base.dart';
 import '../../components/components.dart';
 import '../../foundation/history.dart';
+import '../../foundation/local_history.dart';
+import 'continuous_reader_data.dart';
 import '../../tools/iterable_extension.dart';
 import '../../tools/key_down_event.dart';
 
 part 'reader_logic.g.dart';
+part 'continuous_reader_logic.dart';
 
 // ============================================================================
 // ReaderPageState -- immutable UI state
@@ -52,6 +43,8 @@ class ReaderPageState {
   final bool isLoading;
   final String? errorMessage;
   final List<String> urls;
+  final List<ReaderItem> readingItems;
+  final bool continuousReading;
   final int currentPage; // 1-based
   final int currentEpisode; // 1-based
   final bool toolsVisible;
@@ -73,6 +66,8 @@ class ReaderPageState {
     this.isLoading = true,
     this.errorMessage,
     this.urls = const [],
+    this.readingItems = const [],
+    this.continuousReading = false,
     this.currentPage = 1,
     this.currentEpisode = 1,
     this.toolsVisible = false,
@@ -95,6 +90,8 @@ class ReaderPageState {
     bool? isLoading,
     String? errorMessage,
     List<String>? urls,
+    List<ReaderItem>? readingItems,
+    bool? continuousReading,
     int? currentPage,
     int? currentEpisode,
     bool? toolsVisible,
@@ -117,6 +114,8 @@ class ReaderPageState {
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       urls: urls ?? this.urls,
+      readingItems: readingItems ?? this.readingItems,
+      continuousReading: continuousReading ?? this.continuousReading,
       currentPage: currentPage ?? this.currentPage,
       currentEpisode: currentEpisode ?? this.currentEpisode,
       toolsVisible: toolsVisible ?? this.toolsVisible,
@@ -145,6 +144,8 @@ class ReaderPageState {
     return isLoading == other.isLoading &&
         errorMessage == other.errorMessage &&
         listEquals(urls, other.urls) &&
+        listEquals(readingItems, other.readingItems) &&
+        continuousReading == other.continuousReading &&
         currentPage == other.currentPage &&
         currentEpisode == other.currentEpisode &&
         toolsVisible == other.toolsVisible &&
@@ -168,6 +169,8 @@ class ReaderPageState {
     isLoading,
     errorMessage,
     Object.hashAll(urls),
+    Object.hashAll(readingItems),
+    continuousReading,
     currentPage,
     currentEpisode,
     toolsVisible,
@@ -258,7 +261,7 @@ extension PageControllerExtension on PageController {
 // ============================================================================
 
 @Riverpod(keepAlive: false, name: 'comicReaderLogicProvider')
-class ComicReaderLogic extends _$ComicReaderLogic {
+class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
   // ---- Controllers (mutable, don't trigger rebuild) ----
 
   late PageController pageController;
@@ -270,6 +273,21 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       photoViewControllers[state.currentPage] ?? photoViewControllers[0]!;
 
   var photoViewControllers = <int, PhotoViewController>{};
+  final _retiredControllers = <ChangeNotifier>[];
+
+  /// 在视图解绑旧控制器之后释放它。
+  void retireController(ChangeNotifier controller) {
+    _retiredControllers.add(controller);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_retiredControllers.remove(controller)) controller.dispose();
+    });
+  }
+
+  /// 切换翻页控制器，避免章节切换累积旧控制器。
+  void replacePageController(PageController controller) {
+    retireController(pageController);
+    pageController = controller;
+  }
 
   void clearPhotoViewControllers() {
     photoViewControllers.forEach((key, value) => value.dispose());
@@ -279,6 +297,9 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   ListenVolumeController? listenVolume;
   ScrollManager? scrollManager;
   FocusNode focusNode = FocusNode();
+
+  /// 当前连续视图的坐标投影，包含缩放和平移变换。
+  BuildContext? readerViewportContext;
 
   // ---- Reading data (set once in build) ----
   late ReadingData readingData;
@@ -290,6 +311,11 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   final _hasComputeImageSizes = <String>{};
   final List<StreamSubscription> _imageSizeSubscriptions = [];
   List<bool> requestedLoadingItems = [];
+  final requestedImageKeys = <String>{};
+  bool _loadingInfo = false;
+
+  /// 供界面读取的会话快照，避免暴露 Notifier 的受保护 state。
+  ReaderPageState get snapshot => state;
   bool haveUsedInitialPage = false;
   bool restoreTopToBottomContinuouslyPage = false;
   bool isDispose = false;
@@ -366,6 +392,8 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     }
 
     this.readingData = readingData;
+    if (readingData is LocalReadingData) order = readingData.initialEpisode;
+    initializeContinuousReader(sessionId);
     pageController = PageController(
       initialPage: getPage(initialPage, readingMode: settings.readingMode),
     );
@@ -375,15 +403,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
         readingData is LocalReadingData ||
         readingData.isDownloaded;
 
-    // Set up itemScrollListener
-    itemScrollListener.itemPositions.addListener(() {
-      if (itemScrollListener.itemPositions.value.isNotEmpty) {
-        var newIndex = itemScrollListener.itemPositions.value.first.index + 1;
-        if (newIndex != state.currentPage) {
-          Future.microtask(() => state = state.copyWith(currentPage: newIndex));
-        }
-      }
-    });
+    itemScrollListener.itemPositions.addListener(handleVisibleItems);
 
     return ReaderPageState(
       isLoading: true,
@@ -406,7 +426,11 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
   // ---- Public state mutation methods ----
 
-  void setCurrentPage(int page) => state = state.copyWith(currentPage: page);
+  void setCurrentPage(int page) {
+    state = state.copyWith(currentPage: page);
+    markCurrentEpisodeRead();
+  }
+
   void setCurrentScale(double scale) =>
       state = state.copyWith(currentScale: scale);
   void setNoScroll(bool value) => state = state.copyWith(noScroll: value);
@@ -419,8 +443,29 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   void setRotation(bool? value) => state = state.copyWith(rotation: value);
   void toggleShowOriginSize() =>
       state = state.copyWith(isShowOriginSize: !state.isShowOriginSize);
-  void setReadingMethod(ReadingMethod method) =>
-      state = state.copyWith(readingMethod: method);
+
+  /// 更新阅读模式，并在连续模式间保持当前位置。
+  void setReadingMethod(ReadingMethod method) {
+    if (state.readingMethod == method) return;
+    readerViewportContext = null;
+    final page = state.currentPage;
+    if (state.runningAutoPageTurning) stopAutoPageTurning();
+    replacePageController(
+      PageController(initialPage: getPage(page, readingMode: method.index + 1)),
+    );
+    clearPhotoViewControllers();
+    restoreTopToBottomContinuouslyPage = true;
+    state = state.copyWith(readingMethod: method);
+    syncContinuousMode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isDispose || state.readingMethod != method) return;
+      if (method == ReadingMethod.topToBottomContinuously) {
+        if (itemScrollController.isAttached) jumpToPage(page);
+      } else if (pageController.hasClients) {
+        jumpToPage(page);
+      }
+    });
+  }
 
   void hideToolsAndSettings() =>
       state = state.copyWith(toolsVisible: false, showSettings: false);
@@ -488,7 +533,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   }
 
   void reload() {
-    pageController = PageController(initialPage: 1);
+    replacePageController(PageController(initialPage: 1));
     state = state.copyWith(currentPage: 1, isLoading: true);
   }
 
@@ -587,7 +632,12 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     i = i.clamp(1, length);
     final method = state.readingMethod;
     if (method == ReadingMethod.topToBottomContinuously) {
-      itemScrollController.jumpTo(index: i - 1);
+      final index = continuousReading
+          ? continuousPageIndex(state.currentEpisode, i)
+          : i - 1;
+      if (index >= 0 && itemScrollController.isAttached) {
+        itemScrollController.jumpTo(index: index);
+      }
     } else if (!method.isTwoPage) {
       pageController.jumpToPage(i);
     } else {
@@ -628,6 +678,13 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       return;
     }
     final newOrder = state.currentEpisode + 1;
+    if (continuousReading) {
+      jumpContinuousChapter(newOrder);
+      return;
+    }
+    saveLocalReadingHistory();
+    _loadVersion++;
+    _loadingInfo = false;
     if (readingData is LocalReadingData) {
       (readingData as LocalReadingData).goNext();
     }
@@ -638,11 +695,18 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       currentEpisode: newOrder,
       currentPage: 1,
     );
-    pageController = PageController(initialPage: 1);
+    replacePageController(PageController(initialPage: 1));
     clearPhotoViewControllers();
   }
 
   void jumpToChapter(int index) {
+    if (continuousReading) {
+      jumpContinuousChapter(index);
+      return;
+    }
+    saveLocalReadingHistory();
+    _loadVersion++;
+    _loadingInfo = false;
     if (readingData is LocalReadingData) {
       (readingData as LocalReadingData).goTo(index - 1);
     }
@@ -653,7 +717,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       currentEpisode: index,
       currentPage: 1,
     );
-    pageController = PageController(initialPage: 1);
+    replacePageController(PageController(initialPage: 1));
     clearPhotoViewControllers();
   }
 
@@ -671,6 +735,13 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     }
 
     final newOrder = state.currentEpisode - 1;
+    if (continuousReading) {
+      jumpContinuousChapter(newOrder);
+      return;
+    }
+    saveLocalReadingHistory();
+    _loadVersion++;
+    _loadingInfo = false;
     if (readingData is LocalReadingData) {
       (readingData as LocalReadingData).goPrev();
     }
@@ -681,7 +752,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       currentEpisode: newOrder,
       currentPage: 1,
     );
-    pageController = PageController(initialPage: 1);
+    replacePageController(PageController(initialPage: 1));
     clearPhotoViewControllers();
   }
 
@@ -699,10 +770,15 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       return;
     }
 
-    final localImageUrls = state.urls
-        .sublist(startIndex, min(startIndex + 5, state.urls.length))
-        .where((e) => e.startsWith('file://'))
-        .toList();
+    await loadImageSizesForUrls(
+      state.urls.sublist(startIndex, min(startIndex + 5, state.urls.length)),
+    );
+  }
+
+  /// 读取指定图片尺寸，支持相邻章节的本地图片。
+  Future<void> loadImageSizesForUrls(List<String> urls) async {
+    if (isDispose) return;
+    final localImageUrls = urls.where((e) => e.startsWith('file://')).toList();
     final needLoadUrls = localImageUrls
         .where((e) => !_hasComputeImageSizes.contains(e))
         .toList();
@@ -712,21 +788,48 @@ class ComicReaderLogic extends _$ComicReaderLogic {
     _hasComputeImageSizes.addAll(needLoadUrls);
 
     debugPrint(
-      "loadImageSizes start $startIndex, ${needLoadUrls.map((e) => path.basename(e)).toList()}",
+      "loadImageSizes ${needLoadUrls.map((e) => path.basename(e)).toList()}",
     );
-    _imageSizeSubscriptions.add(
-      computeImageSizes(needLoadUrls).listen((e) {
-        for (var url in e.keys) {
-          final sizeInfo = e[url]!;
-          _imageSize[url] = sizeInfo.size;
-        }
-        state = state.copyWith();
-      }),
-    );
+    late final StreamSubscription<Map<String, image_sizes.ImageSizeInfo>>
+    subscription;
+    subscription = image_sizes
+        .computeImageSizes(needLoadUrls)
+        .listen(
+          (result) {
+            if (isDispose) return;
+            for (final entry in result.entries) {
+              _imageSize[entry.key] = entry.value.size;
+            }
+            state = state.copyWith(rebuildCount: state.rebuildCount + 1);
+          },
+          onError: (Object error, StackTrace stack) {
+            _hasComputeImageSizes.removeAll(needLoadUrls);
+            if (!isDispose)
+              Log.e('读取阅读图片尺寸失败', error: error, stackTrace: stack);
+          },
+          onDone: () => _imageSizeSubscriptions.remove(subscription),
+        );
+    _imageSizeSubscriptions.add(subscription);
     debugPrint("loadImageSizes finish");
   }
 
   void disposeAll() {
+    if (isDispose) return;
+    isDispose = true;
+    cancelTimers();
+    disposeContinuousReader();
+    itemScrollListener.itemPositions.removeListener(handleVisibleItems);
+    pageController.dispose();
+    scrollController.dispose();
+    focusNode.dispose();
+    readerViewportContext = null;
+    for (final controller in _retiredControllers) {
+      controller.dispose();
+    }
+    _retiredControllers.clear();
+    _imageSize.clear();
+    _hasComputeImageSizes.clear();
+    requestedImageKeys.clear();
     for (var element in _imageSizeSubscriptions) {
       element.cancel();
     }
@@ -889,6 +992,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       Log.d('ReadingLogic autoPageTurning $pixels $maxScrollExtent');
       if (scrollController.position.pixels >=
           scrollController.position.maxScrollExtent) {
+        if (continuousReading && waitForContinuousChapter()) return;
         stopAutoPageTurning();
         return;
       }
@@ -918,9 +1022,17 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   // ---- Refresh ----
 
   void refresh_() {
-    pageController = PageController(initialPage: 1);
+    retireController(scrollController);
+    itemScrollListener.itemPositions.removeListener(handleVisibleItems);
+    readerViewIdentity = '$readerViewIdentity-refresh';
+    disposeContinuousReader();
+    _loadVersion++;
+    _loadingInfo = false;
+    requestedImageKeys.clear();
+    replacePageController(PageController(initialPage: 1));
     itemScrollController = ItemScrollController();
     itemScrollListener = ItemPositionsListener.create();
+    itemScrollListener.itemPositions.addListener(handleVisibleItems);
     scrollController = ScrollController(keepScrollOffset: true);
     clearPhotoViewControllers();
     state = ReaderPageState(
@@ -933,28 +1045,59 @@ class ComicReaderLogic extends _$ComicReaderLogic {
 
   // ---- Load info ----
 
+  /// 加载当前章，避免 build 重复发起同一请求。
   Future<void> loadInfo() async {
-    state = state.copyWith(urls: []);
-    await for (var res in readingData.loadEp(state.currentEpisode)) {
-      if (res.error) {
-        if (state.urls.isEmpty) {
-          state = state.copyWith(errorMessage: res.errorMessage);
-        }
+    if (_loadingInfo || isDispose) return;
+    _loadingInfo = true;
+    final episode = state.currentEpisode;
+    final version = ++_loadVersion;
+    try {
+      if (wantsContinuousReading) {
+        await loadContinuousInfo();
       } else {
+        state = state.copyWith(urls: [], clearError: true);
+        await for (var res in readingData.loadEp(episode)) {
+          if (isDispose ||
+              version != _loadVersion ||
+              episode != state.currentEpisode) {
+            return;
+          }
+          if (res.error) {
+            if (state.urls.isEmpty) {
+              state = state.copyWith(errorMessage: res.errorMessage);
+            }
+          } else {
+            state = state.copyWith(
+              urls: res.data,
+              isShowOriginSize:
+                  state.isShowOriginSize || readingData.isDownloaded,
+            );
+          }
+          state = state.copyWith(isLoading: false);
+        }
+      }
+      if (isDispose || version != _loadVersion) return;
+      loadImageSizes();
+      if (isAutoFullscreenAndScroll) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (isDispose) return;
+        fullscreen();
         state = state.copyWith(
-          urls: res.data,
-          isShowOriginSize: state.isShowOriginSize || readingData.isDownloaded,
+          runningAutoPageTurning: true,
+          toolsVisible: false,
+        );
+        autoPageTurning();
+      }
+    } catch (error, stack) {
+      if (!isDispose && version == _loadVersion) {
+        Log.e('加载阅读章节失败', error: error, stackTrace: stack);
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: error.toString(),
         );
       }
-      state = state.copyWith(isLoading: false);
-    }
-    loadImageSizes();
-    if (isAutoFullscreenAndScroll) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (isDispose) return;
-      fullscreen();
-      state = state.copyWith(runningAutoPageTurning: true, toolsVisible: false);
-      autoPageTurning();
+    } finally {
+      if (version == _loadVersion) _loadingInfo = false;
     }
   }
 
@@ -963,14 +1106,19 @@ class ComicReaderLogic extends _$ComicReaderLogic {
   Future<void> favoriteCurrentImage({Offset? position}) async {
     try {
       final readingData = this.readingData;
-      final id = "${readingData.sourceKey}-${readingData.id}";
+
       int? pageIndex = state.currentPage - 1;
+      ReaderItem? pickedImage;
       final method = state.readingMethod;
       if (method == ReadingMethod.topToBottomContinuously) {
         if (position != null) {
-          pageIndex = _getImageIndexAtPosition(position);
+          pageIndex = imageIndexAtPosition(position);
         } else {
-          var items = itemScrollListener.itemPositions.value.toList();
+          var items = visibleImages;
+          if (items.isEmpty) return;
+          final choices = {
+            for (final item in items) item.index: imageAtListIndex(item.index),
+          };
           if (items.length == 1) {
             pageIndex = items[0].index;
           } else {
@@ -988,9 +1136,10 @@ class ComicReaderLogic extends _$ComicReaderLogic {
                         children: [
                           for (var item in items)
                             ListTile(
-                              title: Text((item.index + 1).toString()),
+                              title: Text(imageLabel(item.index)),
                               onTap: () {
                                 res = item.index;
+                                pickedImage = choices[item.index];
                                 App.globalBack();
                               },
                               trailing: const Icon(Icons.arrow_right),
@@ -1019,15 +1168,29 @@ class ComicReaderLogic extends _$ComicReaderLogic {
               : leftPageIndex;
         }
       }
-      if (pageIndex == null || pageIndex >= state.urls.length) return;
-
-      File? file;
-      try {
-        final stream = readingData.loadImage(
+      if (pageIndex == null) return;
+      ReaderItem? selected = pickedImage;
+      if (selected == null && method == ReadingMethod.topToBottomContinuously) {
+        selected = imageAtListIndex(pageIndex);
+      } else if (selected == null &&
+          pageIndex >= 0 &&
+          pageIndex < state.urls.length) {
+        selected = ReaderItem.image(
           state.currentEpisode,
           pageIndex,
           state.urls[pageIndex],
         );
+      }
+      if (selected == null) return;
+      final episode = selected.episode;
+      final id =
+          "${readingData.sourceKey}-${readingData.idForEpisode(episode)}";
+      pageIndex = selected.page;
+      final imageUrl = selected.url;
+
+      File? file;
+      try {
+        final stream = readingData.loadImage(episode, pageIndex, imageUrl);
         await for (var event in stream) {
           if (event.finished) {
             file = event.getFile();
@@ -1057,9 +1220,7 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       } else if (readingData.type == ReadingType.jm) {
         Log.d("TooBar ${readingData.eps}, ${state.currentEpisode}");
         otherInfo["jmEpNames"] = readingData.eps!.values.toList();
-        otherInfo["epsId"] = readingData.eps!.keys.getOrNull(
-          state.currentEpisode - 1,
-        );
+        otherInfo["epsId"] = readingData.eps!.keys.getOrNull(episode - 1);
         otherInfo["bookId"] = readingData.id;
       } else if (readingData.type != ComicType.other &&
           readingData.type != ComicType.hiperdex) {
@@ -1067,44 +1228,59 @@ class ComicReaderLogic extends _$ComicReaderLogic {
       } else {
         otherInfo["eps"] = readingData.eps;
       }
-      otherInfo["url"] = state.urls[pageIndex];
+      otherInfo["url"] = imageUrl;
 
       var favorite = ImageFavorite(
         id: id,
         imagePath: image,
-        title: readingData.title,
-        ep: state.currentEpisode,
+        title: readingData.titleForEpisode(episode),
+        ep: episode,
         page: pageIndex + 1,
         otherInfo: otherInfo,
       );
-      if (!(await ImageFavoriteManager.exist(
-        id,
-        state.currentEpisode,
-        pageIndex + 1,
-      ))) {
+      if (!(await ImageFavoriteManager.exist(id, episode, pageIndex + 1))) {
         ImageFavoriteManager.add(favorite);
         showToast(message: "已添加至图片收藏".tl);
       } else {
         ImageFavoriteManager.delete(favorite);
         showToast(message: "已取消图片收藏".tl);
       }
-      showToast(message: "成功收藏图片".tl);
     } catch (e, s) {
       Log.e('TooBar $e', stackTrace: s);
       showToast(message: e.toString());
     }
   }
 
-  int? _getImageIndexAtPosition(Offset position) {
-    final items = itemScrollListener.itemPositions.value.toList();
+  /// 将屏幕坐标映射到图片条目，连续阅读的章节分隔不参与命中。
+  int? imageIndexAtPosition(Offset position) {
+    final items = visibleImages;
     if (items.isEmpty) return null;
-    if (items.length == 1) return items[0].index;
+    if (!continuousReading && items.length == 1) return items[0].index;
 
-    final size = MediaQuery.of(App.globalContext!).size;
-    final padding = MediaQuery.of(App.globalContext!).padding;
-    final availableHeight = size.height - padding.top - padding.bottom;
-    final topOffset = padding.top;
-    final fractionY = (position.dy - topOffset) / availableHeight;
+    double fractionY;
+    if (continuousReading) {
+      if (!scrollController.hasClients) return null;
+      final box = readerViewportContext?.findRenderObject();
+      final local = box is RenderBox ? box.globalToLocal(position) : position;
+      final height = scrollController.position.viewportDimension;
+      if (height <= 0) return null;
+      fractionY = local.dy / height;
+    } else {
+      final size = MediaQuery.of(App.globalContext!).size;
+      final padding = MediaQuery.of(App.globalContext!).padding;
+      final availableHeight = size.height - padding.top - padding.bottom;
+      fractionY = (position.dy - padding.top) / availableHeight;
+    }
+
+    if (continuousReading) {
+      for (final item in itemScrollListener.itemPositions.value) {
+        if (fractionY >= item.itemLeadingEdge &&
+            fractionY <= item.itemTrailingEdge) {
+          return imageAtListIndex(item.index) == null ? null : item.index;
+        }
+      }
+      return null;
+    }
 
     for (final item in items) {
       if (fractionY >= item.itemLeadingEdge &&

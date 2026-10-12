@@ -86,6 +86,15 @@ abstract class ReadingData {
 
   String get dirPath => '';
 
+  /// 指定章节的目录，预加载不改变当前阅读位置。
+  String directoryForEpisode(int ep) => dirPath;
+
+  /// 目标图片所属漫画的标识和标题。
+  String idForEpisode(int ep) => id;
+
+  /// 返回指定章节所属漫画的标题。
+  String titleForEpisode(int ep) => title;
+
   String get favoriteId => id;
 
   FavoriteType get favoriteType;
@@ -102,9 +111,10 @@ abstract class ReadingData {
     return !hasEp || downloadedEps.contains(localEpisode(ep) - 1);
   }
 
-  Stream<Res<List<String>>> loadEp(int ep) async* {
+  /// 加载指定章节；预加载传入 markRead: false，不提前标记已读。
+  Stream<Res<List<String>>> loadEp(int ep, {bool markRead = true}) async* {
     history ??= await HistoryManager().findSync(id);
-    history?.addReadEpisode(ep);
+    if (markRead) history?.addReadEpisode(ep);
     _isDownloaded = await _downloadManager.isExists(downloadId);
     if (_isDownloaded) {
       final item = await _downloadManager.getComicOrNull(downloadId);
@@ -113,8 +123,11 @@ abstract class ReadingData {
         onDownloadedItemLoaded(item);
       }
     }
-    if (dirPath.isNotEmpty) {
-      final imageList = await _downloadManager.getAllImagesByDir(dirPath);
+    final episodeDirectory = directoryForEpisode(ep);
+    if (episodeDirectory.isNotEmpty) {
+      final imageList = await _downloadManager.getAllImagesByDir(
+        episodeDirectory,
+      );
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
       if (isReversed) {
         yield Res(imageFileUriList.reversed.toList());
@@ -168,6 +181,10 @@ abstract class ReadingData {
     String url, {
     String? title,
   }) async* {
+    if (url.startsWith('file://')) {
+      yield DownloadProgress(1, 1, '', url.substring(7));
+      return;
+    }
     if (_isDownloaded && checkEpDownloaded(ep)) {
       final imageFile = await _downloadManager.getImage(
         downloadId,
@@ -306,7 +323,9 @@ class JmReadingData extends ReadingData {
   @override
   final String id;
 
-  int? commentsLength;
+  final _commentsLengths = <int, int?>{};
+  /// 评论数量按章节保存，预加载不会覆盖当前章的附属信息。
+  int? commentsLengthForEpisode(int episode) => _commentsLengths[episode];
 
   static Map<String, String> generateMap(
     List<String> epIds,
@@ -339,7 +358,7 @@ class JmReadingData extends ReadingData {
     var res = await _sourceServices.jm.getChapter(
       eps.keys.elementAtOrNull(ep - 1) ?? id,
     );
-    commentsLength = res.subData;
+    _commentsLengths[ep] = res.subData;
     return res;
   }
 
@@ -569,6 +588,24 @@ class LocalReadingData extends ReadingData {
 
   @override
   bool get isReversed => _isReversed;
+
+  /// 打开的目录在传入目录列表中的章节编号。
+  int get initialEpisode {
+    final index = allDirPaths.indexOf(_dirPath);
+    return index < 0 ? 1 : index + 1;
+  }
+
+  @override
+  String directoryForEpisode(int ep) {
+    if (allDirPaths.isEmpty) return _dirPath;
+    return allDirPaths.elementAtOrNull(ep - 1) ?? _dirPath;
+  }
+
+  @override
+  String idForEpisode(int ep) => directoryForEpisode(ep);
+
+  @override
+  String titleForEpisode(int ep) => path.basename(directoryForEpisode(ep));
 
   void goNext() {
     final index = allDirPaths.indexOf(_dirPath);

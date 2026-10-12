@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
@@ -54,8 +53,6 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
 
   ComicReaderLogic get _logic =>
       ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
-  ReaderPageState get _state =>
-      ref.read(comicReaderLogicProvider(widget.sessionId));
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +167,17 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
           i = 1;
         }),
       ),
+      if (reading.readingMode == 4)
+        SwitchListTile(
+          secondary: const Icon(Icons.menu_book),
+          title: Text('跨章节连续阅读'.tl),
+          subtitle: Text('自动衔接相邻章节'.tl),
+          value: reading.continuousChapterReading,
+          onChanged: (enabled) => _saveSetting(
+            AppSettingKeys.continuousChapterReading,
+            enabled ? '1' : '0',
+          ),
+        ),
       if (reading.readingMode == 5 || reading.readingMode == 6)
         ListTile(
           leading: const Icon(Icons.auto_awesome_motion),
@@ -461,27 +469,9 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
   /// 保存阅读模式并恢复当前会话的翻页控制器。
   void setValue(int i) {
     App.globalBack();
-    final value = i;
-    final currentState = _state;
-    final wasContinuous =
-        currentState.readingMethod == ReadingMethod.topToBottomContinuously;
-    _saveSetting(AppSettingKeys.readingMode, value.toString(), fullData: true);
+    _saveSetting(AppSettingKeys.readingMode, i.toString(), fullData: true);
     _logic.hideToolsAndSettings();
-    final index = currentState.currentPage;
-    final page = ComicReaderLogic.getPage(
-      currentState.currentPage,
-      readingMode: value,
-    );
-    Log.d("setReadingMethod: $value, index: $index, page: $page");
-    _logic.pageController = PageController(initialPage: page);
-    _logic.restoreTopToBottomContinuouslyPage = true;
-    _logic.clearPhotoViewControllers();
-    _logic.setReadingMethod(ReadingMethod.values[value - 1]);
-    if (wasContinuous) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _logic.jumpToPage(index);
-      });
-    }
+    _logic.setReadingMethod(ReadingMethod.values[i - 1]);
   }
 
   /// 阅读模式选择与当前持久化设置保持同步。

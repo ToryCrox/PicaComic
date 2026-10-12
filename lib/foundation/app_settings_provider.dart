@@ -72,6 +72,11 @@ class ReaderSettingsState {
 
   final AppSettingsSnapshot snapshot;
 
+  bool get continuousChapterReading =>
+      snapshot.enabled(AppSettingKeys.continuousChapterReading);
+  int get preloadPages =>
+      snapshot.integer(AppSettingKeys.preloadPages, 2).clamp(0, 100);
+
   bool get flipWithTap => snapshot.enabled(AppSettingKeys.readerTapToTurnPage);
   bool get useVolumeKeys => snapshot.enabled(AppSettingKeys.readerVolumeKeys);
   bool get reduceBrightness =>

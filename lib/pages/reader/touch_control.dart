@@ -31,7 +31,6 @@ class ScrollManager {
   void tapDown(PointerDownEvent details) {
     moveOffset = Offset.zero;
     startTime = DateTime.now().millisecondsSinceEpoch;
-    var temp = logic.state.noScroll;
     logic.setNoScroll(TapController.fingers >= 2);
   }
 
@@ -54,9 +53,13 @@ class ScrollManager {
     }
     moveOffset = null;
     startTime = null;
-    if (logic.state.fabValue < 58) {
+    if (logic.continuousReading) {
+      logic.continuousScrollEnd();
+      return;
+    }
+    if (logic.snapshot.fabValue < 58) {
       logic.setFabValue(0);
-    } else if (logic.state.fabValue >= 58) {
+    } else if (logic.snapshot.fabValue >= 58) {
       logic.setFabValue(0);
       logic.jumpToNextChapter();
     }
@@ -64,11 +67,12 @@ class ScrollManager {
 
   /// handle pointer move event
   void addOffset(Offset value) {
-    if (logic.scrollController.offset ==
+    if (!logic.continuousReading &&
+        logic.scrollController.offset ==
             logic.scrollController.position.maxScrollExtent &&
         logic.photoViewController.scale == 1 &&
-        logic.state.showFloatingButtonValue == 1) {
-      logic.setFabValue(logic.state.fabValue - value.dy / 3);
+        logic.snapshot.showFloatingButtonValue == 1) {
+      logic.setFabValue(logic.snapshot.fabValue - value.dy / 3);
       return;
     }
     if (logic.photoViewController.scale == 1) {
@@ -161,7 +165,7 @@ class TapController {
       logic.scrollManager!.tapDown(event);
     }
 
-    if (logic.state.toolsVisible &&
+    if (logic.snapshot.toolsVisible &&
         (event.position.dy <
                 MediaQuery.of(App.globalContext!).padding.top + 50 ||
             MediaQuery.of(App.globalContext!).size.height - event.position.dy <
@@ -170,12 +174,12 @@ class TapController {
     }
 
     if (event.buttons == kSecondaryMouseButton) {
-      if (logic.state.showSettings) {
+      if (logic.snapshot.showSettings) {
         logic.hideSettings();
         return;
       }
       logic.toggleTools();
-      if (logic.state.toolsVisible) {
+      if (logic.snapshot.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
@@ -214,10 +218,10 @@ class TapController {
           text: "自动翻页".tl,
           icon: Icons.play_arrow,
           onTap: () {
-            if (!logic.state.isFullScreen && App.isDesktop) {
+            if (!logic.snapshot.isFullScreen && App.isDesktop) {
               logic.fullscreen();
             }
-            final newVal = !logic.state.runningAutoPageTurning;
+            final newVal = !logic.snapshot.runningAutoPageTurning;
             if (newVal) {
               logic.startAutoPageTurning();
             } else {
@@ -234,7 +238,7 @@ class TapController {
           ),
         if (App.isDesktop)
           popupMenuItem<void>(
-            text: logic.state.isShowOriginSize ? '限制大小' : "显示原图大小".tl,
+            text: logic.snapshot.isShowOriginSize ? '限制大小' : "显示原图大小".tl,
             icon: Icons.photo_size_select_large_outlined,
             onTap: () {
               logic.toggleShowOriginSize();
@@ -334,7 +338,7 @@ class TapController {
     bool flag = false;
     bool flag2 = false;
     final range = settings.tapRange / 100;
-    if (settings.flipWithTap && !logic.state.toolsVisible) {
+    if (settings.flipWithTap && !logic.snapshot.toolsVisible) {
       void updatePageWithSetting(bool next) {
         if (settings.reverseTap) {
           next = !next;
@@ -383,7 +387,7 @@ class TapController {
     }
     if (flag && flag2) {
       logic.toggleTools();
-      if (logic.state.toolsVisible) {
+      if (logic.snapshot.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         StateController.findOrNull<WindowFrameController>()?.resetTheme();
       } else {
@@ -403,7 +407,7 @@ class TapController {
         controller.getInitialScale?.call() == null) {
       return;
     }
-    if (!logic.state.readingMethod.useComicImage) {
+    if (!logic.snapshot.readingMethod.useComicImage) {
       controller.onDoubleClick?.call();
       return;
     }
