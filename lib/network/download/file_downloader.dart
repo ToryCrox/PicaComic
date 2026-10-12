@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/network_telemetry.dart';
@@ -23,7 +25,7 @@ class FileDownloader {
 
   late int _fileSize;
 
-  Dio get _dio => networkClientManager.mediaDio;
+  Dio get _dio => networkClientManagerOf(App.globalContext!).mediaDio;
 
   final CancelToken _cancelToken = CancelToken();
 
@@ -133,7 +135,7 @@ class FileDownloader {
       if (_currentBytes >= _fileSize) {
         await _file!.close();
         _file = null;
-        NetworkTelemetryBridge.instance.reportArtifactReady(
+        appNetworkTelemetryBridge.reportArtifactReady(
           transferId: transferId,
           path: savePath,
           source: NetworkArtifactSource.download,
@@ -174,7 +176,7 @@ class FileDownloader {
         );
       }
 
-      NetworkTelemetryBridge.instance.reportArtifactReady(
+      appNetworkTelemetryBridge.reportArtifactReady(
         transferId: transferId,
         path: savePath,
         source: NetworkArtifactSource.download,

@@ -1,9 +1,16 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pica_comic/comic_source/built_in/hiperdex.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
+import 'package:pica_comic/network/res.dart';
+
+class _FakeHiperdexNetwork extends HiperdexNetwork {
+  @override
+  Future<Res<List<String>>> getGenres() async => Res(['Fantasy']);
+}
 
 /// 覆盖站点不同列表响应字段和筛选初始状态的回归场景。
 void main() {
@@ -56,16 +63,20 @@ void main() {
   ]) {
     testWidgets('空或损坏筛选设置可以正常显示和修改：$options', (tester) async {
       List<String>? updated;
+      final network = _FakeHiperdexNetwork();
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) =>
-                  hiperdex.searchPageData!.customOptionsBuilder!(
-                    context,
-                    options,
-                    (values) => updated = values,
-                  ),
+        ProviderScope(
+          overrides: [hiperdexNetworkProvider.overrideWithValue(network)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) =>
+                    hiperdex.searchPageData!.customOptionsBuilder!(
+                      context,
+                      options,
+                      (values) => updated = values,
+                    ),
+              ),
             ),
           ),
         ),

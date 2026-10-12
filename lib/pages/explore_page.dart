@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
@@ -10,6 +11,7 @@ import 'package:pica_comic/pages/category_comics_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -199,9 +201,14 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
     if (data.loadMultiPart != null) {
       return buildMultiPart();
     } else if (data.loadPage != null) {
-      return buildComicList();
+      return buildComicList(context);
     } else if (data.loadMixed != null) {
-      return _MixedExplorePage(data, comicSourceKey, key: ValueKey(key));
+      return _MixedExplorePage(
+        data,
+        comicSourceKey,
+        ProviderScope.containerOf(context, listen: false),
+        key: ValueKey(key),
+      );
     } else if (data.overridePageBuilder != null) {
       return Builder(
         builder: (context) {
@@ -214,8 +221,8 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
     }
   }
 
-  Widget buildComicList() => _ComicList(
-    data.loadPage!,
+  Widget buildComicList(BuildContext context) => _ComicList(
+    (ref, page) => data.loadPage!(ref, page),
     tag.toString(),
     comicSourceKey,
     cacheBuilder: data.loadCache,
@@ -233,7 +240,13 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
       }
     }
 
-    var res = await data.loadMultiPart!();
+    final container = ProviderScope.containerOf(context, listen: false);
+    var res = await container.read(
+      exploreMultiPartQueryProvider((
+        sourceKey: comicSourceKey.name,
+        title: widget.title,
+      )).future,
+    );
     loading = false;
     if (mounted) {
       setState(() {
@@ -282,7 +295,7 @@ class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
         context,
         ComicListPageConfig(
           pageKey: tag.toString(),
-          loadPage: data.loadPage!,
+          loadPage: (ref, page) => data.loadPage!(ref, page),
           loadCache: data.loadCache,
           onError: (message) => showToast(message: message),
         ),
@@ -314,8 +327,8 @@ class _ComicList extends ComicsPage<BaseComic> {
   }
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) {
-    return builder(i);
+  Future<Res<List<BaseComic>>> getComics(int i, Ref ref) {
+    return builder(ref, i);
   }
 
   @override
@@ -323,11 +336,18 @@ class _ComicList extends ComicsPage<BaseComic> {
 }
 
 class _MixedExplorePage extends StatefulWidget {
-  const _MixedExplorePage(this.data, this.comicType, {super.key});
+  const _MixedExplorePage(
+    this.data,
+    this.comicType,
+    this.container, {
+    super.key,
+  });
 
   final ExplorePageData data;
 
   final ComicType comicType;
+
+  final ProviderContainer container;
 
   @override
   State<_MixedExplorePage> createState() => _MixedExplorePageState();
@@ -367,7 +387,13 @@ class _MixedExplorePageState
 
   @override
   Future<Res<List<Object>>> loadData(int page) async {
-    var res = await widget.data.loadMixed!(page);
+    var res = await widget.container.read(
+      exploreMixedPageQueryProvider((
+        sourceKey: widget.comicType.name,
+        title: widget.data.title,
+        page: page,
+      )).future,
+    );
     if (res.error) {
       return res;
     }

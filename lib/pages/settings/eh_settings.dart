@@ -130,7 +130,7 @@ class _EhProfileSelectPageState extends ConsumerState<EhProfileSelectPage> {
   String? error;
 
   void loadData() async {
-    var res = await EhNetwork().getProfiles();
+    var res = await appComicSourceServices.ehentai.getProfiles();
     loading = false;
     if (res.error) {
       setState(() {

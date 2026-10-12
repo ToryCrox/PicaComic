@@ -1,12 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/hiperdex/hiperdex_explore_page.dart';
@@ -32,23 +35,25 @@ final hiperdex = ComicSource.named(
           initialValues: initialValues,
           onChanged: onChanged,
         ),
-    loadPage: (keyword, page, options) {
+    loadPage: (ref, keyword, page, options) {
       final filters = _decodeOptions(options);
-      return HiperdexNetwork.instance.search(
-        keyword: keyword,
-        page: page,
-        sort: filters['sort'] ?? 'relevance',
-        type: filters['type'],
-        status: filters['status'],
-        contentRating: filters['contentRating'],
-        genre: filters['genre'],
-        year: filters['year'],
-        forceRefresh: true,
-      );
+      return ref
+          .read(hiperdexNetworkProvider)
+          .search(
+            keyword: keyword,
+            page: page,
+            sort: filters['sort'] ?? 'relevance',
+            type: filters['type'],
+            status: filters['status'],
+            contentRating: filters['contentRating'],
+            genre: filters['genre'],
+            year: filters['year'],
+            forceRefresh: true,
+          );
     },
     loadCache: (keyword, options) {
       final filters = _decodeOptions(options);
-      return HiperdexNetwork.instance.searchCache(
+      return appComicSourceServices.hiperdex.searchCache(
         keyword: keyword,
         sort: filters['sort'] ?? 'relevance',
         type: filters['type'],
@@ -61,11 +66,9 @@ final hiperdex = ComicSource.named(
   ),
   loadComicInfoCache: (id) =>
       DiskCache.readModel('hiperdex-info-v2-$id', ComicInfoData.fromMap),
-  loadComicInfo: (id) async {
-    final result = await HiperdexNetwork.instance.getSeries(
-      id,
-      forceRefresh: true,
-    );
+  loadComicInfo: (ref, id) async {
+    final network = ref.read(hiperdexNetworkProvider);
+    final result = await network.getSeries(id, forceRefresh: true);
     if (result.error) return Res.fromErrorRes(result);
     final series = result.data;
     final chapters = <String, String>{};
@@ -135,20 +138,17 @@ final hiperdex = ComicSource.named(
     await DiskCache.writeModel('hiperdex-info-v2-$id', info.toMap());
     return Res(info);
   },
-  loadComicPages: (id, chapterId) async {
+  loadComicPages: (ref, id, chapterId) async {
     if (chapterId == null) {
       return const Res<List<String>>.error('Chapter ID is required');
     }
-    return HiperdexNetwork.instance.getChapterPages(id, chapterId);
+    final network = ref.read(hiperdexNetworkProvider);
+    return network.getChapterPages(id, chapterId);
   },
-  getImageLoadingConfig: (url, comicId, epId) => ImageConfig(
-    url: url,
-    headers: HiperdexNetwork.imageHeaders,
-  ),
-  getThumbnailLoadingConfig: (url) => ImageConfig(
-    url: url,
-    headers: HiperdexNetwork.imageHeaders,
-  ),
+  getImageLoadingConfig: (ref, url, comicId, epId) =>
+      ImageConfig(url: url, headers: HiperdexNetwork.imageHeaders),
+  getThumbnailLoadingConfig: (ref, url) =>
+      ImageConfig(url: url, headers: HiperdexNetwork.imageHeaders),
 );
 
 /// 复用通用漫画卡片，并保持 HiperDEX 的历史、收藏和菜单来源标识。
@@ -170,7 +170,7 @@ class _HiperdexComicTile extends CustomComicTile {
   }
 
   @override
-  Widget? buildSubDescription(BuildContext context) {
+  Widget? buildSubDescription(BuildContext context, WidgetRef ref) {
     final items = [
       if (_data.score != null && _data.score! > 0)
         '评分 ${_data.score!.toStringAsFixed(1)} / 5',
@@ -192,8 +192,11 @@ class _HiperdexComicTile extends CustomComicTile {
 }
 
 /// 合并旧探索页设置，保留原位置和用户启用状态。
-void migrateHiperdexExplorePages() {
-  final pages = appdata.appSettings.explorePages;
+Future<void> migrateHiperdexExplorePages(Ref? ref) async {
+  final settings = ref == null
+      ? AppSettingsRepository().snapshot()
+      : ref.read(appSettingsProvider);
+  final pages = settings.value(AppSettingKeys.explorePages).split(',');
   const oldTitles = {'HiperDEX 最新更新', 'HiperDEX 热门'};
   // 仅迁移明确带来源前缀的旧配置，避免影响其他漫画源同名页面。
   if (!pages.any(
@@ -208,8 +211,16 @@ void migrateHiperdexExplorePages() {
         : title;
     if (!migrated.contains(next)) migrated.add(next);
   }
-  appdata.appSettings.explorePages = migrated;
-  appdata.updateSettings();
+  final value = migrated.join(',');
+  if (ref != null) {
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setValue(AppSettingKeys.explorePages, value);
+  } else {
+    final repository = AppSettingsRepository();
+    repository.setValue(AppSettingKeys.explorePages, value);
+    await repository.save();
+  }
 }
 
 String _absoluteUrl(String url) {
@@ -230,7 +241,7 @@ Map<String, String> _decodeOptions(List<String> options) {
   return {};
 }
 
-class _HiperdexSearchOptions extends StatefulWidget {
+class _HiperdexSearchOptions extends ConsumerStatefulWidget {
   const _HiperdexSearchOptions({
     required this.initialValues,
     required this.onChanged,
@@ -240,10 +251,12 @@ class _HiperdexSearchOptions extends StatefulWidget {
   final void Function(List<String>) onChanged;
 
   @override
-  State<_HiperdexSearchOptions> createState() => _HiperdexSearchOptionsState();
+  ConsumerState<_HiperdexSearchOptions> createState() =>
+      _HiperdexSearchOptionsState();
 }
 
-class _HiperdexSearchOptionsState extends State<_HiperdexSearchOptions> {
+class _HiperdexSearchOptionsState
+    extends ConsumerState<_HiperdexSearchOptions> {
   late final Map<String, String> _filters;
   late final TextEditingController _yearController;
   late final Future<Res<List<String>>> _genresFuture;
@@ -254,7 +267,7 @@ class _HiperdexSearchOptionsState extends State<_HiperdexSearchOptions> {
     _filters = Map.of(_decodeOptions(widget.initialValues));
     _filters.putIfAbsent('sort', () => 'relevance');
     _yearController = TextEditingController(text: _filters['year'] ?? '');
-    _genresFuture = HiperdexNetwork.instance.getGenres();
+    _genresFuture = ref.read(hiperdexNetworkProvider).getGenres();
   }
 
   @override

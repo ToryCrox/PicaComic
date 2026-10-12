@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
@@ -12,14 +13,16 @@ import 'package:pica_comic/tools/image_utils.dart';
 import 'package:path/path.dart' as Path;
 
 /// 导入本地漫画对话框
-class ImportLocalComicDialog extends StatefulWidget {
+class ImportLocalComicDialog extends ConsumerStatefulWidget {
   const ImportLocalComicDialog({Key? key}) : super(key: key);
 
   @override
-  State<ImportLocalComicDialog> createState() => _ImportLocalComicDialogState();
+  ConsumerState<ImportLocalComicDialog> createState() =>
+      _ImportLocalComicDialogState();
 }
 
-class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
+class _ImportLocalComicDialogState
+    extends ConsumerState<ImportLocalComicDialog> {
   List<RepositoryInfo> repositories = [];
   String? selectedRepositoryName;
   String? draggedFolderPath;
@@ -56,13 +59,14 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   }
 
   Future<void> _loadTags() async {
-    final tags = await downloadManager.getAllTags();
+    final tags = await ref.read(downloadManagerProvider.notifier).getAllTags();
     setState(() {
       allTags = tags;
     });
   }
 
   Future<void> _scanComics() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     if (draggedFolderPath == null || selectedRepositoryName == null) {
       return;
     }
@@ -142,7 +146,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
 
       // 如果有子目录或者当前文件夹不是漫画目录，则扫描子目录
       if (hasSubDirectories || comics.isEmpty) {
-        final scannedComics = await downloadManager.scanComicDirectories(
+        final scannedComics = await engine.scanComicDirectories(
           draggedFolderPath!,
           repositoryPath,
         );
@@ -167,6 +171,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
   }
 
   Future<void> _importComics() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     if (draggedFolderPath == null || selectedRepositoryName == null) {
       return;
     }
@@ -177,7 +182,7 @@ class _ImportLocalComicDialogState extends State<ImportLocalComicDialog> {
     });
 
     try {
-      final result = await downloadManager.importLocalComics(
+      final result = await engine.importLocalComics(
         draggedFolderPath: draggedFolderPath!,
         repositoryName: selectedRepositoryName!,
         titlePrefix: titlePrefix,

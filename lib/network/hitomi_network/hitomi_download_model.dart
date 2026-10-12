@@ -117,7 +117,7 @@ class HitomiDownloadingTask extends DownloadingTask {
 
   @override
   Stream<DownloadProgress> downloadImage(String link) {
-    return ImageManager().getHitomiImage(
+    return ImageManager(manager).getHitomiImage(
       HitomiFile.fromMap(const JsonDecoder().convert(link)),
       id.replaceFirst("hitomi", ""),
     );

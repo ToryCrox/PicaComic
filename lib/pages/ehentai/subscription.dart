@@ -2,10 +2,11 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/tools/translations.dart';
-import '../../network/eh_network/eh_main_network.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/res.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});
@@ -65,10 +66,11 @@ class EhSubscriptionComics extends ComicsPage<EhGalleryBrief> {
   final data = PageData();
 
   @override
-  Future<Res<List<EhGalleryBrief>>> getComics(int i) async {
+  Future<Res<List<EhGalleryBrief>>> getComics(int i, Ref ref) async {
     if (data.galleries == null) {
-      Res<Galleries> res = await EhNetwork().getGalleries(
-        "${EhNetwork().ehBaseUrl}/watched",
+      final network = ref.read(ehNetworkProvider);
+      Res<Galleries> res = await network.getGalleries(
+        "${network.ehBaseUrl}/watched",
       );
       if (res.error) {
         return Res(null, errorMessage: res.errorMessage);
@@ -84,7 +86,9 @@ class EhSubscriptionComics extends ComicsPage<EhGalleryBrief> {
     } else {
       while (data.comics[i] == null) {
         data.page++;
-        final next = await EhNetwork().getNextPageGalleries(data.galleries!);
+        final next = await ref
+            .read(ehNetworkProvider)
+            .getNextPageGalleries(data.galleries!);
         if (next.error) {
           return Res(null, errorMessage: next.errorMessage);
         }

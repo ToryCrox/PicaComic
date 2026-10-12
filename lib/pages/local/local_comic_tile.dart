@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -13,7 +14,7 @@ import 'package:pica_comic/foundation/file_utils.dart';
 import '../../tools/image_utils.dart';
 import 'package:pica_comic/tools/time.dart';
 
-class LocalComicTile extends StatefulWidget {
+class LocalComicTile extends ConsumerStatefulWidget {
   final LocalComicModel model;
   final VoidCallback onReload;
   final List<String> allDirPaths;
@@ -34,10 +35,10 @@ class LocalComicTile extends StatefulWidget {
   });
 
   @override
-  State<LocalComicTile> createState() => _LocalComicTileState();
+  ConsumerState<LocalComicTile> createState() => _LocalComicTileState();
 }
 
-class _LocalComicTileState extends State<LocalComicTile> {
+class _LocalComicTileState extends ConsumerState<LocalComicTile> {
   // 封面路径
   String? _coverPath;
 
@@ -174,17 +175,16 @@ class _LocalComicTileState extends State<LocalComicTile> {
         color: Colors.transparent,
         child: Watch.builder(
           builder: (context) {
-            final favorite = downloadManager.findLocalFavoriteInCache(
-              widget.model.path,
-            );
+            final engine = ref.read(downloadManagerProvider.notifier);
+            final favorite = engine.findLocalFavoriteInCache(widget.model.path);
             return InkWell(
               mouseCursor: appClickableMouseCursor,
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
                 if (favorite != null) {
-                  await downloadManager.deleteLocalFavorite(widget.model.path);
+                  await engine.deleteLocalFavorite(widget.model.path);
                 } else {
-                  await downloadManager.addLocalFavorite(widget.model.path);
+                  await engine.addLocalFavorite(widget.model.path);
                 }
                 widget.onReload();
               },
@@ -350,10 +350,9 @@ class _LocalComicTileState extends State<LocalComicTile> {
       builder: (context) => _WeightDialog(
         initialValue: currentWeight,
         onChanged: (val) async {
-          await downloadManager.updateLocalFavoriteSortOrder(
-            widget.model.path,
-            val.toInt(),
-          );
+          await ref
+              .read(downloadManagerProvider.notifier)
+              .updateLocalFavoriteSortOrder(widget.model.path, val.toInt());
           widget.onReload();
         },
       ),

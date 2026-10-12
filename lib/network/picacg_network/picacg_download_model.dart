@@ -6,6 +6,7 @@ import 'package:pica_comic/network/download/image_download_queue.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import '../download/download_manager.dart';
 import 'methods.dart';
+
 class DownloadedComic extends DownloadedItem {
   ComicItem comicItem;
   List<String> chapters;
@@ -108,9 +109,13 @@ class PicDownloadingTask extends DownloadingTask {
   @override
   Future<Map<int, List<String>>> getLinks() async {
     var res = <int, List<String>>{};
-    _eps = (await network.getEps(id)).data;
+    _eps = (await manager.readProvider(picacgNetworkProvider).getEps(id)).data;
     for (var i in _downloadEps) {
-      res[i + 1] = (await network.getComicContent(id, i + 1)).data;
+      res[i + 1] =
+          (await manager
+                  .readProvider(picacgNetworkProvider)
+                  .getComicContent(id, i + 1))
+              .data;
     }
     return res;
   }
@@ -119,7 +124,8 @@ class PicDownloadingTask extends DownloadingTask {
   Future<void> loadImages(ImageDownloadQueue queue) async {
     // 1. 获取章节列表（如果尚未获取）
     if (_eps.isEmpty) {
-      _eps = (await network.getEps(id)).data;
+      _eps =
+          (await manager.readProvider(picacgNetworkProvider).getEps(id)).data;
     }
 
     links ??= {};
@@ -136,7 +142,11 @@ class PicDownloadingTask extends DownloadingTask {
       if (links!.containsKey(epNum)) {
         urls = links![epNum]!;
       } else {
-        urls = (await network.getComicContent(id, epNum)).data;
+        urls =
+            (await manager
+                    .readProvider(picacgNetworkProvider)
+                    .getComicContent(id, epNum))
+                .data;
         links![epNum] = urls;
       }
 
@@ -161,7 +171,7 @@ class PicDownloadingTask extends DownloadingTask {
 
   @override
   Stream<DownloadProgress> downloadImage(String link) {
-    return ImageManager().getImage(getImageUrl(link));
+    return ImageManager(manager).getImage(getImageUrl(link));
   }
 
   @override
@@ -203,19 +213,13 @@ class PicDownloadingTask extends DownloadingTask {
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (await downloadManager.isExists(id)) {
-      var comic =
-          (await downloadManager.getComicOrNull(id))! as DownloadedComic;
+    if (await manager.isExists(id)) {
+      var comic = (await manager.getComicOrNull(id))! as DownloadedComic;
       previous = comic.downloadedEps;
     }
     var downloaded = (_downloadEps + previous).toSet().toList();
     downloaded.sort();
-    return DownloadedComic(
-      comic,
-      eps,
-      await getStorageSize(),
-      downloaded,
-    );
+    return DownloadedComic(comic, eps, await getStorageSize(), downloaded);
   }
 
   @override
@@ -223,9 +227,9 @@ class PicDownloadingTask extends DownloadingTask {
     List<int> completedEpisodes,
   ) async {
     var previous = <int>[];
-    if (await downloadManager.isExists(id)) {
+    if (await manager.isExists(id)) {
       var existingComic =
-          (await downloadManager.getComicOrNull(id))! as DownloadedComic;
+          (await manager.getComicOrNull(id))! as DownloadedComic;
       previous = existingComic.downloadedEps;
     }
     // completedEpisodes 是 links Map 的 key（章节编号，从1开始）
@@ -234,11 +238,6 @@ class PicDownloadingTask extends DownloadingTask {
         .toSet()
         .toList();
     downloaded.sort();
-    return DownloadedComic(
-      comic,
-      eps,
-      await getStorageSize(),
-      downloaded,
-    );
+    return DownloadedComic(comic, eps, await getStorageSize(), downloaded);
   }
 }

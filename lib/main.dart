@@ -18,7 +18,7 @@ import 'package:pica_comic/foundation/startup_metrics.dart';
 import 'package:pica_comic/foundation/theme/theme_provider.dart';
 import 'package:pica_comic/init.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
-import 'package:pica_comic/network/http_client.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/pages/auth_page.dart';
 import 'package:pica_comic/pages/comic_page/adapters_register.dart';
 import 'package:pica_comic/pages/main_page.dart';
@@ -117,6 +117,13 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap> {
       configureNetworkClient: () {
         ref.read(networkClientManagerProvider);
       },
+      prepareNetworkClient: () {
+        ref.read(networkClientManagerProvider).prepare();
+      },
+      nhentaiNetwork: ref.read(nhentaiNetworkProvider),
+      initializeComicSources: () async {
+        await ref.read(comicSourceRegistryProvider.future);
+      },
     );
   }
 
@@ -163,7 +170,19 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap> {
         if (!_deferredServicesScheduled) {
           _deferredServicesScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) startDeferredServices();
+            if (mounted) {
+              startDeferredServices(
+                initializeComicRuntime: () => ref
+                    .read(comicSourceRegistryProvider.notifier)
+                    .initializeRuntime(),
+                applyNetworkSettings: () => ref
+                    .read(networkClientManagerProvider)
+                    .applyPreferredBackend(),
+                syncWebdav: () => Webdav.syncData(
+                  manager: ref.read(downloadManagerProvider.notifier),
+                ),
+              );
+            }
           });
         }
         return const MyApp();
@@ -172,16 +191,16 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap> {
   }
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   static void Function()? updater;
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   DateTime time = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool forceRebuild = false;
@@ -217,8 +236,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // ignore
       }
     }
-    setNetworkProxy();
-    unawaited(networkClientManager.applySettings());
+    unawaited(networkClientManagerOf(context).applyProxySettings());
+    unawaited(
+      ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(networkClientManagerProvider).applySettings(),
+    );
     scheduleMicrotask(() {
       if (state == AppLifecycleState.hidden && enableAuth) {
         if (!AuthPage.lock &&
@@ -238,7 +262,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       if (DateTime.now().millisecondsSinceEpoch - time.millisecondsSinceEpoch >
           7200000) {
-        Webdav.syncData();
+        Webdav.syncData(manager: ref.read(downloadManagerProvider.notifier));
         time = DateTime.now();
       }
     });

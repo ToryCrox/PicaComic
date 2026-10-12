@@ -10,7 +10,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../comic_source/built_in/ehentai.dart';
 import '../../foundation/app.dart';
 import '../../base.dart';
-import '../../network/eh_network/eh_main_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class EhLoginPage extends StatefulWidget {
   const EhLoginPage({Key? key}) : super(key: key);
@@ -291,8 +291,12 @@ class _EhLoginPageState extends State<EhLoginPage> {
       logging = true;
     });
 
-    await EhNetwork().cookieJar.deleteUri(Uri.parse('https://e-hentai.org'));
-    await EhNetwork().cookieJar.deleteUri(Uri.parse('https://exhentai.org'));
+    await appComicSourceServices.ehentai.cookieJar.deleteUri(
+      Uri.parse('https://e-hentai.org'),
+    );
+    await appComicSourceServices.ehentai.cookieJar.deleteUri(
+      Uri.parse('https://exhentai.org'),
+    );
 
     var cookies = cookiesMap.entries
         .map((e) => Cookie(e.key, e.value))
@@ -300,20 +304,20 @@ class _EhLoginPageState extends State<EhLoginPage> {
     for (var element in cookies) {
       element.domain = ".e-hentai.org";
     }
-    await EhNetwork().cookieJar.saveFromResponse(
+    await appComicSourceServices.ehentai.cookieJar.saveFromResponse(
       Uri.parse("https://e-hentai.org"),
       cookies,
     );
     for (var element in cookies) {
       element.domain = ".exhentai.org";
     }
-    await EhNetwork().cookieJar.saveFromResponse(
+    await appComicSourceServices.ehentai.cookieJar.saveFromResponse(
       Uri.parse("https://exhentai.org"),
       cookies,
     );
 
-    // EhNetwork().getUserName().then((b) async {
-    EhNetwork().validateCookies().then((b) async {
+    // appComicSourceServices.ehentai.getUserName().then((b) async {
+    appComicSourceServices.ehentai.validateCookies().then((b) async {
       if (!mounted) return;
       if (b) {
         setState(() {
@@ -395,10 +399,10 @@ class _EhLoginPageState extends State<EhLoginPage> {
           }
         } else {
           // 用户取消或未输入，删除cookie
-          await EhNetwork().cookieJar.deleteUri(
+          await appComicSourceServices.ehentai.cookieJar.deleteUri(
             Uri.parse('https://e-hentai.org'),
           );
-          await EhNetwork().cookieJar.deleteUri(
+          await appComicSourceServices.ehentai.cookieJar.deleteUri(
             Uri.parse('https://exhentai.org'),
           );
         }

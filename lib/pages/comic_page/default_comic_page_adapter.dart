@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
@@ -13,6 +14,8 @@ import '../../foundation/ui_mode.dart';
 import '../../network/base_comic.dart';
 import '../../network/download/custom_download_model.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
+import '../../network/comic_source_services.dart';
 import '../../network/res.dart';
 import '../../tools/translations.dart';
 import '../reader/comic_reading_page.dart';
@@ -47,8 +50,8 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   String tag(String id) => comicPageTag(comicType, id);
 
   @override
-  String downloadId(String id) =>
-      downloadManager.getDownloadIdFromComicId(comicType, id);
+  String downloadId(String id, DownloadManager manager) =>
+      manager.getDownloadIdFromComicId(comicType, id);
 
   @override
   String? url(ComicInfoData data) => null;
@@ -60,7 +63,10 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     if (_source?.loadComicInfo == null) {
       return const Res(null, errorMessage: "Comic Source Not Found");
     }
-    return _source!.loadComicInfo!(id);
+    return loadComicInfoFromProvider(
+      ProviderScope.containerOf(App.globalContext!, listen: false),
+      ComicInfoQuery(_comicType.name, id),
+    );
   }
 
   @override
@@ -87,8 +93,11 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   }
 
   /// 将已选章节交给来源对应的下载任务。
-  void addDownload(ComicInfoData data, List<int> selectedEps) =>
-      downloadManager.addCustomDownload(data, selectedEps);
+  void addDownload(
+    ComicInfoData data,
+    List<int> selectedEps,
+    DownloadManager manager,
+  ) => manager.addCustomDownload(data, selectedEps);
 
   @override
   Future<bool> loadFavorite(ComicInfoData data) async =>
@@ -141,7 +150,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   bool get supportThumbnails => true;
 
   @override
-  ThumbnailsData? createThumbnails(ComicInfoData data) {
+  ThumbnailsData? createThumbnails(ComicInfoData data, WidgetRef ref) {
     if (data.thumbnails == null && data.thumbnailLoader == null) return null;
     return ThumbnailsData(
       data.thumbnails ?? [],
@@ -198,14 +207,18 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
   }
 
   @override
-  void download(ComicInfoData data, BuildContext context) {
-    final downloadId = downloadManager.getDownloadIdFromComicId(
+  void download(
+    ComicInfoData data,
+    BuildContext context,
+    DownloadManager manager,
+  ) {
+    final downloadId = manager.getDownloadIdFromComicId(
       comicType,
       data.comicId,
     );
     final eps = data.chapters?.values.toList();
 
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == downloadId) {
         showToast(message: "下载中".tl);
         return;
@@ -213,19 +226,19 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     }
 
     var downloaded = <int>[];
-    downloadManager.isExists(downloadId).then((exists) async {
+    manager.isExists(downloadId).then((exists) async {
       if (exists) {
         if (eps == null) {
           showToast(message: "已下载".tl);
           return;
         }
-        var downloadedComic = await downloadManager.getComicOrNull(downloadId);
+        var downloadedComic = await manager.getComicOrNull(downloadId);
         final mapped =
             mergeDownloadedItem(downloadedComic!, data) ?? downloadedComic;
         downloaded.addAll(mapped.downloadedEps);
       } else {
         if (eps == null) {
-          addDownload(data, [0]);
+          addDownload(data, [0], manager);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
           return;
@@ -235,32 +248,29 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       final child = SelectDownloadChapter(
         eps,
         (selectedEps) {
-          addDownload(data, selectedEps);
+          addDownload(data, selectedEps, manager);
           App.globalBack();
           showToast(message: "已加入下载队列".tl);
         },
         downloaded,
         onEpisodeDelete: (ep) async {
-          var dc = await downloadManager.getComicOrNull(downloadId);
+          var dc = await manager.getComicOrNull(downloadId);
           if (dc != null) {
             final directory = dc.directory;
             dc = mergeDownloadedItem(dc, data) ?? dc;
             dc.directory = directory;
             if (dc.downloadedEps.length == 1) {
-              await downloadManager.delete([downloadId]);
+              await manager.delete([downloadId]);
             } else {
-              await downloadManager.deleteEpisode(dc, ep);
+              await manager.deleteEpisode(dc, ep);
             }
           }
         },
       );
-      if (UiMode.m1(App.globalContext!)) {
-        showModalBottomSheet(
-          context: App.globalContext!,
-          builder: (ctx) => child,
-        );
+      if (UiMode.m1(context)) {
+        showModalBottomSheet(context: context, builder: (ctx) => child);
       } else {
-        showSideBar(App.globalContext!, child, useSurfaceTintColor: true);
+        showSideBar(context, child, useSurfaceTintColor: true);
       }
     });
   }
@@ -270,6 +280,7 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
     ComicInfoData data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final source = _source;
     final widget = FavoriteComicWidget(
@@ -281,7 +292,9 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       },
       foldersLoader: source?.favoriteData?.loadFolders == null
           ? null
-          : () => source!.favoriteData!.loadFolders!(data.comicId),
+          : () => ProviderScope.containerOf(context, listen: false)
+                .read(comicSourceCallbackRunnerProvider)
+                .loadFavoriteFolders(source!.favoriteData!, data.comicId),
       initialFolder: (source?.favoriteData?.multiFolder ?? false) ? null : '0',
       localFavoriteItem: toLocalFavoriteItem(data),
       setFavorite: (b) {
@@ -293,31 +306,45 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       favoriteOnPlatform: data.isFavorite,
       selectFolderCallback: (folder, type) async {
         if (type == 1) {
-          LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
+          LocalFavoritesManager().addComic(
+            folder,
+            toLocalFavoriteItem(data),
+            null,
+            manager,
+          );
           return const Res(true);
         }
-        final res = await source?.favoriteData?.addOrDelFavorite?.call(
-          data.comicId,
-          folder,
-          true,
-        );
+        final res = source?.favoriteData == null
+            ? null
+            : await ProviderScope.containerOf(context, listen: false)
+                  .read(comicSourceCallbackRunnerProvider)
+                  .changeFavorite(
+                    source!.favoriteData!,
+                    data.comicId,
+                    folder,
+                    true,
+                  );
         return res ?? const Res.error("Not supported");
       },
       cancelPlatformFavorite: () async {
-        final res = await source?.favoriteData?.addOrDelFavorite?.call(
-          data.comicId,
-          '0',
-          false,
-        );
+        final res = source?.favoriteData == null
+            ? null
+            : await ProviderScope.containerOf(context, listen: false)
+                  .read(comicSourceCallbackRunnerProvider)
+                  .changeFavorite(
+                    source!.favoriteData!,
+                    data.comicId,
+                    '0',
+                    false,
+                  );
         return res ?? const Res.error("");
       },
       cancelPlatformFavoriteWithFolder: (folder) {
-        return source?.favoriteData?.addOrDelFavorite?.call(
-              data.comicId,
-              folder,
-              false,
-            ) ??
-            Future.value(const Res.error(""));
+        final favoriteData = source?.favoriteData;
+        if (favoriteData == null) return Future.value(const Res.error(""));
+        return ProviderScope.containerOf(context, listen: false)
+            .read(comicSourceCallbackRunnerProvider)
+            .changeFavorite(favoriteData, data.comicId, folder, false);
       },
     );
     if (UiMode.m1(context)) {

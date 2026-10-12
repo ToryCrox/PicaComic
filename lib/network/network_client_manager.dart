@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../base.dart';
+import '../foundation/app_settings_provider.dart';
 import '../foundation/log.dart';
 import 'app_dio.dart';
 import 'cloudflare.dart';
@@ -15,13 +17,17 @@ import 'network_telemetry.dart';
 import 'rhttp_dio_adapter.dart';
 import 'rhttp_init.dart';
 
-/// 管理应用内漫画网络请求的两个共享 Dio。
-// TODO: 后续调整网络依赖时，将设置读取连带改为注入配置或仓库；共享 Dio 仍保持应用级生命周期。
-class NetworkClientManager {
-  NetworkClientManager._();
+part 'network_client_manager.g.dart';
 
-  /// 应用级单例。
-  static final instance = NetworkClientManager._();
+/// 管理应用内漫画网络请求的两个共享 Dio。
+@Riverpod(keepAlive: true)
+class NetworkClientManager extends _$NetworkClientManager {
+  @override
+  NetworkClientManager build() {
+    _telemetry = ref.watch(networkTelemetryBridgeProvider);
+    ref.onDispose(() => unawaited(dispose()));
+    return this;
+  }
 
   late final Dio apiDio;
   late final Dio mediaDio;
@@ -34,23 +40,22 @@ class NetworkClientManager {
   Future<void>? _initializationFuture;
   bool _rhttpAvailable = false;
   bool _disposed = false;
-  NetworkTelemetryBridge _telemetry = NetworkTelemetryBridge.instance;
+  late NetworkTelemetryBridge _telemetry;
 
   /// 当前实际生效的网络后端。
   NetworkBackend get effectiveBackend {
     if (kIsWeb || !_rhttpAvailable) {
       return NetworkBackend.dio;
     }
-    return appdata.appSettings.networkBackend;
+    return NetworkConfigExtension.fromValue(
+      ref.read(appSettingsProvider).value(AppSettingKeys.networkBackend),
+    );
   }
 
   /// 当前配置的 HTTP 协议偏好。
-  NetworkProtocol get protocol => appdata.appSettings.networkProtocol;
-
-  /// 注入 Riverpod 管理的网络监控状态。
-  void configureTelemetry(NetworkTelemetryBridge telemetry) {
-    _telemetry = telemetry;
-  }
+  NetworkProtocol get protocol => NetworkProtocolExtension.fromValue(
+    ref.read(appSettingsProvider).value(AppSettingKeys.networkProtocol),
+  );
 
   /// 创建可立即使用的 Dio 和基础适配器。
   ///
@@ -83,8 +88,7 @@ class NetworkClientManager {
     try {
       if (_initialized) return;
 
-      if (!kIsWeb &&
-          appdata.appSettings.networkBackend == NetworkBackend.rhttp) {
+      if (!kIsWeb && _configuredBackend == NetworkBackend.rhttp) {
         try {
           await initializeRhttp();
           _rhttpAvailable = true;
@@ -112,11 +116,20 @@ class NetworkClientManager {
     await _applySettings();
   }
 
+  /// 应用当前设置中的系统代理。
+  Future<void> applyProxySettings() {
+    return setNetworkProxy(ref.read(appSettingsProvider));
+  }
+
+  NetworkBackend get _configuredBackend => NetworkConfigExtension.fromValue(
+    ref.read(appSettingsProvider).value(AppSettingKeys.networkBackend),
+  );
+
   Future<void> _applySettings() async {
     _createDioIfNeeded();
 
     if (!kIsWeb &&
-        appdata.appSettings.networkBackend == NetworkBackend.rhttp &&
+        _configuredBackend == NetworkBackend.rhttp &&
         !_rhttpAvailable) {
       try {
         await initializeRhttp();
@@ -130,7 +143,7 @@ class NetworkClientManager {
     final currentProtocol = protocol;
     String? proxy;
     try {
-      proxy = await getProxy();
+      proxy = await getProxy(settings: ref.read(appSettingsProvider));
     } catch (e, s) {
       Log.w('Failed to read network proxy.\n$e\n$s');
     }
@@ -178,7 +191,14 @@ class NetworkClientManager {
     if (backend == NetworkBackend.rhttp) {
       return createRhttpDioAdapter(protocol: protocol, proxy: proxy);
     }
-    return Future.value(AppHttpAdapter(protocol));
+    return Future.value(
+      AppHttpAdapter(
+        protocol,
+        hostsEnabled: ref
+            .read(appSettingsProvider)
+            .enabled(AppSettingKeys.hostsEnabled),
+      ),
+    );
   }
 
   void _createDioIfNeeded() {
@@ -227,17 +247,12 @@ class NetworkClientManager {
   }
 }
 
-/// 便于非 Widget 网络代码访问同一个应用级管理器。
-NetworkClientManager get networkClientManager => NetworkClientManager.instance;
-
-/// Riverpod 应用级网络管理器。
-final networkClientManagerProvider = Provider<NetworkClientManager>((ref) {
-  final manager = NetworkClientManager.instance;
-  manager.configureTelemetry(ref.read(networkTelemetryBridgeProvider));
-  // 这是应用级单例，ProviderScope（例如页面级测试容器）销毁时不能
-  // 释放它，否则其他页面或后续 Provider 会拿到已经关闭的 Dio。
-  return manager;
-});
+/// 非 Widget 网络基础设施通过当前上下文所属的 ProviderScope 读取共享 Dio。
+NetworkClientManager networkClientManagerOf(BuildContext context) =>
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(networkClientManagerProvider);
 
 class _SwitchingHttpClientAdapter implements HttpClientAdapter {
   _AdapterGeneration _current = _AdapterGeneration(HttpClientAdapter());

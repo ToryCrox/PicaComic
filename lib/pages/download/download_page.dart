@@ -461,7 +461,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               context: context,
               builder: (context) => const ImportLocalComicDialog(),
             );
-            ref.refresh(allDownloadedComicsProvider);
+            ref.invalidate(allDownloadedComicsProvider);
           },
         ),
       ),
@@ -660,6 +660,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             await deleteDownloadedComics(
               state.selectedIds.toList(),
               deleteFiles: deleteFiles,
+              manager: ref.read(downloadManagerProvider.notifier),
             );
             exitSelecting(ref, _pageId);
           });
@@ -682,10 +683,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
               if (!context.mounted) return;
               final overwriteExisting = await showRedownloadDialog(context);
               if (overwriteExisting == null) return;
-              final result = await downloadManager.redownloadComics(
-                selectedComics,
-                overwriteExisting: overwriteExisting,
-              );
+              final result = await ref
+                  .read(downloadManagerProvider.notifier)
+                  .redownloadComics(
+                    selectedComics,
+                    overwriteExisting: overwriteExisting,
+                  );
               showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
               if (result.successCount > 0) {
                 exitSelecting(ref, _pageId);
@@ -706,9 +709,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   .where((e) => state.selectedIds.contains(e.id))
                   .toList();
 
-              final result = await downloadManager.refreshComicCovers(
-                selectedComics,
-              );
+              final result = await ref
+                  .read(downloadManagerProvider.notifier)
+                  .refreshComicCovers(selectedComics);
               showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
               if (result.successCount > 0) {
                 exitSelecting(ref, _pageId);
@@ -764,10 +767,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             final color = await showDownloadColorDialog(context);
 
             if (color != null) {
-              await downloadManager.batchUpdateColor(
-                state.selectedIds.toList(),
-                color,
-              );
+              await ref
+                  .read(downloadManagerProvider.notifier)
+                  .batchUpdateColor(state.selectedIds.toList(), color);
               exitSelecting(ref, _pageId);
             }
           });
@@ -792,7 +794,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   comics: selectedComics,
                   onComplete: () {
                     exitSelecting(ref, _pageId);
-                    ref.refresh(allDownloadedComicsProvider);
+                    ref.invalidate(allDownloadedComicsProvider);
                   },
                 ),
               );
@@ -829,7 +831,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                   comics: selectedComics,
                   onComplete: () {
                     exitSelecting(ref, _pageId);
-                    ref.refresh(allDownloadedComicsProvider);
+                    ref.invalidate(allDownloadedComicsProvider);
                   },
                 ),
               );

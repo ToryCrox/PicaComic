@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -12,6 +11,13 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'components/download_tile.dart';
 import 'translation_result_replacer.dart';
+
+export 'package:pica_comic/network/download/download_manager.dart'
+    show
+        DownloadManager,
+        DownloadQueueSnapshot,
+        DownloadStatus,
+        downloadManagerProvider;
 
 part 'download_providers.g.dart';
 
@@ -34,10 +40,11 @@ class AllDownloadedComics extends _$AllDownloadedComics {
       _disposed = true;
       _subscription?.cancel();
     });
-    await downloadManager.init();
+    final manager = ref.read(downloadManagerProvider.notifier);
+    await manager.init();
     if (_disposed) return const [];
     await _subscription?.cancel();
-    _subscription = downloadManager.onComicsChanged.listen((_) {
+    _subscription = manager.onComicsChanged.listen((_) {
       if (!_disposed) _refresh();
     });
 
@@ -45,7 +52,9 @@ class AllDownloadedComics extends _$AllDownloadedComics {
   }
 
   Future<List<DownloadedItem>> _loadComics() async {
-    return await downloadManager.getAll('time', 'desc');
+    return await ref
+        .read(downloadManagerProvider.notifier)
+        .getAll('time', 'desc');
   }
 
   Future<void> _refresh() async {
@@ -77,25 +86,24 @@ Future<DownloadSummary> downloadSummary(Ref ref) async {
     disposed = true;
     subscription?.cancel();
   });
-  await downloadManager.init();
+  final manager = ref.read(downloadManagerProvider.notifier);
+  await manager.init();
   if (disposed) {
     return const DownloadSummary(total: 0, pending: 0);
   }
-  subscription = downloadManager.onComicsChanged.listen((_) {
+  subscription = manager.onComicsChanged.listen((_) {
     if (!disposed) ref.invalidateSelf();
   });
-  final total = await downloadManager.getTotal();
-  return DownloadSummary(
-    total: total,
-    pending: downloadManager.downloading.length,
-  );
+  final total = await manager.getTotal();
+  return DownloadSummary(total: total, pending: manager.downloading.length);
 }
 
 /// 应用启动后用于决定是否显示“继续未完成下载”提示。
 @Riverpod(keepAlive: true)
 Future<bool> pendingDownloads(Ref ref) async {
-  await downloadManager.init();
-  return downloadManager.downloading.isNotEmpty;
+  final manager = ref.read(downloadManagerProvider.notifier);
+  await manager.init();
+  return manager.downloading.isNotEmpty;
 }
 
 /// 当前下载列表中存在可替换翻译结果的漫画。
@@ -115,78 +123,16 @@ Future<Map<String, TranslationResultInfo>> translationResultAvailability(
   );
 }
 
-/// 下载状态枚举
-enum DownloadStatus {
-  downloading,
-  waiting,
-  paused, // 所有的暂停状态（包括暂停中/等待中但管理器暂停）
-}
-
 /// 正在下载/等待/暂停的漫画状态 Provider (Map<String, DownloadStatus>)
 ///
 /// 监听 DownloadManager 的状态变化，提供当前任务的状态映射。
 @Riverpod(keepAlive: true)
 class DownloadingItems extends _$DownloadingItems {
-  bool _disposed = false;
-  bool _listenerRegistered = false;
-
   @override
   Map<String, DownloadStatus> build() {
-    // 先等待管理器恢复队列，再注册监听器，避免在初始化窗口读取到半成品。
-    unawaited(_initialize());
-    ref.onDispose(() {
-      _disposed = true;
-      if (_listenerRegistered) {
-        downloadManager.removeListener(_update);
-      }
-    });
-    return _computeStatus();
-  }
-
-  Future<void> _initialize() async {
-    try {
-      await downloadManager.init();
-      if (_disposed) return;
-      downloadManager.addListener(_update);
-      _listenerRegistered = true;
-      _update();
-    } catch (_) {
-      // 该 Provider 只表示队列状态；初始化错误由下载摘要/页面自身展示。
-    }
-  }
-
-  Map<String, DownloadStatus> _computeStatus() {
-    final Map<String, DownloadStatus> statusMap = {};
-
-    final runningIds = downloadManager.runningTaskIds;
-    final waitingIds = downloadManager.waitingTaskIds;
-    final isManagerDownloading = downloadManager.isDownloading;
-
-    if (!isManagerDownloading) {
-      for (var id in runningIds) {
-        statusMap[id] = DownloadStatus.paused;
-      }
-      for (var id in waitingIds) {
-        statusMap[id] = DownloadStatus.paused;
-      }
-    } else {
-      for (var id in runningIds) {
-        statusMap[id] = DownloadStatus.downloading;
-      }
-      for (var id in waitingIds) {
-        statusMap[id] = DownloadStatus.waiting;
-      }
-    }
-
-    return statusMap;
-  }
-
-  void _update() {
-    final statusMap = _computeStatus();
-
-    if (!mapEquals(state, statusMap)) {
-      state = statusMap;
-    }
+    return ref.watch(
+      downloadManagerProvider.select((queue) => queue.statusByTaskId),
+    );
   }
 }
 
@@ -225,20 +171,23 @@ class AllTags extends _$AllTags {
       _disposed = true;
       _subscription?.cancel();
     });
-    await downloadManager.init();
+    final manager = ref.read(downloadManagerProvider.notifier);
+    await manager.init();
     if (_disposed) return const [];
     await _subscription?.cancel();
-    _subscription = downloadManager.onTagsChanged.listen((_) {
+    _subscription = manager.onTagsChanged.listen((_) {
       if (!_disposed) _refresh();
     });
 
-    return await downloadManager.getAllTags();
+    return await manager.getAllTags();
   }
 
   Future<void> _refresh() async {
     if (_disposed) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => downloadManager.getAllTags());
+    state = await AsyncValue.guard(
+      () => ref.read(downloadManagerProvider.notifier).getAllTags(),
+    );
   }
 
   /// 手动刷新，供外部调用
@@ -298,20 +247,23 @@ class ComicUserTags extends _$ComicUserTags {
       _disposed = true;
       _tagsSubscription?.cancel();
     });
-    await downloadManager.init();
+    final manager = ref.read(downloadManagerProvider.notifier);
+    await manager.init();
     if (_disposed) return const {};
     await _tagsSubscription?.cancel();
-    _tagsSubscription = downloadManager.onTagsChanged.listen((_) {
+    _tagsSubscription = manager.onTagsChanged.listen((_) {
       if (!_disposed) _refresh();
     });
 
-    return await downloadManager.getAllComicTagsMap();
+    return await manager.getAllComicTagsMap();
   }
 
   Future<void> _refresh() async {
     if (_disposed) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => downloadManager.getAllComicTagsMap());
+    state = await AsyncValue.guard(
+      () => ref.read(downloadManagerProvider.notifier).getAllComicTagsMap(),
+    );
   }
 
   /// 手动刷新，供外部调用

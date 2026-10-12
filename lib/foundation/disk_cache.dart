@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_telemetry.dart';
@@ -57,7 +58,7 @@ class DiskCache {
   ) async* {
     await for (final response in source) {
       if (response is FileInfo && response.source == FileSource.Online) {
-        NetworkTelemetryBridge.instance.reportArtifactReady(
+        appNetworkTelemetryBridge.reportArtifactReady(
           transferId: transferId,
           path: response.file.path,
           source: NetworkArtifactSource.imageCache,
@@ -123,7 +124,7 @@ class DiskCache {
         authHeaders: requestHeaders,
         force: force,
       );
-      NetworkTelemetryBridge.instance.reportArtifactReady(
+      appNetworkTelemetryBridge.reportArtifactReady(
         transferId: transferId,
         path: fileInfo.file.path,
         source: NetworkArtifactSource.imageCache,
@@ -320,14 +321,15 @@ class CacheHttpFileService extends FileService {
       extra[networkTransferIdExtraKey] = transferId;
     }
     extra[networkRequestKindExtraKey] = NetworkRequestKind.image.name;
-    final response = await networkClientManager.mediaDio.get<ResponseBody>(
-      url,
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: requestHeaders,
-        extra: extra,
-      ),
-    );
+    final response = await networkClientManagerOf(App.globalContext!).mediaDio
+        .get<ResponseBody>(
+          url,
+          options: Options(
+            responseType: ResponseType.stream,
+            headers: requestHeaders,
+            extra: extra,
+          ),
+        );
     return DioFileServiceResponse(response, cacheControl);
   }
 }

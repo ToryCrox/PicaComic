@@ -1,27 +1,35 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/parser.dart';
 import 'package:pica_comic/network/cache_network.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/network/hitomi_network/search.dart';
+import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import '../../base.dart';
 import '../../foundation/log.dart';
-import '../http_client.dart';
 import '../res.dart';
 import 'fetch_data.dart';
 import 'hitomi_models.dart';
 import '../../tools/map_extension.dart';
 import '../../tools/type_util.dart';
 
+part 'hitomi_main_network.g.dart';
+
 /// 用于 hitomi.la 的网络请求类
-class HiNetwork {
-  factory HiNetwork() => cache == null ? (cache = HiNetwork._create()) : cache!;
+@Riverpod(keepAlive: true, name: 'hitomiNetworkProvider')
+class HiNetwork extends _$HiNetwork {
+  @override
+  HiNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
 
-  HiNetwork._create();
+  late NetworkClientManager clientManager;
 
-  static HiNetwork? cache;
-
-  String get baseDomain => appdata.getSetting(AppSettingKeys.hitomiCdnDomain);
+  String get baseDomain =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.hitomiCdnDomain);
 
   ///基本的get请求
   Future<Res<String>> get(
@@ -35,7 +43,7 @@ class HiNetwork {
         sendTimeout: const Duration(seconds: 5),
         headers: {"User-Agent": webUA, "Referer": "https://hitomi.la/"},
       );
-      var dio = CachedNetwork();
+      var dio = CachedNetwork(clientManager: clientManager);
       var res = await dio.get(url, options, expiredTime: expiredTime);
       return Res(res.data);
     } catch (e) {
@@ -63,6 +71,7 @@ class HiNetwork {
       comicList.url,
       comicList.toLoad,
       maxLength: comicList.total,
+      clientManager: clientManager,
     );
     if (comicIds.error) {
       return Res(false, errorMessage: comicIds.errorMessage!);
@@ -116,8 +125,9 @@ class HiNetwork {
           lang = tr.children[1].text;
         } else if (tr.firstChild!.text == "Series") {
           for (var liA in tr.querySelectorAll("td.series-list > ul > li > a")) {
-            if (liA.text != "N/A")
+            if (liA.text != "N/A") {
               tags.add(Tag(name: liA.text, link: liA.attributes["href"]!));
+            }
           }
         } else if (tr.firstChild!.text == "Tags") {
           for (var liA in tr.querySelectorAll("td.relatedtags > ul > li > a")) {
@@ -137,12 +147,15 @@ class HiNetwork {
 
   ///搜索Hitomi
   Future<Res<List<int>>> search(String keyword) async {
-    await getProxy();
     appdata.searchHistory.remove(keyword);
     appdata.searchHistory.add(keyword);
     appdata.writeHistory();
     try {
-      var searchEngine = HitomiSearch(keyword);
+      var searchEngine = HitomiSearch(
+        keyword,
+        clientManager: clientManager,
+        baseDomain: baseDomain,
+      );
       var res = await searchEngine.search();
       return Res(res.data);
     } catch (e, s) {

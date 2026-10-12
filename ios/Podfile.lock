@@ -58,8 +58,6 @@ PODS:
     - sqlite3/rtree
   - url_launcher_ios (0.0.1):
     - Flutter
-  - workmanager (0.0.1):
-    - Flutter
   - zip_flutter (0.0.1):
     - Flutter
 
@@ -81,7 +79,6 @@ DEPENDENCIES:
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - sqlite3_flutter_libs (from `.symlinks/plugins/sqlite3_flutter_libs/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
-  - workmanager (from `.symlinks/plugins/workmanager/ios`)
   - zip_flutter (from `.symlinks/plugins/zip_flutter/ios`)
 
 SPEC REPOS:
@@ -124,8 +121,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/sqlite3_flutter_libs/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
-  workmanager:
-    :path: ".symlinks/plugins/workmanager/ios"
   zip_flutter:
     :path: ".symlinks/plugins/zip_flutter/ios"
 
@@ -149,7 +144,6 @@ SPEC CHECKSUMS:
   sqlite3: 7559e33dae4c78538df563795af3a86fc887ee71
   sqlite3_flutter_libs: 4dd5d78cb764bc095baa5af79dcee907d05a21a1
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
-  workmanager: b89e4e4445d8b57ee2fdbf1c3925696ebe5b8990
   zip_flutter: 452447e26d7e66c88fc582ad7ad86fcee39c7b53
 
 PODFILE CHECKSUM: abd3071c3798147190079d32cd7c9d7d9f0df55a

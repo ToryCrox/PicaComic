@@ -9,13 +9,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import '../res.dart';
-import 'hitomi_main_network.dart';
 
 class HitomiSearch {
-  String get baseDomain => HiNetwork().baseDomain;
+  final String baseDomain;
   var results = <int>[];
   String? tagIndexVersion;
-  Dio get dio => networkClientManager.apiDio;
+  Dio get dio => clientManager.apiDio;
   final nozomiExtension = '.nozomi';
   var indexDir = 'galleriesindex';
   var galleriesIndexDir = 'galleriesindex';
@@ -23,7 +22,13 @@ class HitomiSearch {
   var nozomiUrlIndexDir = 'nozomiurlindex';
   final String keyword;
 
-  HitomiSearch(this.keyword);
+  HitomiSearch(
+    this.keyword, {
+    required this.clientManager,
+    required this.baseDomain,
+  });
+
+  final NetworkClientManager clientManager;
 
   Future<Res<List<int>>> search() async {
     await getTagIndexVersion();

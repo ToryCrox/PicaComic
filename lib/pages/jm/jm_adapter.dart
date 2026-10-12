@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
@@ -12,10 +13,10 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/jm_network/jm_image.dart';
 import '../../network/jm_network/jm_download.dart';
 import '../../network/jm_network/jm_models.dart';
-import '../../network/jm_network/jm_network.dart';
 import '../../network/res.dart';
 import '../../tools/extensions.dart';
 import '../../tools/translations.dart';
@@ -25,6 +26,7 @@ import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
 import 'jm_comments_page.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // JmAdapter — 禁漫天堂
@@ -39,14 +41,14 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) => "jm$id";
+  String downloadId(String id, DownloadManager _) => "jm$id";
   @override
   String? url(JmComicInfo data) => null;
 
   // -------- B. 数据加载 --------
   @override
   Future<Res<JmComicInfo>> loadData(String id) =>
-      JmNetwork().getComicInfo(id).then((res) {
+      appComicSourceServices.jm.getComicInfo(id).then((res) {
         if (res.success) {
           DiskCache.writeString(
             tag(id),
@@ -125,7 +127,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   @override
   bool? favoriteOnPlatformInitial(JmComicInfo data) => data.favorite;
   @override
-  ThumbnailsData? createThumbnails(JmComicInfo data) => null;
+  ThumbnailsData? createThumbnails(JmComicInfo data, WidgetRef ref) => null;
   @override
   String? commentsCount(JmComicInfo data) => null;
   @override
@@ -153,8 +155,12 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   }
 
   @override
-  void download(JmComicInfo data, BuildContext context) {
-    _downloadComic(data, context);
+  void download(
+    JmComicInfo data,
+    BuildContext context,
+    DownloadManager manager,
+  ) {
+    _downloadComic(data, context, manager);
   }
 
   @override
@@ -162,6 +168,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
     JmComicInfo data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     _showFavoriteSheet(
       bridge,
@@ -170,7 +177,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       id: data.id,
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await jmNetwork.favorite(data.id, folder);
+          var res = await appComicSourceServices.jm.favorite(data.id, folder);
           if (res.success) {
             data = data.copyWith(favorite: true);
             bridge.updateData(data);
@@ -178,11 +185,16 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
           }
           return res;
         }
-        LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(
+          folder,
+          toLocalFavoriteItem(data),
+          null,
+          manager,
+        );
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
-        var res = await jmNetwork.favorite(data.id, null);
+        var res = await appComicSourceServices.jm.favorite(data.id, null);
         if (res.success) {
           data = data.copyWith(favorite: false);
           bridge.updateData(data);
@@ -191,7 +203,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
         return res;
       },
       foldersLoader: () async {
-        var res = await jmNetwork.getFolders();
+        var res = await appComicSourceServices.jm.getFolders();
         if (res.error) return res;
         var resData = <String, String>{"0": "全部收藏".tl};
         resData.addAll(res.data);
@@ -214,7 +226,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
     ComicPageBridge bridge,
     BuildContext context,
   ) => () {
-    if (!data.liked) jmNetwork.likeComic(data.id);
+    if (!data.liked) appComicSourceServices.jm.likeComic(data.id);
     bridge.updateData(data.copyWith(liked: true));
   };
 
@@ -278,8 +290,12 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       );
 
   // -------- 下载辅助 --------
-  void _downloadComic(JmComicInfo comic, BuildContext context) async {
-    for (var i in downloadManager.downloading) {
+  void _downloadComic(
+    JmComicInfo comic,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
+    for (var i in manager.downloading) {
       if (i.id == comic.id) {
         showToast(message: "下载中".tl);
         return;
@@ -295,33 +311,33 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       );
     }
     var downloaded = <int>[];
-    final dc = await downloadManager.getComicOrNull("jm${comic.id}");
+    final dc = await manager.getComicOrNull("jm${comic.id}");
     if (dc != null) downloaded.addAll(dc.downloadedEps);
 
     final child = SelectDownloadChapter(
       eps,
       (selectedEps) {
-        downloadManager.addJmDownload(comic, selectedEps);
+        manager.addJmDownload(comic, selectedEps);
         App.globalBack();
         showToast(message: "已加入下载队列".tl);
       },
       downloaded,
       onEpisodeDelete: (ep) async {
-        var dc = await downloadManager.getComicOrNull("jm${comic.id}");
+        var dc = await manager.getComicOrNull("jm${comic.id}");
         if (dc != null) {
           if (dc.downloadedEps.length == 1) {
-            await downloadManager.delete(["jm${comic.id}"]);
+            await manager.delete(["jm${comic.id}"]);
           } else {
-            await downloadManager.deleteEpisode(dc, ep);
+            await manager.deleteEpisode(dc, ep);
           }
         }
       },
     );
 
-    if (UiMode.m1(App.globalContext!)) {
-      showModalBottomSheet(context: App.globalContext!, builder: (_) => child);
+    if (UiMode.m1(context)) {
+      showModalBottomSheet(context: context, builder: (_) => child);
     } else {
-      showSideBar(App.globalContext!, child, useSurfaceTintColor: true);
+      showSideBar(context, child, useSurfaceTintColor: true);
     }
   }
 

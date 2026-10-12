@@ -23,7 +23,8 @@ value 沿用现有字符串编码：布尔值使用 `"1"`/`"0"`，数值存为�
 - Widget 使用 `appSettingsProvider` 或其派生 Provider 观察快照，使用 Notifier 的 `setValue`/`setValues` 修改配置。
 - 滑块预览可使用 `persist: false`，拖动结束再调用 `save()`。
 - 无 WidgetRef 的设置弹窗从当前 `ProviderScope` 读取同一个 Notifier。
-- 网络及后台业务使用 `appdata.getSetting(AppSettingKeys.xxx)` 同步读取；底层内存更新经 `setSetting` 通知 Provider，不能直接修改只读 `settings` Map。
+- Riverpod 管理的网络与下载服务通过 `ref.read(appSettingsProvider)` 读取最新快照，写入统一调用设置 Notifier；不要在这些服务里直接读取或修改 `appdata`。
+- 非 Provider 服务通过构造参数、回调或设置仓库接收配置；`appdata.getSetting` 仅作为尚未迁移的兼容读取入口，不能成为新服务的依赖方式。
 - 用户数据导入保留本机的下载目录与身份验证配置。隐式界面状态、首次使用提示和已有独立主题 Provider 维持各自存储边界。
 
 ## 后续改造约定

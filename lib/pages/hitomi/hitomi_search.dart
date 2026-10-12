@@ -3,12 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
 import '../../foundation/app.dart';
 import '../../network/res.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class SearchPageComicList extends StatefulWidget {
   const SearchPageComicList({
@@ -45,7 +45,7 @@ class _SearchPageComicListState
 
   @override
   Future<Res<List<int>>> loadData() {
-    return HiNetwork().search(widget.keyword);
+    return appComicSourceServices.hitomi.search(widget.keyword);
   }
 }
 
@@ -164,18 +164,20 @@ class _HitomiComicTileDynamicLoadingState
       }
     }
     if (comic == null) {
-      HiNetwork().getComicInfoBrief(widget.id.toString()).then((c) {
-        if (c.error) {
-          showToast(message: c.errorMessage!);
-          return;
-        }
-        cache.add(c.data);
-        if (onScreen) {
-          setState(() {
-            comic = c.data;
+      appComicSourceServices.hitomi
+          .getComicInfoBrief(widget.id.toString())
+          .then((c) {
+            if (c.error) {
+              showToast(message: c.errorMessage!);
+              return;
+            }
+            cache.add(c.data);
+            if (onScreen) {
+              setState(() {
+                comic = c.data;
+              });
+            }
           });
-        }
-      });
 
       return buildLoadingWidget();
     } else {

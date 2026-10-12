@@ -76,7 +76,7 @@ class AiClient {
     if (config.apiKey.trim().isNotEmpty) {
       headers['Authorization'] = 'Bearer ${config.apiKey.trim()}';
     }
-    final bridge = NetworkTelemetryBridge.instance;
+    final bridge = appNetworkTelemetryBridge;
     final dio =
         Dio(
             BaseOptions(

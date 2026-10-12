@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import '../../foundation/image_manager.dart';
 
@@ -83,13 +84,14 @@ class HtDownloadingTask extends DownloadingTask {
 
   @override
   Future<Map<int, List<String>>> getLinks() async {
-    var res = await HtmangaNetwork().getImages(comic.id);
+    final network = manager.readProvider(htMangaNetworkProvider);
+    var res = await network.getImages(comic.id);
     return {0: res.data};
   }
 
   @override
   Stream<DownloadProgress> downloadImage(String link) {
-    return ImageManager().getImage(link);
+    return ImageManager(manager).getImage(link);
   }
 
   @override

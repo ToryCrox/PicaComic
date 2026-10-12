@@ -9,8 +9,9 @@ import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -32,19 +33,20 @@ final ehentai = ComicSource.named(
     key: "ehentai",
     title: "ehentai",
     multiFolder: true,
-    loadComic: (i, [folderId]) {
+    loadComic: (ref, i, [folderId]) {
       if (i == 1) {
         _EhentaiGalleriesLoader.instances['favorite'] = _EhentaiGalleriesLoader(
-          firstPageLoader: () async {
+          firstPageLoader: (ref) async {
+            final network = ref.read(ehNetworkProvider);
             Res<Galleries> res;
             if (folderId == '-1') {
-              res = await EhNetwork().getGalleries(
-                "${EhNetwork().ehBaseUrl}/favorites.php",
+              res = await network.getGalleries(
+                "${network.ehBaseUrl}/favorites.php",
                 favoritePage: true,
               );
             } else {
-              res = await EhNetwork().getGalleries(
-                "${EhNetwork().ehBaseUrl}/favorites.php?favcat=$folderId",
+              res = await network.getGalleries(
+                "${network.ehBaseUrl}/favorites.php?favcat=$folderId",
                 favoritePage: true,
               );
             }
@@ -52,11 +54,12 @@ final ehentai = ComicSource.named(
           },
         );
       }
-      return _EhentaiGalleriesLoader.instances['favorite']!(i);
+      return _EhentaiGalleriesLoader.instances['favorite']!(ref, i);
     },
-    loadFolders: ([cid]) async {
-      var e = await EhNetwork().getGalleries(
-        "${EhNetwork().ehBaseUrl}/favorites.php",
+    loadFolders: (ref, [cid]) async {
+      final network = ref.read(ehNetworkProvider);
+      var e = await network.getGalleries(
+        "${network.ehBaseUrl}/favorites.php",
         favoritePage: true,
       );
       if (e.error) {
@@ -64,8 +67,8 @@ final ehentai = ComicSource.named(
       }
       var res = <String, String>{};
       var folders = <String>["全部".tl];
-      folders.addAll(EhNetwork().folderNames);
-      for (int i = -1; i < EhNetwork().folderNames.length; i++) {
+      folders.addAll(network.folderNames);
+      for (int i = -1; i < network.folderNames.length; i++) {
         res[i.toString()] = folders[i + 1];
       }
       return Res(res);
@@ -133,20 +136,21 @@ final ehentai = ComicSource.named(
     enableRankingPage: true,
   ),
   categoryComicsData: CategoryComicsData.named(
-    load: (p0, p1, p3, p4) => throw UnimplementedError(),
+    load: (ref, p0, p1, p3, p4) => throw UnimplementedError(),
     rankingData: RankingData.named(
       options: {'15': "昨天", '13': "本月", '12': "今年", '11': "全部"},
-      load: (options, page) {
+      load: (ref, options, page) {
         var type = int.tryParse(options) ?? 15;
-        return EhNetwork().getLeaderBoardByPage(type, page);
+        return ref.read(ehNetworkProvider).getLeaderBoardByPage(type, page);
       },
     ),
   ),
   account: AccountConfig.named(
     allowReLogin: false,
-    onLogin: (BuildContext context) async {
+    onLogin: (ref, BuildContext context) async {
       await context.to(() => const EhLoginPage());
-      var cookies = await EhNetwork().cookieJar.loadForRequest(
+      final network = ref.read(ehNetworkProvider);
+      var cookies = await network.cookieJar.loadForRequest(
         Uri.parse("https://e-hentai.org"),
       );
       if (!cookies.any((e) => e.name == 'ipb_member_id')) {
@@ -158,10 +162,11 @@ final ehentai = ComicSource.named(
       }
       ehentai.saveData();
     },
-    logout: () async {
+    logout: (ref) async {
       var ehentai = ComicSource.find(ComicType.ehentai)!;
-      await EhNetwork().cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
-      await EhNetwork().cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
+      final network = ref.read(ehNetworkProvider);
+      await network.cookieJar.deleteUri(Uri.parse("https://e-hentai.org"));
+      await network.cookieJar.deleteUri(Uri.parse("https://exhentai.org"));
       ehentai.data['name'] = '';
     },
     infoItems: [
@@ -186,13 +191,15 @@ final ehentai = ComicSource.named(
       title: "Eh主页",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
-        firstPageLoader: () =>
-            EhNetwork().getGalleries(EhNetwork().ehBaseUrl).then((e) {
-              if (e.dataOrNull != null) {
-                DiskCache.writeModel('eh_home', e.data.toJson());
-              }
-              return e;
-            }),
+        firstPageLoader: (ref) {
+          final network = ref.read(ehNetworkProvider);
+          return network.getGalleries(network.ehBaseUrl).then((e) {
+            if (e.dataOrNull != null) {
+              DiskCache.writeModel('eh_home', e.data.toJson());
+            }
+            return e;
+          });
+        },
       ),
       loadCache: () async {
         var data = await DiskCache.readModel(
@@ -206,14 +213,15 @@ final ehentai = ComicSource.named(
       title: "Eh热门",
       type: ExplorePageType.multiPageComicList,
       loadPage: _EhentaiGalleriesLoader(
-        firstPageLoader: () => EhNetwork()
-            .getGalleries("${EhNetwork().ehBaseUrl}/popular")
-            .then((e) {
-              if (e.dataOrNull != null) {
-                DiskCache.writeModel('eh_popular', e.data.toJson());
-              }
-              return e;
-            }),
+        firstPageLoader: (ref) {
+          final network = ref.read(ehNetworkProvider);
+          return network.getGalleries("${network.ehBaseUrl}/popular").then((e) {
+            if (e.dataOrNull != null) {
+              DiskCache.writeModel('eh_popular', e.data.toJson());
+            }
+            return e;
+          });
+        },
       ),
       loadCache: () async {
         var data = await DiskCache.readModel(
@@ -225,22 +233,24 @@ final ehentai = ComicSource.named(
     ),
   ],
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) {
+    loadPage: (ref, keyword, page, options) {
       if (page == 1) {
         _EhentaiGalleriesLoader.clean();
         _EhentaiGalleriesLoader.instances['search:$keyword'] =
             _EhentaiGalleriesLoader(
-              firstPageLoader: () => EhNetwork().search(
-                keyword,
-                fCats: int.tryParse(options.elementAtOrNull(0) ?? ''),
-                startPages: int.tryParse(options.elementAtOrNull(1) ?? ''),
-                endPages: int.tryParse(options.elementAtOrNull(2) ?? ''),
-                minStars: int.tryParse(options.elementAtOrNull(3) ?? ''),
-                expunged: int.tryParse(options.elementAtOrNull(4) ?? ''),
-              ),
+              firstPageLoader: (ref) => ref
+                  .read(ehNetworkProvider)
+                  .search(
+                    keyword,
+                    fCats: int.tryParse(options.elementAtOrNull(0) ?? ''),
+                    startPages: int.tryParse(options.elementAtOrNull(1) ?? ''),
+                    endPages: int.tryParse(options.elementAtOrNull(2) ?? ''),
+                    minStars: int.tryParse(options.elementAtOrNull(3) ?? ''),
+                    expunged: int.tryParse(options.elementAtOrNull(4) ?? ''),
+                  ),
             );
       }
-      return _EhentaiGalleriesLoader.instances['search:$keyword']!(page);
+      return _EhentaiGalleriesLoader.instances['search:$keyword']!(ref, page);
     },
     customOptionsBuilder: (context, initialValues, updater) {
       return _SearchOptions(initialValues, updater);
@@ -251,12 +261,12 @@ final ehentai = ComicSource.named(
   comicPageBuilder: (context, id, cover) {
     return EhGalleryPage.fromLink(id, comicCover: cover);
   },
-  getThumbnailLoadingConfig: (url) => ImageConfig(
+  getThumbnailLoadingConfig: (ref, url) => ImageConfig(
     url: url,
     headers: {
-      "Cookie": EhNetwork().cookiesStr,
+      "Cookie": ref.read(ehNetworkProvider).cookiesStr,
       "User-Agent": webUA,
-      "Referer": EhNetwork().ehBaseUrl,
+      "Referer": ref.read(ehNetworkProvider).ehBaseUrl,
     },
   ),
 );
@@ -305,13 +315,13 @@ class _EhGalleryTile extends ComicTile {
   // MediaQuery.of(App.globalContext!).size.width < 430 ? 1 : 2;
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await EhNetwork().getGalleryInfo(gallery.link);
+    var res = await ref.read(ehNetworkProvider).getGalleryInfo(gallery.link);
     if (cancel) {
       return;
     }
@@ -374,7 +384,7 @@ class _EhGalleryTile extends ComicTile {
   }
 
   @override
-  Widget? buildSubDescription(context) {
+  Widget? buildSubDescription(BuildContext context, WidgetRef ref) {
     final s = gallery.stars ~/ 0.5;
     return SizedBox(
       height: 20,
@@ -421,22 +431,23 @@ class _EhGalleryTile extends ComicTile {
   ComicType? get comicType => ComicType.ehentai;
 
   @override
-  Future<void> Function()? get onDownloadTap => () async {
-    if (await downloadManager.isExists(comicID)) {
+  Future<void> Function(WidgetRef ref)? get onDownloadTap => (ref) async {
+    final manager = ref.read(downloadManagerProvider.notifier);
+    if (await manager.isExists(comicID)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == comicID) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    var res = await EhNetwork().getGalleryInfo(gallery.link);
+    var res = await ref.read(ehNetworkProvider).getGalleryInfo(gallery.link);
     if (res.error) {
       showToast(message: res.errorMessage ?? "Error");
     } else {
-      downloadManager.addEhDownload(res.data);
+      manager.addEhDownload(res.data);
       showToast(message: "已加入下载队列".tl);
     }
   };
@@ -652,30 +663,39 @@ class _EhentaiGalleriesLoader {
       final keyword = key.replaceFirst("search:", "");
       final config = ComicListPageConfig(
         pageKey: "ehentai search page with $keyword",
-        loadPage: (_) async => const Res.error("unused"),
+        loadPage: (_, _) async => const Res.error("unused"),
       );
       return !container.exists(comicListPageLogicProvider(config));
     });
   }
 
-  _EhentaiGalleriesLoader({required this.firstPageLoader});
+  _EhentaiGalleriesLoader({this.firstPageLoader});
 
-  final Future<Res<Galleries>> Function() firstPageLoader;
+  final Future<Res<Galleries>> Function(Ref ref)? firstPageLoader;
 
   String? nextPage;
 
   List<List<BaseComic>> cache = [];
 
-  Future<Res<List<BaseComic>>> call(int page) async {
+  Future<Res<List<BaseComic>>> call(Ref ref, int page) {
+    final network = ref.read(ehNetworkProvider);
+    return _loadPage(page, () => firstPageLoader!(ref), network.getGalleries);
+  }
+
+  Future<Res<List<BaseComic>>> _loadPage(
+    int page,
+    Future<Res<Galleries>> Function() loadFirstPage,
+    Future<Res<Galleries>> Function(String) loadNextPage,
+  ) async {
     if (page == 1 || cache.isEmpty) {
-      var res = await firstRequest();
+      var res = await firstRequest(loadFirstPage);
       if (res.error) {
         return Res.fromErrorRes(res);
       }
     }
     page--;
     while (page >= cache.length) {
-      var res = await loadNext();
+      var res = await loadNext(loadNextPage);
       if (res.error) {
         return Res.fromErrorRes(res);
       }
@@ -686,9 +706,11 @@ class _EhentaiGalleriesLoader {
     return Res(cache[page]);
   }
 
-  Future<Res<void>> firstRequest() async {
+  Future<Res<void>> firstRequest(
+    Future<Res<Galleries>> Function() loadFirstPage,
+  ) async {
     cache.clear();
-    var res = await firstPageLoader();
+    var res = await loadFirstPage();
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -697,8 +719,10 @@ class _EhentaiGalleriesLoader {
     return const Res(null);
   }
 
-  Future<Res<void>> loadNext() async {
-    var res = await EhNetwork().getGalleries(nextPage!);
+  Future<Res<void>> loadNext(
+    Future<Res<Galleries>> Function(String) loadNextPage,
+  ) async {
+    var res = await loadNextPage(nextPage!);
     if (res.error) {
       return Res.fromErrorRes(res);
     }

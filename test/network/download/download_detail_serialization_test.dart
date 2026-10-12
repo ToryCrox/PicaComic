@@ -215,22 +215,23 @@ void main() {
   });
 
   test('下载 ID 映射支持详情页链接', () {
+    final manager = DownloadManager();
     expect(
-      downloadManager.getDownloadIdFromComicId(
+      manager.getDownloadIdFromComicId(
         ComicType.ehentai,
         'https://e-hentai.org/g/123/token/',
       ),
       '123',
     );
     expect(
-      downloadManager.getDownloadIdFromComicId(
+      manager.getDownloadIdFromComicId(
         ComicType.hitomi,
         'https://hitomi.la/galleries/456.html',
       ),
       'hitomi456',
     );
     expect(
-      downloadManager.getDownloadIdFromComicId(ComicType.nhentai, '789'),
+      manager.getDownloadIdFromComicId(ComicType.nhentai, '789'),
       'nhentai789',
     );
   });

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../base.dart';
@@ -14,12 +15,14 @@ import '../../foundation/ui_mode.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/pica_image_manager.dart';
 import '../../network/kemono_network/kemono_main_network.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/res.dart';
 import '../../tools/translations.dart';
 import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // KemonoAdapter
@@ -33,8 +36,8 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) =>
-      downloadManager.getDownloadIdFromComicId(comicType, id);
+  String downloadId(String id, DownloadManager manager) =>
+      manager.getDownloadIdFromComicId(comicType, id);
   @override
   String? url(KemonoPost data) => null;
   @override
@@ -47,7 +50,11 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     if (parts.length != 3) {
       return const Res(null, errorMessage: 'Invalid ID format');
     }
-    return KemonoNetwork().getPostDetail(parts[0], parts[1], parts[2]);
+    return appComicSourceServices.kemono.getPostDetail(
+      parts[0],
+      parts[1],
+      parts[2],
+    );
   }
 
   @override
@@ -87,7 +94,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   EpsData? eps(KemonoPost data, BuildContext context) => null;
 
   @override
-  ThumbnailsData? createThumbnails(KemonoPost data) {
+  ThumbnailsData? createThumbnails(KemonoPost data, WidgetRef ref) {
     if (data.thumbnailUrls.isEmpty) return null;
     return ThumbnailsData(
       data.thumbnailUrls,
@@ -140,16 +147,17 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   }
 
   @override
-  void download(KemonoPost data, BuildContext context) async {
-    final dId = downloadManager.getDownloadIdFromComicId(
-      comicType,
-      data.target,
-    );
-    if (downloadManager.downloading.any((e) => e.id == dId)) {
+  void download(
+    KemonoPost data,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
+    final dId = manager.getDownloadIdFromComicId(comicType, data.target);
+    if (manager.downloading.any((e) => e.id == dId)) {
       showToast(message: "下载中".tl);
       return;
     }
-    if (await downloadManager.isExists(dId)) {
+    if (await manager.isExists(dId)) {
       showToast(message: "已下载".tl);
       return;
     }
@@ -164,7 +172,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
       sourceKey: comicType.name,
       comicId: data.target,
     );
-    downloadManager.addCustomDownload(comicData, [0]);
+    manager.addCustomDownload(comicData, [0]);
     showToast(message: "已加入下载队列".tl);
   }
 
@@ -173,6 +181,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
     KemonoPost data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: false,
@@ -185,7 +194,12 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
         }
       },
       selectFolderCallback: (folder, _) {
-        LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(
+          folder,
+          toLocalFavoriteItem(data),
+          null,
+          manager,
+        );
         return Future.value(const Res(true));
       },
     );

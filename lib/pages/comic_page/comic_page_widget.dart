@@ -16,6 +16,7 @@ import '../../foundation/file_utils.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
+import '../../network/download/download_manager.dart';
 import '../../tools/tags_translation.dart';
 import '../../tools/translations.dart';
 import '../download/tag_assignment_dialog.dart';
@@ -111,7 +112,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
     // 数据首次到达后初始化缩略图
     if (data != null && notifier.thumbnailsData == null) {
-      notifier.initThumbnails(adapter.createThumbnails(data));
+      notifier.initThumbnails(adapter.createThumbnails(data, ref));
     }
 
     return LayoutBuilder(
@@ -542,7 +543,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 state.favorite
                     ? Icons.collections_bookmark
                     : Icons.collections_bookmark_outlined,
-                () => adapter.openFavoritePanel(data, notifier, context),
+                () => adapter.openFavoritePanel(
+                  data,
+                  notifier,
+                  context,
+                  ref.read(downloadManagerProvider.notifier),
+                ),
                 () async {
                   // 长按直接收藏到默认本地文件夹
                   var folder = appdata.getSetting(
@@ -554,6 +560,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                     LocalFavoritesManager().addComic(
                       folder,
                       adapter.toLocalFavoriteItem(data),
+                      null,
+                      ref.read(downloadManagerProvider.notifier),
                     );
                     showToast(message: "已收藏".tl);
                   }
@@ -564,7 +572,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   context,
                   "下载".tl,
                   Icons.download,
-                  () => adapter.download(data, context),
+                  () => adapter.download(
+                    data,
+                    context,
+                    ref.read(downloadManagerProvider.notifier),
+                  ),
                 ),
               ..._buildExtraActions(adapter, data, state, screenWidth),
               ..._buildLikeAction(adapter, notifier, data),
@@ -760,7 +772,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   ) {
     if (!state.isDownloaded) return const [];
 
-    final downloadId = adapter.downloadId(widget.id);
+    final downloadId = adapter.downloadId(
+      widget.id,
+      ref.read(downloadManagerProvider.notifier),
+    );
     return [
       Flyout(
         enableTap: true,
@@ -773,7 +788,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             TextButton(
               onPressed: () async {
                 Navigator.of(ctx).pop();
-                await downloadManager.delete([downloadId]);
+                await ref.read(downloadManagerProvider.notifier).delete([
+                  downloadId,
+                ]);
                 showToast(message: "已删除".tl);
                 notifier.markDownloadDeleted();
               },
@@ -822,7 +839,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         children: [
           Expanded(
             child: FilledButton.tonal(
-              onPressed: () => adapter.download(data, context),
+              onPressed: () => adapter.download(
+                data,
+                context,
+                ref.read(downloadManagerProvider.notifier),
+              ),
               child: Text("下载".tl),
             ),
           ),
@@ -959,7 +980,13 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             ),
             for (var tag in state.localTags)
               _buildLocalTagCard(context, tag.name),
-            _buildOpenFolderButton(context, adapter.downloadId(widget.id)),
+            _buildOpenFolderButton(
+              context,
+              adapter.downloadId(
+                widget.id,
+                ref.read(downloadManagerProvider.notifier),
+              ),
+            ),
             _buildAddTagButton(context, adapter),
           ],
         ),
@@ -1225,7 +1252,9 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         onTap: () async {
-          final folderPath = await downloadManager.getFullDirectory(downloadId);
+          final folderPath = await ref
+              .read(downloadManagerProvider.notifier)
+              .getFullDirectory(downloadId);
           if (folderPath.isNotEmpty) {
             FileUtils.openFileOrDirectory(folderPath);
           } else {
@@ -1332,7 +1361,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => TagAssignmentDialog(
-        comicIds: [adapter.downloadId(widget.id)],
+        comicIds: [
+          adapter.downloadId(
+            widget.id,
+            ref.read(downloadManagerProvider.notifier),
+          ),
+        ],
         suggestedTags: currentTags,
       ),
     );

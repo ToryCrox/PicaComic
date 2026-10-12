@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
@@ -10,7 +11,7 @@ import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import 'package:pica_comic/pages/download/components/download_tile.dart';
 import '../../foundation/log.dart';
 
-class DownloadTagFilterPanel extends StatefulWidget {
+class DownloadTagFilterPanel extends ConsumerStatefulWidget {
   final List<TagInfo> tags;
   final Set<int> selectedTagIds;
   final ValueChanged<int?> onTagSelected;
@@ -29,10 +30,11 @@ class DownloadTagFilterPanel extends StatefulWidget {
   });
 
   @override
-  State<DownloadTagFilterPanel> createState() => _DownloadTagFilterPanelState();
+  ConsumerState<DownloadTagFilterPanel> createState() =>
+      _DownloadTagFilterPanelState();
 }
 
-class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
+class _DownloadTagFilterPanelState extends ConsumerState<DownloadTagFilterPanel>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final List<ScrollController> _scrollControllers = [];
@@ -179,7 +181,9 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
               // 全部标签tab,更新 sortOrder
               for (int i = 0; i < reorderedTags.length; i++) {
                 final tag = reorderedTags[i];
-                await downloadManager.updateTagSortOrder(tag.id, i);
+                await ref
+                    .read(downloadManagerProvider.notifier)
+                    .updateTagSortOrder(tag.id, i);
                 // 同时更新 _allTags 中的对应标签
                 final index = _allTags.indexWhere((t) => t.id == tag.id);
                 if (index != -1) {
@@ -190,7 +194,9 @@ class _DownloadTagFilterPanelState extends State<DownloadTagFilterPanel>
               // 分类tab,更新 categorySortOrder
               for (int i = 0; i < reorderedTags.length; i++) {
                 final tag = reorderedTags[i];
-                await downloadManager.updateTagCategorySortOrder(tag.id, i);
+                await ref
+                    .read(downloadManagerProvider.notifier)
+                    .updateTagCategorySortOrder(tag.id, i);
                 // 同时更新 _allTags 中的对应标签
                 final index = _allTags.indexWhere((t) => t.id == tag.id);
                 if (index != -1) {

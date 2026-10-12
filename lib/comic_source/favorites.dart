@@ -1,7 +1,12 @@
 part of comic_source;
 
 typedef AddOrDelFavFunc =
-    Future<Res<bool>> Function(String comicId, String folderId, bool isAdding);
+    Future<Res<bool>> Function(
+      Ref ref,
+      String comicId,
+      String folderId,
+      bool isAdding,
+    );
 
 class FavoriteData {
   final String key;
@@ -10,20 +15,24 @@ class FavoriteData {
 
   final bool multiFolder;
 
-  final Future<Res<List<BaseComic>>> Function(int page, [String? folder])
+  final Future<Res<List<BaseComic>>> Function(
+    Ref ref,
+    int page, [
+    String? folder,
+  ])
   loadComic;
 
   /// key-id, value-name
   ///
   /// if comicId is not null, Res.subData is the folders that the comic is in
-  final Future<Res<Map<String, String>>> Function([String? comicId])?
+  final Future<Res<Map<String, String>>> Function(Ref ref, [String? comicId])?
   loadFolders;
 
   /// A value of null disables this feature
-  final Future<Res<bool>> Function(String key)? deleteFolder;
+  final Future<Res<bool>> Function(Ref ref, String key)? deleteFolder;
 
   /// A value of null disables this feature
-  final Future<Res<bool>> Function(String name)? addFolder;
+  final Future<Res<bool>> Function(Ref ref, String name)? addFolder;
 
   /// A value of null disables this feature
   final String? allFavoritesId;

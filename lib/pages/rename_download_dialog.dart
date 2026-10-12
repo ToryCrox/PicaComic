@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 
-class RenameDownloadDialog extends StatefulWidget {
+class RenameDownloadDialog extends ConsumerStatefulWidget {
   final List<DownloadedItem> comics;
   final VoidCallback onComplete;
 
@@ -15,7 +16,8 @@ class RenameDownloadDialog extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<RenameDownloadDialog> createState() => _RenameDownloadDialogState();
+  ConsumerState<RenameDownloadDialog> createState() =>
+      _RenameDownloadDialogState();
 }
 
 enum RenameStatus { waiting, renaming, success, failed }
@@ -35,7 +37,7 @@ class RenameTask {
   });
 }
 
-class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
+class _RenameDownloadDialogState extends ConsumerState<RenameDownloadDialog> {
   bool _isLoading = true;
   bool _isRenaming = false;
   final List<RenameTask> _tasks = [];
@@ -49,9 +51,10 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
   }
 
   Future<void> _loadTasks() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     for (var comic in widget.comics) {
-      final oldName = await downloadManager.getDirectoryName(comic.id);
-      final newName = downloadManager.generateDirectoryName(comic);
+      final oldName = await engine.getDirectoryName(comic.id);
+      final newName = engine.generateDirectoryName(comic);
       _tasks.add(RenameTask(comic: comic, oldName: oldName, newName: newName));
     }
     if (mounted) {
@@ -62,6 +65,7 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
   }
 
   Future<void> _startRename() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     setState(() {
       _isRenaming = true;
       _successCount = 0;
@@ -82,7 +86,7 @@ class _RenameDownloadDialogState extends State<RenameDownloadDialog> {
         continue;
       }
 
-      final error = await downloadManager.renameComicDirectory(
+      final error = await engine.renameComicDirectory(
         task.comic.id,
         task.newName,
       );

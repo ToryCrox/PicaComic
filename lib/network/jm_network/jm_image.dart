@@ -9,14 +9,26 @@ String getBaseUrl() {
   return appdata.getSetting(AppSettingKeys.jmImageDomain);
 }
 
+String buildJmCoverUrl(String baseUrl, String id) {
+  return "$baseUrl/media/albums/${id}_3x4.jpg";
+}
+
 String getJmCoverUrl(String id) {
-  return "${getBaseUrl()}/media/albums/${id}_3x4.jpg";
+  return buildJmCoverUrl(getBaseUrl(), id);
+}
+
+String buildJmImageUrl(String baseUrl, String imageName, String id) {
+  return "$baseUrl/media/photos/$id/$imageName";
 }
 
 String getJmImageUrl(String imageName, String id) {
-  return "${getBaseUrl()}/media/photos/$id/$imageName";
+  return buildJmImageUrl(getBaseUrl(), imageName, id);
+}
+
+String buildJmAvatarUrl(String baseUrl, String imageName) {
+  return "$baseUrl/media/users/$imageName";
 }
 
 String getJmAvatarUrl(String imageName) {
-  return "${getBaseUrl()}/media/users/$imageName";
+  return buildJmAvatarUrl(getBaseUrl(), imageName);
 }

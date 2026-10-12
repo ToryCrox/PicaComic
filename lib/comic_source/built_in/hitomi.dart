@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/network/image_config.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -38,7 +39,7 @@ final hitomi = ComicSource.named(
   comicPageBuilder: (context, id, cover) {
     return HitomiComicPage.fromLink(id, cover: cover);
   },
-  getThumbnailLoadingConfig: (url) {
+  getThumbnailLoadingConfig: (ref, url) {
     return ImageConfig(
       url: url,
       headers: {"User-Agent": webUA, "Referer": "https://hitomi.la/"},
@@ -73,13 +74,13 @@ class _HiComicTile extends ComicTile {
   List<String>? get tags => _generateTags(comic.tagList);
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await HiNetwork().getComicInfo(comic.link);
+    var res = await ref.read(hitomiNetworkProvider).getComicInfo(comic.link);
     if (cancel) {
       return;
     }

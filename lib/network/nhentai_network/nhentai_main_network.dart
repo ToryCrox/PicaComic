@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/dom.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -17,12 +18,17 @@ import 'package:html/parser.dart';
 
 export 'models.dart';
 
-class NhentaiNetwork {
-  factory NhentaiNetwork() => _cache ?? (_cache = NhentaiNetwork._create());
+part 'nhentai_main_network.g.dart';
 
-  NhentaiNetwork._create();
+@Riverpod(keepAlive: true)
+class NhentaiNetwork extends _$NhentaiNetwork {
+  @override
+  NhentaiNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
 
-  static NhentaiNetwork? _cache;
+  late NetworkClientManager clientManager;
 
   SingleInstanceCookieJar? cookieJar;
 
@@ -30,7 +36,7 @@ class NhentaiNetwork {
 
   String baseUrl = "https://nhentai.net";
 
-  Dio get dio => networkClientManager.apiDio;
+  Dio get dio => clientManager.apiDio;
 
   Future<void> init() async {
     cookieJar = SingleInstanceCookieJar.instance;

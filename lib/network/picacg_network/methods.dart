@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'dart:convert' as convert;
@@ -15,21 +16,27 @@ import 'models.dart';
 
 export "models.dart";
 
+part 'methods.g.dart';
+
 const defaultAvatarUrl = "DEFAULT AVATAR URL";
 
 ///哔咔网络请求类
-class PicacgNetwork {
-  factory PicacgNetwork() => cache ?? (cache = PicacgNetwork._create());
-
-  static PicacgNetwork? cache;
-
-  PicacgNetwork._create() {
+@Riverpod(keepAlive: true)
+class PicacgNetwork extends _$PicacgNetwork {
+  @override
+  PicacgNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
     if (picacg.data['user'] != null) {
       try {
         user = Profile.fromJson(picacg.data['user']);
       } finally {}
     }
+    return this;
   }
+
+  late NetworkClientManager clientManager;
+
+  Future<bool> _reLogin() => picacg.reLogin(ref);
 
   final String apiUrl = "https://picaapi.picacomic.com";
 
@@ -69,7 +76,7 @@ class PicacgNetwork {
       await Future.delayed(const Duration(milliseconds: 500));
       return const Res(null, errorMessage: "未登录");
     }
-    var dio = CachedNetwork();
+    var dio = CachedNetwork(clientManager: clientManager);
     var options = getHeaders("get", token, url.replaceAll("$apiUrl/", ""));
     options.validateStatus = (i) => i == 200 || i == 400 || i == 401;
 
@@ -124,7 +131,7 @@ class PicacgNetwork {
       url.replaceAll("$apiUrl/", ""),
     );
     try {
-      var res = await networkClientManager.apiDio.post<String>(
+      var res = await clientManager.apiDio.post<String>(
         url,
         data: data,
         options: Options(
@@ -198,7 +205,7 @@ class PicacgNetwork {
   }
 
   Future<Res<bool>> loginFromAppdata() async {
-    var res = await picacg.reLogin();
+    var res = await _reLogin();
     if (res) {
       return const Res(true);
     } else {
@@ -305,9 +312,7 @@ class PicacgNetwork {
   /// 由于存在安全问题, 因此放弃
   Future<String?> init() async {
     try {
-      var res = await networkClientManager.apiDio.get(
-        "http://68.183.234.72/init",
-      );
+      var res = await clientManager.apiDio.get("http://68.183.234.72/init");
       var jsonResponse =
           convert.jsonDecode(res.toString()) as Map<String, dynamic>;
       return jsonResponse["addresses"][0];
@@ -716,7 +721,7 @@ class PicacgNetwork {
       url.replaceAll("$apiUrl/", ""),
     );
     try {
-      var res = await networkClientManager.apiDio.put(
+      var res = await clientManager.apiDio.put(
         url,
         data: {"avatar": imageData},
         options: Options(
@@ -739,7 +744,7 @@ class PicacgNetwork {
       url.replaceAll("$apiUrl/", ""),
     );
     try {
-      var res = await networkClientManager.apiDio.put(
+      var res = await clientManager.apiDio.put(
         url,
         data: {"slogan": slogan},
         options: Options(
@@ -972,7 +977,7 @@ class PicacgNetwork {
       url.replaceAll("$apiUrl/", ""),
     );
     try {
-      var res = await networkClientManager.apiDio.put(
+      var res = await clientManager.apiDio.put(
         url,
         data: {"new_password": newPassword, "old_password": oldPassword},
         options: Options(
@@ -1048,5 +1053,3 @@ class PicacgNetwork {
 String getImageUrl(String url) {
   return url;
 }
-
-PicacgNetwork get network => PicacgNetwork();

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -10,11 +11,18 @@ import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/res.dart';
 
-/// HiperDEX 网络请求与数据解析。
-class HiperdexNetwork {
-  HiperdexNetwork._();
+part 'hiperdex_main_network.g.dart';
 
-  static final HiperdexNetwork instance = HiperdexNetwork._();
+/// HiperDEX 网络请求与数据解析。
+@Riverpod(keepAlive: true)
+class HiperdexNetwork extends _$HiperdexNetwork {
+  @override
+  HiperdexNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
+
+  late NetworkClientManager clientManager;
 
   static const String baseUrl = 'https://hiperdex.com';
 
@@ -28,7 +36,7 @@ class HiperdexNetwork {
   Future<String>? _apiKeyFuture;
   final Map<String, Future<Res<dynamic>>> _pendingQueries = {};
 
-  Dio get _dio => networkClientManager.apiDio;
+  Dio get _dio => clientManager.apiDio;
 
   /// 漫画列表项。
   Future<Res<List<BaseComic>>> search({

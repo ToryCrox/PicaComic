@@ -14,6 +14,7 @@ import 'package:pica_comic/pages/local/local_thumbs_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
+import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -142,6 +143,7 @@ class DownloadList extends ConsumerWidget {
     Map<String, TranslationResultInfo> translationResults,
     List<DownloadedItem> selectedComics,
   ) {
+    final downloadManager = ref.read(downloadManagerProvider.notifier);
     final isSelected = pageState.selectedIds.contains(item.id);
     final typeName = getComicTypeName(item);
     final displayName = getComicDisplayName(item);
@@ -262,6 +264,7 @@ class DownloadList extends ConsumerWidget {
                   : const <DownloadedItem>[];
               await showTileContextMenu(
                 context: context,
+                manager: downloadManager,
                 details: details,
                 comic: item,
                 getOriginalTags: (item) => getOriginalTags(item, userTagsMap),
@@ -277,7 +280,7 @@ class DownloadList extends ConsumerWidget {
                     onRefresh: onRefresh,
                   );
                 },
-                onShowImageList: () => _goLocalComicPage(item),
+                onShowImageList: () => _goLocalComicPage(context, ref, item),
                 selectedComics: batchComics,
                 onBatchComplete: batchComics.isNotEmpty
                     ? () {
@@ -292,6 +295,10 @@ class DownloadList extends ConsumerWidget {
                 : null,
             isDragDisabled: pageState.isDragDisabled,
             downloadedItem: item,
+            sourceComicId: downloadManager.getComicIdFromDownloadId(
+              item.type.toComicType(),
+              item.id,
+            ),
             translationResult: translationResults[item.directoryPath],
             onAiTranslationMarkerTap: () async {
               final hasPendingTranslation =
@@ -330,8 +337,14 @@ class DownloadList extends ConsumerWidget {
   }
 
   /// 打开图片列表页面
-  void _goLocalComicPage(DownloadedItem comic) async {
-    var dirPath = await downloadManager.getFullDirectory(comic.id);
+  void _goLocalComicPage(
+    BuildContext context,
+    WidgetRef ref,
+    DownloadedItem comic,
+  ) async {
+    var dirPath = await ref
+        .read(downloadManagerProvider.notifier)
+        .getFullDirectory(comic.id);
     App.globalTo(
       () => LocalThumbsPage(
         dirPath: dirPath,
@@ -354,6 +367,12 @@ class DownloadList extends ConsumerWidget {
                 sFileRelativeFromPath = fileParent.path;
                 final imageNames =
                     (await fileParent.list(recursive: true).toList())
+                        .where(
+                          (e) => !isInsideComicBackupDirectory(
+                            e.path,
+                            fileParent.path,
+                          ),
+                        )
                         .where(predictImageFile)
                         .sortedByName()
                         .map((e) => e.name)

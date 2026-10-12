@@ -13,13 +13,10 @@ import '../../foundation/image_loader/stream_image_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/download/download_model.dart';
+import '../../network/comic_source_services.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
-import '../../network/htmanga_network/htmanga_main_network.dart';
 import '../../network/jm_network/jm_image.dart';
-import '../../network/jm_network/jm_network.dart';
-import '../../network/nhentai_network/nhentai_main_network.dart';
-import '../../network/picacg_network/methods.dart';
 import '../../network/res.dart';
 import '../../tools/type_util.dart';
 import '../../base.dart';
@@ -27,6 +24,29 @@ import '../hiperdex/hiperdex_reading_data.dart';
 
 abstract class ReadingData {
   ReadingData();
+
+  late DownloadManager _downloadManager;
+  late ComicSourceServices _sourceServices;
+  late ComicSourceCallbackRunner _sourceCallbacks;
+
+  /// 由阅读器的 ConsumerState 注入 Provider 管理的运行时依赖。
+  void bindDependencies({
+    required DownloadManager downloadManager,
+    required ComicSourceServices sourceServices,
+    required ComicSourceCallbackRunner sourceCallbacks,
+  }) {
+    _downloadManager = downloadManager;
+    _sourceServices = sourceServices;
+    _sourceCallbacks = sourceCallbacks;
+  }
+
+  /// 获取已注入的漫画源服务，供专用阅读数据实现使用。
+  ComicSourceServices get sourceServices => _sourceServices;
+
+  ComicSourceCallbackRunner get sourceCallbacks => _sourceCallbacks;
+
+  /// 获取阅读会话绑定的下载管理器。
+  DownloadManager get downloadManager => _downloadManager;
 
   /// 根据实际漫画源创建阅读数据，内置源使用自己的实现。
   factory ReadingData.fromSource(
@@ -85,16 +105,16 @@ abstract class ReadingData {
   Stream<Res<List<String>>> loadEp(int ep) async* {
     history ??= await HistoryManager().findSync(id);
     history?.addReadEpisode(ep);
-    _isDownloaded = await downloadManager.isExists(downloadId);
+    _isDownloaded = await _downloadManager.isExists(downloadId);
     if (_isDownloaded) {
-      final item = await downloadManager.getComicOrNull(downloadId);
+      final item = await _downloadManager.getComicOrNull(downloadId);
       if (item != null) {
         downloadedEps = item.downloadedEps;
         onDownloadedItemLoaded(item);
       }
     }
     if (dirPath.isNotEmpty) {
-      final imageList = await downloadManager.getAllImagesByDir(dirPath);
+      final imageList = await _downloadManager.getAllImagesByDir(dirPath);
       final imageFileUriList = imageList.map((e) => 'file://$e').toList();
       if (isReversed) {
         yield Res(imageFileUriList.reversed.toList());
@@ -103,11 +123,11 @@ abstract class ReadingData {
       }
     } else if (_isDownloaded && checkEpDownloaded(ep)) {
       final e = hasEp ? localEpisode(ep) : 0;
-      final downloadDir = await downloadManager.getImageDirectory(
+      final downloadDir = await _downloadManager.getImageDirectory(
         downloadId,
         e,
       );
-      final imageList = await downloadManager.getAllImageFileList(
+      final imageList = await _downloadManager.getAllImageFileList(
         downloadId,
         e,
       );
@@ -149,7 +169,7 @@ abstract class ReadingData {
     String? title,
   }) async* {
     if (_isDownloaded && checkEpDownloaded(ep)) {
-      final imageFile = await downloadManager.getImage(
+      final imageFile = await _downloadManager.getImage(
         downloadId,
         hasEp ? localEpisode(ep) : 0,
         page,
@@ -157,7 +177,7 @@ abstract class ReadingData {
       yield DownloadProgress(1, 1, "", imageFile.path);
     } else {
       if (title != null) {
-        final file = await downloadManager.getDownloadImageOrNull(
+        final file = await _downloadManager.getDownloadImageOrNull(
           title,
           ep,
           page,
@@ -178,7 +198,12 @@ abstract class ReadingData {
     if (url.startsWith("file://")) {
       return FileImage(File(url.substring(7)));
     } else if (_isDownloaded && checkEpDownloaded(ep)) {
-      return FileImageProvider(downloadId, hasEp ? localEpisode(ep) : 0, page);
+      return FileImageProvider(
+        _downloadManager,
+        downloadId,
+        hasEp ? localEpisode(ep) : 0,
+        page,
+      );
     } else {
       return StreamImageProvider(
         () => loadImage(ep, page, url, title: title),
@@ -218,12 +243,12 @@ class PicacgReadingData extends ReadingData {
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
-    return PicacgNetwork().getComicContent(id, ep);
+    return _sourceServices.picacg.getComicContent(id, ep);
   }
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getImage(url);
+    return ImageManager(_downloadManager).getImage(url);
   }
 
   @override
@@ -242,7 +267,7 @@ class EhReadingData extends ReadingData {
   ComicType get type => ComicType.ehentai;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId => _downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
@@ -251,7 +276,7 @@ class EhReadingData extends ReadingData {
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getEhImageNew(gallery, page + 1);
+    return ImageManager(_downloadManager).getEhImageNew(gallery, page + 1);
   }
 
   @override
@@ -307,11 +332,11 @@ class JmReadingData extends ReadingData {
   ComicType get type => ComicType.jm;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId => _downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) async {
-    var res = await JmNetwork().getChapter(
+    var res = await _sourceServices.jm.getChapter(
       eps.keys.elementAtOrNull(ep - 1) ?? id,
     );
     commentsLength = res.subData;
@@ -327,7 +352,7 @@ class JmReadingData extends ReadingData {
         break;
       }
     }
-    return ImageManager().getJmImage(
+    return ImageManager(_downloadManager).getJmImage(
       url,
       null,
       epsId: eps.keys.elementAtOrNull(ep - 1) ?? id,
@@ -370,7 +395,7 @@ class HitomiReadingData extends ReadingData {
   ComicType get type => ComicType.hitomi;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId => _downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   String get favoriteId => link;
@@ -382,7 +407,7 @@ class HitomiReadingData extends ReadingData {
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getHitomiImage(images[page], id);
+    return ImageManager(_downloadManager).getHitomiImage(images[page], id);
   }
 
   @override
@@ -414,16 +439,16 @@ class HtReadingData extends ReadingData {
   ComicType get type => ComicType.htmanga;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId => _downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
-    return HtmangaNetwork().getImages(id);
+    return _sourceServices.htmanga.getImages(id);
   }
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getImage(url);
+    return ImageManager(_downloadManager).getImage(url);
   }
 
   @override
@@ -449,16 +474,16 @@ class NhentaiReadingData extends ReadingData {
   ComicType get type => ComicType.nhentai;
 
   @override
-  String get downloadId => downloadManager.getDownloadIdFromComicId(type, id);
+  String get downloadId => _downloadManager.getDownloadIdFromComicId(type, id);
 
   @override
   Future<Res<List<String>>> loadEpNetwork(int ep) {
-    return NhentaiNetwork().getImages(id);
+    return _sourceServices.nhentai.getImages(id);
   }
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getImage(url);
+    return ImageManager(_downloadManager).getImage(url);
   }
 
   @override
@@ -474,7 +499,7 @@ class CustomReadingData extends ReadingData {
   String get downloadId {
     // 通用阅读器的 type 为 other，下载记录需要使用实际漫画源标识。
     if (source == null) return '';
-    return downloadManager.generateId(sourceKey, id);
+    return _downloadManager.generateId(sourceKey, id);
   }
 
   @override
@@ -495,18 +520,19 @@ class CustomReadingData extends ReadingData {
       return Future.value(const Res.error("Unknown Comic Source"));
     }
     if (hasEp) {
-      return source!.loadComicPages!(
-        id,
-        eps!.keys.elementAtOrNull(ep - 1) ?? id,
+      return _sourceCallbacks.loadComicPages(
+        ComicPagesQuery(sourceKey, id, eps!.keys.elementAtOrNull(ep - 1) ?? id),
       );
     } else {
-      return source!.loadComicPages!(id, null);
+      return _sourceCallbacks.loadComicPages(
+        ComicPagesQuery(sourceKey, id, null),
+      );
     }
   }
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) {
-    return ImageManager().getCustomImage(
+    return ImageManager(_downloadManager).getCustomImage(
       url,
       id,
       eps?.keys.elementAtOrNull(ep - 1) ?? id,

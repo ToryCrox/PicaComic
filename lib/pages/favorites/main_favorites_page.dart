@@ -11,12 +11,14 @@ import "package:pica_comic/foundation/app.dart";
 import "package:pica_comic/foundation/local_favorites.dart";
 import "package:pica_comic/foundation/log.dart";
 import "package:pica_comic/foundation/theme/app_mouse_cursor.dart";
+import "package:pica_comic/network/download/download_manager.dart";
 import "package:pica_comic/tools/translations.dart";
 
 import "../../network/net_fav_to_local.dart";
 import "../../tools/io_tools.dart";
 import "local_favorites.dart";
 import "local_favorites_providers.dart";
+import "../download/download_providers.dart";
 import "local_search_page.dart";
 import "network_favorite_page.dart";
 
@@ -105,7 +107,7 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
   ) {
     return Column(
       children: [
-        buildTopBar(context),
+        buildTopBar(context, ref),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constrains) => Stack(
@@ -132,7 +134,7 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
     );
   }
 
-  List<PopupMenuEntry<void>> _buildMultiSelectedMenuItems() {
+  List<PopupMenuEntry<void>> _buildMultiSelectedMenuItems(WidgetRef ref) {
     return [
       popupMenuItem(
         text: "删除".tl,
@@ -155,7 +157,9 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
         icon: Icons.download,
         onTap: () {
           for (var comic in controller.selectedComics) {
-            downloadManager.addFavoriteDownload(comic);
+            ref
+                .read(downloadManagerProvider.notifier)
+                .addFavoriteDownload(comic);
           }
           showToast(message: "已添加下载任务".tl);
         },
@@ -171,7 +175,7 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
     ];
   }
 
-  Widget buildTopBar(BuildContext context) {
+  Widget buildTopBar(BuildContext context, WidgetRef ref) {
     final iconColor = Theme.of(context).colorScheme.primary;
 
     if (controller.isSelectingComics) {
@@ -232,7 +236,7 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
                     tooltip: "菜单".tl,
                     position: PopupMenuPosition.under,
                     icon: const Icon(Icons.more_horiz),
-                    itemBuilder: (_) => _buildMultiSelectedMenuItems(),
+                    itemBuilder: (_) => _buildMultiSelectedMenuItems(ref),
                   ),
               ],
             ).paddingHorizontal(16),
@@ -609,7 +613,7 @@ class FavoritesPage extends ConsumerWidget with _LocalFavoritesManager {
           text: "下载全部".tl,
           icon: Icons.download,
           onTap: () {
-            addDownload(folder);
+            addDownload(folder, ref.read(downloadManagerProvider.notifier));
           },
         ),
         popupMenuItem(
@@ -673,9 +677,9 @@ mixin class _LocalFavoritesManager {
     }
   }
 
-  void addDownload(String folder) async {
+  void addDownload(String folder, DownloadManager manager) async {
     for (var comic in await LocalFavoritesManager().getAllComics(folder)) {
-      comic.addDownload();
+      comic.addDownload(manager);
     }
     showToast(message: "已添加下载任务".tl);
   }

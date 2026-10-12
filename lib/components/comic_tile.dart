@@ -14,7 +14,7 @@ class ComicTileMenuOption {
   const ComicTileMenuOption(this.title, this.icon, this.onTap);
 }
 
-abstract class ComicTile extends StatelessWidget {
+abstract class ComicTile extends ConsumerWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
 
@@ -22,9 +22,12 @@ abstract class ComicTile extends StatelessWidget {
     null,
   );
 
-  Widget get image;
+  Widget get image => const SizedBox.shrink();
 
-  Widget? buildSubDescription(BuildContext context) => null;
+  /// 使用当前 WidgetRef 构建封面。
+  Widget buildImage(BuildContext context, WidgetRef ref) => image;
+
+  Widget? buildSubDescription(BuildContext context, WidgetRef ref) => null;
 
   /// 显示在文件大小等描述文本末尾的附加控件。
   Widget? get descriptionSuffix => null;
@@ -43,6 +46,9 @@ abstract class ComicTile extends StatelessWidget {
 
   Widget? get badge => null;
 
+  /// 使用当前 WidgetRef 构建角标。
+  Widget? buildBadge(BuildContext context, WidgetRef ref) => badge;
+
   List<String> get primaryTags => [];
 
   List<String>? get tags => null;
@@ -51,7 +57,7 @@ abstract class ComicTile extends StatelessWidget {
 
   FavoriteItem? get favoriteItem => null;
 
-  ActionFunc? get read => null;
+  ActionFunc? readAction(WidgetRef ref) => null;
 
   bool get enableLongPressed => true;
 
@@ -60,7 +66,7 @@ abstract class ComicTile extends StatelessWidget {
   List<ComicTileMenuOption>? get addonMenuOptions => null;
 
   /// Callback when download button is tapped
-  Future<void> Function()? get onDownloadTap => null;
+  Future<void> Function(WidgetRef ref)? get onDownloadTap => null;
 
   /// Callback when a tag is tapped
   void Function(String tag)? get onTagTap => null;
@@ -102,7 +108,9 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  void onLongTap_() {
+  void onLongTap_(WidgetRef ref, String defaultFavoriteFolder) {
+    final readAction = this.readAction(ref);
+    final downloadManager = ref.read(downloadManagerProvider.notifier);
     bool favorite = false;
     showDialog(
       context: App.globalContext!,
@@ -132,7 +140,7 @@ abstract class ComicTile extends StatelessWidget {
                         title: Text("查看详情".tl),
                         onTap: () {
                           context.pop();
-                          _openDetailWithHero();
+                          _openDetailWithHero(ref);
                         },
                       ),
                       if (favoriteItem != null)
@@ -145,13 +153,13 @@ abstract class ComicTile extends StatelessWidget {
                             });
                           },
                         ),
-                      if (read != null)
+                      if (readAction != null)
                         ListTile(
                           leading: const Icon(Icons.chrome_reader_mode),
                           title: Text("阅读".tl),
                           onTap: () {
                             context.pop();
-                            read!();
+                            readAction();
                           },
                         ),
                       ListTile(
@@ -211,7 +219,7 @@ abstract class ComicTile extends StatelessWidget {
                 ),
               );
             } else {
-              child = buildFavoriteDialog(context);
+              child = buildFavoriteDialog(context, defaultFavoriteFolder);
             }
             return AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
@@ -223,20 +231,19 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget buildFavoriteDialog(BuildContext context) {
+  Widget buildFavoriteDialog(
+    BuildContext context,
+    String defaultFavoriteFolder,
+  ) {
     return FutureBuilder<List<String>>(
       future: LocalFavoritesManager().folderNames,
       builder: (context, snapshot) {
-        String? folder = appdata.getSetting(
-          AppSettingKeys.defaultFavoriteFolder,
-        );
+        String? folder = defaultFavoriteFolder;
         int? initialFolderIndex;
         List<String> folderNames = [];
         if (snapshot.hasData) {
           folderNames = snapshot.data!;
-          initialFolderIndex = folderNames.indexOf(
-            appdata.getSetting(AppSettingKeys.defaultFavoriteFolder),
-          );
+          initialFolderIndex = folderNames.indexOf(defaultFavoriteFolder);
           if (initialFolderIndex == -1) {
             folder = null;
             initialFolderIndex = null;
@@ -277,15 +284,18 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  void onTap_();
+  void onTap_() {}
 
-  void _openDetailWithHero() {
+  /// 允许需要 Riverpod 依赖的卡片点击操作直接使用当前 Ref。
+  void onTapWithRef(WidgetRef ref) => onTap_();
+
+  void _openDetailWithHero(WidgetRef ref) {
     if (coverHeroTag == null) {
-      onTap_();
+      onTapWithRef(ref);
       return;
     }
     _activeCoverHeroOwner.value = this;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onTap_());
+    WidgetsBinding.instance.addPostFrameCallback((_) => onTapWithRef(ref));
   }
 
   /// 构建收藏图标 Widget
@@ -316,147 +326,138 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   /// 构建网络阅读图标 Widget
-  Widget _buildReadIcon(bool detailedMode) {
+  Widget _buildReadIcon(
+    bool detailedMode,
+    BuildContext context,
+    WidgetRef ref,
+  ) {
     if (comicID == null || comicType == null) {
       return const SizedBox.shrink();
     }
-    final downloadId = downloadManager.getDownloadIdFromComicId(
-      comicType,
-      comicID,
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final downloadId = manager.getDownloadIdFromComicId(comicType, comicID);
+    final isDownloaded = ref.watch(
+      downloadedIdsProvider.select((ids) => ids.contains(downloadId)),
     );
-    return Consumer(
-      builder: (context, ref, child) {
-        final isDownloaded = ref.watch(
-          downloadedIdsProvider.select((ids) => ids.contains(downloadId)),
-        );
+    if (!isDownloaded) return const SizedBox.shrink();
 
-        if (isDownloaded) {
-          return Positioned(
-            right: detailedMode ? 54 : 44, // 放置在下载按钮的左侧
-            bottom: 8,
-            child: _buildIcon(Icons.menu_book, () async {
-              if (downloadId.isEmpty) {
-                return;
-              }
-              final downloadedItem = await downloadManager.getComicOrNull(
-                downloadId,
-              );
-              if (downloadedItem != null) {
-                downloadedItem.read();
-              } else {
-                showToast(message: "无法获取离线漫画".tl);
-              }
-            }, color: Theme.of(context).colorScheme.primary),
-          );
+    return Positioned(
+      right: detailedMode ? 54 : 44, // 放置在下载按钮的左侧
+      bottom: 8,
+      child: _buildIcon(Icons.menu_book, () async {
+        if (downloadId.isEmpty) return;
+        final downloadedItem = await manager.getComicOrNull(downloadId);
+        if (downloadedItem != null) {
+          downloadedItem.read();
+        } else {
+          showToast(message: "无法获取离线漫画".tl);
         }
-        return const SizedBox.shrink();
-      },
+      }, color: Theme.of(context).colorScheme.primary),
     );
   }
 
   /// 构建下载图标按钮
-  Widget _buildDownloadIcon(bool detailedMode) {
+  Widget _buildDownloadIcon(
+    bool detailedMode,
+    BuildContext context,
+    WidgetRef ref,
+  ) {
     if (comicID == null || comicType == null) {
       return const SizedBox.shrink();
     }
-    final downloadId = downloadManager.getDownloadIdFromComicId(
-      comicType,
-      comicID,
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final downloadId = manager.getDownloadIdFromComicId(comicType, comicID);
+    final isDownloaded = ref.watch(
+      downloadedIdsProvider.select((ids) => ids.contains(downloadId)),
     );
-    return Consumer(
-      builder: (context, ref, child) {
-        final isDownloaded = ref.watch(
-          downloadedIdsProvider.select((ids) => ids.contains(downloadId)),
-        );
-        final downloadStatus = ref.watch(
-          downloadingItemsProvider.select((items) => items[downloadId]),
-        );
+    final downloadStatus = ref.watch(
+      downloadingItemsProvider.select((items) => items[downloadId]),
+    );
 
-        if (isDownloaded) {
-          return Positioned(
-            right: detailedMode ? 16 : 6,
-            bottom: 8,
-            child: _buildIcon(Icons.folder_open, () async {
-              if (downloadId.isEmpty) {
-                showToast(message: "无法生成下载ID".tl);
-                return;
-              }
-              final path = await downloadManager.getFullDirectory(downloadId);
-              if (path.isNotEmpty) {
-                FileUtils.openFileOrDirectory(path);
-              } else {
-                showToast(message: "目录不存在".tl);
-              }
-            }, color: Colors.blue),
-          );
-        }
+    if (isDownloaded) {
+      return Positioned(
+        right: detailedMode ? 16 : 6,
+        bottom: 8,
+        child: _buildIcon(Icons.folder_open, () async {
+          if (downloadId.isEmpty) {
+            showToast(message: "无法生成下载ID".tl);
+            return;
+          }
+          final path = await manager.getFullDirectory(downloadId);
+          if (path.isNotEmpty) {
+            FileUtils.openFileOrDirectory(path);
+          } else {
+            showToast(message: "目录不存在".tl);
+          }
+        }, color: Colors.blue),
+      );
+    }
 
-        if (downloadStatus != null) {
-          if (downloadStatus == DownloadStatus.downloading) {
-            return Positioned(
-              right: detailedMode ? 16 : 6,
-              bottom: 8,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  mouseCursor: appClickableMouseCursor,
-                  onTap: () {
-                    context.to(() => const DownloadPage());
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    ),
+    if (downloadStatus != null) {
+      if (downloadStatus == DownloadStatus.downloading) {
+        return Positioned(
+          right: detailedMode ? 16 : 6,
+          bottom: 8,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              mouseCursor: appClickableMouseCursor,
+              onTap: () {
+                context.to(() => const DownloadPage());
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  child: const CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
                   ),
                 ),
               ),
-            );
-          }
+            ),
+          ),
+        );
+      }
 
-          IconData icon;
-          switch (downloadStatus) {
-            case DownloadStatus.waiting:
-              icon = Icons.schedule;
-              break;
-            case DownloadStatus.paused:
-              icon = Icons.pause_circle_outline;
-              break;
-            default:
-              icon = Icons.error;
-          }
+      IconData icon;
+      switch (downloadStatus) {
+        case DownloadStatus.waiting:
+          icon = Icons.schedule;
+          break;
+        case DownloadStatus.paused:
+          icon = Icons.pause_circle_outline;
+          break;
+        default:
+          icon = Icons.error;
+      }
 
-          return Positioned(
-            right: detailedMode ? 16 : 6,
-            bottom: 8,
-            child: _buildIcon(icon, () {
-              // 点击跳转下载页面
-              context.to(() => const DownloadPage());
-            }, color: Colors.green),
-          );
-        }
+      return Positioned(
+        right: detailedMode ? 16 : 6,
+        bottom: 8,
+        child: _buildIcon(
+          icon,
+          () => context.to(() => const DownloadPage()),
+          color: Colors.green,
+        ),
+      );
+    }
 
-        if (onDownloadTap != null) {
-          return _DownloadButton(
-            onTap: onDownloadTap!,
-            detailedMode: detailedMode,
-            id: comicID,
-          );
-        }
+    if (onDownloadTap != null) {
+      return _DownloadButton(
+        onTap: () => onDownloadTap!(ref),
+        detailedMode: detailedMode,
+        id: comicID,
+      );
+    }
 
-        return const SizedBox.shrink();
-      },
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildIcon(IconData icon, VoidCallback onTap, {Color? color}) {
@@ -479,7 +480,13 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  void onSecondaryTap_(TapDownDetails details) {
+  void onSecondaryTap_(
+    TapDownDetails details,
+    WidgetRef ref,
+    String defaultFavoriteFolder,
+  ) {
+    final readAction = this.readAction(ref);
+    final downloadManager = ref.read(downloadManagerProvider.notifier);
     showContextMenu(
       context: App.globalContext!,
       globalPosition: details.globalPosition,
@@ -487,13 +494,13 @@ abstract class ComicTile extends StatelessWidget {
         popupMenuItem(
           text: "查看".tl,
           icon: Icons.info_outline,
-          onTap: () => Future.microtask(_openDetailWithHero),
+          onTap: () => Future.microtask(() => _openDetailWithHero(ref)),
         ),
-        if (read != null)
+        if (readAction != null)
           popupMenuItem(
             text: "阅读".tl,
             icon: Icons.menu_book_outlined,
-            onTap: () => Future.microtask(read!),
+            onTap: () => Future.microtask(readAction),
           ),
         popupMenuItem(
           text: "搜索".tl,
@@ -510,7 +517,8 @@ abstract class ComicTile extends StatelessWidget {
           onTap: () => Future.microtask(
             () => showDialog(
               context: App.globalContext!,
-              builder: (context) => buildFavoriteDialog(context),
+              builder: (context) =>
+                  buildFavoriteDialog(context, defaultFavoriteFolder),
             ),
           ),
         ),
@@ -555,12 +563,12 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroImage() {
+  Widget _buildHeroImage(BuildContext context, WidgetRef ref) {
     final tag = coverHeroTag;
     if (tag == null) {
-      return image;
+      return buildImage(context, ref);
     }
-    final coverImage = image;
+    final coverImage = buildImage(context, ref);
     return ValueListenableBuilder<ComicTile?>(
       valueListenable: _activeCoverHeroOwner,
       builder: (context, activeOwner, child) {
@@ -574,34 +582,53 @@ abstract class ComicTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    var type = appdata
-        .getSetting(AppSettingKeys.comicTileDisplay)
-        .split(',')
-        .first;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tileDisplay = ref.watch(
+      appSettingProvider(AppSettingKeys.comicTileDisplay),
+    );
+    final showFavoriteStatus =
+        ref.watch(appSettingProvider(AppSettingKeys.showComicFavoriteStatus)) ==
+        '1';
+    final showReadingProgress =
+        ref.watch(
+          appSettingProvider(AppSettingKeys.showComicReadingProgress),
+        ) ==
+        '1';
+    final defaultFavoriteFolder = ref.watch(
+      appSettingProvider(AppSettingKeys.defaultFavoriteFolder),
+    );
+    final type = tileDisplay.split(',').first;
     Widget child;
     bool detailedMode;
     if (type == "0" || type == "3") {
       detailedMode = true;
-      child = _buildDetailedMode(context);
+      child = _buildDetailedMode(
+        context,
+        ref,
+        showReadingProgress,
+        defaultFavoriteFolder,
+      );
     } else {
       detailedMode = false;
-      child = _buildBriefMode(context);
+      child = _buildBriefMode(
+        context,
+        ref,
+        showReadingProgress,
+        defaultFavoriteFolder,
+      );
     }
     final id = comicID;
     if (id != null) {
       final isFavorite =
-          appdata.getSetting(AppSettingKeys.showComicFavoriteStatus) == '1'
-          ? LocalFavoritesManager().isExist(id)
-          : false;
+          showFavoriteStatus && LocalFavoritesManager().isExist(id);
       child = Stack(
         children: [
           Positioned.fill(child: child),
           if (isFavorite && showFavorite) _buildFavoriteIcon(detailedMode),
           // 下载完成后显示的阅读图标
-          if (showRead) _buildReadIcon(detailedMode),
+          if (showRead) _buildReadIcon(detailedMode, context, ref),
           // 打开下载说明图标或者下载状态图标
-          if (showDownload) _buildDownloadIcon(detailedMode),
+          if (showDownload) _buildDownloadIcon(detailedMode, context, ref),
         ],
       );
     }
@@ -615,9 +642,8 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryTime(BuildContext context) {
-    if (comicID == null ||
-        appdata.getSetting(AppSettingKeys.showComicReadingProgress) != '1') {
+  Widget _buildHistoryTime(BuildContext context, bool showReadingProgress) {
+    if (comicID == null || !showReadingProgress) {
       return const SizedBox.shrink();
     }
 
@@ -670,9 +696,11 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryProgressBar(BuildContext context) {
-    if (comicID == null ||
-        appdata.getSetting(AppSettingKeys.showComicReadingProgress) != '1') {
+  Widget _buildHistoryProgressBar(
+    BuildContext context,
+    bool showReadingProgress,
+  ) {
+    if (comicID == null || !showReadingProgress) {
       return const SizedBox.shrink();
     }
 
@@ -708,11 +736,19 @@ abstract class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailedMode(BuildContext context) {
+  Widget _buildDetailedMode(
+    BuildContext context,
+    WidgetRef ref,
+    bool showReadingProgress,
+    String defaultFavoriteFolder,
+  ) {
     return _ComicTileInkWell(
-      onTap: _openDetailWithHero,
-      onLongPress: enableLongPressed ? onLongTap_ : null,
-      onSecondaryTap: onSecondaryTap_,
+      onTap: () => _openDetailWithHero(ref),
+      onLongPress: enableLongPressed
+          ? () => onLongTap_(ref, defaultFavoriteFolder)
+          : null,
+      onSecondaryTap: (details) =>
+          onSecondaryTap_(details, ref, defaultFavoriteFolder),
       borderRadius: BorderRadius.circular(12),
       child: Stack(
         children: [
@@ -733,9 +769,9 @@ abstract class ComicTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: _buildHeroImage(),
+                        child: _buildHeroImage(context, ref),
                       ),
-                      _buildHistoryTime(context),
+                      _buildHistoryTime(context, showReadingProgress),
                     ],
                   ),
                 ),
@@ -751,8 +787,8 @@ abstract class ComicTile extends StatelessWidget {
                     description: description,
                     descriptionMaxLines: descriptionMaxLines,
                     descriptionSuffix: descriptionSuffix,
-                    subDescription: buildSubDescription(context),
-                    badge: badge,
+                    subDescription: buildSubDescription(context, ref),
+                    badge: buildBadge(context, ref),
                     primaryTags: primaryTags,
                     tags: tags,
                     maxLines: maxLines,
@@ -765,19 +801,27 @@ abstract class ComicTile extends StatelessWidget {
               ],
             ),
           ),
-          _buildHistoryProgressBar(context),
+          _buildHistoryProgressBar(context, showReadingProgress),
         ],
       ),
     );
   }
 
-  Widget _buildBriefMode(BuildContext context) {
+  Widget _buildBriefMode(
+    BuildContext context,
+    WidgetRef ref,
+    bool showReadingProgress,
+    String defaultFavoriteFolder,
+  ) {
     return Stack(
       children: [
         Positioned.fill(
           child: Stack(
             fit: StackFit.expand,
-            children: [_buildHeroImage(), _buildHistoryTime(context)],
+            children: [
+              _buildHeroImage(context, ref),
+              _buildHistoryTime(context, showReadingProgress),
+            ],
           ),
         ),
         Positioned(
@@ -826,15 +870,18 @@ abstract class ComicTile extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: _ComicTileInkWell(
-              onTap: _openDetailWithHero,
-              onLongPress: enableLongPressed ? onLongTap_ : null,
-              onSecondaryTap: onSecondaryTap_,
+              onTap: () => _openDetailWithHero(ref),
+              onLongPress: enableLongPressed
+                  ? () => onLongTap_(ref, defaultFavoriteFolder)
+                  : null,
+              onSecondaryTap: (details) =>
+                  onSecondaryTap_(details, ref, defaultFavoriteFolder),
               borderRadius: BorderRadius.circular(10),
               child: const SizedBox.expand(),
             ),
           ),
         ),
-        _buildHistoryProgressBar(context),
+        _buildHistoryProgressBar(context, showReadingProgress),
       ],
     );
   }
@@ -1089,7 +1136,8 @@ class NormalComicTile extends ComicTile {
   String get description => description_;
 
   @override
-  void onLongTap_() => onLongTap?.call();
+  void onLongTap_(WidgetRef ref, String defaultFavoriteFolder) =>
+      onLongTap?.call();
 
   @override
   Widget? get badge => badgeName != null ? Text(badgeName!) : null;
@@ -1118,15 +1166,15 @@ class NormalComicTile extends ComicTile {
   ComicType? get comicType => _comicType;
 }
 
-class ComicTilePlaceholder extends StatelessWidget {
+class ComicTilePlaceholder extends ConsumerWidget {
   const ComicTilePlaceholder({super.key, this.type = 'full'});
 
   final String type;
 
   @override
-  Widget build(BuildContext context) {
-    var type = appdata
-        .getSetting(AppSettingKeys.comicTileDisplay)
+  Widget build(BuildContext context, WidgetRef ref) {
+    final type = ref
+        .watch(appSettingProvider(AppSettingKeys.comicTileDisplay))
         .split(',')
         .first;
     Widget child;
@@ -1310,14 +1358,23 @@ class CustomComicTile extends ComicTile {
   ComicType? get comicType => ComicType.other;
 
   @override
-  get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
     var comicSource = ComicSource.find(comic.sourceKey)!;
-    var res = await comicSource.loadComicInfo!(comic.id);
+    Res<ComicInfoData> res;
+    try {
+      res = await ref.read(
+        comicInfoQueryProvider(
+          ComicInfoQuery(comic.sourceKey, comic.id),
+        ).future,
+      );
+    } catch (error) {
+      res = Res.error(error.toString());
+    }
     if (cancel) return;
     dialog.close();
     if (res.error) {
@@ -1346,41 +1403,56 @@ Widget buildComicTile(
   ComicType comicType, {
   List<ComicTileMenuOption>? addonMenuOptions,
 }) {
-  var source = ComicSource.find(comicType.name);
-  if (source == null) {
-    throw "Comic Source $comicType Not Found";
-  }
-  if (!appdata.appSettings.fullyHideBlockedWorks ||
-      comicType == ComicType.hitomi) {
-    var blockWord = isBlocked(item);
-    if (blockWord != null) {
-      return Stack(
-        children: [
-          const Positioned.fill(child: ComicTilePlaceholder(type: '')),
-          Positioned.fill(
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: context.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+  return Consumer(
+    builder: (context, ref, child) {
+      final source = ComicSource.find(comicType.name);
+      if (source == null) {
+        throw "Comic Source $comicType Not Found";
+      }
+      ref.watch(blockingKeywordRevisionProvider);
+      final fullyHideBlocked =
+          ref.watch(
+            appSettingProvider(AppSettingKeys.fullyHideBlockedComics),
+          ) ==
+          '1';
+      if (!fullyHideBlocked || comicType == ComicType.hitomi) {
+        final blockWord = isBlocked(item);
+        if (blockWord != null) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: ComicTilePlaceholder(type: '')),
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text("${"屏蔽".tl}: $blockWord"),
+                  ),
                 ),
-                child: Text("${"屏蔽".tl}: $blockWord"),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        }
+      }
+      if (source.comicTileBuilderOverride != null) {
+        return source.comicTileBuilderOverride!(
+          context,
+          item,
+          addonMenuOptions,
+        );
+      }
+      return CustomComicTile(
+        item as CustomComic,
+        addonMenuOptions: addonMenuOptions,
       );
-    }
-  }
-  if (source.comicTileBuilderOverride != null) {
-    return source.comicTileBuilderOverride!(context, item, addonMenuOptions);
-  } else {
-    return CustomComicTile(
-      item as CustomComic,
-      addonMenuOptions: addonMenuOptions,
-    );
-  }
+    },
+  );
 }
 
 /// return the first blocked keyword, or null if not blocked
@@ -1413,16 +1485,16 @@ String? isBlocked(BaseComic item) {
   return null;
 }
 
-class _BlockingPane extends StatefulWidget {
+class _BlockingPane extends ConsumerStatefulWidget {
   const _BlockingPane({required this.comic});
 
   final ComicTile comic;
 
   @override
-  State<_BlockingPane> createState() => _BlockingPaneState();
+  ConsumerState<_BlockingPane> createState() => _BlockingPaneState();
 }
 
-class _BlockingPaneState extends State<_BlockingPane> {
+class _BlockingPaneState extends ConsumerState<_BlockingPane> {
   var controller = TextEditingController();
 
   @override
@@ -1532,10 +1604,7 @@ class _BlockingPaneState extends State<_BlockingPane> {
       }
     }
     appdata.writeData();
-    ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(blockingKeywordRevisionProvider.notifier).bump();
+    ref.read(blockingKeywordRevisionProvider.notifier).bump();
     context.pop();
   }
 }

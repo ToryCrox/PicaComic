@@ -1,6 +1,8 @@
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -21,8 +23,8 @@ final kemono = ComicSource.named(
 
   // 账号配置 (预留,暂不实现)
   account: AccountConfig.named(
-    logout: () {
-      KemonoNetwork().logout();
+    logout: (ref) {
+      ref.read(kemonoNetworkProvider).logout();
       var source = ComicSource.find(ComicType.kemono);
       source?.data["account"] = null;
       source?.saveData();
@@ -37,9 +39,9 @@ final kemono = ComicSource.named(
     ExplorePageData.named(
       title: '最新',
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) async {
+      loadPage: (ref, page) async {
         final offset = (page - 1) * KemonoNetwork.pageSize;
-        final res = await KemonoNetwork().getPosts(offset);
+        final res = await ref.read(kemonoNetworkProvider).getPosts(offset);
         if (res.error) {
           return Res.fromErrorRes(res);
         }
@@ -50,12 +52,12 @@ final kemono = ComicSource.named(
     ExplorePageData.named(
       title: '热门',
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) async {
+      loadPage: (ref, page) async {
         if (page > 1) {
           // 热门只有一页
           return const Res([]);
         }
-        final res = await KemonoNetwork().getPopularPosts();
+        final res = await ref.read(kemonoNetworkProvider).getPopularPosts();
         if (res.error) {
           return Res.fromErrorRes(res);
         }
@@ -66,19 +68,20 @@ final kemono = ComicSource.named(
     ExplorePageData.named(
       title: '作者',
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) async {
+      loadPage: (ref, page) async {
         // 获取所有作者 (缓存)
-        final res = await KemonoNetwork().getCreators();
+        final network = ref.read(kemonoNetworkProvider);
+        final res = await network.getCreators();
         if (res.error) {
           return Res.fromErrorRes(res);
         }
         // 按最近更新排序
-        final sorted = KemonoNetwork().sortCreators(
+        final sorted = network.sortCreators(
           res.data,
           KemonoCreatorSort.updated,
         );
         // 客户端分页
-        final paginated = KemonoNetwork().paginateCreators(sorted, page - 1);
+        final paginated = network.paginateCreators(sorted, page - 1);
         // 估算总页数
         final maxPage = (res.data.length / KemonoNetwork.pageSize).ceil();
         return Res(paginated, subData: maxPage);
@@ -88,24 +91,25 @@ final kemono = ComicSource.named(
 
   // 搜索页面配置
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) async {
+    loadPage: (ref, keyword, page, options) async {
+      final network = ref.read(kemonoNetworkProvider);
       // 判断搜索类型，默认搜索作者
       final searchType = options.isNotEmpty ? options[0] : 'creators';
 
       if (searchType == 'creators') {
         // 搜索作者 (本地搜索)
-        final res = await KemonoNetwork().getCreators();
+        final res = await network.getCreators();
         if (res.error) {
           return Res.fromErrorRes(res);
         }
-        final filtered = KemonoNetwork().searchCreators(keyword, res.data);
-        final paginated = KemonoNetwork().paginateCreators(filtered, page - 1);
+        final filtered = network.searchCreators(keyword, res.data);
+        final paginated = network.paginateCreators(filtered, page - 1);
         final maxPage = (filtered.length / KemonoNetwork.pageSize).ceil();
         return Res(paginated, subData: maxPage);
       } else {
         // 搜索图集 (API搜索)
         final offset = (page - 1) * KemonoNetwork.pageSize;
-        final res = await KemonoNetwork().getPosts(offset, keyword: keyword);
+        final res = await network.getPosts(offset, keyword: keyword);
         if (res.error) {
           return Res.fromErrorRes(res);
         }
@@ -121,7 +125,7 @@ final kemono = ComicSource.named(
   ),
 
   // 漫画详情加载
-  loadComicInfo: (id) async {
+  loadComicInfo: (ref, id) async {
     // id格式: service/userId/postId
     final parts = id.split('/');
     if (parts.length != 3) {
@@ -129,7 +133,8 @@ final kemono = ComicSource.named(
     }
     final [service, userId, postId] = parts;
 
-    final res = await KemonoNetwork().getPostDetail(service, userId, postId);
+    final network = ref.read(kemonoNetworkProvider);
+    final res = await network.getPostDetail(service, userId, postId);
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -179,14 +184,15 @@ final kemono = ComicSource.named(
   },
 
   // 加载漫画页面 (图片列表)
-  loadComicPages: (id, ep) async {
+  loadComicPages: (ref, id, ep) async {
     final parts = id.split('/');
     if (parts.length != 3) {
       return const Res(null, errorMessage: 'Invalid ID format');
     }
     final [service, userId, postId] = parts;
 
-    final res = await KemonoNetwork().getPostDetail(service, userId, postId);
+    final network = ref.read(kemonoNetworkProvider);
+    final res = await network.getPostDetail(service, userId, postId);
     if (res.error) {
       return Res.fromErrorRes(res);
     }
@@ -195,13 +201,13 @@ final kemono = ComicSource.named(
   },
 
   // 图片加载配置
-  getImageLoadingConfig: (url, comicId, epId) => ImageConfig(
+  getImageLoadingConfig: (ref, url, comicId, epId) => ImageConfig(
     url: url,
     headers: {"User-Agent": webUA, "Referer": "https://kemono.su/"},
   ),
 
   // 缩略图加载配置
-  getThumbnailLoadingConfig: (url) => ImageConfig(
+  getThumbnailLoadingConfig: (ref, url) => ImageConfig(
     url: url,
     headers: {"User-Agent": webUA, "Referer": "https://kemono.su/"},
   ),
@@ -223,8 +229,8 @@ final kemono = ComicSource.named(
   },
 
   // 初始化
-  initData: (source) async {
-    await KemonoNetwork().init();
+  initData: (source, ref) async {
+    await ref.read(kemonoNetworkProvider).init();
   },
 
   // 自定义详情页
@@ -371,12 +377,14 @@ class _KemonoCreatorList extends ComicsPage<KemonoPostBrief> {
   const _KemonoCreatorList({required this.creator});
 
   @override
-  Future<Res<List<KemonoPostBrief>>> getComics(int i) {
-    return KemonoNetwork().getCreatorPosts(
-      creator.service,
-      creator.id,
-      (i - 1) * KemonoNetwork.pageSize,
-    );
+  Future<Res<List<KemonoPostBrief>>> getComics(int i, Ref ref) {
+    return ref
+        .read(kemonoNetworkProvider)
+        .getCreatorPosts(
+          creator.service,
+          creator.id,
+          (i - 1) * KemonoNetwork.pageSize,
+        );
   }
 
   @override

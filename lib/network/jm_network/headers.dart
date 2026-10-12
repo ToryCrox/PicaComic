@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:pica_comic/base.dart';
 
 import 'jm_crypto.dart';
 
@@ -11,10 +10,6 @@ String get ua {
 
 String get jmImgUA {
   return "Dalvik/2.1.0 (Linux; Android 10; K)";
-}
-
-String get jmAppVersion {
-  return appdata.getSetting(AppSettingKeys.jmAppVersion);
 }
 
 const _jmPkgName = "com.example.app";
@@ -53,7 +48,12 @@ Map<String, String> getImgHeaders() {
   };
 }
 
-BaseOptions getApiOptions(int time, {bool post = false, bool byte = true}) {
+BaseOptions getApiOptions(
+  int time, {
+  required String jmAppVersion,
+  bool post = false,
+  bool byte = true,
+}) {
   var token = md5.convert(const Utf8Encoder().convert("$time$_jmAuthKey"));
 
   return BaseOptions(

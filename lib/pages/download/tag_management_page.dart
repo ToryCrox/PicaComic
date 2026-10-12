@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
@@ -10,14 +11,14 @@ import 'package:pica_comic/network/download/models/download_tag.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:flutter/services.dart';
 
-class TagManagementPage extends StatefulWidget {
+class TagManagementPage extends ConsumerStatefulWidget {
   const TagManagementPage({Key? key}) : super(key: key);
 
   @override
-  State<TagManagementPage> createState() => _TagManagementPageState();
+  ConsumerState<TagManagementPage> createState() => _TagManagementPageState();
 }
 
-class _TagManagementPageState extends State<TagManagementPage> {
+class _TagManagementPageState extends ConsumerState<TagManagementPage> {
   List<TagInfo> tags = [];
   List<TagInfo> _filteredTags = [];
   bool loading = true;
@@ -34,18 +35,17 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
   Future<void> _loadTags() async {
     setState(() => loading = true);
-    final tagData = await downloadManager.getAllTags();
+    final engine = ref.read(downloadManagerProvider.notifier);
+    final tagData = await engine.getAllTags();
     final tagList = <TagInfo>[];
 
     for (var tag in tagData) {
-      final count = await downloadManager.getTagComicCount(tag.id);
+      final count = await engine.getTagComicCount(tag.id);
 
       // 如果有封面漫画ID,获取其封面路径
       String? coverPath;
       if (tag.coverComicId != null) {
-        final comic = await downloadManager.getDownloadedItemById(
-          tag.coverComicId!,
-        );
+        final comic = await engine.getDownloadedItemById(tag.coverComicId!);
         if (comic != null) {
           coverPath = comic.coverPath;
         }
@@ -85,6 +85,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _createTag() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     final controller = TextEditingController();
     int selectedCategory = 0;
 
@@ -161,10 +162,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (result == true && controller.text.isNotEmpty) {
       try {
-        await downloadManager.createTag(
-          controller.text,
-          category: selectedCategory,
-        );
+        await engine.createTag(controller.text, category: selectedCategory);
         showToast(message: "标签创建成功".tl);
         _loadTags();
       } catch (e) {
@@ -174,6 +172,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _renameTag(TagInfo tag) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     final controller = TextEditingController(text: tag.name);
     final result = await showDialog<bool>(
       context: context,
@@ -204,7 +203,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
         controller.text.isNotEmpty &&
         controller.text != tag.name) {
       try {
-        await downloadManager.renameTag(tag.id, controller.text);
+        await engine.renameTag(tag.id, controller.text);
         showToast(message: "标签重命名成功".tl);
         _loadTags();
       } catch (e) {
@@ -214,6 +213,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _changeCategory(TagInfo tag) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     int selectedCategory = tag.category;
 
     final result = await showDialog<int>(
@@ -245,7 +245,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (result != null && result != tag.category) {
       try {
-        await downloadManager.updateTagCategory(tag.id, result);
+        await engine.updateTagCategory(tag.id, result);
         showToast(message: "分类修改成功".tl);
         _loadTags();
       } catch (e) {
@@ -255,15 +255,16 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _changeCover(TagInfo tag) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     // 获取该标签下的漫画
-    final comicIds = await downloadManager.getComicIdsByTag(tag.id);
+    final comicIds = await engine.getComicIdsByTag(tag.id);
     if (comicIds.isEmpty) {
       showToast(message: "该标签下没有漫画".tl);
       return;
     }
 
     // 显示对话框选择封面
-    final comics = await downloadManager.getAll('time', 'desc');
+    final comics = await engine.getAll('time', 'desc');
     final tagComics = comics.where((c) => comicIds.contains(c.id)).toList();
 
     if (!mounted) return;
@@ -322,7 +323,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (selectedComic != null) {
       try {
-        await downloadManager.updateTagCover(tag.id, selectedComic.id);
+        await engine.updateTagCover(tag.id, selectedComic.id);
         showToast(message: "封面更新成功".tl);
         _loadTags();
       } catch (e) {
@@ -332,6 +333,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
   }
 
   Future<void> _deleteTag(TagInfo tag) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -352,7 +354,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
 
     if (result == true) {
       try {
-        await downloadManager.deleteTag(tag.id);
+        await engine.deleteTag(tag.id);
         showToast(message: "标签删除成功".tl);
         _loadTags();
       } catch (e) {
@@ -368,6 +370,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
     }
 
     final reorderedTags = reorderedListFunction(_filteredTags) as List<TagInfo>;
+    final engine = ref.read(downloadManagerProvider.notifier);
 
     // 立即更新UI
     setState(() {
@@ -378,7 +381,7 @@ class _TagManagementPageState extends State<TagManagementPage> {
     // 更新所有标签的排序顺序到数据库
     try {
       for (int i = 0; i < reorderedTags.length; i++) {
-        await downloadManager.updateTagSortOrder(reorderedTags[i].id, i);
+        await engine.updateTagSortOrder(reorderedTags[i].id, i);
       }
     } catch (e) {
       showToast(message: "排序更新失败: $e".tl);

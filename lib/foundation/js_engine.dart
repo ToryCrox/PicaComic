@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:html/parser.dart' as html;
 import 'package:html/dom.dart' as dom;
@@ -62,7 +63,7 @@ class JsEngine with _JSEngineApi {
       return;
     }
     try {
-      _dio ??= networkClientManager.apiDio;
+      _dio ??= networkClientManagerOf(App.globalContext!).apiDio;
       _cookieJar ??= SingleInstanceCookieJar.instance!;
       _closed = false;
       _engine = FlutterQjs();

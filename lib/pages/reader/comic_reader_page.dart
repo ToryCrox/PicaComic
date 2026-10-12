@@ -12,17 +12,14 @@ import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_settings_provider.dart';
+import '../../network/comic_source_services.dart';
+import '../../network/download/download_manager.dart';
 import '../../foundation/history.dart';
 import '../../foundation/image_loader/base_image_provider.dart';
 import '../../foundation/image_manager.dart';
 import '../../foundation/local_favorites.dart';
-import '../../foundation/local_history.dart';
-import '../../foundation/log.dart';
-import '../../foundation/state_controller.dart';
-import '../../foundation/ui_mode.dart';
 import '../../tools/key_down_event.dart';
 import '../../tools/save_image.dart';
-import '../../tools/time.dart';
 import '../../tools/translations.dart';
 import '../comic_page/comic_page_widget.dart';
 import 'eps_view.dart';
@@ -92,6 +89,11 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
   @override
   void initState() {
     super.initState();
+    readingData.bindDependencies(
+      downloadManager: ref.read(downloadManagerProvider.notifier),
+      sourceServices: ref.read(comicSourceServicesProvider),
+      sourceCallbacks: ref.read(comicSourceCallbackRunnerProvider),
+    );
     _sessionId =
         '${widget.readingData.type.name}-${widget.readingData.id}-'
         '${DateTime.now().microsecondsSinceEpoch}';
@@ -163,7 +165,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage> {
       WindowManager.instance.setFullScreen(false);
       StateController.findOrNull<WindowFrameController>()?.showWindowFrame();
     }
-    if (!downloadManager.isDownloading) {
+    if (!ref.read(downloadManagerProvider.notifier).isDownloading) {
       ImageManager.clearTasks();
     }
 

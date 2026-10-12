@@ -10,7 +10,8 @@ import 'package:pica_comic/network/res.dart';
 part 'comic_list_page_logic.g.dart';
 
 /// 漫画列表页的分页加载函数。
-typedef ComicListPageLoader = Future<Res<List<BaseComic>>> Function(int page);
+typedef ComicListPageLoader =
+    Future<Res<List<BaseComic>>> Function(Ref ref, int page);
 
 /// 漫画列表页的缓存加载函数。
 typedef ComicListCacheLoader = Future<List<BaseComic>> Function();
@@ -156,7 +157,7 @@ class ComicListPageLogic extends _$ComicListPageLogic {
         }
       }
 
-      final result = await _config.loadPage(1);
+      final result = await _config.loadPage(ref, 1);
       if (!_isCurrent(generation)) return;
       if (result.error) {
         state = state.copyWith(
@@ -210,7 +211,7 @@ class ComicListPageLogic extends _$ComicListPageLogic {
     _loadingRequest = true;
 
     try {
-      final result = await _config.loadPage(page);
+      final result = await _config.loadPage(ref, page);
       if (!_isCurrent(generation)) return;
       if (result.error) {
         state = state.copyWith(
@@ -260,7 +261,7 @@ class ComicListPageLogic extends _$ComicListPageLogic {
   Future<void> _loadNextPage(int page, int generation) async {
     _loadingRequest = true;
     try {
-      final result = await _config.loadPage(page);
+      final result = await _config.loadPage(ref, page);
       if (!_isCurrent(generation)) return;
       if (result.error) {
         _config.onError?.call(result.errorMessage ?? "Network Error");

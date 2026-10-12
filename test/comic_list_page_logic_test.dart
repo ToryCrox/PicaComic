@@ -26,6 +26,8 @@ class _TestComic extends BaseComic {
   String get description => '';
 }
 
+final _callbackDependencyProvider = Provider<String>((ref) => 'provider-data');
+
 Future<void> _settle() async {
   for (var i = 0; i < 20; i++) {
     await Future<void>.delayed(const Duration(milliseconds: 1));
@@ -35,7 +37,10 @@ Future<void> _settle() async {
 ComicListPageConfig _config(
   Future<Res<List<BaseComic>>> Function(int page) loadPage,
 ) {
-  return ComicListPageConfig(pageKey: 'test-list', loadPage: loadPage);
+  return ComicListPageConfig(
+    pageKey: 'test-list',
+    loadPage: (_, page) => loadPage(page),
+  );
 }
 
 void main() {
@@ -47,6 +52,23 @@ void main() {
 
   tearDown(() {
     container.dispose();
+  });
+
+  test('分页加载回调收到可读取 Provider 的 Ref', () async {
+    final config = ComicListPageConfig(
+      pageKey: 'ref-callback-list',
+      loadPage: (ref, page) async {
+        expect(ref.read(_callbackDependencyProvider), 'provider-data');
+        return Res<List<BaseComic>>([_TestComic('page$page')]);
+      },
+    );
+
+    final provider = comicListPageLogicProvider(config);
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+    await _settle();
+
+    expect(container.read(provider).comics!.single.id, 'page1');
   });
 
   test('首次加载保存第1页和最大页数', () async {

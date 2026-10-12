@@ -8,13 +8,10 @@ import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/startup_metrics.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
-import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/network/http_proxy.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
-import 'package:pica_comic/network/webdav.dart';
 import 'package:pica_comic/tools/app_links.dart';
-import 'package:pica_comic/tools/background_service.dart';
 import 'package:pica_comic/tools/cache_auto_clear.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
@@ -43,7 +40,12 @@ import 'package:logger/logger.dart';
 Future<void> initBase() => initializeCore();
 
 /// 初始化首屏必须的基础环境。
-Future<void> initializeCore({void Function()? configureNetworkClient}) async {
+Future<void> initializeCore({
+  void Function()? configureNetworkClient,
+  void Function()? prepareNetworkClient,
+  Future<void> Function()? initializeComicSources,
+  NhentaiNetwork? nhentaiNetwork,
+}) async {
   final stopwatch = Stopwatch()..start();
 
   // 应用目录与偏好设置互不依赖，并行准备以缩短核心阶段。
@@ -76,14 +78,15 @@ Future<void> initializeCore({void Function()? configureNetworkClient}) async {
   SingleInstanceCookieJar("${App.dataPath}/cookies.db");
   HttpProxyServer.createConfigFile();
   await checkDownloadPath();
-  await _checkOldData();
+  await _checkOldData(nhentaiNetwork);
 
   CacheManager().setLimitSize(appdata.appSettings.cacheLimit);
 
   // 这些数据会在首屏构建时被同步读取，必须在 MyApp 之前完成。
   await Future.wait([
     AppTranslation.init(),
-    ComicSource.init(initializeRuntime: false),
+    initializeComicSources?.call() ??
+        ComicSource.init(initializeRuntime: false),
   ]);
   // 这些默认值属于本地配置，不能等到后台运行时初始化后才提供给首屏。
   if (picacg.data['appChannel'] == null) {
@@ -94,7 +97,11 @@ Future<void> initializeCore({void Function()? configureNetworkClient}) async {
   }
 
   // 只创建 Dio 和基础适配器；rhttp、代理和其他后台工作延后处理。
-  networkClientManager.prepare();
+  if (prepareNetworkClient != null) {
+    prepareNetworkClient();
+  } else {
+    networkClientManagerOf(App.globalContext!).prepare();
+  }
   startupMetrics.mark('Core initialization completed');
   Log.i('Core initialization completed in ${stopwatch.elapsedMilliseconds}ms');
 }
@@ -103,8 +110,18 @@ Future<void> initializeCore({void Function()? configureNetworkClient}) async {
 ///
 /// 这里不初始化下载、收藏和历史数据库，它们由各自的 Riverpod Provider
 /// 在功能真正被使用时懒加载。
-void startDeferredServices() {
-  unawaited(_startDeferredServices());
+void startDeferredServices({
+  Future<void> Function()? initializeComicRuntime,
+  Future<void> Function()? applyNetworkSettings,
+  Future<void> Function()? syncWebdav,
+}) {
+  unawaited(
+    _startDeferredServices(
+      initializeComicRuntime,
+      applyNetworkSettings,
+      syncWebdav,
+    ),
+  );
 }
 
 /// 注册深链接监听。监听本身很轻量，提前注册可避免应用首帧期间丢失
@@ -120,14 +137,23 @@ void listenAppLinks() {
   });
 }
 
-Future<void> _startDeferredServices() async {
+Future<void> _startDeferredServices(
+  Future<void> Function()? initializeComicRuntime,
+  Future<void> Function()? applyNetworkSettings,
+  Future<void> Function()? syncWebdav,
+) async {
   // 网络后端切换不会阻塞首页；Switching adapter 可安全替换空闲连接。
-  unawaited(networkClientManager.applyPreferredBackend());
-  unawaited(ComicSource.initRuntime());
-  unawaited(setNetworkProxy());
   unawaited(
-    Future<void>.delayed(const Duration(milliseconds: 300), Webdav.syncData),
+    applyNetworkSettings?.call() ??
+        networkClientManagerOf(App.globalContext!).applyPreferredBackend(),
   );
+  unawaited(initializeComicRuntime?.call() ?? ComicSource.initRuntime());
+  unawaited(networkClientManagerOf(App.globalContext!).applyProxySettings());
+  if (syncWebdav != null) {
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 300), syncWebdav),
+    );
+  }
   unawaited(startClearCache());
   unawaited(aiSettings.init());
   unawaited(notifications.init());
@@ -135,10 +161,6 @@ Future<void> _startDeferredServices() async {
 
   if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "1") {
     HttpProxyServer.startServer();
-  }
-
-  if (App.isMobile) {
-    await initializeWorkmanager();
   }
 
   unawaited(_cleanupLegacyCache());
@@ -163,7 +185,7 @@ Future<void> _cleanupLegacyCache() async {
   }
 }
 
-Future<void> _checkOldData() async {
+Future<void> _checkOldData(NhentaiNetwork? nhentaiNetwork) async {
   try {
     if (int.parse(appdata.getSetting(AppSettingKeys.jmApiStream)) >= 4) {
       appdata.setSetting(AppSettingKeys.jmApiStream, '0');
@@ -235,13 +257,13 @@ Future<void> _checkOldData() async {
       }
     }
 
-    await _checkAccountData();
+    await _checkAccountData(nhentaiNetwork);
   } catch (e, s) {
     Log.e("Init Check old data failed!\n$e$s");
   }
 }
 
-Future<void> _checkAccountData() async {
+Future<void> _checkAccountData(NhentaiNetwork? nhentaiNetwork) async {
   var s = await SharedPreferences.getInstance();
   if (s.getString('picacgAccount') != null) {
     var account = s.getString('picacgAccount');
@@ -288,9 +310,11 @@ Future<void> _checkAccountData() async {
     await s.remove('htName');
     await htManga.saveData();
   }
-  await NhentaiNetwork().init();
-  if (NhentaiNetwork().logged) {
-    nhentai.data['account'] = 'ok';
-    await nhentai.saveData();
+  if (nhentaiNetwork != null) {
+    await nhentaiNetwork.init();
+    if (nhentaiNetwork.logged) {
+      nhentai.data['account'] = 'ok';
+      await nhentai.saveData();
+    }
   }
 }

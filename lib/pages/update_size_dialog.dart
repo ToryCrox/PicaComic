@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -7,7 +9,7 @@ import 'package:pica_comic/tools/translations.dart';
 ///
 /// 用于批量更新已下载漫画的文件大小信息
 /// 显示更新进度、前后大小对比以及更新结果统计
-class UpdateSizeDialog extends StatefulWidget {
+class UpdateSizeDialog extends ConsumerStatefulWidget {
   /// 待更新的漫画列表
   final List<DownloadedItem> comics;
 
@@ -21,7 +23,7 @@ class UpdateSizeDialog extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<UpdateSizeDialog> createState() => _UpdateSizeDialogState();
+  ConsumerState<UpdateSizeDialog> createState() => _UpdateSizeDialogState();
 }
 
 /// 更新任务的状态枚举
@@ -64,7 +66,7 @@ class UpdateTask {
   double get change => newSize - oldSize;
 }
 
-class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
+class _UpdateSizeDialogState extends ConsumerState<UpdateSizeDialog> {
   /// 是否正在加载任务列表
   bool _isLoading = true;
 
@@ -108,6 +110,7 @@ class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
   /// 开始执行更新操作
   /// 逐个更新每个漫画的文件大小，并更新UI显示进度
   Future<void> _startUpdate() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     setState(() {
       _isUpdating = true;
       _successCount = 0;
@@ -124,7 +127,7 @@ class _UpdateSizeDialogState extends State<UpdateSizeDialog> {
 
       try {
         // 调用下载管理器更新漫画文件大小
-        final newSize = await downloadManager.updateComicSize(task.comic);
+        final newSize = await engine.updateComicSize(task.comic);
 
         if (mounted) {
           setState(() {

@@ -3,6 +3,7 @@ import 'package:pica_comic/components/comment.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class NhentaiCommentsPage extends StatefulWidget {
   const NhentaiCommentsPage(this.id, {super.key});
@@ -115,7 +116,7 @@ class _NhentaiCommentsPageState extends State<NhentaiCommentsPage> {
   }
 
   void get() async {
-    var res = await NhentaiNetwork().getComments(widget.id);
+    var res = await appComicSourceServices.nhentai.getComments(widget.id);
     setState(() {
       loading = false;
       if (res.error) {

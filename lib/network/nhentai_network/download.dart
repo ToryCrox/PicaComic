@@ -91,13 +91,14 @@ class NhentaiDownloadingTask extends DownloadingTask {
 
   @override
   Future<Map<int, List<String>>> getLinks() async {
-    var res = await NhentaiNetwork().getImages(comic.id);
+    final network = manager.readProvider(nhentaiNetworkProvider);
+    var res = await network.getImages(comic.id);
     return {0: res.data};
   }
 
   @override
   Stream<DownloadProgress> downloadImage(String link) {
-    return ImageManager().getImage(link);
+    return ImageManager(manager).getImage(link);
   }
 
   @override

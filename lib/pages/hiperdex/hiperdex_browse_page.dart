@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
 import 'package:pica_comic/network/res.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 /// HiperDEX 最新／热门的完整分页列表。
 class HiperdexBrowsePage extends StatefulWidget {
@@ -83,15 +84,13 @@ class _HiperdexComicList extends ComicsPage<BaseComic> {
 
   @override
   Future<List<BaseComic>> getComicsCache() => trending
-      ? HiperdexNetwork.instance.trendingCache(1, period: period)
-      : HiperdexNetwork.instance.latestCache(1);
+      ? appComicSourceServices.hiperdex.trendingCache(1, period: period)
+      : appComicSourceServices.hiperdex.latestCache(1);
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int page) => trending
-      ? HiperdexNetwork.instance.getTrending(
-          page,
-          period: period,
-          forceRefresh: true,
-        )
-      : HiperdexNetwork.instance.getLatest(page, forceRefresh: true);
+  Future<Res<List<BaseComic>>> getComics(int page, Ref ref) => trending
+      ? ref
+            .read(hiperdexNetworkProvider)
+            .getTrending(page, period: period, forceRefresh: true)
+      : ref.read(hiperdexNetworkProvider).getLatest(page, forceRefresh: true);
 }

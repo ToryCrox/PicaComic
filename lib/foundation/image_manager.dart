@@ -12,6 +12,7 @@ import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/image_loader/image_recombine.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cache_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/network_log.dart';
@@ -50,36 +51,46 @@ class BadRequestException {
 }
 
 class ImageManager {
-  static ImageManager instance = ImageManager._create();
+  static final Map<DownloadManager, ImageManager> _instances =
+      Map<DownloadManager, ImageManager>.identity();
 
   ///用于标记正在加载的项目, 避免出现多个异步函数加载同一张图片
   //static Map<String, DownloadProgress> loadingItems = {};
 
   /// Image cache manager for reader and download manager
-  factory ImageManager() => instance;
+  factory ImageManager(DownloadManager manager) =>
+      _instances.putIfAbsent(manager, () => ImageManager._create(manager));
 
-  static bool get haveTask => instance._downloadTasks.isNotEmpty;
+  static bool get haveTask => _instances.values.any(
+    (imageManager) => imageManager._downloadTasks.isNotEmpty,
+  );
 
   static void clearTasks() {
-    for (final task in instance._downloadTasks.values.toList()) {
-      if (!task.cancelToken.isCancelled) {
-        task.cancelToken.cancel("Image download cancelled");
+    for (final imageManager in _instances.values) {
+      for (final task in imageManager._downloadTasks.values.toList()) {
+        if (!task.cancelToken.isCancelled) {
+          task.cancelToken.cancel("Image download cancelled");
+        }
       }
-    }
-    for (final task in instance._ehAuthenticationTasks.values.toList()) {
-      if (!task.cancelToken.isCancelled) {
-        task.cancelToken.cancel("EH authentication cancelled");
+      for (final task in imageManager._ehAuthenticationTasks.values.toList()) {
+        if (!task.cancelToken.isCancelled) {
+          task.cancelToken.cancel("EH authentication cancelled");
+        }
       }
     }
   }
 
-  ImageManager._create();
+  ImageManager._create(this._downloadManager);
+
+  final DownloadManager _downloadManager;
+
+  EhNetwork get _ehNetwork => _downloadManager.readProvider(ehNetworkProvider);
 
   String _newImageTransferId(String key) =>
       'image-manager:${DateTime.now().microsecondsSinceEpoch}:$key';
 
   void _reportImageArtifact(String transferId, String path) {
-    NetworkTelemetryBridge.instance.reportArtifactReady(
+    appNetworkTelemetryBridge.reportArtifactReady(
       transferId: transferId,
       path: path,
       source: NetworkArtifactSource.imageCache,
@@ -93,7 +104,7 @@ class ImageManager {
   }) {
     final token = options.extra[networkLogTokenExtraKey];
     if (token is NetworkLogRequestToken) {
-      NetworkTelemetryBridge.instance.reportApplicationError(
+      appNetworkTelemetryBridge.reportApplicationError(
         token: token,
         error: error,
         responseBody: responseBody,
@@ -101,7 +112,8 @@ class ImageManager {
     }
   }
 
-  Dio get dio => networkClientManager.mediaDio;
+  Dio get dio =>
+      _downloadManager.readProvider(networkClientManagerProvider).mediaDio;
 
   int ehgtLoading = 0;
 
@@ -374,7 +386,7 @@ class ImageManager {
     final gid = getGalleryId(gallery.link);
     final cancelToken = CancelToken();
     try {
-      final readerRes = await EhNetwork().getReaderLink(gallery.link, page);
+      final readerRes = await _ehNetwork.getReaderLink(gallery.link, page);
       if (readerRes.error) return Res.fromErrorRes(readerRes);
 
       final readerLink = readerRes.data;
@@ -429,7 +441,7 @@ class ImageManager {
       final savePath = caching.file.path;
       final transferId = _newImageTransferId(cacheKey);
       output.add(DownloadProgress(0, 100, cacheKey, savePath));
-      final readerRes = await EhNetwork().getReaderLink(
+      final readerRes = await _ehNetwork.getReaderLink(
         gallery.link,
         page,
         cancelToken: task.cancelToken,
@@ -556,7 +568,7 @@ class ImageManager {
     CancelToken cancelToken,
   ) async {
     try {
-      final res = await EhNetwork().request(
+      final res = await _ehNetwork.request(
         readerLink,
         expiredTime: CacheExpiredTime.no,
         cancelToken: cancelToken,
@@ -643,7 +655,7 @@ class ImageManager {
         page > 0 &&
         page <= keys.length;
     if (isMpv && requireOriginal) {
-      final res = await EhNetwork().request(
+      final res = await _ehNetwork.request(
         readerLink,
         expiredTime: CacheExpiredTime.no,
         cancelToken: cancelToken,
@@ -677,7 +689,7 @@ class ImageManager {
       return (imageUrl: url, nl: nextNl, mpv: false);
     }
     if (isMpv) {
-      final res = await EhNetwork().apiRequest({
+      final res = await _ehNetwork.apiRequest({
         "gid": int.parse(gid),
         "imgkey": keys[page - 1],
         "method": "imagedispatch",
@@ -698,7 +710,7 @@ class ImageManager {
     }
 
     try {
-      final res = await EhNetwork().apiRequest({
+      final res = await _ehNetwork.apiRequest({
         "gid": int.parse(gid),
         "imgkey": _ehImageKey(readerLink),
         "method": "showpage",
@@ -726,7 +738,7 @@ class ImageManager {
       );
     } catch (e) {
       Log.w("EH showpage API failed, fallback to HTML: $e");
-      final res = await EhNetwork().request(
+      final res = await _ehNetwork.request(
         readerLink,
         expiredTime: CacheExpiredTime.no,
         cancelToken: cancelToken,
@@ -780,7 +792,7 @@ class ImageManager {
             requireOriginal: requireOriginal,
           );
         }
-        final value = await EhNetwork().getImageLinkWithNL(
+        final value = await _ehNetwork.getImageLinkWithNL(
           gid,
           _ehImageKey(readerLink),
           page,
@@ -841,7 +853,7 @@ class ImageManager {
       imageUrl,
       options: Options(
         responseType: ResponseType.stream,
-        headers: {"user-agent": webUA, "cookie": EhNetwork().cookiesStr},
+        headers: {"user-agent": webUA, "cookie": _ehNetwork.cookiesStr},
         extra: {
           NetworkCookieInterceptor.cookieJarKey:
               SingleInstanceCookieJar.instance!,
@@ -943,7 +955,13 @@ class ImageManager {
       final transferId = _newImageTransferId(cacheKey);
       downloadController.add(DownloadProgress(0, 100, cacheKey, savePath));
 
-      final gg = GG();
+      final hitomiNetwork = _downloadManager.readProvider(
+        hitomiNetworkProvider,
+      );
+      final gg = GG(
+        baseDomain: hitomiNetwork.baseDomain,
+        clientManager: hitomiNetwork.clientManager,
+      );
       var url = await gg.urlFromUrlFromHash(galleryId, image, 'webp', null);
       int l;
       for (l = url.length - 1; l >= 0; l--) {
@@ -1204,7 +1222,9 @@ class ImageManager {
       if (source.getImageLoadingConfig == null) {
         config = null;
       } else {
-        config = source.getImageLoadingConfig!(url, comicId, epId);
+        config = _downloadManager
+            .readProvider(comicSourceCallbackRunnerProvider)
+            .imageConfig(source, url, comicId, epId);
       }
 
       caching = await CacheManager().openWrite(cacheKey);
@@ -1357,7 +1377,9 @@ class ImageManager {
       if (source.getThumbnailLoadingConfig == null) {
         config = null;
       } else {
-        config = source.getThumbnailLoadingConfig!(url);
+        config = _downloadManager
+            .readProvider(comicSourceCallbackRunnerProvider)
+            .thumbnailConfig(source, url);
       }
 
       caching = await CacheManager().openWrite(cacheKey);

@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../foundation/app.dart';
 import 'network_log.dart';
 import 'network_speed_monitor.dart';
 
@@ -8,9 +10,7 @@ part 'network_telemetry.g.dart';
 
 /// 网络层与 Riverpod 状态之间的桥接对象。
 class NetworkTelemetryBridge {
-  NetworkTelemetryBridge._();
-
-  static final instance = NetworkTelemetryBridge._();
+  NetworkTelemetryBridge();
 
   NetworkLogSink? _logSink;
   NetworkSpeedMonitor? _speedMonitor;
@@ -57,13 +57,20 @@ class NetworkTelemetryBridge {
 /// 配置应用级网络监控桥接对象。
 @Riverpod(keepAlive: true)
 NetworkTelemetryBridge networkTelemetryBridge(Ref ref) {
-  final bridge = NetworkTelemetryBridge.instance;
+  final bridge = NetworkTelemetryBridge();
   bridge.configure(
     logSink: ref.read(networkLogControllerProvider.notifier),
     speedMonitor: ref.read(networkSpeedMonitorProvider),
   );
   return bridge;
 }
+
+/// 非 Widget 网络代码从根 ProviderScope 取得监控桥接。
+NetworkTelemetryBridge get appNetworkTelemetryBridge =>
+    ProviderScope.containerOf(
+      App.globalContext!,
+      listen: false,
+    ).read(networkTelemetryBridgeProvider);
 
 class _NoopNetworkLogSink implements NetworkLogSink {
   const _NoopNetworkLogSink();

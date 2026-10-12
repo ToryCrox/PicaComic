@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part 'hitomi_home_page.g.dart';
 
@@ -70,7 +70,7 @@ class HitomiHomePageLogic extends _$HitomiHomePageLogic {
     if (_loadingRequest) return;
     _loadingRequest = true;
     try {
-      final res = await HiNetwork().getComics(url);
+      final res = await appComicSourceServices.hitomi.getComics(url);
       if (!_isCurrent(generation)) return;
       if (res.error) {
         throw _HitomiHomePageException(res.errorMessage ?? "Error");
@@ -104,7 +104,7 @@ class HitomiHomePageLogic extends _$HitomiHomePageLogic {
     final generation = _generation;
     _loadingRequest = true;
     try {
-      final res = await HiNetwork().loadNextPage(comics);
+      final res = await appComicSourceServices.hitomi.loadNextPage(comics);
       if (!_isCurrent(generation)) return;
       if (res.error) {
         showToast(message: res.errorMessage ?? "Error");
@@ -147,7 +147,9 @@ class HitomiHomePageLogic extends _$HitomiHomePageLogic {
       if (futures.length >= 5) {
         await wait();
       }
-      futures.add(HiNetwork().getComicInfoBrief(id.toString()));
+      futures.add(
+        appComicSourceServices.hitomi.getComicInfoBrief(id.toString()),
+      );
     }
     await wait();
     comics.comicIds.clear();
@@ -220,7 +222,8 @@ class _HitomiHomePageState extends State<HitomiHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    var url = "https://ltn.${HiNetwork().baseDomain}/$type$lang.nozomi";
+    var url =
+        "https://ltn.${appComicSourceServices.hitomi.baseDomain}/$type$lang.nozomi";
     return Column(
       children: [
         Material(

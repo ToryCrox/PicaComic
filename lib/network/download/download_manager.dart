@@ -4,11 +4,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:signals/signals_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -26,19 +29,17 @@ import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_errors.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/network/download/favorite_download.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart' as hitomi;
-import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
-import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
-import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/network/kemono_network/kemono_attachment_download.dart';
 import 'package:pica_comic/network/kemono_network/models.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
@@ -52,30 +53,147 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:path/path.dart' as Path;
+import 'package:path/path.dart' as path_util;
 import 'package:pica_comic/foundation/local_repository_manager.dart';
 import 'package:pica_comic/tools/image_utils.dart';
 import 'package:synchronized/synchronized.dart';
 import 'dart:math';
 
+part 'download_manager.g.dart';
+
 typedef DownloadingCallback = void Function();
 
-final downloadManager = DownloadManager._();
+/// 下载队列状态，由 DownloadManager Notifier 统一发布。
+class DownloadQueueSnapshot {
+  const DownloadQueueSnapshot({
+    required this.tasks,
+    required this.runningTaskIds,
+    required this.waitingTaskIds,
+    required this.isDownloading,
+    required this.hasError,
+  });
 
-class DownloadManager extends ChangeNotifier {
-  DownloadManager._();
+  final List<DownloadingTask> tasks;
+  final Set<String> runningTaskIds;
+  final Set<String> waitingTaskIds;
+  final bool isDownloading;
+  final bool hasError;
 
-  ///使用单例模式
-  static DownloadManager? cache;
+  factory DownloadQueueSnapshot.fromManager(DownloadManager manager) {
+    return DownloadQueueSnapshot(
+      tasks: List.unmodifiable(manager.downloading),
+      runningTaskIds: Set.unmodifiable(manager.runningTaskIds),
+      waitingTaskIds: Set.unmodifiable(manager.waitingTaskIds),
+      isDownloading: manager.isDownloading,
+      hasError: manager.error,
+    );
+  }
+
+  Map<String, DownloadStatus> get statusByTaskId {
+    final result = <String, DownloadStatus>{};
+    for (final id in runningTaskIds) {
+      result[id] = isDownloading
+          ? DownloadStatus.downloading
+          : DownloadStatus.paused;
+    }
+    for (final id in waitingTaskIds) {
+      result[id] = isDownloading
+          ? DownloadStatus.waiting
+          : DownloadStatus.paused;
+    }
+    return result;
+  }
+}
+
+/// 下载队列状态。
+enum DownloadStatus { downloading, waiting, paused }
+
+/// 下载状态与操作的应用级 Riverpod Notifier。
+@Riverpod(keepAlive: true)
+class DownloadManager extends _$DownloadManager {
+  DownloadManager();
+
+  bool _providerBound = false;
+
+  @override
+  DownloadQueueSnapshot build() {
+    _providerBound = true;
+    ref.onDispose(() {
+      _providerBound = false;
+      dispose();
+    });
+    unawaited(_initializeInBackground());
+    return DownloadQueueSnapshot.fromManager(this);
+  }
+
+  Future<void> _initializeInBackground() async {
+    try {
+      await init();
+    } catch (error, stackTrace) {
+      Log.e('DownloadManager: 初始化失败 $error\n$stackTrace');
+    }
+  }
+
+  /// 通过 DownloadManager 所属的 ProviderScope 读取指定网络客户端。
+  T readProvider<T>(ProviderListenable<T> provider) {
+    if (!_providerBound) {
+      throw StateError('下载 Provider 尚未初始化');
+    }
+    return ref.read(provider);
+  }
+
+  AppSettingsSnapshot get _settings => !_providerBound
+      ? AppSettingsRepository().snapshot()
+      : readProvider(appSettingsProvider);
+
+  /// 读取此 DownloadManager 所属 ProviderScope 的当前设置快照。
+  AppSettingsSnapshot get settingsSnapshot => _settings;
+
+  /// 通过漫画源查询 Provider 加载详情。
+  Future<Res<ComicInfoData>> loadSourceComicInfo(
+    String sourceKey,
+    String comicId,
+  ) async {
+    if (!_providerBound) {
+      return Future.value(const Res.error('下载 Provider 尚未初始化'));
+    }
+    try {
+      return await ref.read(
+        comicInfoQueryProvider(ComicInfoQuery(sourceKey, comicId)).future,
+      );
+    } catch (error) {
+      return Res.error(error.toString());
+    }
+  }
+
+  /// 通过漫画源查询 Provider 加载章节图片。
+  Future<Res<List<String>>> loadSourceComicPages(
+    String sourceKey,
+    String comicId,
+    String? episodeId,
+  ) async {
+    if (!_providerBound) {
+      return Future.value(const Res.error('下载 Provider 尚未初始化'));
+    }
+    try {
+      return await ref.read(
+        comicPagesQueryProvider(
+          ComicPagesQuery(sourceKey, comicId, episodeId),
+        ).future,
+      );
+    } catch (error) {
+      return Res.error(error.toString());
+    }
+  }
 
   ///下载目录
   String? path;
 
   /// 漫画文件的存储目录。
-  String get comicsPath => Path.join(path ?? '', 'comics');
+  String get comicsPath => path_util.join(path ?? '', 'comics');
 
   /// 漫画封面的集中存储目录。
-  String get coversPath => Path.join(path ?? '', 'covers');
+  String get coversPath => path_util.join(path ?? '', 'covers');
 
   /// 获取漫画封面的完整路径。
   ///
@@ -85,11 +203,11 @@ class DownloadManager extends ChangeNotifier {
     if (type == DownloadType.hiperdex) {
       // 旧版本将 HiperDEX 封面存为 other，继续使用原文件避免重复下载。
       final legacyName = buildDownloadCoverFileName(sourceKey: 'other', id: id);
-      final legacyPath = Path.join(coversPath, legacyName);
+      final legacyPath = path_util.join(coversPath, legacyName);
       if (File(legacyPath).existsSync()) return legacyPath;
     }
     final fileName = buildDownloadCoverFileName(sourceKey: type.name, id: id);
-    return Path.join(coversPath, fileName);
+    return path_util.join(coversPath, fileName);
   }
 
   /// 下载队列管理器（新的队列系统）
@@ -159,20 +277,18 @@ class DownloadManager extends ChangeNotifier {
     _tagsChangedController.add(null);
   }
 
-  @override
   void addListener(VoidCallback listener) {
-    _listeners.add(listener);
-    _queueManager.addListener(listener);
+    if (!_listeners.contains(listener)) _listeners.add(listener);
   }
 
-  @override
   void removeListener(VoidCallback listener) {
     _listeners.remove(listener);
-    _queueManager.removeListener(listener);
   }
 
-  @override
   void notifyListeners() {
+    if (_providerBound && ref.mounted) {
+      state = DownloadQueueSnapshot.fromManager(this);
+    }
     for (var listener in _listeners) {
       listener();
     }
@@ -180,11 +296,12 @@ class DownloadManager extends ChangeNotifier {
 
   ///获取下载目录
   Future<void> _getPath() async {
-    if (appdata.getSetting(AppSettingKeys.downloadDirectory) == "") {
+    final downloadDirectory = _settings.value(AppSettingKeys.downloadDirectory);
+    if (downloadDirectory == "") {
       final appPath = await getApplicationSupportDirectory();
       path = "${appPath.path}/download";
     } else {
-      path = appdata.getSetting(AppSettingKeys.downloadDirectory);
+      path = downloadDirectory;
     }
     Log.d(() => 'DownloadManager: 下载路径设置为 $path');
     if (App.isIOS) {
@@ -271,7 +388,10 @@ class DownloadManager extends ChangeNotifier {
             autoStart: false,
             ensureInitialized: false,
           );
-          corrected = corrected || task.directory != originalDirectory;
+          corrected =
+              corrected ||
+              task.directory != originalDirectory ||
+              (task is EhDownloadingTask && task.archiveDownloadRemoved);
         }
 
         // 只有恢复过程中修正了旧格式或缺失字段时才回写，避免每次启动
@@ -301,12 +421,10 @@ class DownloadManager extends ChangeNotifier {
     Log.d(() => 'DB DownloadManager: 数据库初始化完成');
   }
 
-  @override
   void dispose() {
     _initializationFuture = null;
     _initialized = false;
     _queueManager.stopAll();
-    super.dispose();
   }
 
   ///初始化下载管理器
@@ -421,8 +539,9 @@ class DownloadManager extends ChangeNotifier {
 
   /// 根据漫画源和下载ID还原原始漫画ID
   String getComicIdFromDownloadId(ComicType? comicType, String? downloadId) {
-    if (comicType == null || downloadId == null || downloadId.isEmpty)
+    if (comicType == null || downloadId == null || downloadId.isEmpty) {
       return '';
+    }
 
     switch (comicType) {
       case ComicType.picacg:
@@ -490,7 +609,7 @@ class DownloadManager extends ChangeNotifier {
     Log.d(() => 'DownloadManager: 下载出错 taskId=$taskId');
 
     if (currentTask is EhDownloadingTask &&
-        currentTask.downloadType == 0 &&
+        !currentTask.archiveDownloadRemoved &&
         EhOriginalGpRequiredException.matchesError(currentTask.lastError)) {
       currentTask.pauseReason = DownloadPauseReason.ehOriginalGpInsufficient;
       unawaited(_pauseEhTaskForGp(currentTask));
@@ -549,6 +668,9 @@ class DownloadManager extends ChangeNotifier {
   void resumeTask(String id) {
     Log.d(() => 'DownloadManager: 恢复任务 id=$id');
     final task = _queueManager.findTask(id);
+    if (task is EhDownloadingTask && task.archiveDownloadRemoved) {
+      return;
+    }
     task?.pauseReason = null;
     _queueManager.resumeTask(id);
     _saveInfo();
@@ -750,10 +872,10 @@ class DownloadManager extends ChangeNotifier {
       }
 
       // 获取漫画目录的完整路径
-      final fullPath = Path.join(comicsPath, comic.directory);
+      final fullPath = path_util.join(comicsPath, comic.directory);
 
       final episodeDirectory = comic.getEpisodeDirectoryName(ep + 1);
-      final episodePath = Path.join(fullPath, episodeDirectory);
+      final episodePath = path_util.join(fullPath, episodeDirectory);
       if (Directory(episodePath).existsSync()) {
         Directory(episodePath).deleteSync(recursive: true);
         Log.d(() => 'DownloadManager: 删除章节目录 $episodePath');
@@ -853,43 +975,98 @@ class DownloadManager extends ChangeNotifier {
 
   ///获取图片, 对于无章节的漫画, ep参数为0
   Future<File> getImage(String id, int ep, int index) async {
-    final downloadPath = await _getEpisodePath(id, ep);
-    for (var file in Directory(downloadPath).listSync()) {
-      if (file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "") ==
-          index.toString()) {
-        return file as File;
-      }
-    }
-    throw Exception("File not found");
+    return _getPageImageFile(id, ep, index);
   }
 
   Future<File?> getDownloadImageOrNull(String title, int ep, int index) async {
     final directory = findValidDirectoryName(path!, title);
     String downloadPath;
     if (ep == 0) {
-      downloadPath = Path.join(comicsPath, directory);
+      downloadPath = path_util.join(comicsPath, directory);
     } else {
-      downloadPath = Path.join(comicsPath, directory, ep.toString());
+      downloadPath = path_util.join(comicsPath, directory, ep.toString());
     }
     final dir = Directory(downloadPath);
     if (!(await dir.exists())) return null;
-    return dir.listSync().whereType<File>().toList().firstWhereOrNull(
-      (e) => Path.basenameWithoutExtension(e.path) == index.toString(),
+    final files = (await dir.list().toList())
+        .whereType<File>()
+        .where(
+          (file) =>
+              !isInsideComicBackupDirectory(file.path, dir.path) &&
+              predictImageFile(file) &&
+              !path_util.basename(file.path).startsWith('cover'),
+        )
+        .sortedByName()
+        .whereType<File>()
+        .toList();
+    final legacyFile = files.firstWhereOrNull(
+      (file) =>
+          path_util.basenameWithoutExtension(file.path) == index.toString(),
     );
+    if (legacyFile != null) return legacyFile;
+    return index >= 0 && index < files.length ? files[index] : null;
+  }
+
+  /// 按阅读页序取下载图片，兼容数字页名和“页号-分段号”页名。
+  Future<File> _getPageImageFile(String id, int ep, int index) async {
+    if (index < 0) throw Exception('File not found');
+    final downloadPath = await _getEpisodePath(id, ep);
+    final cachePrefix = '$downloadPath\u001f';
+    final cacheKey = '$cachePrefix$index';
+    final cachedPath = _downloadedFileName[cacheKey];
+    if (cachedPath != null && await File(cachedPath).exists()) {
+      return File(cachedPath);
+    }
+
+    final imagePaths = await getAllImageFileList(id, ep);
+    final hasGroupedNames = imagePaths.any(
+      (path) => RegExp(
+        r'^\d+-\d+$',
+      ).hasMatch(path_util.basenameWithoutExtension(path)),
+    );
+    if (_downloadedFileName.length > 2000) {
+      _downloadedFileName.clear();
+    }
+    if (hasGroupedNames) {
+      for (var pageIndex = 0; pageIndex < imagePaths.length; pageIndex++) {
+        _downloadedFileName['$cachePrefix$pageIndex'] = imagePaths[pageIndex];
+      }
+    } else {
+      for (final path in imagePaths) {
+        final fileIndex = int.tryParse(
+          path_util.basenameWithoutExtension(path),
+        );
+        if (fileIndex != null) {
+          _downloadedFileName['$cachePrefix$fileIndex'] = path;
+        }
+      }
+      for (var pageIndex = 0; pageIndex < imagePaths.length; pageIndex++) {
+        _downloadedFileName.putIfAbsent(
+          '$cachePrefix$pageIndex',
+          () => imagePaths[pageIndex],
+        );
+      }
+    }
+
+    final resolvedPath = _downloadedFileName[cacheKey];
+    if (resolvedPath == null || !(await File(resolvedPath).exists())) {
+      throw Exception('File not found');
+    }
+    return File(resolvedPath);
   }
 
   /// 使用下载记录中的章节目录映射构建路径，兼容旧格式。
   Future<String> _getEpisodePath(String id, int ep) async {
     final dirName = await getDirectoryName(id);
-    final root = Path.join(comicsPath, dirName);
+    final root = path_util.join(comicsPath, dirName);
     if (ep == 0) return root;
     if (id.startsWith('hiperdex-')) {
       final comic = await getComicOrNull(id);
       if (comic != null) {
-        return Path.join(root, comic.getEpisodeDirectoryName(ep));
+        return path_util.join(root, comic.getEpisodeDirectoryName(ep));
       }
     }
-    return Path.join(root, '$ep');
+    return path_util.join(root, '$ep');
   }
 
   Future<String> getImageDirectory(String id, int ep) async {
@@ -912,7 +1089,9 @@ class DownloadManager extends ChangeNotifier {
     return files
         .where(
           (e) =>
-              predictImageFile(e) && !Path.basename(e.path).startsWith("cover"),
+              !isInsideComicBackupDirectory(e.path, downloadPath) &&
+              predictImageFile(e) &&
+              !path_util.basename(e.path).startsWith("cover"),
         )
         .sortedByName()
         .map((e) => e.absolute.path)
@@ -925,9 +1104,10 @@ class DownloadManager extends ChangeNotifier {
       return [];
     }
     final files = await dir.list(recursive: true).toList();
-    sFileRelativeFromPath = Path.normalize(dirPath);
+    sFileRelativeFromPath = path_util.normalize(dirPath);
     return files
         .whereType<File>()
+        .where((e) => !isInsideComicBackupDirectory(e.path, dir.path))
         .where(predictImageFile)
         .sortedByName()
         .map((e) => e.absolute.path)
@@ -935,27 +1115,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<File> getImageAsync(String id, int ep, int index) async {
-    final downloadPath = await _getEpisodePath(id, ep);
-    var fileName = _downloadedFileName["$id$ep$index"];
-    if (fileName != null) {
-      final file = File(Path.join(downloadPath, fileName));
-      if (await file.exists()) {
-        return file;
-      }
-    }
-    await for (var file in Directory(downloadPath).list()) {
-      var i = file.uri.pathSegments.last.replaceFirst(RegExp(r"\..+"), "");
-      if (i.isNum) {
-        if (_downloadedFileName.length > 2000) {
-          _downloadedFileName.remove(_downloadedFileName.keys.first);
-        }
-        _downloadedFileName["$id$ep$i"] = file.name;
-      }
-    }
-    if (_downloadedFileName["$id$ep$index"] == null) {
-      throw Exception("File not found");
-    }
-    return File(Path.join(downloadPath, _downloadedFileName["$id$ep$index"]!));
+    return _getPageImageFile(id, ep, index);
   }
 
   static final _downloadedFileName = <String, String>{};
@@ -1080,6 +1240,14 @@ DownloadingTask downloadingItemFromMap(
 }
 
 extension AddDownloadExt on DownloadManager {
+  /// 将队列所属管理器和下载并发配置绑定到任务。
+  void bindTask(DownloadingTask task) {
+    task.bindDownloadManager(this);
+    task.bindParallelDownloadsReader(
+      () => _settings.integer(AppSettingKeys.parallelDownloads, 6),
+    );
+  }
+
   /// 添加下载任务的通用方法（消除重复代码）
   ///
   /// [skipSave] 跳过保存，用于批量添加任务时提高性能
@@ -1094,6 +1262,7 @@ extension AddDownloadExt on DownloadManager {
       await init();
     }
     Log.d(() => 'DownloadManager: 添加下载任务 id=${task.id}, title=${task.title}');
+    bindTask(task);
 
     // 确保 directory 不为空
     if (task.directory.trim().isEmpty) {
@@ -1167,16 +1336,9 @@ extension AddDownloadExt on DownloadManager {
   ///添加E-Hentai下载
   /// 重复的英语: duplicateEnglishName
   /// - downloadEps: 下载的章节
-  void addEhDownload(Gallery gallery, [int type = 0]) {
+  void addEhDownload(Gallery gallery) {
     final id = getGalleryId(gallery.link);
-    final task = EhDownloadingTask(
-      gallery,
-      _onFinish,
-      _onError,
-      _saveInfo,
-      id,
-      type,
-    );
+    final task = EhDownloadingTask(gallery, _onFinish, _onError, _saveInfo, id);
     _addDownloadTask(task);
   }
 
@@ -1340,6 +1502,7 @@ extension AddDownloadExt on DownloadManager {
         final context = await _buildLatestDownloadContext(comic);
         context.task.directory = await _resolveDownloadDirectory(comic);
         context.task.overwriteExistingFiles = overwriteExisting;
+        bindTask(context.task);
         _queueManager.enqueue(context.task);
         // 重新下载可能补充未翻译的新图片，旧的完成标记立即失效。
         await clearAiTranslationCompleted(comic.id);
@@ -1523,7 +1686,10 @@ extension AddDownloadExt on DownloadManager {
   _buildHiperdexDownloadContext(HiperdexDownloadedItem comic) async {
     final source = ComicSource.find(ComicType.hiperdex.name);
     if (source?.loadComicInfo == null) throw StateError('找不到 HiperDEX 漫画源');
-    final result = await source!.loadComicInfo!(comic.comicId);
+    final result = await loadSourceComicInfo(
+      ComicType.hiperdex.name,
+      comic.comicId,
+    );
     if (result.error) throw StateError(result.errorMessageWithoutNull);
     final item = comic.withComicInfo(result.data);
     final task = HiperdexDownloadingTask(
@@ -1539,7 +1705,9 @@ extension AddDownloadExt on DownloadManager {
 
   Future<({DownloadedItem item, DownloadingTask task})>
   _buildPicacgDownloadContext(DownloadedComic comic) async {
-    final res = await picacg_network.PicacgNetwork().getComicInfo(comic.id);
+    final res = await readProvider(
+      picacgNetworkProvider,
+    ).getComicInfo(comic.id);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
@@ -1568,21 +1736,16 @@ extension AddDownloadExt on DownloadManager {
 
   Future<({DownloadedItem item, DownloadingTask task})>
   _buildEhentaiDownloadContext(DownloadedGallery comic) async {
-    final res = await EhNetwork().getGalleryInfo(comic.gallery.link);
+    final res = await readProvider(
+      ehNetworkProvider,
+    ).getGalleryInfo(comic.gallery.link);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
     final latest = res.data;
     final id = getGalleryId(latest.link);
     final item = DownloadedGallery(latest, comic.comicSize, color: comic.color);
-    final task = EhDownloadingTask(
-      latest,
-      _onFinish,
-      _onError,
-      _saveInfo,
-      id,
-      0,
-    );
+    final task = EhDownloadingTask(latest, _onFinish, _onError, _saveInfo, id);
     return (item: item, task: task);
   }
 
@@ -1590,7 +1753,7 @@ extension AddDownloadExt on DownloadManager {
     DownloadedJmComic comic,
   ) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^jm'), '');
-    final res = await JmNetwork().getComicInfo(rawId);
+    final res = await readProvider(jmNetworkProvider).getComicInfo(rawId);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
@@ -1616,7 +1779,9 @@ extension AddDownloadExt on DownloadManager {
 
   Future<({DownloadedItem item, DownloadingTask task})>
   _buildHitomiDownloadContext(DownloadedHitomiComic comic) async {
-    final res = await HiNetwork().getComicInfo(comic.link);
+    final res = await readProvider(
+      hitomiNetworkProvider,
+    ).getComicInfo(comic.link);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
@@ -1645,7 +1810,7 @@ extension AddDownloadExt on DownloadManager {
     DownloadedHtComic comic,
   ) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^Ht'), '');
-    final res = await HtmangaNetwork().getComicInfo(rawId);
+    final res = await readProvider(htMangaNetworkProvider).getComicInfo(rawId);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
@@ -1664,7 +1829,7 @@ extension AddDownloadExt on DownloadManager {
   Future<({DownloadedItem item, DownloadingTask task})>
   _buildNhentaiDownloadContext(NhentaiDownloadedComic comic) async {
     final rawId = comic.id.replaceFirst(RegExp(r'^nhentai'), '');
-    final res = await NhentaiNetwork().getComicInfo(rawId);
+    final res = await readProvider(nhentaiNetworkProvider).getComicInfo(rawId);
     if (res.error) {
       throw Exception(res.errorMessageWithoutNull);
     }
@@ -1731,6 +1896,7 @@ extension AddDownloadExt on DownloadManager {
       comic.aiTranslationCompletedAt = aiTranslationCompletedAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(aiTranslationCompletedAt);
+      comic.bindDownloadManager(this);
       return comic;
     } catch (e, s) {
       Log.e("IO Failed to get a downloaded comic info:\n$e\n$s");
@@ -1745,6 +1911,7 @@ extension AddDownloadExt on DownloadManager {
     DateTime? time,
   ]) async {
     await init();
+    item.bindDownloadManager(this);
     // 使用锁保护数据库写入，防止并发导致的 SQLite 死锁
     await DownloadManager._dbLock.synchronized(() async {
       Log.d(
@@ -1772,6 +1939,8 @@ extension AddDownloadExt on DownloadManager {
     DownloadedItem updated,
   ) async {
     await init();
+    original.bindDownloadManager(this);
+    updated.bindDownloadManager(this);
     if (original.id != updated.id) {
       throw ArgumentError('下载详情更新前后的 ID 不一致');
     }
@@ -1853,7 +2022,7 @@ extension AddDownloadExt on DownloadManager {
     if (item is HiperdexDownloadedItem &&
         item.directory.isNotEmpty &&
         !downloading.any((task) => task.id == id)) {
-      final root = Path.join(comicsPath, item.directory);
+      final root = path_util.join(comicsPath, item.directory);
       final directoriesChanged = await item.migrateChapterDirectories(root);
       if (directoriesChanged ||
           jsonDecode(result[kDownloadJson] as String)['modelVersion'] != 1) {
@@ -2015,14 +2184,14 @@ extension AddDownloadExt on DownloadManager {
           item.repositoryName,
         );
         if (repoPath != null && item.directory.isNotEmpty) {
-          return Path.join(repoPath, item.directory);
+          return path_util.join(repoPath, item.directory);
         }
       }
       return '';
     }
     return getDirectoryName(id).then((e) {
       if (e.isEmpty) return '';
-      return Path.join(comicsPath, e);
+      return path_util.join(comicsPath, e);
     });
   }
 
@@ -2035,7 +2204,7 @@ extension AddDownloadExt on DownloadManager {
         item.repositoryName,
       );
       if (repoPath != null && item.coverImagePath != null) {
-        return Path.join(repoPath, item.coverImagePath!);
+        return path_util.join(repoPath, item.coverImagePath!);
       }
     }
     return null;
@@ -2359,7 +2528,9 @@ extension AddDownloadExt on DownloadManager {
 
         try {
           await for (var file in entity.list(recursive: true)) {
-            if (file is File && predictImageFile(file)) {
+            if (file is File &&
+                !isInsideComicBackupDirectory(file.path, entity.path) &&
+                predictImageFile(file)) {
               imageCount++;
               firstImagePath ??= file.path;
             }
@@ -2371,15 +2542,18 @@ extension AddDownloadExt on DownloadManager {
 
         // 如果包含至少3张图片，则添加到结果列表
         if (imageCount >= 3) {
-          final relativePath = Path.relative(entity.path, from: repositoryPath);
+          final relativePath = path_util.relative(
+            entity.path,
+            from: repositoryPath,
+          );
           // coverImagePath存储相对于漫画目录的路径
           final relativeImagePath = firstImagePath != null
-              ? Path.relative(firstImagePath, from: entity.path)
+              ? path_util.relative(firstImagePath, from: entity.path)
               : null;
 
           result.add({
             'path': entity.path,
-            'name': Path.basename(entity.path),
+            'name': path_util.basename(entity.path),
             'relativePath': relativePath,
             'imageCount': imageCount,
             'coverImagePath': relativeImagePath,
@@ -2551,8 +2725,8 @@ extension AddDownloadExt on DownloadManager {
       }
 
       // 构建完整路径
-      final oldPath = Path.join(comicsPath, oldDirectoryName);
-      final newPath = Path.join(comicsPath, newDirectoryName);
+      final oldPath = path_util.join(comicsPath, oldDirectoryName);
+      final newPath = path_util.join(comicsPath, newDirectoryName);
 
       // 检查旧目录是否存在
       final oldDir = Directory(oldPath);

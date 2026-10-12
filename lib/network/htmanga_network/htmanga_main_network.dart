@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/comic_source/built_in/ht_manga.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
@@ -15,15 +17,23 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import '../../base.dart';
 
-class HtmangaNetwork {
+part 'htmanga_main_network.g.dart';
+
+@Riverpod(keepAlive: true, name: 'htMangaNetworkProvider')
+class HtmangaNetwork extends _$HtmangaNetwork {
   ///用于获取绅士漫画的网络请求类
-  factory HtmangaNetwork() => _cache ?? (_cache = HtmangaNetwork._create());
+  @override
+  HtmangaNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
 
-  static HtmangaNetwork? _cache;
+  late NetworkClientManager clientManager;
 
-  HtmangaNetwork._create();
+  Future<bool> _reLogin() => htManga.reLogin(ref);
 
-  static String get baseUrl => appdata.getSetting(AppSettingKeys.htmangaDomain);
+  String get baseUrl =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.htmangaDomain);
 
   void logout() {
     SingleInstanceCookieJar.instance?.deleteUri(Uri.parse(baseUrl));
@@ -35,7 +45,7 @@ class HtmangaNetwork {
     bool cache = true,
     Map<String, String>? headers,
   }) async {
-    var dio = CachedNetwork();
+    var dio = CachedNetwork(clientManager: clientManager);
     try {
       var res = await dio.get(
         url,
@@ -65,7 +75,7 @@ class HtmangaNetwork {
   ///基本的Post请求
   Future<Res<String>> post(String url, String data) async {
     try {
-      var res = await networkClientManager.apiDio.post<String>(
+      var res = await clientManager.apiDio.post<String>(
         url,
         data: data,
         options: Options(
@@ -118,7 +128,7 @@ class HtmangaNetwork {
   }
 
   Future<Res<bool>> loginFromAppdata() async {
-    var res = await htManga.reLogin();
+    var res = await _reLogin();
     return res ? const Res(true) : const Res.error("error");
   }
 

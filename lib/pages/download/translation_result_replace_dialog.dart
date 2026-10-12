@@ -263,20 +263,21 @@ class _TranslationResultReplaceDialogState
   Future<void> _updateComicStatuses(
     TranslationReplacementBatchSummary summary,
   ) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     for (final item in summary.items) {
       final comic = _comicForDirectory(item.plan.comicDirectory);
       if (comic == null) continue;
       if (item.summary == null) {
-        await downloadManager.clearAiTranslationCompleted(comic.id);
+        await engine.clearAiTranslationCompleted(comic.id);
         continue;
       }
       final itemSummary = item.summary!;
       if (itemSummary.protectedByUntranslatableContent) continue;
-      await downloadManager.updateComicSize(comic);
+      await engine.updateComicSize(comic);
       if (itemSummary.failureCount > 0 || itemSummary.successCount == 0) {
-        await downloadManager.clearAiTranslationCompleted(comic.id);
+        await engine.clearAiTranslationCompleted(comic.id);
       } else {
-        await downloadManager.markAiTranslationCompleted(comic.id);
+        await engine.markAiTranslationCompleted(comic.id);
       }
     }
   }

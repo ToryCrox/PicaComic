@@ -22,7 +22,6 @@ import '../../foundation/state_controller.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import '../../network/jm_network/jm_image.dart';
-import '../../network/jm_network/jm_network.dart';
 import '../../network/res.dart';
 import '../../tools/image_size_getter.dart';
 import '../../tools/save_image.dart';

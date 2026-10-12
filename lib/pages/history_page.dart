@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -9,6 +8,7 @@ import '../base.dart';
 import '../foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({Key? key}) : super(key: key);
@@ -206,7 +206,7 @@ class _HistoryPageState extends State<HistoryPage> {
           badgeName: comics_[i].type.name,
           headers: {
             if (comics_[i].type == HistoryType.ehentai)
-              "cookie": EhNetwork().cookiesStr,
+              "cookie": appComicSourceServices.ehentai.cookiesStr,
             if (comics_[i].type == HistoryType.ehentai ||
                 comics_[i].type == HistoryType.hitomi)
               "User-Agent": webUA,

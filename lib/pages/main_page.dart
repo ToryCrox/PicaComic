@@ -13,7 +13,6 @@ import 'package:pica_comic/pages/download/download_page.dart';
 import 'package:pica_comic/pages/local/local_comic_page.dart';
 import 'package:pica_comic/tools/app_links.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'download/download_providers.dart';
 import 'update_providers.dart';
 import 'category_page.dart';
@@ -152,7 +151,7 @@ class MainPageState extends ConsumerState<MainPage> {
             TextButton(onPressed: dialogContext.pop, child: Text("否".tl)),
             TextButton(
               onPressed: () {
-                downloadManager.start();
+                ref.read(downloadManagerProvider.notifier).start();
                 dialogContext.pop();
               },
               child: Text("是".tl),

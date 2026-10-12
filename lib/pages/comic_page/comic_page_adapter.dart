@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/res.dart';
 
 // 从原 comic_page.dart 引入的数据类型
@@ -42,7 +44,7 @@ abstract class ComicPageAdapter<T extends Object> {
   String tag(String id);
 
   /// 获取下载管理器使用的ID
-  String downloadId(String id);
+  String downloadId(String id, DownloadManager manager);
 
   /// 漫画原始链接（可选）
   String? url(T data);
@@ -78,7 +80,7 @@ abstract class ComicPageAdapter<T extends Object> {
   bool? favoriteOnPlatformInitial(T data);
   bool get enableTranslationToCN => false;
   bool get supportThumbnails => true;
-  ThumbnailsData? createThumbnails(T data);
+  ThumbnailsData? createThumbnails(T data, WidgetRef ref);
   String? commentsCount(T data);
   String? likeCount(T data);
 
@@ -94,8 +96,13 @@ abstract class ComicPageAdapter<T extends Object> {
   // -------- D. 操作 --------
 
   void read(T data, History? history, BuildContext context);
-  void download(T data, BuildContext context);
-  void openFavoritePanel(T data, ComicPageBridge bridge, BuildContext context);
+  void download(T data, BuildContext context, DownloadManager manager);
+  void openFavoritePanel(
+    T data,
+    ComicPageBridge bridge,
+    BuildContext context,
+    DownloadManager manager,
+  );
   ActionFunc? openComments(T data, BuildContext context);
   ActionFunc? onLike(T data, ComicPageBridge bridge, BuildContext context);
   bool isLiked(T data);

@@ -10,6 +10,8 @@ import '../../foundation/log.dart';
 import '../../foundation/history.dart';
 import '../../network/download/download_model.dart';
 import '../../network/download/models/download_tag.dart';
+import '../../network/comic_source_services.dart';
+import '../../network/res.dart';
 import '../comic_page.dart' show ThumbnailsData;
 import 'comic_page_adapter.dart';
 import 'default_comic_page_adapter.dart';
@@ -177,6 +179,9 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   ComicPageAdapter get adapter => _adapter;
   ThumbnailsData? get thumbnailsData => _thumbnailsData;
 
+  DownloadManager get _downloadManager =>
+      ref.read(downloadManagerProvider.notifier);
+
   /// 切换详情页已缓存译文的显示状态。
   void toggleTranslationVisibility() {
     if (!state.translation.hasValue) return;
@@ -246,7 +251,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   Future<void> _load(String id) async {
     // 第一步：下载记录和普通磁盘缓存互不依赖，并行读取。
-    final downloadId = _adapter.downloadId(id);
+    final downloadId = _adapter.downloadId(id, _downloadManager);
     final cachedDataFuture = _adapter.loadCachedData(id);
     final downloadedItem = await _loadDownloadedItem(downloadId);
     final downloaded = downloadedItem == null
@@ -283,7 +288,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     }
 
     // 第二步：并发加载网络数据（至少等待100ms避免闪屏）
-    final res = await _adapter.loadData(id);
+    final res = await _loadNetworkData(id);
     if (!ref.mounted) return;
     if (res.error) {
       final msg = res.errorMessage;
@@ -305,6 +310,22 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     if (!ref.mounted) return;
     state = state.copyWith(loading: false, clearMessage: true);
     unawaited(_loadCachedTranslation(networkData));
+  }
+
+  /// 默认源详情通过 Riverpod 查询 Provider 加载，并映射统一的错误状态。
+  Future<Res<dynamic>> _loadNetworkData(String id) async {
+    if (_adapter is! DefaultComicPageAdapter) {
+      return _adapter.loadData(id);
+    }
+    try {
+      return await ref.read(
+        comicInfoQueryProvider(ComicInfoQuery(_key.$1.name, id)).future,
+      );
+    } on ComicSourceRequestException catch (error) {
+      return Res.error(error.message);
+    } catch (error) {
+      return Res.error(error.toString());
+    }
   }
 
   /// 详情加载后只读取本地译文缓存，避免进入页面即产生 AI 请求。
@@ -329,25 +350,25 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   AiComicResource _translationResource() => AiComicResource(
     sourceKey: _adapter.comicType.name,
-    downloadId: _adapter.downloadId(_key.$2),
+    downloadId: _adapter.downloadId(_key.$2, _downloadManager),
     targetLanguage: App.locale.toLanguageTag(),
   );
 
   /// 从下载数据库读取详情页数据。
   Future<DownloadedItem?> _loadDownloadedItem(String downloadId) async {
     if (downloadId.isEmpty) return null;
-    return downloadManager.getComicOrNull(downloadId);
+    return _downloadManager.getComicOrNull(downloadId);
   }
 
   /// 网络请求成功后，将最新详情同步到已有下载记录。
   Future<void> _syncDownloadedData(String id, Object data) async {
-    final downloadId = _adapter.downloadId(id);
+    final downloadId = _adapter.downloadId(id, _downloadManager);
     if (downloadId.isEmpty) return;
-    final original = await downloadManager.getComicOrNull(downloadId);
+    final original = await _downloadManager.getComicOrNull(downloadId);
     if (original == null) return;
     final updated = _adapter.mergeDownloadedItem(original, data);
     if (updated == null) return;
-    await downloadManager.updateDownloadedDetails(original, updated);
+    await _downloadManager.updateDownloadedDetails(original, updated);
   }
 
   // ========================================================================
@@ -398,7 +419,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
       return;
     }
 
-    final tags = await downloadManager.getComicTags(downloadId);
+    final tags = await _downloadManager.getComicTags(downloadId);
     if (!ref.mounted) return;
     state = state.copyWith(
       isDownloaded: true,
@@ -414,7 +435,7 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
         !state.isDownloaded) {
       return;
     }
-    final images = await downloadManager.getAllImageFileList(downloadId, 0);
+    final images = await _downloadManager.getAllImageFileList(downloadId, 0);
     if (!ref.mounted || !state.isDownloaded) return;
     state = state.copyWith(localImages: images);
   }

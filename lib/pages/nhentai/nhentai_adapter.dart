@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../foundation/app_page_route.dart';
@@ -9,6 +10,7 @@ import '../../foundation/def.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/nhentai_network/download.dart';
 import '../../network/nhentai_network/nhentai_main_network.dart';
 import '../../network/res.dart';
@@ -20,6 +22,7 @@ import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
 import 'comments.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // NhentaiAdapter
@@ -36,7 +39,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) => "nhentai$id";
+  String downloadId(String id, DownloadManager manager) => "nhentai$id";
 
   @override
   String url(NhentaiComic data) => "https://nhentai.net/g/${data.id}/";
@@ -44,7 +47,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   // -------- B. 数据加载 --------
   @override
   Future<Res<NhentaiComic>> loadData(String id) =>
-      NhentaiNetwork().getComicInfo(id);
+      appComicSourceServices.nhentai.getComicInfo(id);
 
   @override
   Future<NhentaiComic?> loadCachedData(String id) => SynchronousFuture(null);
@@ -99,7 +102,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   EpsData? eps(NhentaiComic data, BuildContext context) => null;
 
   @override
-  ThumbnailsData? createThumbnails(NhentaiComic data) =>
+  ThumbnailsData? createThumbnails(NhentaiComic data, WidgetRef ref) =>
       ThumbnailsData(data.thumbnails, (page) async => const Res([]), 1);
 
   @override
@@ -132,19 +135,23 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   }
 
   @override
-  void download(NhentaiComic data, BuildContext context) async {
+  void download(
+    NhentaiComic data,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
     final id = "nhentai${data.id}";
-    if (await downloadManager.isExists(id)) {
+    if (await manager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    downloadManager.addNhentaiDownload(data);
+    manager.addNhentaiDownload(data);
     showToast(message: "已加入下载队列".tl);
   }
 
@@ -153,12 +160,13 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     NhentaiComic data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
-      havePlatformFavorite: NhentaiNetwork().logged,
+      havePlatformFavorite: appComicSourceServices.nhentai.logged,
       needLoadFolderData: false,
       favoriteOnPlatform: data.favorite,
-      initialFolder: NhentaiNetwork().logged ? "0" : null,
+      initialFolder: appComicSourceServices.nhentai.logged ? "0" : null,
       localFavoriteItem: toLocalFavoriteItem(data),
       setFavorite: (b) {
         if (bridge.favorite != b) {
@@ -169,7 +177,10 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       folders: const {"0": "Nhentai"},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await NhentaiNetwork().favoriteComic(data.id, data.token);
+          var res = await appComicSourceServices.nhentai.favoriteComic(
+            data.id,
+            data.token,
+          );
           if (res.success) {
             data = data.copyWith(favorite: true);
             bridge.updateData(data);
@@ -177,11 +188,19 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
           }
           return res;
         }
-        LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(
+          folder,
+          toLocalFavoriteItem(data),
+          null,
+          manager,
+        );
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
-        var res = await NhentaiNetwork().unfavoriteComic(data.id, data.token);
+        var res = await appComicSourceServices.nhentai.unfavoriteComic(
+          data.id,
+          data.token,
+        );
         if (res.success) {
           data = data.copyWith(favorite: false);
           bridge.updateData(data);

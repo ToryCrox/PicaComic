@@ -3,6 +3,7 @@ import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part 'week_recommendation_logic.g.dart';
 
@@ -24,7 +25,7 @@ class _JmWeekRecommendationRepository
     implements JmWeekRecommendationRepository {
   @override
   Future<Res<Map<String, String>>> getRecommendations() {
-    return JmNetwork().getWeekRecommendation();
+    return appComicSourceServices.jm.getWeekRecommendation();
   }
 
   @override
@@ -32,7 +33,7 @@ class _JmWeekRecommendationRepository
     String id,
     WeekRecommendationType type,
   ) {
-    return JmNetwork().getWeekRecommendationComics(id, type);
+    return appComicSourceServices.jm.getWeekRecommendationComics(id, type);
   }
 }
 

@@ -6,8 +6,10 @@ import 'package:pica_comic/network/nhentai_network/login.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/nhentai_network/tags.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -25,7 +27,8 @@ final nhentai = ComicSource.named(
     key: "nhentai",
     title: "nhentai",
     multiFolder: false,
-    loadComic: (i, [folder]) => NhentaiNetwork().getFavorites(i),
+    loadComic: (ref, i, [folder]) =>
+        ref.read(nhentaiNetworkProvider).getFavorites(i),
     loadFolders: null,
   ),
   categoryData: CategoryData(
@@ -56,21 +59,20 @@ final nhentai = ComicSource.named(
     ],
   ),
   categoryComicsData: CategoryComicsData.named(
-    load: (category, param, options, page) async {
+    load: (ref, category, param, options, page) async {
+      final network = ref.read(nhentaiNetworkProvider);
       var [_, type, name] = param!.split('/');
-      var lang =
-          int.tryParse(
-            appdata.getSetting(AppSettingKeys.searchLanguageFilter),
-          ) ??
-          0;
+      final lang = ref
+          .read(appSettingsProvider)
+          .integer(AppSettingKeys.searchLanguageFilter);
       if (lang != 0) {
-        return NhentaiNetwork().search(
+        return network.search(
           "$type:$name language:${["chinese", "english", "japanese"][lang - 1]}",
           page,
           NhentaiSort.fromValue(options[0]),
         );
       }
-      return NhentaiNetwork().getCategoryComics(
+      return network.getCategoryComics(
         "/$type/$name",
         page,
         NhentaiSort.fromValue(options[0]),
@@ -90,21 +92,23 @@ final nhentai = ComicSource.named(
     ],
   ),
   account: AccountConfig.named(
-    onLogin: (context) async {
+    onLogin: (ref, context) async {
       var future = Completer<void>();
-      nhLogin(() {
+      nhLogin(ref.read(nhentaiNetworkProvider), () {
         future.complete();
       });
       await future.future;
-      if (NhentaiNetwork().logged) {
+      final network = ref.read(nhentaiNetworkProvider);
+      if (network.logged) {
         var source = ComicSource.find(ComicType.nhentai)!;
         source.data["account"] = 'ok';
         source.saveData();
       }
     },
-    logout: () {
-      NhentaiNetwork().logged = false;
-      NhentaiNetwork().logout();
+    logout: (ref) {
+      final network = ref.read(nhentaiNetworkProvider);
+      network.logged = false;
+      network.logout();
       var source = ComicSource.find(ComicType.nhentai.name)!;
       source.data["account"] = null;
       source.saveData();
@@ -121,8 +125,9 @@ final nhentai = ComicSource.named(
     ExplorePageData.named(
       title: "nhentai",
       type: ExplorePageType.mixed,
-      loadMixed: (index) async {
-        var res = await NhentaiNetwork().getHomePage(index);
+      loadMixed: (ref, index) async {
+        final network = ref.read(nhentaiNetworkProvider);
+        var res = await network.getHomePage(index);
         if (res.error) {
           return Res.fromErrorRes(res);
         }
@@ -139,12 +144,10 @@ final nhentai = ComicSource.named(
   ],
   idMatcher: RegExp(r"^(\d+|nh\d+|nhentai\d+)$"),
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) {
-      return NhentaiNetwork().search(
-        keyword,
-        page,
-        NhentaiSort.fromValue(options[0]),
-      );
+    loadPage: (ref, keyword, page, options) {
+      return ref
+          .read(nhentaiNetworkProvider)
+          .search(keyword, page, NhentaiSort.fromValue(options[0]));
     },
     enableLanguageFilter: true,
     enableTagsSuggestions: true,
@@ -216,13 +219,13 @@ class _NhentaiComicTile extends ComicTile {
   List<String>? get tags => _generateTags(comic.tags);
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await NhentaiNetwork().getComicInfo(comic.id);
+    var res = await ref.read(nhentaiNetworkProvider).getComicInfo(comic.id);
     if (cancel) {
       return;
     }

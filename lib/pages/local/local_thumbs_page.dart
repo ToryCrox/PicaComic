@@ -94,6 +94,7 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
     final images = dir
         .listSync(recursive: true)
         .whereType<File>()
+        .where((e) => !isInsideComicBackupDirectory(e.path, dir.path))
         .where(predictImageFile)
         //.sorted(fileNameCompare)
         .sortedByName()

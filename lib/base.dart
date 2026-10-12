@@ -225,7 +225,7 @@ set appdata(Appdata value) {
 var notifications = Notifications();
 
 /// clear all data
-Future<void> clearAppdata() async {
+Future<void> clearAppdata({JmNetwork? jmNetwork}) async {
   var s = await SharedPreferences.getInstance();
   await s.clear();
   var settingsFile = File("${App.dataPath}/settings");
@@ -236,7 +236,7 @@ Future<void> clearAppdata() async {
   appdata = Appdata();
   await appdata.readData();
   await eraseCache();
-  await JmNetwork().cookieJar.deleteAll();
+  if (jmNetwork != null) await jmNetwork.cookieJar.deleteAll();
   await LocalFavoritesManager().clearAll();
 }
 

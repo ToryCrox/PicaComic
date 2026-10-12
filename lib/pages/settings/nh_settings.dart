@@ -23,7 +23,7 @@ class _NhSettingsState extends ConsumerState<NhSettings> {
       var msg =
           "${"删除全部".tl}(${cookies.length}) nhentai cookie\n${"删除后需重新登录".tl}\n";
       showConfirmDialog(App.globalContext!, title, msg, () async {
-        NhentaiNetwork().logged = false;
+        appComicSourceServices.nhentai.logged = false;
         await cookieJar.deleteUri(Uri.parse(baseUrl));
         var source = ComicSource.find(ComicType.nhentai.name)!;
         source.data["account"] = null;

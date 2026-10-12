@@ -95,7 +95,10 @@ class Webdav {
     return true;
   }
 
-  static Future<bool> downloadData([String? config]) async {
+  static Future<bool> downloadData(
+    DownloadManager manager, [
+    String? config,
+  ]) async {
     _isOperating = true;
     bool force = config != null;
     try {
@@ -141,7 +144,10 @@ class Webdav {
 
         var cachePath = (await getApplicationCacheDirectory()).path;
         await client.read2File("${configs[3]}$fileName", "$cachePath/picadata");
-        var res = await importData("$cachePath/picadata");
+        var res = await importData(
+          filePath: "$cachePath/picadata",
+          manager: manager,
+        );
         return res;
       } catch (e, s) {
         Log.e("Sync Failed to download data from webdav server.\n$e\n$s");
@@ -152,7 +158,7 @@ class Webdav {
     }
   }
 
-  static void syncData() async {
+  static Future<void> syncData({required DownloadManager manager}) async {
     var configs = appdata.getSetting(AppSettingKeys.webdavConfig).split(';');
     if (configs.length != 4 || configs.elementAtOrNull(0) == "") {
       return;
@@ -164,7 +170,7 @@ class Webdav {
       message: "同步数据中".tl,
       cancelButtonText: "隐藏".tl,
     );
-    var res = await _retryZone(Webdav.downloadData);
+    var res = await _retryZone(() => Webdav.downloadData(manager));
     await Future.delayed(const Duration(milliseconds: 50));
     if (!res) {
       controller.close();
@@ -177,7 +183,7 @@ class Webdav {
         trailing: Button.icon(
           onPressed: () {
             appdata.setSetting(AppSettingKeys.webdavConfig, configs.join(';'));
-            syncData();
+            syncData(manager: manager);
           },
           icon: const Icon(Icons.refresh),
         ),

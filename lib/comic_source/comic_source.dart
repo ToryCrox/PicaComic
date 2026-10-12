@@ -8,8 +8,10 @@ import 'package:pica_comic/network/image_config.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import '../foundation/history.dart';
 import '../foundation/log.dart';
 import '../tools/extensions.dart';
@@ -32,19 +34,34 @@ part 'category.dart';
 part 'favorites.dart';
 
 /// build comic list, [Res.subData] should be maxPage or null if there is no limit.
-typedef ComicListBuilder = Future<Res<List<BaseComic>>> Function(int page);
+typedef ComicListBuilder =
+    Future<Res<List<BaseComic>>> Function(Ref ref, int page);
 
 typedef ComicListCacheBuilder = Future<List<BaseComic>> Function();
 
-typedef LoginFunction = Future<Res<bool>> Function(String, String);
+typedef LoginFunction =
+    Future<Res<bool>> Function(Ref ref, String account, String password);
 
-typedef LoadComicFunc = Future<Res<ComicInfoData>> Function(String id);
+/// 漫画源回调所需服务的类型安全解析接口。
+abstract interface class ComicSourceServiceResolver {
+  T get<T extends Object>(String sourceKey);
+}
+
+/// 优先使用当前 ProviderScope 注入的网络服务，并为旧调用方保留回退。
+T resolveComicSourceService<T extends Object>(
+  ComicSourceServiceResolver? services,
+  String sourceKey,
+  T Function() fallback,
+) => services?.get<T>(sourceKey) ?? fallback();
+
+typedef LoadComicFunc = Future<Res<ComicInfoData>> Function(Ref ref, String id);
 
 typedef LoadComicPagesFunc =
-    Future<Res<List<String>>> Function(String id, String? ep);
+    Future<Res<List<String>>> Function(Ref ref, String id, String? ep);
 
 typedef CommentsLoader =
     Future<Res<List<Comment>>> Function(
+      Ref ref,
       String id,
       String? subId,
       int page,
@@ -53,6 +70,7 @@ typedef CommentsLoader =
 
 typedef SendCommentFunc =
     Future<Res<bool>> Function(
+      Ref ref,
       String id,
       String? subId,
       String content,
@@ -60,8 +78,14 @@ typedef SendCommentFunc =
     );
 
 typedef GetImageLoadingConfigFunc =
-    ImageConfig? Function(String imageKey, String comicId, String epId);
-typedef GetThumbnailLoadingConfigFunc = ImageConfig? Function(String imageKey);
+    ImageConfig? Function(
+      Ref ref,
+      String imageKey,
+      String comicId,
+      String epId,
+    );
+typedef GetThumbnailLoadingConfigFunc =
+    ImageConfig? Function(Ref ref, String imageKey);
 
 class ComicSource {
   static final builtIn = [
@@ -90,12 +114,18 @@ class ComicSource {
     (element) => element.key.index == key || element.key.name.hashCode == key,
   );
 
-  static Future<void> init({bool initializeRuntime = true}) async {
-    migrateHiperdexExplorePages();
+  static Future<void> init({bool initializeRuntime = true, Ref? ref}) async {
+    await migrateHiperdexExplorePages(ref);
+    final enabledSourceFlags =
+        (ref == null
+                ? AppSettingsRepository().snapshot()
+                : ref.read(appSettingsProvider))
+            .value(AppSettingKeys.enabledBuiltInSources);
     final enabledSources = [
-      for (final source in builtInSources)
-        if (appdata.appSettings.isComicSourceEnabled(source.name))
-          builtIn.firstWhere((e) => e.key == source),
+      for (var index = 0; index < builtInSources.length; index++)
+        if (index >= enabledSourceFlags.length ||
+            enabledSourceFlags[index] == '1')
+          builtIn.firstWhere((e) => e.key == builtInSources[index]),
     ];
 
     // 先提交完整列表，保持旧实现中 initData 可以访问其他已启用来源的行为，
@@ -105,8 +135,8 @@ class ComicSource {
       enabledSources.map((source) async {
         try {
           await source.loadData();
-          if (initializeRuntime) {
-            await source.initData?.call(source);
+          if (initializeRuntime && ref != null) {
+            await source.initData?.call(source, ref);
           }
         } catch (e, s) {
           Log.w('Failed to initialize comic source ${source.key}.\n$e\n$s');
@@ -116,11 +146,12 @@ class ComicSource {
   }
 
   /// 首帧后初始化需要访问 cookie 或其他运行时资源的漫画源模块。
-  static Future<void> initRuntime() async {
+  static Future<void> initRuntime({Ref? ref}) async {
+    if (ref == null) return;
     await Future.wait(
       sources.map((source) async {
         try {
-          await source.initData?.call(source);
+          await source.initData?.call(source, ref);
         } catch (e, s) {
           Log.w(
             'Failed to initialize comic source runtime ${source.key}.\n$e\n$s',
@@ -130,9 +161,9 @@ class ComicSource {
     );
   }
 
-  static Future reload() async {
+  static Future reload({Ref? ref}) async {
     sources.clear();
-    await init();
+    await init(ref: ref);
   }
 
   /// Name of this source.
@@ -175,10 +206,9 @@ class ComicSource {
   /// Load comic pages.
   final LoadComicPagesFunc? loadComicPages;
 
-  final ImageConfig? Function(String url, String comicId, String epId)?
-  getImageLoadingConfig;
+  final GetImageLoadingConfigFunc? getImageLoadingConfig;
 
-  final ImageConfig? Function(String url)? getThumbnailLoadingConfig;
+  final GetThumbnailLoadingConfigFunc? getThumbnailLoadingConfig;
 
   final String? matchBriefIdReg;
 
@@ -227,12 +257,12 @@ class ComicSource {
     _isSaving = false;
   }
 
-  Future<bool> reLogin() async {
+  Future<bool> reLogin(Ref ref) async {
     if (data["account"] == null) {
       return false;
     }
     final List accountData = data["account"];
-    var res = await account!.login!(accountData[0], accountData[1]);
+    var res = await account!.login!(ref, accountData[0], accountData[1]);
     if (res.error) {
       Log.e("Failed to re-login ${res.errorMessage ?? "Error"}");
     }
@@ -240,7 +270,7 @@ class ComicSource {
   }
 
   // only for built-in comic sources
-  final FutureOr<void> Function(ComicSource source)? initData;
+  final FutureOr<void> Function(ComicSource source, Ref ref)? initData;
 
   bool get isBuiltIn => filePath == 'built-in';
 
@@ -330,13 +360,13 @@ class ComicSource {
 class AccountConfig {
   final LoginFunction? login;
 
-  final FutureOr<void> Function(BuildContext)? onLogin;
+  final FutureOr<void> Function(Ref ref, BuildContext context)? onLogin;
 
   final String? loginWebsite;
 
   final String? registerWebsite;
 
-  final void Function() logout;
+  final FutureOr<void> Function(Ref ref) logout;
 
   final bool allowReLogin;
 
@@ -388,12 +418,12 @@ class ExplorePageData {
 
   final ComicListCacheBuilder? loadCache;
 
-  final Future<Res<List<ExplorePagePart>>> Function()? loadMultiPart;
+  final Future<Res<List<ExplorePagePart>>> Function(Ref ref)? loadMultiPart;
 
   final Future<List<ExplorePagePart>> Function()? loadMultiPartCache;
 
   /// return a `List` contains `List<BaseComic>` or `ExplorePagePart`
-  final Future<Res<List<Object>>> Function(int index)? loadMixed;
+  final Future<Res<List<Object>>> Function(Ref ref, int index)? loadMixed;
 
   final WidgetBuilder? overridePageBuilder;
 
@@ -441,6 +471,7 @@ enum ExplorePageType {
 
 typedef SearchFunction =
     Future<Res<List<BaseComic>>> Function(
+      Ref ref,
       String keyword,
       int page,
       List<String> searchOption,
@@ -794,6 +825,7 @@ class ComicInfoData with HistoryMixin {
 
 typedef CategoryComicsLoader =
     Future<Res<List<BaseComic>>> Function(
+      Ref ref,
       String category,
       String? param,
       List<String> options,
@@ -825,7 +857,8 @@ class CategoryComicsData {
 class RankingData {
   final Map<String, String> options;
 
-  final Future<Res<List<BaseComic>>> Function(String option, int page) load;
+  final Future<Res<List<BaseComic>>> Function(Ref ref, String option, int page)
+  load;
 
   const RankingData(this.options, this.load);
 

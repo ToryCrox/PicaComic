@@ -19,7 +19,7 @@ class JmSettings extends ConsumerStatefulWidget {
     var msg = "";
     List<String> domains = builtInApiDomains;
     var controller = showLoading ? showLoadingDialog(App.globalContext!) : null;
-    var res = await JmNetwork().getApiDomains();
+    var res = await appComicSourceServices.jm.getApiDomains();
     if (res.error) {
       title += "更新失败".tl;
       msg += "${"使用内置域名:".tl}\n";
@@ -37,7 +37,7 @@ class JmSettings extends ConsumerStatefulWidget {
         App.globalContext!,
       ).setValue(AppSettingKeys.jmApiDomains, domains.join(','));
       await updateAppVersionCode();
-      JmNetwork().loginFromAppdata();
+      appComicSourceServices.jm.loginFromAppdata();
     });
   }
 
@@ -47,7 +47,7 @@ class JmSettings extends ConsumerStatefulWidget {
       return;
     }
     var controller = showLoading ? showLoadingDialog(App.globalContext!) : null;
-    var res = await JmNetwork().dailyChk();
+    var res = await appComicSourceServices.jm.dailyChk();
     controller?.close();
     var title = res.success ? "签到成功".tl : "签到失败".tl;
     var msg = res.success ? "${res.subData}".tl : res.errorMessage;
@@ -55,7 +55,7 @@ class JmSettings extends ConsumerStatefulWidget {
   }
 
   static Future<void> updateAppVersionCode() async {
-    var res = await JmNetwork().getAppVersionCode();
+    var res = await appComicSourceServices.jm.getAppVersionCode();
     if (!res.error) {
       await _settingsController(
         App.globalContext!,
@@ -89,7 +89,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
               );
               setState(() {});
               _persistSettings(ref);
-              if (b) JmNetwork().loginFromAppdata();
+              if (b) appComicSourceServices.jm.loginFromAppdata();
             },
           ),
         ),
@@ -113,7 +113,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
                     persist: false,
                   );
                   _persistSettings(ref);
-                  JmNetwork().loginFromAppdata();
+                  appComicSourceServices.jm.loginFromAppdata();
                 },
               ),
             ),
@@ -140,7 +140,7 @@ class _JmSettingsState extends ConsumerState<JmSettings> {
                 persist: false,
               );
               _persistSettings(ref);
-              if (jm.isLogin) JmNetwork().updateImgUrl(i + 1);
+              if (jm.isLogin) appComicSourceServices.jm.updateImgUrl(i + 1);
             },
           ),
         ),

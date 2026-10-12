@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -130,14 +132,14 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   }
 }
 
-class FavoriteImageTile extends StatelessWidget {
+class FavoriteImageTile extends ConsumerWidget {
   const FavoriteImageTile(this.image, {super.key, this.onDeleted});
 
   final ImageFavorite image;
   final VoidCallback? onDeleted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ratio = MediaQuery.of(context).devicePixelRatio;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
@@ -158,7 +160,10 @@ class FavoriteImageTile extends StatelessWidget {
                   image: ResizeImage.resizeIfNeeded(
                     (200 * ratio).toInt(),
                     null,
-                    _ImageProvider(image),
+                    _ImageProvider(
+                      image,
+                      ref.read(downloadManagerProvider.notifier),
+                    ),
                   ),
                   fit: BoxFit.cover,
                 ),
@@ -347,9 +352,10 @@ class FavoriteImageTile extends StatelessWidget {
 }
 
 class _ImageProvider extends BaseImageProvider<_ImageProvider> {
-  _ImageProvider(this.image);
+  _ImageProvider(this.image, this.downloadManager);
 
   final ImageFavorite image;
+  final DownloadManager downloadManager;
 
   @override
   String get key => image.id + image.ep.toString() + image.page.toString();
@@ -382,12 +388,12 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
       Stream<DownloadProgress> stream;
       switch (type) {
         case "ehentai":
-          stream = ImageManager().getEhImageNew(
+          stream = ImageManager(downloadManager).getEhImageNew(
             Gallery.fromJson(image.otherInfo["gallery"]),
             image.page,
           );
         case "jm":
-          stream = ImageManager().getJmImage(
+          stream = ImageManager(downloadManager).getJmImage(
             image.otherInfo["url"],
             null,
             epsId: image.otherInfo["epsId"],
@@ -395,17 +401,18 @@ class _ImageProvider extends BaseImageProvider<_ImageProvider> {
             bookId: image.otherInfo["bookId"],
           );
         case "hitomi":
-          stream = ImageManager().getHitomiImage(
+          stream = ImageManager(downloadManager).getHitomiImage(
             HitomiFile.fromMap(image.otherInfo["hitomi"][image.page - 1]),
             image.otherInfo["galleryId"],
           );
         case 'hiperdex':
-          stream = ImageManager().getImage(
-            image.otherInfo['url'],
-            HiperdexNetwork.imageHeaders,
-          );
+          stream = ImageManager(
+            downloadManager,
+          ).getImage(image.otherInfo['url'], HiperdexNetwork.imageHeaders);
         default:
-          stream = ImageManager().getImage(image.otherInfo["url"]);
+          stream = ImageManager(
+            downloadManager,
+          ).getImage(image.otherInfo["url"]);
       }
       DownloadProgress? finishProgress;
       await for (var progress in stream) {

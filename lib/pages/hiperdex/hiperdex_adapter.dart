@@ -1,5 +1,6 @@
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
@@ -20,6 +21,9 @@ class HiperdexAdapter extends DefaultComicPageAdapter {
   ) => item is HiperdexDownloadedItem ? item.withComicInfo(data) : null;
 
   @override
-  void addDownload(ComicInfoData data, List<int> selectedEps) =>
-      downloadManager.addHiperdexDownload(data, selectedEps);
+  void addDownload(
+    ComicInfoData data,
+    List<int> selectedEps,
+    DownloadManager manager,
+  ) => manager.addHiperdexDownload(data, selectedEps);
 }

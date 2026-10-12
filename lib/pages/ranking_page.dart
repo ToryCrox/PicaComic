@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:pica_comic/comic_source/comic_source.dart";
 import "package:pica_comic/components/components.dart";
 import "package:pica_comic/foundation/app.dart";
@@ -102,7 +103,8 @@ class _CustomCategoryComicsList extends ComicsPage<BaseComic> {
     required this.fieldComicType,
   });
 
-  final Future<Res<List<BaseComic>>> Function(String option, int page) loader;
+  final Future<Res<List<BaseComic>>> Function(Ref ref, String option, int page)
+  loader;
 
   final String optionValue;
 
@@ -115,8 +117,8 @@ class _CustomCategoryComicsList extends ComicsPage<BaseComic> {
   final Widget header;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) async {
-    return await loader(optionValue, i);
+  Future<Res<List<BaseComic>>> getComics(int i, Ref ref) async {
+    return await loader(ref, optionValue, i);
   }
 
   @override

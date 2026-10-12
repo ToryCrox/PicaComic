@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -36,9 +37,13 @@ abstract interface class PicacgCommentsRepository {
 }
 
 class _PicacgCommentsRepository implements PicacgCommentsRepository {
+  _PicacgCommentsRepository(this._network);
+
+  final PicacgNetwork _network;
+
   @override
   Future<Comments> getComments(String id, {required String type}) {
-    return network.getCommends(id, type: type);
+    return _network.getCommends(id, type: type);
   }
 
   @override
@@ -46,18 +51,18 @@ class _PicacgCommentsRepository implements PicacgCommentsRepository {
     Comments comments, {
     required String type,
   }) {
-    return network.loadMoreCommends(comments, type: type);
+    return _network.loadMoreCommends(comments, type: type);
   }
 
   @override
-  Future<Reply> getReplies(String id) => network.getReply(id);
+  Future<Reply> getReplies(String id) => _network.getReply(id);
 
   @override
-  Future<void> loadMoreReplies(Reply replies) => network.getMoreReply(replies);
+  Future<void> loadMoreReplies(Reply replies) => _network.getMoreReply(replies);
 
   @override
   Future<bool> toggleLike(String commentId) {
-    return network.likeOrUnlikeComment(commentId);
+    return _network.likeOrUnlikeComment(commentId);
   }
 
   @override
@@ -67,13 +72,13 @@ class _PicacgCommentsRepository implements PicacgCommentsRepository {
     bool isReply, {
     String type = "comics",
   }) {
-    return network.comment(id, text, isReply, type: type);
+    return _network.comment(id, text, isReply, type: type);
   }
 }
 
 /// PicaCG 评论网络仓库 Provider，默认使用现有网络实现。
 final picacgCommentsRepositoryProvider = Provider<PicacgCommentsRepository>(
-  (ref) => _PicacgCommentsRepository(),
+  (ref) => _PicacgCommentsRepository(ref.watch(picacgNetworkProvider)),
 );
 
 /// PicaCG 评论加载异常。
@@ -155,11 +160,7 @@ class PicacgReplyState {
 }
 
 /// PicaCG 评论 Provider。
-@Riverpod(
-  keepAlive: false,
-  retry: _noRetry,
-  name: 'picacgCommentsProvider',
-)
+@Riverpod(keepAlive: false, retry: _noRetry, name: 'picacgCommentsProvider')
 class PicacgComments extends _$PicacgComments {
   late (String, String) _key;
   late PicacgCommentsRepository _repository;
@@ -265,11 +266,7 @@ class PicacgComments extends _$PicacgComments {
 }
 
 /// PicaCG 回复 Provider。
-@Riverpod(
-  keepAlive: false,
-  retry: _noRetry,
-  name: 'picacgReplyProvider',
-)
+@Riverpod(keepAlive: false, retry: _noRetry, name: 'picacgReplyProvider')
 class PicacgReply extends _$PicacgReply {
   late String _id;
   late PicacgCommentsRepository _repository;

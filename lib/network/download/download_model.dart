@@ -26,6 +26,19 @@ import 'download_error_handler.dart';
 import '../../foundation/local_repository_manager.dart';
 
 abstract class DownloadedItem {
+  DownloadManager? _owner;
+
+  /// 由所属 DownloadManager 绑定，供本地路径等派生属性使用。
+  void bindDownloadManager(DownloadManager manager) {
+    _owner = manager;
+  }
+
+  DownloadManager get _downloadManager =>
+      _owner ?? (throw StateError('DownloadedItem 尚未绑定 DownloadManager'));
+
+  /// 获取绑定的下载管理器。
+  DownloadManager get manager => _downloadManager;
+
   ///漫画源
   DownloadType get type;
 
@@ -72,14 +85,14 @@ abstract class DownloadedItem {
   String directory = "";
 
   String get directoryPath {
-    final downloadPath = downloadManager.path;
+    final downloadPath = _downloadManager.path;
     if (downloadPath == null) return '';
-    return Path.join(downloadManager.comicsPath, directory);
+    return Path.join(_downloadManager.comicsPath, directory);
   }
 
   /// 获取封面路径
   String? get coverPath {
-    return downloadManager.getCoverPath(id, type);
+    return _downloadManager.getCoverPath(id, type);
   }
 }
 
@@ -112,11 +125,15 @@ enum DownloadType {
 /// 下载任务的特殊暂停原因。
 enum DownloadPauseReason {
   /// EH 单张原图下载需要 GP，但当前账号余额不足。
-  ehOriginalGpInsufficient;
+  ehOriginalGpInsufficient,
+
+  /// 旧版本的 EH 压缩包任务已不再支持。
+  ehArchiveDownloadRemoved;
 
   /// 本地化文案键。
   String get messageKey => switch (this) {
     ehOriginalGpInsufficient => '已暂停：GP不足，暂无法下载原图',
+    ehArchiveDownloadRemoved => 'E-Hentai 压缩包下载已移除，无法继续',
   };
 
   /// 从持久化字段恢复暂停原因。
@@ -134,6 +151,19 @@ typedef DownloadProgressCallback = void Function();
 typedef DownloadProgressCallbackAsync = Future<void> Function();
 
 abstract class DownloadingTask with _TransferSpeedMixin {
+  DownloadManager? _owner;
+
+  /// 由下载队列所属的 DownloadManager 注入依赖。
+  void bindDownloadManager(DownloadManager manager) {
+    _owner = manager;
+  }
+
+  DownloadManager get manager =>
+      _owner ?? (throw StateError('DownloadingTask 尚未绑定 DownloadManager'));
+
+  @override
+  void notifyDownloadManager() => manager.notifyListeners();
+
   ///完成时调用
   final DownloadProgressCallback? onFinish;
 
@@ -159,7 +189,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   String directory = '';
 
   String get path {
-    return Path.join(downloadManager.comicsPath, directory);
+    return Path.join(manager.comicsPath, directory);
   }
 
   /// headers for downloading cover
@@ -196,8 +226,14 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// all image urls
   Map<int, List<String>>? links;
 
-  int get allowedLoadingNumber =>
-      int.tryParse(appdata.getSetting(AppSettingKeys.parallelDownloads)) ?? 6;
+  int Function()? _parallelDownloadsReader;
+
+  /// 由所属下载引擎注入设置读取器，模型本身不访问全局设置。
+  void bindParallelDownloadsReader(int Function() reader) {
+    _parallelDownloadsReader = reader;
+  }
+
+  int get allowedLoadingNumber => _parallelDownloadsReader?.call() ?? 6;
 
   bool duplicate = false;
 
@@ -230,7 +266,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   });
 
   Future<void> downloadCover() async {
-    final coverPath = downloadManager.getCoverPath(id, type);
+    final coverPath = manager.getCoverPath(id, type);
     if (coverPath == null) {
       throw StateError('Download path is not initialized');
     }
@@ -275,7 +311,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// 封面不在漫画目录中，因此需要单独计入下载大小。
   Future<double> getStorageSize() async {
     var size = await Directory(path).getMBSize();
-    final coverPath = downloadManager.getCoverPath(id, type);
+    final coverPath = manager.getCoverPath(id, type);
     if (coverPath != null) {
       final coverFile = File(coverPath);
       if (await coverFile.exists()) {
@@ -322,7 +358,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       );
 
       if (downloadedItem != null) {
-        await downloadManager.addToDb(downloadedItem, directory);
+        await manager.addToDb(downloadedItem, directory);
         Log.i(
           'DownloadingTask: Saved episode $episodeIndex for $id to database',
         );
@@ -356,14 +392,14 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       onProgressUpdate: (downloaded, total) {
         // 更新下载进度
         updateInfo?.call();
-        downloadManager.notifyListeners();
+        manager.notifyListeners();
 
         // 更新通知
         notifications.sendProgressNotification(
           downloaded,
           total,
           "下载中".tl,
-          "${downloadManager.downloading.length} Tasks",
+          "${manager.downloading.length} Tasks",
         );
       },
       onAllCompleted: () {
@@ -476,7 +512,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
         downloadedPages,
         totalPages,
         "下载中".tl,
-        "${downloadManager.downloading.length} Tasks",
+        "${manager.downloading.length} Tasks",
       );
 
       // 设置流式模式：告诉队列我们稍后会添加图片，即使现在是空的也不要结束
@@ -527,7 +563,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       stopRecorder();
 
       // 只有当这是队列中第一个任务时才调用 onFinish
-      if (downloadManager.downloading.firstOrNull == this) {
+      if (manager.downloading.firstOrNull == this) {
         onFinish?.call();
       }
     } catch (e, s) {
@@ -608,7 +644,7 @@ abstract class DownloadingTask with _TransferSpeedMixin {
       Log.e("DownloadingTask: stop called with empty directory");
       return;
     }
-    if (await downloadManager.isExists(id)) {
+    if (await manager.isExists(id)) {
       if (links == null) return;
       var comicPath = "$path/";
       // 获取已完成的章节，这些章节不会被删除
@@ -780,9 +816,9 @@ abstract class DownloadingTask with _TransferSpeedMixin {
   /// 当任务被用户手动暂停，或在队列首位但下载管理器未运行时，视为暂停状态
   bool isPaused() {
     if (userPaused) return true;
-    if (downloadManager.downloading.isEmpty) return false;
-    if (downloadManager.downloading.first != this) return false;
-    return !downloadManager.isDownloading;
+    if (manager.downloading.isEmpty) return false;
+    if (manager.downloading.first != this) return false;
+    return !manager.isDownloading;
   }
 
   @override
@@ -893,7 +929,7 @@ class _ImageDownloadWrapper {
                 await tmpFile.writeAsBytes(data);
                 await tmpFile.rename(finalFile.path);
                 isFinished = true;
-                NetworkTelemetryBridge.instance.reportArtifactReady(
+                appNetworkTelemetryBridge.reportArtifactReady(
                   transferId: transferId,
                   path: finalFile.path,
                   source: NetworkArtifactSource.download,
@@ -941,6 +977,8 @@ abstract mixin class _TransferSpeedMixin {
 
   Timer? timer;
 
+  void notifyDownloadManager();
+
   void onData(int length) {
     if (timer == null) return;
     _bytesSinceLastSecond += length;
@@ -949,7 +987,7 @@ abstract mixin class _TransferSpeedMixin {
   void onNextSecond(Timer t) {
     _currentSpeed = _bytesSinceLastSecond;
     _bytesSinceLastSecond = 0;
-    downloadManager.notifyListeners();
+    notifyDownloadManager();
   }
 
   void runRecorder() {

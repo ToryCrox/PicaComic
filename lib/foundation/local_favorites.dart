@@ -8,7 +8,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
@@ -25,6 +24,7 @@ import 'package:synchronized/synchronized.dart';
 import 'dart:io';
 import '../network/base_comic.dart';
 import '../network/webdav.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 /// 表名常量
 const String kTableFolderSync = 'folder_sync';
@@ -119,14 +119,6 @@ class FavoriteItem {
           (element) => element.intKey == type.key,
         ) !=
         null;
-  }
-
-  String toDownloadId() {
-    try {
-      return downloadManager.getDownloadIdFromComicId(type.comicType, target);
-    } catch (e) {
-      return "**Invalid ID**";
-    }
   }
 
   FavoriteItem({
@@ -944,7 +936,12 @@ class LocalFavoritesManager {
   /// add comic to a folder
   ///
   /// This method will download cover to local, to avoid problems like changing url
-  Future<void> addComic(String folder, FavoriteItem comic, [int? order]) async {
+  Future<void> addComic(
+    String folder,
+    FavoriteItem comic, [
+    int? order,
+    DownloadManager? manager,
+  ]) async {
     _modifiedAfterLastCache = true;
     if (!(await folderNames).contains(folder)) {
       throw Exception("Folder does not exists");
@@ -983,10 +980,11 @@ class LocalFavoritesManager {
 
     updateUI();
     saveData();
+    if (manager == null) return;
     try {
-      var file = (await (ImageManager().getImage(
-        comic.coverPath,
-      )).last).getFile();
+      var file = (await (ImageManager(
+        manager,
+      ).getImage(comic.coverPath)).last).getFile();
       var path =
           "${(await getApplicationSupportDirectory()).path}${pathSep}favoritesCover";
       var directory = Directory(path);
@@ -1003,7 +1001,11 @@ class LocalFavoritesManager {
   }
 
   /// get comic cover
-  Future<File> getCover(FavoriteItem item) async {
+  Future<File> getCover(
+    FavoriteItem item, {
+    required DownloadManager manager,
+    required Future<File> Function(String id) loadDownloadedCover,
+  }) async {
     var path = "${App.dataPath}/favoritesCover";
     var hash = md5
         .convert(const Utf8Encoder().convert(item.coverPath))
@@ -1013,7 +1015,7 @@ class LocalFavoritesManager {
       return file;
     }
     if (item.coverPath.startsWith("file://")) {
-      var data = await downloadManager.getCover(
+      var data = await loadDownloadedCover(
         item.coverPath.replaceFirst("file://", ""),
       );
       file.createSync(recursive: true);
@@ -1021,11 +1023,12 @@ class LocalFavoritesManager {
       return file;
     }
     try {
-      if (EhNetwork().cookiesStr == "") {
-        await EhNetwork().getCookies(false);
+      if (appComicSourceServices.ehentai.cookiesStr == "") {
+        await appComicSourceServices.ehentai.getCookies(false);
       }
-      var res = await (ImageManager().getImage(item.coverPath, {
-        if (item.type == FavoriteType.ehentai) "cookie": EhNetwork().cookiesStr,
+      var res = await (ImageManager(manager).getImage(item.coverPath, {
+        if (item.type == FavoriteType.ehentai)
+          "cookie": appComicSourceServices.ehentai.cookiesStr,
         if (item.type == FavoriteType.hitomi) "Referer": "https://hitomi.la/",
       }).last);
       file.createSync(recursive: true);
@@ -1052,7 +1055,11 @@ class LocalFavoritesManager {
 
   void checkAndDeleteCover(FavoriteItem item) async {
     if ((await find(item.target, item.type)).isEmpty) {
-      (await getCover(item)).deleteSync();
+      final hash = md5
+          .convert(const Utf8Encoder().convert(item.coverPath))
+          .toString();
+      final file = File('${App.dataPath}/favoritesCover/$hash.jpg');
+      if (file.existsSync()) file.deleteSync();
     }
   }
 

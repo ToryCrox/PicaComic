@@ -62,7 +62,6 @@ dependencies:
   image: 4.1.0
   shimmer_animation: ^2.1.0
   cookie_jar: any
-  workmanager: ^0.7.0
   flutter_localizations:
     sdk: flutter
   intl: any

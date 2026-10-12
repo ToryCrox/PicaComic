@@ -17,6 +17,7 @@ import 'package:dio/dio.dart';
 Future<Res<List<int>>> fetchComicData(
   String url,
   int start, {
+  required NetworkClientManager clientManager,
   int? maxLength,
   int? endData,
   String? ref,
@@ -30,7 +31,7 @@ Future<Res<List<int>>> fetchComicData(
       end = maxLength;
     }
     assert(start < end);
-    var res = await networkClientManager.mediaDio.get<Uint8List>(
+    var res = await clientManager.mediaDio.get<Uint8List>(
       url,
       options: Options(
         responseType: ResponseType.bytes,

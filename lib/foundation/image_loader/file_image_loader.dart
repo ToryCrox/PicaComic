@@ -6,7 +6,9 @@ import 'package:pica_comic/network/download/download_manager.dart';
 
 class FileImageProvider extends ImageProvider<FileImageProvider> {
   /// Image provider for downloaded comic
-  const FileImageProvider(this.id, this.ep, this.index);
+  const FileImageProvider(this.manager, this.id, this.ep, this.index);
+
+  final DownloadManager manager;
 
   final String id;
 
@@ -35,7 +37,7 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
     FileImageProvider key, {
     required ImageDecoderCallback decode,
   }) async {
-    var file = await downloadManager.getImageAsync(id, ep, index);
+    var file = await manager.getImageAsync(id, ep, index);
     final int lengthInBytes = await file.length();
     if (lengthInBytes == 0) {
       // The file may become available later.
@@ -51,13 +53,14 @@ class FileImageProvider extends ImageProvider<FileImageProvider> {
       return false;
     }
     return other is FileImageProvider &&
+        other.manager == manager &&
         other.id == id &&
         other.ep == ep &&
         other.index == index;
   }
 
   @override
-  int get hashCode => Object.hash("FileImageProvider", id, ep, index);
+  int get hashCode => Object.hash("FileImageProvider", manager, id, ep, index);
 
   @override
   String toString() => 'FileImageProvider $id $ep $index';

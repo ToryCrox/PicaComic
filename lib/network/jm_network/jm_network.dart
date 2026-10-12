@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/parser.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
@@ -15,6 +16,7 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
 import '../../foundation/cache_manager.dart';
+import '../../foundation/app_settings_provider.dart';
 import '../../foundation/log.dart';
 import '../cookie_jar.dart';
 import '../network_client_manager.dart';
@@ -23,6 +25,8 @@ import 'headers.dart';
 import 'jm_crypto.dart';
 import 'jm_image.dart';
 import 'jm_models.dart';
+
+part 'jm_network.g.dart';
 
 ///解析 JM 漫画分类
 List<ComicCategoryInfo> _parseJmComicCategories(Map<String, dynamic> comic) {
@@ -90,7 +94,7 @@ extension _CachedNetwork on CachedNetwork {
         if (cookieJar != null) NetworkCookieInterceptor.cookieJarKey: cookieJar,
       },
     );
-    final res = await networkClientManager.apiDio.get<Uint8List>(
+    final res = await clientManager.apiDio.get<Uint8List>(
       url,
       options: requestOptions,
     );
@@ -127,19 +131,24 @@ extension _CachedNetwork on CachedNetwork {
   }
 }
 
-class JmNetwork {
+@Riverpod(keepAlive: true)
+class JmNetwork extends _$JmNetwork {
   static const baseData = "";
+
+  @override
+  JmNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
+
+  late NetworkClientManager clientManager;
+
+  Future<bool> _reLogin() => jm.reLogin(ref);
 
   // 禁漫的cookie无需持久化储存, 因为有效期非常短
   final cookieJar = CookieJar(ignoreExpires: true);
 
   var hotTags = <String>[];
-
-  factory JmNetwork() => cache == null ? (cache = JmNetwork.create()) : cache!;
-
-  JmNetwork.create();
-
-  static JmNetwork? cache;
 
   Options _requestOptions(
     BaseOptions source, {
@@ -159,10 +168,25 @@ class JmNetwork {
     );
   }
 
-  static List<String> get domains => appdata.appSettings.jmApiDomains;
+  List<String> get domains => ref
+      .read(appSettingsProvider)
+      .value(AppSettingKeys.jmApiDomains)
+      .split(',');
 
-  String get baseUrl =>
-      "https://${domains[int.parse(appdata.getSetting(AppSettingKeys.jmApiStream))]}";
+  String get baseUrl {
+    final settings = ref.read(appSettingsProvider);
+    final domainIndex = int.parse(settings.value(AppSettingKeys.jmApiStream));
+    return "https://${domains[domainIndex]}";
+  }
+
+  String get _jmAppVersion =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.jmAppVersion);
+
+  String get _jmImageDomain =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.jmImageDomain);
+
+  BaseOptions _apiOptions(int time, {bool post = false, bool byte = true}) =>
+      getApiOptions(time, jmAppVersion: _jmAppVersion, post: post, byte: byte);
 
   static const domainUrls = [
     "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
@@ -218,7 +242,7 @@ class JmNetwork {
 
   Future<Res<dynamic>> getAppVersionCode() async {
     try {
-      var res = await networkClientManager.apiDio.get(
+      var res = await clientManager.apiDio.get(
         "$baseUrl/static/jmapp3apk/version.json",
         options: _requestOptions(
           BaseOptions(
@@ -250,7 +274,7 @@ class JmNetwork {
 
   Future<List<String>> tryFetchAndDecrypt(String url) async {
     try {
-      var res = await networkClientManager.apiDio.get(
+      var res = await clientManager.apiDio.get(
         url,
         options: _requestOptions(
           BaseOptions(headers: {...getBaseHeaders(), "user-agent": ua}),
@@ -290,11 +314,11 @@ class JmNetwork {
     for (var domain in domains) {
       () async {
         try {
-          var res = await networkClientManager.apiDio.post(
+          var res = await clientManager.apiDio.post(
             "https://$domain/login",
             data: "&",
             options: _requestOptions(
-              getApiOptions(time, post: true),
+              _apiOptions(time, post: true),
               validateStatus: (_) => true,
             ),
           );
@@ -326,8 +350,8 @@ class JmNetwork {
     }
 
     int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var dio = CachedNetwork();
-    var options = getApiOptions(time);
+    var dio = CachedNetwork(clientManager: clientManager);
+    var options = _apiOptions(time);
     options.validateStatus = (i) => i == 200 || i == 401;
     try {
       var res = await dio.getJm(
@@ -341,7 +365,7 @@ class JmNetwork {
         var message =
             const JsonDecoder().convert(res.data)["errorMsg"] ?? "Error";
         if (message == "請先登入會員" && jm.isLogin && !isRetry) {
-          var res = await jm.reLogin();
+          var res = await _reLogin();
           if (res) {
             return await get(
               url,
@@ -376,10 +400,10 @@ class JmNetwork {
   Future<Res<dynamic>> post(String url, String data) async {
     try {
       int time = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      var res = await networkClientManager.apiDio.post(
+      var res = await clientManager.apiDio.post(
         url,
         options: _requestOptions(
-          getApiOptions(time, post: true),
+          _apiOptions(time, post: true),
           validateStatus: (i) => i == 200 || i == 401,
         ),
         data: data,
@@ -423,8 +447,9 @@ class JmNetwork {
     try {
       var res = await get("$baseUrl/setting?app_img_shunt=$index");
       var url = res.data["img_host"];
-      appdata.setSetting(AppSettingKeys.jmImageDomain, url);
-      appdata.updateSettings();
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setValue(AppSettingKeys.jmImageDomain, url);
       Log.i("Network Updated JM Image URL: $url");
     } on DioException catch (e) {
       if (kDebugMode) {
@@ -774,10 +799,14 @@ class JmNetwork {
   }
 
   Future<Res<bool>> login(String account, String pwd) async {
-    if (appdata.getSetting(AppSettingKeys.jmAutoSelectDomain) == "1") {
+    if (ref
+        .read(appSettingsProvider)
+        .enabled(AppSettingKeys.jmAutoSelectDomain)) {
       var i = await selectDomain();
       if (i != null) {
-        appdata.setSetting(AppSettingKeys.jmApiStream, i.toString());
+        await ref
+            .read(appSettingsProvider.notifier)
+            .setValue(AppSettingKeys.jmApiStream, i.toString(), persist: false);
         Log.i("Network Selected JM API Stream ${i + 1}: ${domains[i]}");
       }
     }
@@ -797,9 +826,12 @@ class JmNetwork {
     } finally {
       _performingLogin = false;
       await updateImgUrl(
-        int.parse(appdata.getSetting(AppSettingKeys.jmImageStream)) + 1,
+        int.parse(
+              ref.read(appSettingsProvider).value(AppSettingKeys.jmImageStream),
+            ) +
+            1,
       );
-      if (appdata.getSetting(AppSettingKeys.jmAutoCheckIn) == "1") {
+      if (ref.read(appSettingsProvider).enabled(AppSettingKeys.jmAutoCheckIn)) {
         var res = await dailyChk();
         if (res.error) {
           Log.e("Network JM auto check-in failed\n${res.errorMessage}");
@@ -812,7 +844,7 @@ class JmNetwork {
 
   /// 使用储存的数据进行登录
   Future<Res<bool>> loginFromAppdata() async {
-    var res = await jm.reLogin();
+    var res = await _reLogin();
     return res ? const Res(true) : const Res.error("error");
   }
 
@@ -842,7 +874,8 @@ class JmNetwork {
     int page,
   ) async {
     ComicsOrder order =
-        appdata.getSetting(AppSettingKeys.jmFavoritesOrder) == "0"
+        ref.read(appSettingsProvider).value(AppSettingKeys.jmFavoritesOrder) ==
+            "0"
         ? ComicsOrder.latest
         : ComicsOrder.update;
     var res = await get(
@@ -946,7 +979,7 @@ class JmNetwork {
     try {
       var images = <String>[];
       for (var s in res.data["images"]) {
-        images.add(getJmImageUrl(s, id));
+        images.add(buildJmImageUrl(_jmImageDomain, s, id));
       }
       return Res(images);
     } catch (e, s) {
@@ -959,11 +992,11 @@ class JmNetwork {
   ///
   /// 此函数未使用, 因为似乎所有漫画的scramble都一样
   Future<String?> getScramble(String id) async {
-    var source = getApiOptions(
+    var source = _apiOptions(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       byte: false,
     );
-    var res = await networkClientManager.apiDio.get(
+    var res = await clientManager.apiDio.get(
       "$baseUrl/chapter_view_template?id=$id&mode=vertical&page=0&app_ima_shunt=NaN&express=off",
       options: _requestOptions(source),
     );
@@ -997,7 +1030,7 @@ class JmNetwork {
           reply.add(
             Comment(
               r["CID"],
-              getJmAvatarUrl(r["photo"]),
+              buildJmAvatarUrl(_jmImageDomain, r["photo"]),
               r["username"],
               r["addtime"],
               parseContent(r["content"]),
@@ -1008,7 +1041,7 @@ class JmNetwork {
         comments.add(
           Comment(
             c["CID"],
-            getJmAvatarUrl(c["photo"]),
+            buildJmAvatarUrl(_jmImageDomain, c["photo"]),
             c["username"],
             c["addtime"],
             parseContent(c["content"]),
@@ -1188,5 +1221,3 @@ enum WeekRecommendationType {
   @override
   String toString() => value;
 }
-
-var jmNetwork = JmNetwork();

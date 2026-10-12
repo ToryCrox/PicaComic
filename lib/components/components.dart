@@ -21,6 +21,7 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
 import 'package:pica_comic/components/comic_list_page_logic.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -43,6 +44,7 @@ import 'package:pica_comic/tools/translations.dart';
 
 import '../base.dart';
 import '../foundation/ui_mode.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part 'pica_image.dart';
 part 'appbar.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part 'eh_comments_page_logic.g.dart';
 
@@ -31,12 +31,12 @@ abstract interface class EhCommentsRepository {
 class _EhCommentsRepository implements EhCommentsRepository {
   @override
   Future<Res<List<Comment>>> getComments(String url) {
-    return EhNetwork().getComments(url);
+    return appComicSourceServices.ehentai.getComments(url);
   }
 
   @override
   Future<Res<bool>> sendComment(String text, String url) {
-    return EhNetwork().comment(text, url);
+    return appComicSourceServices.ehentai.comment(text, url);
   }
 
   @override
@@ -45,7 +45,7 @@ class _EhCommentsRepository implements EhCommentsRepository {
     String commentId,
     bool isUp,
   ) {
-    return EhNetwork().voteComment(auth, commentId, isUp);
+    return appComicSourceServices.ehentai.voteComment(auth, commentId, isUp);
   }
 
   @override

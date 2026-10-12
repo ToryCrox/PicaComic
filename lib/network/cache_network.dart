@@ -7,6 +7,10 @@ import 'network_client_manager.dart';
 
 ///缓存网络请求, 仅提供get方法, 其它的没有意义
 class CachedNetwork {
+  CachedNetwork({required this.clientManager});
+
+  final NetworkClientManager clientManager;
+
   Future<CachedNetworkRes<String>> get(
     String url,
     BaseOptions options, {
@@ -40,7 +44,7 @@ class CachedNetwork {
         if (cookieJar != null) NetworkCookieInterceptor.cookieJarKey: cookieJar,
       },
     );
-    final res = await networkClientManager.apiDio.get<Uint8List>(
+    final res = await clientManager.apiDio.get<Uint8List>(
       url,
       options: requestOptions,
       cancelToken: cancelToken,

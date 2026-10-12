@@ -6,6 +6,7 @@ import 'jm_image.dart';
 import 'jm_models.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'jm_network.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
@@ -114,7 +115,8 @@ class JmDownloadingTask extends DownloadingTask {
 
     while (retry < 3) {
       try {
-        res[key] = (await JmNetwork().getChapter(comic.series[key]!)).data;
+        final network = manager.readProvider(jmNetworkProvider);
+        res[key] = (await network.getChapter(comic.series[key]!)).data;
         return;
       } catch (e) {
         await Future.delayed(const Duration(seconds: 3));
@@ -223,7 +225,7 @@ class JmDownloadingTask extends DownloadingTask {
     // comic.series 是 {章节编号: 章节ID} 的映射
     final epsId = comic.series[item.episodeIndex] ?? comic.series.values.first;
 
-    return ImageManager().getJmImage(
+    return ImageManager(manager).getJmImage(
       item.url,
       {},
       epsId: epsId,
@@ -237,7 +239,7 @@ class JmDownloadingTask extends DownloadingTask {
   Stream<DownloadProgress> downloadImage(String link) {
     // 保留此方法用于向后兼容，但新的队列系统会调用 downloadImageWithContext
     final bookId = _getBookIdFromLink(link);
-    return ImageManager().getJmImage(
+    return ImageManager(manager).getJmImage(
       link,
       {},
       epsId: comic.series[links!.keys.toList()[downloadingEp]]!,
@@ -286,9 +288,8 @@ class JmDownloadingTask extends DownloadingTask {
   @override
   FutureOr<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (await downloadManager.isExists(id)) {
-      var comic =
-          (await downloadManager.getComicOrNull(id))! as DownloadedJmComic;
+    if (await manager.isExists(id)) {
+      var comic = (await manager.getComicOrNull(id))! as DownloadedJmComic;
       previous = comic.downloadedEps;
     }
     var downloadEps = (_downloadEps + previous).toSet().toList();
@@ -301,9 +302,9 @@ class JmDownloadingTask extends DownloadingTask {
     List<int> completedEpisodes,
   ) async {
     var previous = <int>[];
-    if (await downloadManager.isExists(id)) {
+    if (await manager.isExists(id)) {
       var existingComic =
-          (await downloadManager.getComicOrNull(id))! as DownloadedJmComic;
+          (await manager.getComicOrNull(id))! as DownloadedJmComic;
       previous = existingComic.downloadedEps;
     }
     // completedEpisodes 是 links Map 的 key（章节编号，从1开始）

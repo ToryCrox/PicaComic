@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
@@ -10,15 +11,20 @@ import 'models.dart';
 
 export 'models.dart';
 
+part 'kemono_main_network.g.dart';
+
 /// Kemono 网络请求类
 ///
 /// 基于 kemono.cr 的 API 实现
-class KemonoNetwork {
-  factory KemonoNetwork() => _cache ?? (_cache = KemonoNetwork._create());
+@Riverpod(keepAlive: true)
+class KemonoNetwork extends _$KemonoNetwork {
+  @override
+  KemonoNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
+    return this;
+  }
 
-  KemonoNetwork._create();
-
-  static KemonoNetwork? _cache;
+  late NetworkClientManager clientManager;
 
   /// Cookie 管理器
   SingleInstanceCookieJar? cookieJar;
@@ -39,7 +45,7 @@ class KemonoNetwork {
   static const int pageSize = 50;
 
   /// Dio 实例
-  Dio get dio => networkClientManager.apiDio;
+  Dio get dio => clientManager.apiDio;
 
   /// 作者列表缓存 (creators.txt返回全量数据)
   List<KemonoCreator>? _creatorsCache;

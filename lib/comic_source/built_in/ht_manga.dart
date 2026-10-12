@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/comic_page.dart';
@@ -21,25 +22,26 @@ final htManga = ComicSource.named(
     key: "htmanga",
     title: "绅士漫画",
     multiFolder: true,
-    loadComic: (i, [folder]) =>
-        HtmangaNetwork().getFavoriteFolderComics(folder!, i),
-    loadFolders: ([String? comicId]) => HtmangaNetwork().getFolders(),
+    loadComic: (ref, i, [folder]) =>
+        ref.read(htMangaNetworkProvider).getFavoriteFolderComics(folder!, i),
+    loadFolders: (ref, [String? comicId]) =>
+        ref.read(htMangaNetworkProvider).getFolders(),
     allFavoritesId: "0",
-    deleteFolder: (id) async {
-      var res = await HtmangaNetwork().deleteFolder(id);
+    deleteFolder: (ref, id) async {
+      var res = await ref.read(htMangaNetworkProvider).deleteFolder(id);
       return res
           ? const Res(true)
           : const Res(false, errorMessage: "Network Error");
     },
-    addFolder: (name) async {
-      var res = await HtmangaNetwork().createFolder(name);
+    addFolder: (ref, name) async {
+      var res = await ref.read(htMangaNetworkProvider).createFolder(name);
       return res
           ? const Res(true)
           : const Res(false, errorMessage: "Network Error");
     },
-    addOrDelFavorite: (id, folder, isAdding) async {
+    addOrDelFavorite: (ref, id, folder, isAdding) async {
       if (isAdding) return const Res.error("invalid");
-      var res = await HtmangaNetwork().delFavorite(id);
+      var res = await ref.read(htMangaNetworkProvider).delFavorite(id);
       return res;
     },
   ),
@@ -106,11 +108,12 @@ final htManga = ComicSource.named(
     enableRankingPage: true,
   ),
   categoryComicsData: CategoryComicsData.named(
-    load: (category, param, options, page) async {
+    load: (ref, category, param, options, page) async {
+      final network = ref.read(htMangaNetworkProvider);
       if (!param!.startsWith("http")) {
-        param = HtmangaNetwork.baseUrl + param;
+        param = network.baseUrl + param;
       }
-      return HtmangaNetwork().getComicList(param, page);
+      return network.getComicList(param, page);
     },
     rankingData: RankingData.named(
       options: {
@@ -118,19 +121,17 @@ final htManga = ComicSource.named(
         "/albums-favorite_ranking-type-week.html": "本週",
         "/albums-favorite_ranking-type-month.html": "本月",
       },
-      load: (option, page) {
-        return HtmangaNetwork().getComicList(
-          "${HtmangaNetwork.baseUrl}$option",
-          page,
-        );
+      load: (ref, option, page) {
+        final network = ref.read(htMangaNetworkProvider);
+        return network.getComicList("${network.baseUrl}$option", page);
       },
     ),
   ),
   account: AccountConfig.named(
     registerWebsite: "https://www.wnacg.com/albums.html",
-    login: (account, pwd) async {
+    login: (ref, account, pwd) async {
       var htManga = ComicSource.find(ComicType.htmanga.name)!;
-      var res = await HtmangaNetwork().login(account, pwd);
+      var res = await ref.read(htMangaNetworkProvider).login(account, pwd);
       if (!res.error) {
         htManga.data['name'] = account;
       }
@@ -138,9 +139,9 @@ final htManga = ComicSource.named(
       htManga.data['account'] = a;
       return res;
     },
-    logout: () {
+    logout: (ref) {
       ComicSource.find(ComicType.htmanga.name)!.data['name'] = null;
-      HtmangaNetwork().logout();
+      ref.read(htMangaNetworkProvider).logout();
     },
   ),
   comicTileBuilderOverride: (context, comic, options) {
@@ -153,8 +154,8 @@ final htManga = ComicSource.named(
     ExplorePageData.named(
       title: "绅士漫画",
       type: ExplorePageType.singlePageWithMultiPart,
-      loadMultiPart: () async {
-        var homepage = await HtmangaNetwork().getHomePage();
+      loadMultiPart: (ref) async {
+        var homepage = await ref.read(htMangaNetworkProvider).getHomePage();
         if (homepage.error) {
           return Res.fromErrorRes(homepage);
         }
@@ -193,8 +194,8 @@ final htManga = ComicSource.named(
     ),
   ],
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) {
-      return HtmangaNetwork().search(keyword, page);
+    loadPage: (ref, keyword, page, options) {
+      return ref.read(htMangaNetworkProvider).search(keyword, page);
     },
   ),
   comicPageBuilder: (context, id, cover) {
@@ -235,13 +236,13 @@ class _HtComicTile extends ComicTile {
   String get subTitle => "${comic.pages} Pages";
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await HtmangaNetwork().getComicInfo(comic.id);
+    var res = await ref.read(htMangaNetworkProvider).getComicInfo(comic.id);
     if (cancel) {
       return;
     }

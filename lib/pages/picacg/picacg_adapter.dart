@@ -1,4 +1,6 @@
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
@@ -11,6 +13,7 @@ import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/picacg_network/methods.dart';
 import '../../network/picacg_network/picacg_download_model.dart';
 import '../../network/res.dart';
@@ -37,7 +40,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) => id;
+  String downloadId(String id, DownloadManager _) => id;
   @override
   String? url(ComicItem data) => null;
   @override
@@ -45,14 +48,16 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
 
   // -------- B. 数据加载 --------
   @override
-  Future<Res<ComicItem>> loadData(String id) => network.getComicInfo(id).then((
-    res,
-  ) {
-    if (res.success) {
-      DiskCache.writeString(tag(id), TypeUtil.parseString(res.data.toJson()));
-    }
-    return res;
-  });
+  Future<Res<ComicItem>> loadData(String id) =>
+      appComicSourceServices.picacg.getComicInfo(id).then((res) {
+        if (res.success) {
+          DiskCache.writeString(
+            tag(id),
+            TypeUtil.parseString(res.data.toJson()),
+          );
+        }
+        return res;
+      });
 
   @override
   Future<ComicItem?> loadCachedData(String id) async {
@@ -118,7 +123,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       });
 
   @override
-  ThumbnailsData? createThumbnails(ComicItem data) => null;
+  ThumbnailsData? createThumbnails(ComicItem data, WidgetRef ref) => null;
 
   @override
   Widget buildThumbnailImage(
@@ -145,8 +150,8 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   }
 
   @override
-  void download(ComicItem data, BuildContext context) {
-    _downloadComic(data, context);
+  void download(ComicItem data, BuildContext context, DownloadManager manager) {
+    _downloadComic(data, context, manager);
   }
 
   @override
@@ -154,6 +159,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     ComicItem data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: picacg.isLogin,
@@ -169,7 +175,8 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
         }
       },
       cancelPlatformFavorite: () async {
-        var res = await network.favouriteOrUnfavouriteComic(data.id);
+        var res = await appComicSourceServices.picacg
+            .favouriteOrUnfavouriteComic(data.id);
         if (res) {
           data = data.copyWith(isFavourite: false);
           bridge.updateData(data);
@@ -180,7 +187,8 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       },
       selectFolderCallback: (name, p) async {
         if (p == 0) {
-          var res = await network.favouriteOrUnfavouriteComic(data.id);
+          var res = await appComicSourceServices.picacg
+              .favouriteOrUnfavouriteComic(data.id);
           if (res) {
             data = data.copyWith(isFavourite: true);
             bridge.updateData(data);
@@ -189,7 +197,12 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
           }
           return Res.error("网络错误".tl);
         }
-        LocalFavoritesManager().addComic(name, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(
+          name,
+          toLocalFavoriteItem(data),
+          null,
+          manager,
+        );
         return const Res(true);
       },
     );
@@ -215,7 +228,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
     ComicPageBridge bridge,
     BuildContext context,
   ) => () {
-    network.likeOrUnlikeComic(data.id);
+    appComicSourceServices.picacg.likeOrUnlikeComic(data.id);
     bridge.updateData(data.copyWith(isLiked: !data.isLiked));
   };
 
@@ -339,45 +352,45 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   );
 
   // -------- 下载辅助 --------
-  void _downloadComic(ComicItem comic, BuildContext context) async {
-    for (var i in downloadManager.downloading) {
+  void _downloadComic(
+    ComicItem comic,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
+    for (var i in manager.downloading) {
       if (i.id == comic.id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
     var downloaded = <int>[];
-    if (await downloadManager.isExists(comic.id)) {
-      var dc =
-          (await downloadManager.getComicOrNull(comic.id))! as DownloadedComic;
+    if (await manager.isExists(comic.id)) {
+      var dc = (await manager.getComicOrNull(comic.id))! as DownloadedComic;
       downloaded.addAll(dc.downloadedEps);
     }
     final content = SelectDownloadChapter(
       comic.eps,
       (selectedEps) {
-        downloadManager.addPicDownload(comic, selectedEps);
+        manager.addPicDownload(comic, selectedEps);
         App.globalBack();
         showToast(message: "已加入下载队列".tl);
       },
       downloaded,
       onEpisodeDelete: (ep) async {
-        var dc = await downloadManager.getComicOrNull(comic.id);
+        var dc = await manager.getComicOrNull(comic.id);
         if (dc != null) {
           if (dc.downloadedEps.length == 1) {
-            await downloadManager.delete([comic.id]);
+            await manager.delete([comic.id]);
           } else {
-            await downloadManager.deleteEpisode(dc, ep);
+            await manager.deleteEpisode(dc, ep);
           }
         }
       },
     );
-    if (UiMode.m1(App.globalContext!)) {
-      showModalBottomSheet(
-        context: App.globalContext!,
-        builder: (_) => content,
-      );
+    if (UiMode.m1(context)) {
+      showModalBottomSheet(context: context, builder: (_) => content);
     } else {
-      showSideBar(App.globalContext!, content, useSurfaceTintColor: true);
+      showSideBar(context, content, useSurfaceTintColor: true);
     }
   }
 }

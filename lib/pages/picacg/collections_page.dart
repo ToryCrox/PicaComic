@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/network/picacg_network/methods.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:pica_comic/network/picacg_network/models.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/def.dart';
@@ -29,7 +30,7 @@ class _CollectionPageException implements Exception {
 class CollectionPageLogic extends _$CollectionPageLogic {
   @override
   Future<CollectionPageState> build() async {
-    final collections = await network.getCollection();
+    final collections = await ref.read(picacgNetworkProvider).getCollection();
     if (!collections.success) {
       throw _CollectionPageException(collections.errorMessageWithoutNull);
     }

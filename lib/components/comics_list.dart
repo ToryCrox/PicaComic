@@ -16,7 +16,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
   Future<List<T>> getComicsCache() => SynchronousFuture([]);
 
   /// 获取漫画，参数为页面序号，从 1 开始。
-  Future<Res<List<T>>> getComics(int i);
+  Future<Res<List<T>>> getComics(int i, Ref ref);
 
   /// 漫画源标识符。
   ComicType get comicType;
@@ -34,15 +34,17 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
   bool get showPageIndicator => true;
 
   /// 构建漫画卡片的附加菜单。
-  List<ComicTileMenuOption>? buildAddonMenuOptions(ComicListPageLogic logic) =>
-      null;
+  List<ComicTileMenuOption>? buildAddonMenuOptions(
+    ComicListPageLogic logic,
+    WidgetRef ref,
+  ) => null;
 
   /// 将当前页面的泛型加载器转换为列表 Provider 使用的基础类型加载器。
-  ComicListPageConfig get pageConfig {
+  ComicListPageConfig pageConfig() {
     return ComicListPageConfig(
       pageKey: tag,
-      loadPage: (page) async {
-        final result = await getComics(page);
+      loadPage: (ref, page) async {
+        final result = await getComics(page, ref);
         if (result.error) {
           return Res(
             null,
@@ -61,14 +63,14 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
   void refresh() {
     final context = App.globalContext;
     if (context != null) {
-      refreshComicListPage(context, pageConfig);
+      refreshComicListPage(context, pageConfig());
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(blockingKeywordRevisionProvider);
-    final config = pageConfig;
+    final config = pageConfig();
     final provider = comicListPageLogicProvider(config);
     final pageState = ref.watch(provider);
     final logic = ref.read(provider.notifier);
@@ -138,7 +140,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
                 if (i == comics.length - 1) {
                   _scheduleNextPageLoad(context, logic, pageState.current);
                 }
-                return buildItem(itemContext, comics[i], logic);
+                return buildItem(itemContext, comics[i], logic, ref);
               }),
               gridDelegate: SliverGridDelegateWithComics(),
             ),
@@ -166,7 +168,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
             SliverGrid(
               delegate: SliverChildBuilderDelegate(
                 childCount: comics.length,
-                (context, i) => buildItem(context, comics[i], logic),
+                (context, i) => buildItem(context, comics[i], logic, ref),
               ),
               gridDelegate: SliverGridDelegateWithComics(),
             ),
@@ -474,12 +476,17 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
     );
   }
 
-  Widget buildItem(BuildContext context, T item, ComicListPageLogic logic) {
+  Widget buildItem(
+    BuildContext context,
+    T item,
+    ComicListPageLogic logic,
+    WidgetRef ref,
+  ) {
     return buildComicTile(
       context,
       item,
       comicType,
-      addonMenuOptions: buildAddonMenuOptions(logic),
+      addonMenuOptions: buildAddonMenuOptions(logic, ref),
     );
   }
 }

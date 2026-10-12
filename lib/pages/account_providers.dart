@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
-import 'package:pica_comic/tools/background_service.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+
+/// 判断当前资料是否满足前台自动签到条件。
+bool shouldCheckInPicacgAccount(Profile? profile, bool enabled) =>
+    enabled && profile?.isPunched == false;
 
 /// 当前账户会话状态。
 ///
@@ -11,14 +14,15 @@ import 'package:pica_comic/tools/background_service.dart';
 /// 的结果暴露给页面，避免首页初始化阶段主动请求账户接口。
 class AccountSessionNotifier extends AsyncNotifier<Profile?> {
   @override
-  Future<Profile?> build() async => network.user;
+  Future<Profile?> build() async => ref.watch(picacgNetworkProvider).user;
 
   /// 刷新账户资料，并在需要时执行签到。
   ///
-  /// 返回值表示本次是否成功执行了桌面端签到；移动端签到交给后台服务。
+  /// 返回值表示本次是否在前台成功执行签到。
   Future<bool> refreshAndCheckIn() async {
     state = const AsyncLoading<Profile?>();
     try {
+      final network = ref.read(picacgNetworkProvider);
       final result = await network.updateProfile();
       if (result.error) {
         throw StateError(result.errorMessageWithoutNull);
@@ -26,13 +30,10 @@ class AccountSessionNotifier extends AsyncNotifier<Profile?> {
 
       final profile = network.user;
       state = AsyncData(profile);
-      if (profile?.isPunched != false ||
-          appdata.getSetting(AppSettingKeys.picacgAutoCheckIn) != '1') {
-        return false;
-      }
-
-      if (App.isMobile) {
-        runBackgroundService();
+      if (!shouldCheckInPicacgAccount(
+        profile,
+        appdata.getSetting(AppSettingKeys.picacgAutoCheckIn) == '1',
+      )) {
         return false;
       }
 
@@ -55,6 +56,7 @@ class AccountSessionNotifier extends AsyncNotifier<Profile?> {
   Future<void> refresh() async {
     state = const AsyncLoading<Profile?>();
     try {
+      final network = ref.read(picacgNetworkProvider);
       final result = await network.updateProfile();
       if (result.error) {
         throw StateError(result.errorMessageWithoutNull);

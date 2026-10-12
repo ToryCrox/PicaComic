@@ -1,79 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ignore_for_file: implementation_imports
 
 import 'package:pica_comic/ai/ai.dart';
 import 'package:pica_comic/ai/ai_cached_title_builder.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/pages/download/download_providers.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/pages/download/components/download_tile.dart'
     show toDownloadingComicInfoPage;
 import 'package:silky_scroll/src/silky_scroll_widget.dart';
 
-class DownloadingPage extends StatefulWidget {
+class DownloadingPage extends ConsumerStatefulWidget {
   const DownloadingPage({Key? key}) : super(key: key);
 
   @override
-  State<DownloadingPage> createState() => _DownloadingPageState();
+  ConsumerState<DownloadingPage> createState() => _DownloadingPageState();
 }
 
-class _DownloadingPageState extends State<DownloadingPage> {
-  var comics = <DownloadingTask>[];
-
-  @override
-  void dispose() {
-    downloadManager.removeListener(onChange);
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    downloadManager.addListener(onChange);
-    comics = List.from(downloadManager.downloading);
-    super.initState();
-  }
-
-  void onChange() {
-    // 总是重建以确保列表顺序正确更新
-    rebuild();
-  }
-
-  void rebuild() {
-    key = GlobalKey<_DownloadingTileState>();
-    setState(() {
-      comics = List.from(downloadManager.downloading);
-    });
-  }
-
-  var key = GlobalKey<_DownloadingTileState>();
-
+class _DownloadingPageState extends ConsumerState<DownloadingPage> {
   @override
   Widget build(BuildContext context) {
+    final queue = ref.watch(downloadManagerProvider);
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final comics = queue.tasks;
     var widgets = <Widget>[];
     for (var i in comics) {
-      var key = Key(i.id);
-      if (i == comics.first) {
-        key = this.key;
-      }
-
       widgets.add(
         _DownloadingTile(
           comic: i,
+          manager: manager,
           cancel: () {
             showConfirmDialog(context, "取消".tl, "取消下载任务?".tl, () {
               setState(() {
-                downloadManager.cancel(i.id);
+                ref.read(downloadManagerProvider.notifier).cancel(i.id);
               });
             });
           },
-          onComicPositionChange: rebuild,
-          key: key,
+          key: Key(i.id),
         ),
       );
     }
@@ -84,19 +54,19 @@ class _DownloadingPageState extends State<DownloadingPage> {
       }
 
       String downloadStatus;
-      if (downloadManager.isDownloading) {
+      if (queue.isDownloading) {
         downloadStatus = " 下载中".tl;
-      } else if (downloadManager.downloading.isNotEmpty) {
+      } else if (queue.tasks.isNotEmpty) {
         downloadStatus = " 已暂停".tl;
       } else {
         downloadStatus = "";
       }
 
       String downloadTaskText = "@length 项下载任务".tlParams({
-        "length": downloadManager.downloading.length.toString(),
+        "length": queue.tasks.length.toString(),
       });
 
-      String displayText = downloadManager.error
+      String displayText = queue.hasError
           ? "下载出错".tl
           : downloadTaskText + downloadStatus;
       return Container(
@@ -111,7 +81,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
         child: Row(
           children: [
             const SizedBox(width: 16),
-            downloadManager.isDownloading
+            queue.isDownloading
                 ? const Icon(Icons.downloading, color: Colors.blue)
                 : const Icon(
                     Icons.pause_circle_outline_outlined,
@@ -120,17 +90,14 @@ class _DownloadingPageState extends State<DownloadingPage> {
             const SizedBox(width: 12),
             Text(displayText),
             const Spacer(),
-            if (downloadManager.downloading.isNotEmpty)
+            if (queue.tasks.isNotEmpty)
               TextButton(
                 onPressed: () {
-                  downloadManager.isDownloading
-                      ? downloadManager.pause()
-                      : downloadManager.start();
-                  setState(() {});
+                  queue.isDownloading ? manager.pause() : manager.start();
                 },
-                child: downloadManager.isDownloading
+                child: queue.isDownloading
                     ? Text("暂停".tl)
-                    : (downloadManager.error ? Text("重试".tl) : Text("继续".tl)),
+                    : (queue.hasError ? Text("重试".tl) : Text("继续".tl)),
               ),
             const SizedBox(width: 16),
           ],
@@ -138,7 +105,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
       );
     }
 
-    final itemCount = downloadManager.downloading.length + 1;
+    final itemCount = queue.tasks.length + 1;
     final body = App.isDesktop
         ? SilkyScroll(
             silkyScrollDuration: const Duration(milliseconds: 900),
@@ -167,15 +134,14 @@ class _DownloadingTile extends StatefulWidget {
   const _DownloadingTile({
     required this.comic,
     required this.cancel,
-    required this.onComicPositionChange,
+    required this.manager,
     super.key,
   });
 
   final DownloadingTask comic;
+  final DownloadManager manager;
 
   final void Function() cancel;
-
-  final void Function() onComicPositionChange;
 
   @override
   State<_DownloadingTile> createState() => _DownloadingTileState();
@@ -208,10 +174,10 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   }
 
   void updateStatistic() {
-    if (comic != downloadManager.downloading.first) {
+    if (comic != widget.manager.downloading.first) {
       return;
     }
-    comic = downloadManager.downloading.first;
+    comic = widget.manager.downloading.first;
     speed = comic.currentSpeed;
     downloadPages = comic.downloadedPages;
     pagesCount = comic.totalPages;
@@ -249,6 +215,9 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   }
 
   Widget _buildMainTile(BuildContext context) {
+    final archiveDownloadRemoved =
+        comic is EhDownloadingTask &&
+        (comic as EhDownloadingTask).archiveDownloadRemoved;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: SizedBox(
@@ -356,7 +325,9 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                       Row(
                         children: [
                           Icon(
-                            Icons.pause_circle_outline,
+                            archiveDownloadRemoved
+                                ? Icons.error_outline
+                                : Icons.pause_circle_outline,
                             size: 14,
                             color: context.colorScheme.error,
                           ),
@@ -413,20 +384,22 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                       comic.isPaused() ? Icons.play_arrow : Icons.pause,
                       size: 20,
                     ),
-                    onPressed: () {
-                      if (comic.isPaused()) {
-                        // 已暂停状态 - 继续下载
-                        if (comic.userPaused) {
-                          downloadManager.resumeTask(comic.id);
-                        } else {
-                          downloadManager.start();
-                        }
-                      } else {
-                        // 正在下载状态 - 暂停下载
-                        downloadManager.pauseTask(comic.id);
-                      }
-                      setState(() {});
-                    },
+                    onPressed: archiveDownloadRemoved
+                        ? null
+                        : () {
+                            if (comic.isPaused()) {
+                              // 已暂停状态 - 继续下载
+                              if (comic.userPaused) {
+                                widget.manager.resumeTask(comic.id);
+                              } else {
+                                widget.manager.start();
+                              }
+                            } else {
+                              // 正在下载状态 - 暂停下载
+                              widget.manager.pauseTask(comic.id);
+                            }
+                            setState(() {});
+                          },
                     tooltip: comic.isPaused() ? "继续".tl : "暂停".tl,
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
@@ -435,8 +408,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                   IconButton(
                     icon: const Icon(Icons.vertical_align_top, size: 20),
                     onPressed: () {
-                      downloadManager.moveToFirst(comic);
-                      widget.onComicPositionChange();
+                      widget.manager.moveToFirst(comic);
                     },
                     tooltip: "置顶".tl,
                     padding: const EdgeInsets.all(4),
@@ -539,7 +511,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                         "取消".tl,
                         "取消下载 $epName ?".tl,
                         () {
-                          downloadManager.cancelEpisode(comic.id, epIndex);
+                          widget.manager.cancelEpisode(comic.id, epIndex);
                           setState(() {});
                         },
                       );
@@ -574,7 +546,7 @@ class _DownloadingTileState extends State<_DownloadingTile> {
 
   String getProgressText() {
     if (pagesCount == null) {
-      if (comic == downloadManager.downloading.first) {
+      if (comic == widget.manager.downloading.first) {
         return "获取图片信息...".tl;
       } else {
         return "";
@@ -588,10 +560,8 @@ class _DownloadingTileState extends State<_DownloadingTile> {
 
     String status = "${"已下载".tl}$downloadPages/$pagesCount";
 
-    // 对于 EhDownloadingTask 和 KemonoAttachmentDownloadingTask，以字节为单位显示
-    if ((comic is EhDownloadingTask &&
-            (comic as EhDownloadingTask).downloadType != 0) ||
-        comic.runtimeType.toString() == 'KemonoAttachmentDownloadingTask') {
+    // Kemono 附件任务以字节为单位显示。
+    if (comic.runtimeType.toString() == 'KemonoAttachmentDownloadingTask') {
       status =
           "${_bytesToSize(downloadPages).split(' ').first}"
           "/${_bytesToSize(pagesCount!)}";

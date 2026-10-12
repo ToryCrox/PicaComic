@@ -8,6 +8,7 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part 'accounts_page.g.dart';
 
@@ -50,11 +51,12 @@ class AccountsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pageState = ref.watch(accountsPageLogicProvider);
     final logic = ref.read(accountsPageLogicProvider.notifier);
+    final callbacks = ref.read(comicSourceCallbackRunnerProvider);
     final body = CustomScrollView(
       slivers: [
         SliverList(
           delegate: SliverChildListDelegate(
-            buildContent(context, pageState, logic).toList(),
+            buildContent(context, pageState, logic, callbacks).toList(),
           ),
         ),
         SliverPadding(padding: EdgeInsets.only(bottom: context.padding.bottom)),
@@ -75,6 +77,7 @@ class AccountsPage extends ConsumerWidget {
     BuildContext context,
     AccountsPageState pageState,
     AccountsPageLogic logic,
+    ComicSourceCallbackRunner callbacks,
   ) sync* {
     var sources = ComicSource.sources.where(
       (element) => element.account != null,
@@ -92,12 +95,12 @@ class AccountsPage extends ConsumerWidget {
           title: Text("登录".tl),
           onTap: () async {
             if (element.account!.onLogin != null) {
-              await element.account!.onLogin!(context);
+              await callbacks.onLogin(element, context);
             }
             if (element.account!.login != null && context.mounted) {
               await context.to(
                 () => _LoginPage(
-                  login: element.account!.login!,
+                  source: element,
                   registerWebsite: element.account!.registerWebsite,
                 ),
               );
@@ -134,7 +137,11 @@ class AccountsPage extends ConsumerWidget {
               logic.setRelogin(element.key.name, true);
               final List account = element.data["account"];
               try {
-                var res = await element.account!.login!(account[0], account[1]);
+                var res = await callbacks.login(
+                  element,
+                  account[0],
+                  account[1],
+                );
                 if (res.error) {
                   showToast(message: res.errorMessage!);
                 } else {
@@ -156,9 +163,9 @@ class AccountsPage extends ConsumerWidget {
         }
         yield ListTile(
           title: Text("退出登录".tl),
-          onTap: () {
+          onTap: () async {
             element.data["account"] = null;
-            element.account?.logout();
+            await callbacks.logout(element);
             element.saveData();
             logic.refresh();
           },
@@ -176,9 +183,9 @@ class AccountsPage extends ConsumerWidget {
 }
 
 class _LoginPage extends StatefulWidget {
-  const _LoginPage({required this.login, this.registerWebsite});
+  const _LoginPage({required this.source, this.registerWebsite});
 
-  final LoginFunction login;
+  final ComicSource source;
 
   final String? registerWebsite;
 
@@ -245,7 +252,7 @@ class _LoginPageState extends State<_LoginPage> {
     );
   }
 
-  void login() {
+  void login() async {
     if (username.isEmpty || password.isEmpty) {
       showToast(message: "不能为空".tl, icon: const Icon(Icons.error_outline));
       return;
@@ -253,18 +260,19 @@ class _LoginPageState extends State<_LoginPage> {
     setState(() {
       loading = true;
     });
-    widget.login(username, password).then((value) {
-      if (value.error) {
-        showToast(message: value.errorMessage!);
-        setState(() {
-          loading = false;
-        });
-      } else {
-        showToast(message: "登录成功".tl, icon: const Icon(Icons.check));
-        if (mounted) {
-          context.pop();
-        }
+    final value = await ProviderScope.containerOf(context, listen: false)
+        .read(comicSourceCallbackRunnerProvider)
+        .login(widget.source, username, password);
+    if (value.error) {
+      showToast(message: value.errorMessage!);
+      setState(() {
+        loading = false;
+      });
+    } else {
+      showToast(message: "登录成功".tl, icon: const Icon(Icons.check));
+      if (mounted) {
+        context.pop();
       }
-    });
+    }
   }
 }

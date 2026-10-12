@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -11,7 +12,7 @@ import 'download_tile.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
 
 /// 已下载漫画详情视图（显示章节列表）
-class DownloadedComicInfoView extends StatefulWidget {
+class DownloadedComicInfoView extends ConsumerStatefulWidget {
   const DownloadedComicInfoView({
     super.key,
     required this.item,
@@ -22,11 +23,12 @@ class DownloadedComicInfoView extends StatefulWidget {
   final VoidCallback? onRefresh;
 
   @override
-  State<DownloadedComicInfoView> createState() =>
+  ConsumerState<DownloadedComicInfoView> createState() =>
       _DownloadedComicInfoViewState();
 }
 
-class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
+class _DownloadedComicInfoViewState
+    extends ConsumerState<DownloadedComicInfoView> {
   String name = "";
   List<String> eps = [];
   List<int> downloadedEps = [];
@@ -34,7 +36,9 @@ class _DownloadedComicInfoViewState extends State<DownloadedComicInfoView> {
 
   void deleteEpisode(int i) {
     showConfirmDialog(context, "确认删除".tl, "要删除这个章节吗".tl, () async {
-      var message = await downloadManager.deleteEpisode(comic, i);
+      var message = await ref
+          .read(downloadManagerProvider.notifier)
+          .deleteEpisode(comic, i);
       if (message == null) {
         setState(() {});
         widget.onRefresh?.call();

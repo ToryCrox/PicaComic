@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -110,7 +111,7 @@ Future<Map<int, int>> Function() _buildSimilarityTask(
 }
 
 /// 标签分配对话框
-class TagAssignmentDialog extends StatefulWidget {
+class TagAssignmentDialog extends ConsumerStatefulWidget {
   final List<String> comicIds;
   final List<String>? suggestedTags;
 
@@ -121,10 +122,11 @@ class TagAssignmentDialog extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<TagAssignmentDialog> createState() => _TagAssignmentDialogState();
+  ConsumerState<TagAssignmentDialog> createState() =>
+      _TagAssignmentDialogState();
 }
 
-class _TagAssignmentDialogState extends State<TagAssignmentDialog>
+class _TagAssignmentDialogState extends ConsumerState<TagAssignmentDialog>
     with SingleTickerProviderStateMixin {
   List<DownloadTag> allTags = [];
   final _originalTagIds = <int>{};
@@ -164,11 +166,12 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
   Future<void> _loadTags() async {
     setState(() => loading = true);
+    final engine = ref.read(downloadManagerProvider.notifier);
 
     // 并行查询：共同标签 + 全部标签，减少 I/O 串行等待时间
-    final tagsFuture = downloadManager.getAllTags();
+    final tagsFuture = engine.getAllTags();
     final commonFuture = widget.comicIds.isNotEmpty
-        ? downloadManager.getCommonComicTags(widget.comicIds)
+        ? engine.getCommonComicTags(widget.comicIds)
         : null;
 
     List<DownloadTag> tags;
@@ -238,6 +241,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
   /// 预加载所有标签的封面路径
   Future<void> _preloadCoverPaths(List<DownloadTag> tags) async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     _coverPathCache.clear();
 
     // 收集所有需要加载封面的 comicId
@@ -250,7 +254,7 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
     if (comicIds.isEmpty) return;
 
     // 批量查询所有漫画
-    final comicsMap = await downloadManager.getDownloadedItemsByIds(comicIds);
+    final comicsMap = await engine.getDownloadedItemsByIds(comicIds);
 
     // 为所有标签设置封面路径
     for (var tag in tags) {
@@ -268,10 +272,9 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
 
     try {
       final currentCategory = _currentCategory ?? TagCategory.none;
-      final tagId = await downloadManager.createTag(
-        _searchController.text,
-        category: currentCategory.value,
-      );
+      final tagId = await ref
+          .read(downloadManagerProvider.notifier)
+          .createTag(_searchController.text, category: currentCategory.value);
       final newTag = DownloadTag(
         id: tagId,
         name: _searchController.text,
@@ -307,16 +310,14 @@ class _TagAssignmentDialogState extends State<TagAssignmentDialog>
       Log.d("添加标签: $addTags, 删除标签: $removeTags");
 
       // 批量更新标签（内部会调用 _notifyTagsChanged() 通过流通知所有监听者刷新）
-      await downloadManager.batchUpdateTags(
-        widget.comicIds,
-        addTags,
-        removeTags,
-      );
+      await ref
+          .read(downloadManagerProvider.notifier)
+          .batchUpdateTags(widget.comicIds, addTags, removeTags);
 
       if (mounted) {
         showToast(message: "标签更新成功".tl);
         // 返回 true 通知调用方，但无需调用方手动 refresh/invalidate。
-        // downloadManager.onTagsChanged 流已触发 Provider 链自动更新。
+        // 下载引擎的 onTagsChanged 流已触发 Provider 链自动更新。
         Navigator.pop(context, true);
       }
     } catch (e) {

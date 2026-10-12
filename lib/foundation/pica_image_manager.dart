@@ -1,11 +1,14 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/network_log.dart';
 import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:dio/dio.dart';
 import 'dart:io' as io;
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/network/image_config.dart';
 import 'package:file/local.dart';
@@ -94,7 +97,7 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
       maxWidth: maxWidth,
     )) {
       if (response is FileInfo && response.source == FileSource.Online) {
-        NetworkTelemetryBridge.instance.reportArtifactReady(
+        appNetworkTelemetryBridge.reportArtifactReady(
           transferId: transferId,
           path: response.file.path,
           source: NetworkArtifactSource.imageCache,
@@ -106,7 +109,10 @@ class PicaImageManager extends CacheManager with ImageCacheManager {
 }
 
 class PicaHttpFileService extends FileService {
-  Dio get _dio => networkClientManager.mediaDio;
+  ProviderContainer get _container =>
+      ProviderScope.containerOf(App.globalContext!, listen: false);
+
+  Dio get _dio => _container.read(networkClientManagerProvider).mediaDio;
 
   static int _ehgtLoading = 0;
 
@@ -123,12 +129,16 @@ class PicaHttpFileService extends FileService {
         final source = ComicSource.find(sourceKey);
         if (source != null) {
           if (headers?['isThumbnail'] == 'true') {
-            config = source.getThumbnailLoadingConfig?.call(url);
+            config = _container
+                .read(comicSourceCallbackRunnerProvider)
+                .thumbnailConfig(source, url);
           } else {
             final comicId = headers?['comicId'];
             final epId = headers?['epId'];
             if (comicId != null && epId != null) {
-              config = source.getImageLoadingConfig?.call(url, comicId, epId);
+              config = _container
+                  .read(comicSourceCallbackRunnerProvider)
+                  .imageConfig(source, url, comicId, epId);
             }
           }
         }

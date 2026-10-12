@@ -38,17 +38,14 @@ import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/cookie_jar.dart';
-import '../../network/eh_network/eh_main_network.dart';
 import '../../network/http_proxy.dart';
-import '../../network/jm_network/jm_network.dart';
-import '../../network/nhentai_network/nhentai_main_network.dart';
 import '../../network/update.dart';
 import '../../network/webdav.dart';
-import '../../tools/background_service.dart';
 import '../../tools/debug.dart';
 import '../welcome_page.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:logger/logger.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 part "reading_settings.dart";
 
@@ -526,7 +523,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             leading: const Icon(Icons.folder),
             title: Text("设置下载目录".tl),
             trailing: const Icon(Icons.arrow_right),
-            onTap: () => setDownloadFolder(),
+            onTap: () => setDownloadFolder(
+              context,
+              ref.read(downloadManagerProvider.notifier),
+            ),
           ),
         ListTile(
           leading: const Icon(Icons.sd_storage_outlined),
@@ -566,19 +566,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           leading: const Icon(Icons.sim_card_download),
           title: Text("导出用户数据".tl),
           trailing: const Icon(Icons.arrow_right),
-          onTap: () => exportDataSetting(context),
+          onTap: () => exportDataSetting(
+            context,
+            ref.read(downloadManagerProvider.notifier),
+          ),
         ),
         ListTile(
           leading: const Icon(Icons.data_object),
           title: Text("导入用户数据".tl),
           trailing: const Icon(Icons.arrow_right),
-          onTap: () => importDataSetting(context),
+          onTap: () => importDataSetting(
+            context,
+            ref.read(downloadManagerProvider.notifier),
+          ),
         ),
         ListTile(
           leading: const Icon(Icons.sync),
           title: Text("数据同步".tl),
           trailing: const Icon(Icons.arrow_right),
-          onTap: () => syncDataSettings(context),
+          onTap: () => syncDataSettings(
+            context,
+            ref.read(downloadManagerProvider.notifier),
+          ),
         ),
         ListTile(title: Text("隐私".tl)),
         if (App.isAndroid)

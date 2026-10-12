@@ -6,9 +6,9 @@ import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
 
 import 'hiperdex_browse_page.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 /// 单一 HiperDEX 探索入口，展示最新和热门两部分。
 class HiperdexExplorePage extends StatefulWidget {
@@ -35,10 +35,10 @@ class _HiperdexExplorePageState extends State<HiperdexExplorePage> {
 
   /// 缓存先显示，随后在后台更新最新章节。
   Future<void> _loadLatest() async {
-    final cache = await HiperdexNetwork.instance.latestCache(1);
+    final cache = await appComicSourceServices.hiperdex.latestCache(1);
     if (!mounted) return;
     if (cache.isNotEmpty) setState(() => _latest = cache);
-    final result = await HiperdexNetwork.instance.getLatest(
+    final result = await appComicSourceServices.hiperdex.getLatest(
       1,
       forceRefresh: true,
     );
@@ -53,13 +53,13 @@ class _HiperdexExplorePageState extends State<HiperdexExplorePage> {
   Future<void> _loadTrending() async {
     final generation = ++_trendingGeneration;
     final period = _period;
-    final cache = await HiperdexNetwork.instance.trendingCache(
+    final cache = await appComicSourceServices.hiperdex.trendingCache(
       1,
       period: period,
     );
     if (!mounted || generation != _trendingGeneration) return;
     if (cache.isNotEmpty) setState(() => _trending = cache);
-    final result = await HiperdexNetwork.instance.getTrending(
+    final result = await appComicSourceServices.hiperdex.getTrending(
       1,
       period: period,
       forceRefresh: true,

@@ -102,7 +102,7 @@ class _ComicSourceListState extends ConsumerState<_ComicSourceList> {
   List? json;
 
   void load() async {
-    var dio = networkClientManager.apiDio;
+    var dio = ref.read(networkClientManagerProvider).apiDio;
     var res = await dio.get<String>(
       "https://raw.githubusercontent.com/wgh136/pica_configs/master/index.json",
     );
@@ -134,7 +134,9 @@ class _ComicSourceListState extends ConsumerState<_ComicSourceList> {
       load();
       return const Center(child: CircularProgressIndicator());
     } else {
-      var currentKey = ComicSource.sources.map((e) => e.key.name).toList();
+      final sources =
+          ref.watch(comicSourceRegistryProvider).value ?? ComicSource.sources;
+      var currentKey = sources.map((e) => e.key.name).toList();
       return ListView.builder(
         itemCount: json!.length,
         itemBuilder: (context, index) {
@@ -212,13 +214,11 @@ class _BuiltInSourcesState extends ConsumerState<_BuiltInSources> {
                   v,
                 ),
               );
+          await ref.read(comicSourceRegistryProvider.notifier).reload();
           if (!v) {
-            ComicSource.sources.removeWhere((e) => e.key == key);
             await _validatePages(ref);
           } else {
-            var source = ComicSource.builtIn.firstWhere((e) => e.key == key);
-            ComicSource.sources.add(source);
-            source.loadData();
+            final source = ComicSource.find(key)!;
             await _addAllPagesWithComicSource(source, ref);
           }
           isLoading = false;

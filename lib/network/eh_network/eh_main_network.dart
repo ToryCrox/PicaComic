@@ -3,11 +3,12 @@ import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
-import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
@@ -25,30 +26,34 @@ import 'package:synchronized/synchronized.dart';
 
 import '../../base.dart';
 
-class EhNetwork {
-  factory EhNetwork() => cache == null ? (cache = EhNetwork.create()) : cache!;
+part 'eh_main_network.g.dart';
 
-  static EhNetwork? cache;
-
-  static EhNetwork createEhNetwork() => EhNetwork();
-
-  late List<String> folderNames;
-
-  EhNetwork.create() {
+@Riverpod(keepAlive: true)
+class EhNetwork extends _$EhNetwork {
+  @override
+  EhNetwork build() {
+    clientManager = ref.watch(networkClientManagerProvider);
     getCookies(true);
     folderNames = ehentai.data.optStringList("favoriteNames");
     if (folderNames.length != 10) {
       folderNames = List.generate(10, (index) => "Favorite $index");
     }
+    return this;
   }
 
+  late NetworkClientManager clientManager;
+
+  late List<String> folderNames;
+
   ///e-hentai的url
-  String get ehBaseUrl => appdata.getSetting(AppSettingKeys.ehSite) == "0"
+  String get ehBaseUrl =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.ehSite) == "0"
       ? "https://e-hentai.org"
       : "https://exhentai.org";
 
   ///api url
-  get ehApiUrl => appdata.getSetting(AppSettingKeys.ehSite) == "0"
+  String get ehApiUrl =>
+      ref.read(appSettingsProvider).value(AppSettingKeys.ehSite) == "0"
       ? "https://api.e-hentai.org/api.php"
       : "https://exhentai.org/api.php";
 
@@ -66,10 +71,12 @@ class EhNetwork {
   Future<String> getCookies(bool setNW, [String? url]) async {
     url ??= ehBaseUrl;
 
+    final ehProfile = ref
+        .read(appSettingsProvider)
+        .value(AppSettingKeys.ehProfile);
     var shouldAdd = [
       if (setNW) Cookie("nw", "1") else Cookie("nw", "0"),
-      if (appdata.getSetting(AppSettingKeys.ehProfile) != "")
-        Cookie("sp", appdata.getSetting(AppSettingKeys.ehProfile)),
+      if (ehProfile.isNotEmpty) Cookie("sp", ehProfile),
     ];
 
     var cookies = await cookieJar.loadForRequest(Uri.parse(url));
@@ -125,7 +132,7 @@ class EhNetwork {
       followRedirects: true,
       headers: {"user-agent": webUA, ...?headers, "host": Uri.parse(url).host},
     );
-    var dio = CachedNetwork();
+    var dio = CachedNetwork(clientManager: clientManager);
     try {
       var data = await dio.get(
         url,
@@ -176,7 +183,7 @@ class EhNetwork {
     }
   }
 
-  Dio get apiDio => networkClientManager.apiDio;
+  Dio get apiDio => clientManager.apiDio;
 
   ///eh APi请求
   Future<Res<String>> apiRequest(
@@ -234,7 +241,7 @@ class EhNetwork {
     );
 
     try {
-      var res = await networkClientManager.apiDio.post<String>(
+      var res = await clientManager.apiDio.post<String>(
         url,
         data: data,
         options: Options(
@@ -307,7 +314,7 @@ class EhNetwork {
       followRedirects: false,
       headers: {"user-agent": webUA},
     );
-    var dio = CachedNetwork();
+    var dio = CachedNetwork(clientManager: clientManager);
     try {
       var res = await dio.get(
         url,
@@ -907,16 +914,6 @@ class EhNetwork {
         }
       }
 
-      var archiveDownload = document
-          .querySelectorAll('a')
-          .firstWhereOrNull((element) => element.text == "Archive Download")
-          ?.attributes["onclick"];
-      if (archiveDownload != null) {
-        archiveDownload = archiveDownload.split("'")[1];
-        if (archiveDownload.isURL) {
-          auth["archiveDownload"] = archiveDownload;
-        }
-      }
       return Res(
         Gallery(
           title: title,
@@ -1438,102 +1435,6 @@ class EhNetwork {
       return const Res.error("No profiles found");
     } else {
       return Res({for (var e in options) e.attributes["value"] ?? "": e.text});
-    }
-  }
-
-  Future<Res<ArchiveDownloadInfo>> getArchiveDownloadInfo(String url) async {
-    var res = await request(url, expiredTime: CacheExpiredTime.no);
-    if (res.error) {
-      return Res.fromErrorRes(res);
-    }
-    try {
-      var document = parse(res.data);
-      var body = document.querySelector("div#db")!;
-      int index = url.contains("exhentai") ? 1 : 3;
-      var origin = body.children[index].children[0];
-      var originCost = origin.querySelector("div > strong")!.text;
-      var originSize = origin.querySelector("p > strong")!.text;
-      var resample = body.children[index].children[1];
-      var resampleCost = resample.querySelector("div > strong")!.text;
-      var resampleSize = resample.querySelector("p > strong")!.text;
-      return Res(
-        ArchiveDownloadInfo(
-          originSize,
-          resampleSize,
-          originCost,
-          resampleCost,
-          document.querySelector("form#invalidate_form")?.attributes["action"],
-        ),
-      );
-    } catch (e, s) {
-      Log.e("Network $e\n$s\n${res.data}");
-      return Res.error(e.toString());
-    }
-  }
-
-  Future<Res<ArchiveDownloadInfo>> cancelAndReloadArchiveInfo(
-    ArchiveDownloadInfo info,
-  ) async {
-    var url = info.cancelUnlockUrl!;
-    var res = await post(
-      url,
-      "invalidate_sessions=1",
-      headers: {"content-type": "application/x-www-form-urlencoded"},
-    );
-    if (res.error) {
-      return Res.fromErrorRes(res);
-    }
-    try {
-      var document = parse(res.data);
-      var body = document.querySelector("div#db")!;
-      int index = url.contains("exhentai") ? 1 : 3;
-      var origin = body.children[index].children[0];
-      var originCost = origin.querySelector("div > strong")!.text;
-      var originSize = origin.querySelector("p > strong")!.text;
-      var resample = body.children[index].children[1];
-      var resampleCost = resample.querySelector("div > strong")!.text;
-      var resampleSize = resample.querySelector("p > strong")!.text;
-      return Res(
-        ArchiveDownloadInfo(
-          originSize,
-          resampleSize,
-          originCost,
-          resampleCost,
-          document.querySelector("form#invalidate_form")?.attributes["action"],
-        ),
-      );
-    } catch (e, s) {
-      Log.e("Network $e\n$s\n${res.data}");
-      return Res.error(e.toString());
-    }
-  }
-
-  Future<Res<String>> getArchiveDownloadLink(String apiUrl, int type) async {
-    try {
-      var data = type == 1
-          ? "dltype=org&dlcheck=Download+Original+Archive"
-          : "dltype=res&dlcheck=Download+Resample+Archive";
-      var res = await post(
-        apiUrl,
-        data,
-        headers: {"content-type": "application/x-www-form-urlencoded"},
-      );
-      if (res.error) {
-        return Res.fromErrorRes(res);
-      }
-      var document = parse(res.data);
-      var link = document.querySelector("a")?.attributes["href"];
-      if (link == null) {
-        showToast(message: 'download error ${res.dataOrNull}');
-        return Res.error("Failed to get download link, ${res.data}");
-      }
-      var res2 = await networkClientManager.apiDio.get<String>(link);
-      document = parse(res2.data);
-      var link2 = document.querySelector("a")?.attributes["href"];
-      var host = Uri.parse(link).host;
-      return Res("https://$host$link2");
-    } catch (e) {
-      return Res.error(e.toString());
     }
   }
 

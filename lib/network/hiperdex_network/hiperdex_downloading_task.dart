@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as paths;
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 
 import 'hiperdex_downloaded_item.dart';
@@ -71,7 +70,7 @@ class HiperdexDownloadingTask extends DownloadingTask {
   @override
   Future<void> onStart() async {
     await super.onStart();
-    final previous = await downloadManager.getComicOrNull(id);
+    final previous = await manager.getComicOrNull(id);
     if (previous is HiperdexDownloadedItem) {
       _chapterDirectories.addAll(previous.chapterDirectories);
     }
@@ -120,10 +119,8 @@ class HiperdexDownloadingTask extends DownloadingTask {
     if (result.containsKey(index + 1)) return;
     final key = comic.chapters!.keys.elementAt(index);
     for (var retry = 0; retry < 3; retry++) {
-      final response = await HiperdexNetwork.instance.getChapterPages(
-        comic.comicId,
-        key,
-      );
+      final network = manager.readProvider(hiperdexNetworkProvider);
+      final response = await network.getChapterPages(comic.comicId, key);
       if (response.success && response.data.isNotEmpty) {
         result[index + 1] = response.data;
         return;
@@ -153,7 +150,7 @@ class HiperdexDownloadingTask extends DownloadingTask {
 
   @override
   Stream<DownloadProgress> downloadImage(String link) =>
-      ImageManager().getImage(link, headers);
+      ImageManager(manager).getImage(link, headers);
 
   @override
   Map<String, dynamic> toMap() => {
@@ -177,7 +174,7 @@ class HiperdexDownloadingTask extends DownloadingTask {
   Future<HiperdexDownloadedItem> _buildDownloadedItem(
     List<int> completed,
   ) async {
-    final previous = await downloadManager.getComicOrNull(id);
+    final previous = await manager.getComicOrNull(id);
     final item = previous is HiperdexDownloadedItem
         ? previous.withComicInfo(comic)
         : HiperdexDownloadedItem(null, [], id, comic, 'HiperDEX');

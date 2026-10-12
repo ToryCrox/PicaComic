@@ -3,7 +3,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/net_fav_to_local.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -12,6 +11,8 @@ import 'package:pica_comic/components/components.dart';
 import '../../base.dart';
 import '../../network/base_comic.dart';
 import '../../network/res.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class _ChooseNetworkFolderWidget extends StatefulWidget {
   const _ChooseNetworkFolderWidget();
@@ -28,11 +29,13 @@ class LoadComicClass {
     FavoriteData fData,
     int i,
     String folder,
+    ProviderContainer container,
   ) async {
     if (fData.key == "ehentai") {
+      final network = container.read(ehNetworkProvider);
       if (data.galleries == null) {
-        Res<Galleries> res = await EhNetwork().getGalleries(
-          "${EhNetwork().ehBaseUrl}/favorites.php?favcat=$folder",
+        Res<Galleries> res = await network.getGalleries(
+          "${network.ehBaseUrl}/favorites.php?favcat=$folder",
           favoritePage: true,
         );
         if (res.error) {
@@ -49,7 +52,7 @@ class LoadComicClass {
       } else {
         while (data.comics[i] == null) {
           data.page++;
-          final next = await EhNetwork().getNextPageGalleries(data.galleries!);
+          final next = await network.getNextPageGalleries(data.galleries!);
           if (next.error) {
             return Res(null, errorMessage: next.errorMessage);
           }
@@ -61,7 +64,9 @@ class LoadComicClass {
         return Res(data.comics[i]);
       }
     }
-    return fData.loadComic(i, folder);
+    return container
+        .read(comicSourceCallbackRunnerProvider)
+        .loadFavorites(fData, i, folder);
   }
 }
 
@@ -74,12 +79,7 @@ class _ChooseNetworkFolderWidgetState
   String? selected;
   bool agreeSync = false;
 
-  Map<String, Map<String, String>> multiFolderData = {
-    "ehentai": Map.fromIterables(
-      List.generate(10, (index) => index.toString()),
-      EhNetwork().folderNames,
-    ),
-  };
+  late final Map<String, Map<String, String>> multiFolderData;
 
   @override
   void initState() {
@@ -90,6 +90,14 @@ class _ChooseNetworkFolderWidgetState
     }
     _folders = folders;
     isExpanded = _folders.map((e) => false).toList();
+    final container = ProviderScope.containerOf(context, listen: false);
+    final ehNetwork = container.read(ehNetworkProvider);
+    multiFolderData = {
+      "ehentai": Map.fromIterables(
+        List.generate(10, (index) => index.toString()),
+        ehNetwork.folderNames,
+      ),
+    };
     super.initState();
   }
 
@@ -175,15 +183,18 @@ class _ChooseNetworkFolderWidgetState
         builder: (context, updater) {
           if (multiFolderData[data.key] == null) {
             if (isExpanded[_folders.indexOf(data)]) {
-              data.loadFolders!().then((value) {
-                if (value.error) {
-                  showToast(message: "网络错误".tl);
-                } else {
-                  updater(() {
-                    multiFolderData[data.key] = value.data;
+              ProviderScope.containerOf(context, listen: false)
+                  .read(comicSourceCallbackRunnerProvider)
+                  .loadFavoriteFolders(data)
+                  .then((value) {
+                    if (value.error) {
+                      showToast(message: "网络错误".tl);
+                    } else {
+                      updater(() {
+                        multiFolderData[data.key] = value.data;
+                      });
+                    }
                   });
-                }
-              });
             }
             return const SizedBox(
               height: 56,
@@ -218,8 +229,12 @@ class _ChooseNetworkFolderWidgetState
     }
     App.globalBack();
     final loadComicObj = LoadComicClass();
+    final container = ProviderScope.containerOf(
+      App.globalContext!,
+      listen: false,
+    );
     startConvert<BaseComic>(
-      (page) => loadComicObj.loadComic(data, page, folderId),
+      (page) => loadComicObj.loadComic(data, page, folderId, container),
       null,
       App.globalContext!,
       name,

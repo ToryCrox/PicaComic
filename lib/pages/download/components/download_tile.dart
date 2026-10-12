@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart'; // ignore: unused_import
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: unused_import
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
@@ -72,6 +73,7 @@ class DownloadedComicTile extends ComicTile {
 
   /// 下载的漫画项（用于获取图片文件）
   final DownloadedItem downloadedItem;
+  final String? sourceComicId;
 
   /// 多选模式下需要一起拖出的漫画项。
   final List<DownloadedItem>? draggedItems;
@@ -108,6 +110,7 @@ class DownloadedComicTile extends ComicTile {
     this.onRead,
     this.isDragDisabled = false,
     required this.downloadedItem,
+    this.sourceComicId,
     this.draggedItems,
     this.translationResult,
     this.onTranslationResultTap,
@@ -157,15 +160,9 @@ class DownloadedComicTile extends ComicTile {
   int get descriptionMaxLines => 1;
 
   @override
-  String? get comicID {
-    if (downloadedItem is DownloadedGallery) {
-      return (downloadedItem as DownloadedGallery).gallery.link;
-    }
-    return downloadManager.getComicIdFromDownloadId(
-      downloadedItem.type.toComicType(),
-      downloadedItem.id,
-    );
-  }
+  String? get comicID => downloadedItem is DownloadedGallery
+      ? (downloadedItem as DownloadedGallery).gallery.link
+      : sourceComicId;
 
   @override
   ComicType? get comicType => downloadedItem.type.toComicType();
@@ -177,7 +174,7 @@ class DownloadedComicTile extends ComicTile {
   bool get showRead => false;
 
   @override
-  Widget? buildSubDescription(BuildContext context) {
+  Widget? buildSubDescription(BuildContext context, WidgetRef ref) {
     if (onManageTags == null && onOpenFolder == null && onRead == null) {
       return null;
     }
@@ -212,7 +209,7 @@ class DownloadedComicTile extends ComicTile {
                 title: "标签".tl,
                 showLabel: showLabels,
               ),
-            _buildColorTagButton(context, showLabel: showLabels),
+            _buildColorTagButton(context, ref, showLabel: showLabels),
           ];
           return Row(
             children: [
@@ -281,7 +278,11 @@ class DownloadedComicTile extends ComicTile {
     );
   }
 
-  Widget _buildColorTagButton(BuildContext context, {required bool showLabel}) {
+  Widget _buildColorTagButton(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool showLabel,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: "标记".tl,
@@ -292,6 +293,7 @@ class DownloadedComicTile extends ComicTile {
           mouseCursor: appClickableMouseCursor,
           borderRadius: BorderRadius.circular(7),
           onTapDown: (details) async {
+            final engine = ref.read(downloadManagerProvider.notifier);
             final overlay =
                 Overlay.of(context).context.findRenderObject() as RenderBox;
             final targetPosition = overlay.globalToLocal(
@@ -322,7 +324,7 @@ class DownloadedComicTile extends ComicTile {
               ],
             );
             if (color != null) {
-              downloadManager.updateColor(downloadedItem.id, color);
+              engine.updateColor(downloadedItem.id, color);
             }
           },
           child: ConstrainedBox(
@@ -369,10 +371,14 @@ class DownloadedComicTile extends ComicTile {
   void onTap_() => onTap();
 
   @override
-  void onLongTap_() => onLongTap();
+  void onLongTap_(WidgetRef ref, String defaultFavoriteFolder) => onLongTap();
 
   @override
-  void onSecondaryTap_(TapDownDetails details) => onSecondaryTap(details);
+  void onSecondaryTap_(
+    TapDownDetails details,
+    WidgetRef ref,
+    String defaultFavoriteFolder,
+  ) => onSecondaryTap(details);
 
   @override
   String get subTitle => "";
@@ -396,10 +402,10 @@ class DownloadedComicTile extends ComicTile {
   Widget? get badge => Text(type);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final baseTile = _buildTranslationResultMarkedTile(
       context,
-      super.build(context),
+      super.build(context, ref),
     );
 
     // 如果禁用拖拽，直接返回基础 Tile，移除所有拖拽相关的包装控件

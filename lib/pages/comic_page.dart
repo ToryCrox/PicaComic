@@ -121,9 +121,6 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   Card? get uploaderInfo => null;
   Widget? get buildMoreInfo => null;
   List<Widget>? get extraActionButtons => null;
-  String get downloadedId =>
-      downloadManager.getDownloadIdFromComicId(comicType, id);
-
   Future<Res<T>> loadData() async =>
       const Res(null, errorMessage: "Not supported");
   Future<T?> loadCachedData() async => null;

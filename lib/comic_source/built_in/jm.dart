@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -28,14 +29,16 @@ final jm = ComicSource.named(
     key: "jm",
     title: "禁漫天堂",
     multiFolder: true,
-    loadComic: (i, [folder]) => JmNetwork().getFolderComicsPage(folder!, i),
-    loadFolders: ([String? comicId]) => JmNetwork().getFolders(),
-    deleteFolder: (id) => JmNetwork().deleteFolder(id),
-    addFolder: (name) => JmNetwork().createFolder(name),
+    loadComic: (ref, i, [folder]) =>
+        ref.read(jmNetworkProvider).getFolderComicsPage(folder!, i),
+    loadFolders: (ref, [String? comicId]) =>
+        ref.read(jmNetworkProvider).getFolders(),
+    deleteFolder: (ref, id) => ref.read(jmNetworkProvider).deleteFolder(id),
+    addFolder: (ref, name) => ref.read(jmNetworkProvider).createFolder(name),
     allFavoritesId: "0",
-    addOrDelFavorite: (id, folder, isAdding) async {
+    addOrDelFavorite: (ref, id, folder, isAdding) async {
       if (isAdding) return const Res.error("invalid");
-      var res = await JmNetwork().favorite(id, folder);
+      var res = await ref.read(jmNetworkProvider).favorite(id, folder);
       return res;
     },
   ),
@@ -135,12 +138,14 @@ final jm = ComicSource.named(
     ],
   ),
   categoryComicsData: CategoryComicsData.named(
-    load: (category, param, options, page) async {
-      return JmNetwork().getCategoryComics(
-        param ?? category,
-        ComicsOrder.fromValue(options[0]),
-        page,
-      );
+    load: (ref, category, param, options, page) async {
+      return ref
+          .read(jmNetworkProvider)
+          .getCategoryComics(
+            param ?? category,
+            ComicsOrder.fromValue(options[0]),
+            page,
+          );
     },
     options: [
       CategoryComicsOptions.named(
@@ -157,27 +162,25 @@ final jm = ComicSource.named(
     ],
     rankingData: RankingData.named(
       options: {"mv": "总排行", "mv_m": "月排行", "mv_w": "周排行", "mv_t": "日排行"},
-      load: (option, page) {
-        return JmNetwork().getCategoryComics(
-          '0',
-          ComicsOrder.fromValue(option),
-          page,
-        );
+      load: (ref, option, page) {
+        return ref
+            .read(jmNetworkProvider)
+            .getCategoryComics('0', ComicsOrder.fromValue(option), page);
       },
     ),
   ),
   account: AccountConfig.named(
     registerWebsite: "https://18comic.vip/signup",
-    login: (account, pwd) async {
-      var res = await jmNetwork.login(account, pwd);
+    login: (ref, account, pwd) async {
+      var res = await ref.read(jmNetworkProvider).login(account, pwd);
       var a = <String>[account, pwd];
       var source = ComicSource.find(ComicType.jm)!;
       source.data['account'] = a;
       source.saveData();
       return res;
     },
-    logout: () {
-      jmNetwork.logout();
+    logout: (ref) {
+      ref.read(jmNetworkProvider).logout();
     },
     infoItems: [
       AccountInfoItem(
@@ -193,8 +196,8 @@ final jm = ComicSource.named(
     ExplorePageData.named(
       title: "禁漫主页",
       type: ExplorePageType.singlePageWithMultiPart,
-      loadMultiPart: () async {
-        var homePageData = await JmNetwork().getHomePage();
+      loadMultiPart: (ref) async {
+        var homePageData = await ref.read(jmNetworkProvider).getHomePage();
         if (homePageData.error) {
           return Res.fromErrorRes(homePageData);
         }
@@ -234,16 +237,17 @@ final jm = ComicSource.named(
     ExplorePageData.named(
       title: "禁漫最新",
       type: ExplorePageType.multiPageComicList,
-      loadPage: (page) => JmNetwork().getLatest(page).then((e) {
-        final data = e.dataOrNull;
-        if (data != null && page == 1) {
-          DiskCache.writeModelList(
-            'jm_latest',
-            data.map((e) => e.toJson()).toList(),
-          );
-        }
-        return e;
-      }),
+      loadPage: (ref, page) =>
+          ref.read(jmNetworkProvider).getLatest(page).then((e) {
+            final data = e.dataOrNull;
+            if (data != null && page == 1) {
+              DiskCache.writeModelList(
+                'jm_latest',
+                data.map((e) => e.toJson()).toList(),
+              );
+            }
+            return e;
+          }),
       loadCache: () {
         return DiskCache.readModelList(
           'jm_latest',
@@ -254,12 +258,10 @@ final jm = ComicSource.named(
   ],
   idMatcher: RegExp(r"^(\d+|jm\d+)$"),
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) {
-      return JmNetwork().searchNew(
-        keyword,
-        page,
-        ComicsOrder.fromValue(options[0]),
-      );
+    loadPage: (ref, keyword, page, options) {
+      return ref
+          .read(jmNetworkProvider)
+          .searchNew(keyword, page, ComicsOrder.fromValue(options[0]));
     },
     searchOptions: [
       SearchOptions.named(
@@ -279,10 +281,10 @@ final jm = ComicSource.named(
   comicPageBuilder: (context, id, cover) {
     return JmComicPage(id);
   },
-  getImageLoadingConfig: (url, comicId, epId) {
+  getImageLoadingConfig: (ref, url, comicId, epId) {
     return ImageConfig(url: url, headers: getImgHeaders());
   },
-  getThumbnailLoadingConfig: (url) {
+  getThumbnailLoadingConfig: (ref, url) {
     return ImageConfig(url: url, headers: getImgHeaders());
   },
 );
@@ -320,13 +322,13 @@ class _JmComicTile extends ComicTile {
   String get title => comic.name;
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await JmNetwork().getComicInfo(comic.id);
+    var res = await ref.read(jmNetworkProvider).getComicInfo(comic.id);
     if (cancel) {
       return;
     }

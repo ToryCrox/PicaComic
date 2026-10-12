@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -46,7 +47,7 @@ class KemonoAttachmentDownloadingTask extends DownloadingTask {
   final List<String> _failedFiles = [];
 
   /// 共享媒体 Dio。
-  Dio get _dio => networkClientManager.mediaDio;
+  Dio get _dio => networkClientManagerOf(App.globalContext!).mediaDio;
 
   final CancelToken _cancelToken = CancelToken();
 

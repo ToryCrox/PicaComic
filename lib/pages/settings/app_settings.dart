@@ -148,8 +148,11 @@ class _ProxyDialogState extends ConsumerState<_ProxyDialog> {
   }
 }
 
-void setDownloadFolder() async {
-  if (downloadManager.downloading.isNotEmpty) {
+Future<void> setDownloadFolder(
+  BuildContext context,
+  DownloadManager manager,
+) async {
+  if (manager.downloading.isNotEmpty) {
     showToast(message: "请在下载任务完成后进行操作".tl);
     return;
   }
@@ -163,8 +166,9 @@ void setDownloadFolder() async {
     var havePermission = await const MethodChannel(
       "pica_comic/settings",
     ).invokeMethod("files_check");
+    if (!context.mounted) return;
     showDialog(
-      context: App.globalContext!,
+      context: context,
       builder: (context) => SetDownloadFolderDialog(
         paths: paths,
         haveManageFilesPermission: havePermission,
@@ -172,7 +176,7 @@ void setDownloadFolder() async {
     );
   } else {
     showDialog(
-      context: App.globalContext!,
+      context: context,
       builder: (context) => const SetDownloadFolderDialog(),
     );
   }
@@ -196,6 +200,8 @@ class _SetDownloadFolderDialogState
     extends ConsumerState<SetDownloadFolderDialog> {
   final controller = TextEditingController();
   late String current;
+
+  DownloadManager get _engine => ref.read(downloadManagerProvider.notifier);
 
   @override
   void initState() {
@@ -262,6 +268,7 @@ class _SetDownloadFolderDialogState
                 Center(
                   child: FilledButton(
                     onPressed: () async {
+                      final engine = _engine;
                       if (controller.text ==
                           ref.read(
                             appSettingProvider(
@@ -286,7 +293,7 @@ class _SetDownloadFolderDialogState
                             const Duration(milliseconds: 200),
                           );
                         }
-                        var res = await downloadManager.updatePath(
+                        var res = await engine.updatePath(
                           controller.text,
                           transform: transform,
                         );
@@ -316,7 +323,7 @@ class _SetDownloadFolderDialogState
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                  child: Text("${"现在的路径为".tl}: ${downloadManager.path}"),
+                  child: Text("${"现在的路径为".tl}: ${_engine.path}"),
                 ),
               ],
             ),
@@ -388,6 +395,7 @@ class _SetDownloadFolderDialogState
                     child: FilledButton(
                       child: Text("确认".tl),
                       onPressed: () async {
+                        final engine = _engine;
                         if (ref.read(
                               appSettingProvider(
                                 AppSettingKeys.downloadDirectory,
@@ -411,7 +419,7 @@ class _SetDownloadFolderDialogState
                               const Duration(milliseconds: 200),
                             );
                           }
-                          var res = await downloadManager.updatePath(
+                          var res = await engine.updatePath(
                             current,
                             transform: transform,
                           );
@@ -644,7 +652,7 @@ void clearUserData(BuildContext context) {
         TextButton(onPressed: () => App.globalBack(), child: Text("取消".tl)),
         TextButton(
           onPressed: () async {
-            await clearAppdata();
+            await clearAppdata(jmNetwork: comicSourceServicesOf(context).jm);
             App.offAll(() => const WelcomePage());
             MyApp.updater?.call();
           },
@@ -655,10 +663,10 @@ void clearUserData(BuildContext context) {
   );
 }
 
-void exportDataSetting(BuildContext context) {
+void exportDataSetting(BuildContext context, DownloadManager manager) {
   void export(bool includeDownloads) async {
     var dialog = showLoadingDialog(context, allowCancel: false);
-    var res = await runExportData(includeDownloads);
+    var res = await runExportData(includeDownloads, manager: manager);
     if (context.mounted) {
       if (res) {
         dialog.close();
@@ -696,7 +704,7 @@ void exportDataSetting(BuildContext context) {
   );
 }
 
-void importDataSetting(BuildContext context) {
+void importDataSetting(BuildContext context, DownloadManager manager) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -711,7 +719,7 @@ void importDataSetting(BuildContext context) {
           onPressed: () {
             App.globalBack();
             var dialog = showLoadingDialog(context, allowCancel: false);
-            importData().then((v) {
+            importData(manager: manager).then((v) {
               dialog.close();
               if (v) {
                 showToast(message: "成功导入".tl);
@@ -727,7 +735,7 @@ void importDataSetting(BuildContext context) {
   );
 }
 
-void syncDataSettings(BuildContext context) {
+void syncDataSettings(BuildContext context, DownloadManager manager) {
   var configs = ["", "", "", ""];
   if (_readSettingContext(context, AppSettingKeys.webdavConfig) != "") {
     configs = _readSettingContext(
@@ -828,7 +836,14 @@ void syncDataSettings(BuildContext context) {
                 );
                 var res = value == 0
                     ? await Webdav.uploadData("$url;$username;$pwd;$path")
-                    : await Webdav.downloadData("$url;$username;$pwd;$path");
+                    : await Webdav.downloadData(
+                        manager,
+                        "$url;$username;$pwd;$path",
+                      );
+                if (!context.mounted) {
+                  dialog.close();
+                  return;
+                }
                 if (!res) {
                   dialog.close();
                   showToast(message: "Failed to sync data");

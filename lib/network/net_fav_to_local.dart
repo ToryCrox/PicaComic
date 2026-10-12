@@ -3,10 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:pica_comic/base.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/res.dart';
@@ -144,10 +145,14 @@ void startFolderSync<T extends Object>(
   int addValue = 0;
   final loadComicObj = LoadComicClass();
   final fData = getFavoriteData(key);
-  final total = int.parse(appdata.getSetting(AppSettingKeys.favoriteSyncPages));
+  final container = ProviderScope.containerOf(context, listen: false);
+  final total = container
+      .read(appSettingsProvider)
+      .integer(AppSettingKeys.favoriteSyncPages, 1);
   List<BaseComic> comics = await getFavorites(
     context,
-    (page) => loadComicObj.loadComic(fData, page, syncDataObj["folderId"]),
+    (page) =>
+        loadComicObj.loadComic(fData, page, syncDataObj["folderId"], container),
     null,
     total,
   );

@@ -1,5 +1,5 @@
+import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/def.dart';
-import 'hitomi_main_network.dart';
 import 'hitomi_models.dart';
 import 'package:dio/dio.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
@@ -10,7 +10,10 @@ import 'package:pica_comic/network/network_client_manager.dart';
 ///
 /// gg.js内容会动态变化
 class GG {
-  String get baseDomain => HiNetwork().baseDomain;
+  GG({required this.baseDomain, required this.clientManager});
+
+  final String baseDomain;
+  final NetworkClientManager clientManager;
   List<String> numbers = [];
   int initialG = 1;
   int mm(int g) {
@@ -48,7 +51,7 @@ class GG {
       b = cacheB!;
       return;
     }
-    var res = await networkClientManager.apiDio.get<String>(
+    var res = await clientManager.apiDio.get<String>(
       "https://ltn.$baseDomain/gg.js?_=1683939645979",
       options: Options(
         responseType: ResponseType.plain,

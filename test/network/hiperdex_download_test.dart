@@ -99,26 +99,25 @@ void main() {
   test('独立下载类型继续找到原 other 封面文件', () async {
     final root = await Directory.systemTemp.createTemp('hiperdex-cover-');
     addTearDown(() => root.delete(recursive: true));
-    final previousPath = downloadManager.path;
-    downloadManager.path = root.path;
-    addTearDown(() => downloadManager.path = previousPath);
-    final legacy = downloadManager.getCoverPath(
-      'hiperdex-sample',
-      DownloadType.other,
-    )!;
+    final manager = DownloadManager();
+    final previousPath = manager.path;
+    manager.path = root.path;
+    addTearDown(() => manager.path = previousPath);
+    final legacy = manager.getCoverPath('hiperdex-sample', DownloadType.other)!;
     final file = File(legacy);
     await file.parent.create(recursive: true);
     await file.writeAsString('cover');
     expect(
-      downloadManager.getCoverPath('hiperdex-sample', DownloadType.hiperdex),
+      manager.getCoverPath('hiperdex-sample', DownloadType.hiperdex),
       legacy,
     );
   });
 
   test('下载队列使用真实章号而非章节位置，并能恢复任务', () async {
-    final previousPath = downloadManager.path;
-    downloadManager.path = Directory.systemTemp.path;
-    addTearDown(() => downloadManager.path = previousPath);
+    final manager = DownloadManager();
+    final previousPath = manager.path;
+    manager.path = Directory.systemTemp.path;
+    addTearDown(() => manager.path = previousPath);
     final task =
         HiperdexDownloadingTask(
             info,
@@ -133,6 +132,7 @@ void main() {
             1: ['https://example.com/a'],
             2: ['https://example.com/b'],
           };
+    manager.bindTask(task);
     final queue = _RecordingQueue();
     await task.loadImages(queue);
     expect(queue.items.map((item) => path.basename(item.savePath)), [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/res.dart';
@@ -6,6 +7,7 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class NetworkFavoritePage extends StatelessWidget {
   const NetworkFavoritePage(this.data, {super.key});
@@ -26,8 +28,8 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   final FavoriteData data;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) {
-    return data.loadComic(i);
+  Future<Res<List<BaseComic>>> getComics(int i, Ref ref) {
+    return data.loadComic(ref, i, null);
   }
 
   @override
@@ -40,36 +42,43 @@ class _NormalFavoritePage extends ComicsPage<BaseComic> {
   ComicType get comicType => ComicType.fromString(data.key);
 
   @override
-  List<ComicTileMenuOption>? buildAddonMenuOptions(ComicListPageLogic logic) {
+  List<ComicTileMenuOption>? buildAddonMenuOptions(
+    ComicListPageLogic logic,
+    WidgetRef ref,
+  ) {
     return [
       if (data.addOrDelFavorite != null)
         ComicTileMenuOption("取消收藏".tl, Icons.playlist_remove_outlined, (id) {
           if (id == null) return;
           var dialog = showLoadingDialog(App.globalContext!);
-          data.addOrDelFavorite!(id, "0", false).then((res) {
-            dialog.close();
-            if (res.error) {
-              showToast(message: res.errorMessage!);
-            } else {
-              logic.refresh();
-            }
-          });
+          ref
+              .read(comicSourceCallbackRunnerProvider)
+              .changeFavorite(data, id, "0", false)
+              .then((res) {
+                dialog.close();
+                if (res.error) {
+                  showToast(message: res.errorMessage!);
+                } else {
+                  logic.refresh();
+                }
+              });
         }),
     ];
   }
 }
 
-class _MultiFolderFavoritesPage extends StatefulWidget {
+class _MultiFolderFavoritesPage extends ConsumerStatefulWidget {
   const _MultiFolderFavoritesPage(this.data);
 
   final FavoriteData data;
 
   @override
-  State<_MultiFolderFavoritesPage> createState() =>
+  ConsumerState<_MultiFolderFavoritesPage> createState() =>
       _MultiFolderFavoritesPageState();
 }
 
-class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
+class _MultiFolderFavoritesPageState
+    extends ConsumerState<_MultiFolderFavoritesPage> {
   bool _loading = true;
 
   String? _errorMessage;
@@ -77,7 +86,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   Map<String, String>? folders;
 
   void loadPage() async {
-    var res = await widget.data.loadFolders!();
+    final callbacks = ref.read(comicSourceCallbackRunnerProvider);
+    var res = await callbacks.loadFavoriteFolders(widget.data);
     _loading = false;
     if (res.error) {
       setState(() {
@@ -127,7 +137,9 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                     onTap: () => openFolder(keys[i], folders![keys[i]]!),
                     deleteFolder: widget.data.deleteFolder == null
                         ? null
-                        : () => widget.data.deleteFolder!(keys[i]),
+                        : () => ref
+                              .read(comicSourceCallbackRunnerProvider)
+                              .deleteFavoriteFolder(widget.data, keys[i]),
                     updateState: () => setState(() {
                       _loading = true;
                     }),
@@ -139,7 +151,9 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                   onTap: () => openFolder(keys[i], folders![keys[i]]!),
                   deleteFolder: widget.data.deleteFolder == null
                       ? null
-                      : () => widget.data.deleteFolder!(keys[i]),
+                      : () => ref
+                            .read(comicSourceCallbackRunnerProvider)
+                            .deleteFavoriteFolder(widget.data, keys[i]),
                   updateState: () => setState(() {
                     _loading = true;
                   }),
@@ -277,7 +291,7 @@ class _FolderTile extends StatelessWidget {
   }
 }
 
-class _CreateFolderDialog extends StatefulWidget {
+class _CreateFolderDialog extends ConsumerStatefulWidget {
   const _CreateFolderDialog(this.data, this.updateState);
 
   final FavoriteData data;
@@ -285,10 +299,11 @@ class _CreateFolderDialog extends StatefulWidget {
   final void Function() updateState;
 
   @override
-  State<_CreateFolderDialog> createState() => _CreateFolderDialogState();
+  ConsumerState<_CreateFolderDialog> createState() =>
+      _CreateFolderDialogState();
 }
 
-class _CreateFolderDialogState extends State<_CreateFolderDialog> {
+class _CreateFolderDialogState extends ConsumerState<_CreateFolderDialog> {
   var controller = TextEditingController();
   var focusNode = FocusNode();
   bool loading = false;
@@ -322,18 +337,21 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
                   setState(() {
                     loading = true;
                   });
-                  widget.data.addFolder!(controller.text).then((b) {
-                    if (b.error) {
-                      showToast(message: b.errorMessage!);
-                      setState(() {
-                        loading = false;
+                  ref
+                      .read(comicSourceCallbackRunnerProvider)
+                      .addFavoriteFolder(widget.data, controller.text)
+                      .then((b) {
+                        if (b.error) {
+                          showToast(message: b.errorMessage!);
+                          setState(() {
+                            loading = false;
+                          });
+                        } else {
+                          context.pop();
+                          showToast(message: "成功创建".tl);
+                          widget.updateState();
+                        }
                       });
-                    } else {
-                      context.pop();
-                      showToast(message: "成功创建".tl);
-                      widget.updateState();
-                    }
-                  });
                 },
                 child: Text("提交".tl),
               ),
@@ -355,8 +373,8 @@ class _FavoriteFolder extends ComicsPage<BaseComic> {
   final String title;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) {
-    return data.loadComic(i, folderID);
+  Future<Res<List<BaseComic>>> getComics(int i, Ref ref) {
+    return data.loadComic(ref, i, folderID);
   }
 
   @override

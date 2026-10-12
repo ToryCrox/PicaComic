@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:path/path.dart' as Path;
 import 'package:pica_comic/tools/io_tools.dart';
@@ -24,16 +25,16 @@ import 'local_history_page.dart';
 import 'local_favorites_page.dart';
 import 'local_comic_tile.dart';
 
-class LocalComicPage extends StatefulWidget {
+class LocalComicPage extends ConsumerStatefulWidget {
   final String? parentPath;
 
   const LocalComicPage({Key? key, this.parentPath}) : super(key: key);
 
   @override
-  State<LocalComicPage> createState() => _LocalComicPageState();
+  ConsumerState<LocalComicPage> createState() => _LocalComicPageState();
 }
 
-class _LocalComicPageState extends State<LocalComicPage> {
+class _LocalComicPageState extends ConsumerState<LocalComicPage> {
   // 本地漫画列表
   final List<LocalComicModel> _localComics = [];
   // 当前目录文件总大小
@@ -57,10 +58,11 @@ class _LocalComicPageState extends State<LocalComicPage> {
 
   // 加载本地漫画列表
   Future<void> _loadLocalComics() async {
+    final engine = ref.read(downloadManagerProvider.notifier);
     final parentPath = widget.parentPath;
     if (parentPath == null) {
       // 加载根目录（已添加的本地漫画）
-      final localComics = await downloadManager.getAllLocal();
+      final localComics = await engine.getAllLocal();
       final list = <LocalComicModel>[];
       for (final map in localComics) {
         final m = LocalComicModel.fromMap(map);
@@ -204,14 +206,16 @@ class _LocalComicPageState extends State<LocalComicPage> {
   // 处理拖拽文件/文件夹
   Future _dropFile(String path) async {
     if (FileSystemEntity.isDirectorySync(path)) {
-      await downloadManager.addLocalItem(
-        path: path,
-        title: Path.basename(path),
-        subtitle: '',
-        json: {},
-        size: 0,
-        cover: '',
-      );
+      await ref
+          .read(downloadManagerProvider.notifier)
+          .addLocalItem(
+            path: path,
+            title: Path.basename(path),
+            subtitle: '',
+            json: {},
+            size: 0,
+            cover: '',
+          );
       _loadLocalComics();
     }
   }
@@ -340,9 +344,10 @@ class _LocalComicPageState extends State<LocalComicPage> {
                   ),
                   TextButton(
                     onPressed: () async {
+                      final engine = ref.read(downloadManagerProvider.notifier);
                       Navigator.pop(context);
                       if (parentPath == null) {
-                        await downloadManager.deleteLocal(model.path);
+                        await engine.deleteLocal(model.path);
                       } else {
                         try {
                           Directory(model.path).deleteSync(recursive: true);

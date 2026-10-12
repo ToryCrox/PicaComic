@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
@@ -16,7 +17,7 @@ import '../../foundation/ui_mode.dart';
 import '../../foundation/theme/app_mouse_cursor.dart';
 import '../../network/download/download_model.dart';
 import '../../network/eh_network/eh_download_model.dart';
-import '../../network/eh_network/eh_main_network.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/res.dart';
 import '../../tools/extensions.dart';
@@ -29,6 +30,7 @@ import '../comic_page/comic_page_adapter.dart';
 import 'eh_comments_page.dart';
 import 'eh_gallery_page.dart' show RatingWidget, EhThumbnailLoader;
 import 'eh_original_availability.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // EhAdapter — E-Hentai
@@ -52,7 +54,7 @@ class _RatingDialogState extends State<_RatingDialog> {
     if (_running) return;
     setState(() => _running = true);
     try {
-      final success = await EhNetwork().rateGallery(
+      final success = await appComicSourceServices.ehentai.rateGallery(
         widget.data.auth,
         _rating.toInt(),
       );
@@ -116,8 +118,8 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) =>
-      downloadManager.getDownloadIdFromComicId(comicType, id);
+  String downloadId(String id, DownloadManager manager) =>
+      manager.getDownloadIdFromComicId(comicType, id);
   @override
   String url(Gallery data) => data.link ?? '';
   @override
@@ -126,7 +128,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   // -------- B. 数据加载 --------
   @override
   Future<Res<Gallery>> loadData(String id) async {
-    var res = await EhNetwork().getGalleryInfo(
+    var res = await appComicSourceServices.ehentai.getGalleryInfo(
       id,
       appdata.getSetting(AppSettingKeys.ehIgnoreWarnings) == "1",
     );
@@ -150,7 +152,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
         ),
       );
       if (shouldIgnore) {
-        return await EhNetwork().getGalleryInfo(id, true);
+        return await appComicSourceServices.ehentai.getGalleryInfo(id, true);
       }
       return const Res(null, errorMessage: "Exit");
     }
@@ -214,12 +216,12 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   EpsData? eps(Gallery data, BuildContext context) => null;
 
   @override
-  ThumbnailsData? createThumbnails(Gallery data) {
+  ThumbnailsData? createThumbnails(Gallery data, WidgetRef ref) {
     if (data.auth["thumbnailKey"] != null &&
         data.auth["thumbnailKey"]!.startsWith("large thumbnail")) {
       return ThumbnailsData(
         data.thumbnails,
-        (page) => EhNetwork().getThumbnails(data, page),
+        (page) => appComicSourceServices.ehentai.getThumbnails(data, page),
         int.tryParse(data.auth["thumbnailKey"]!.nums) ?? 1,
       );
     }
@@ -228,7 +230,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
         min(data.pageSize, int.tryParse(data.maxPage) ?? 1),
         (_) => data.auth["thumbnailKey"]!.split(" ")[0],
       ),
-      (page) => EhNetwork().getThumbnails(data, page),
+      (page) => appComicSourceServices.ehentai.getThumbnails(data, page),
       int.tryParse(data.auth["thumbnailKey"]!.split(" ")[1]) ?? 1,
     );
   }
@@ -277,9 +279,9 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   }
 
   Map<String, String> get _headers => {
-    "Cookie": EhNetwork().cookiesStr,
+    "Cookie": appComicSourceServices.ehentai.cookiesStr,
     "User-Agent": webUA,
-    "Referer": EhNetwork().ehBaseUrl,
+    "Referer": appComicSourceServices.ehentai.ehBaseUrl,
   };
 
   // -------- D. 操作 --------
@@ -290,8 +292,8 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   }
 
   @override
-  void download(Gallery data, BuildContext context) {
-    _showDownloadDialog(data, context);
+  void download(Gallery data, BuildContext context, DownloadManager manager) {
+    _showDownloadDialog(data, context, manager);
   }
 
   @override
@@ -299,11 +301,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
     Gallery data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: ehentai.isLogin,
       needLoadFolderData: false,
-      folders: Map<String, String>.fromIterable(EhNetwork().folderNames),
+      folders: Map<String, String>.fromIterable(
+        appComicSourceServices.ehentai.folderNames,
+      ),
       favoriteOnPlatform: data.favorite,
       localFavoriteItem: toLocalFavoriteItem(data),
       setFavorite: (b) {
@@ -314,10 +319,12 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       },
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          var res = await EhNetwork().favorite(
+          var res = await appComicSourceServices.ehentai.favorite(
             data.auth["gid"]!,
             data.auth["token"]!,
-            id: EhNetwork().folderNames.indexOf(folder).toString(),
+            id: appComicSourceServices.ehentai.folderNames
+                .indexOf(folder)
+                .toString(),
           );
           if (res) {
             data = data.copyWith(favorite: true);
@@ -330,11 +337,13 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
         LocalFavoritesManager().addComic(
           folder,
           FavoriteItem.fromEhentai(data.toBrief()),
+          null,
+          manager,
         );
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
-        var res = await EhNetwork().unfavorite(
+        var res = await appComicSourceServices.ehentai.unfavorite(
           data.auth["gid"]!,
           data.auth["token"]!,
         );
@@ -507,138 +516,50 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   }
 
   // -------- 下载弹窗 --------
-  void _showDownloadDialog(Gallery data, BuildContext context) {
-    int current = 0;
-    bool loading = true;
-    ArchiveDownloadInfo? info;
-    bool cancelUnlock = false;
-
-    showDialog(
-      context: App.globalContext!,
-      builder: (dialogContext) => Dialog(
-        child: StatefulBuilder(
-          builder: (ctx, setState) {
-            void load() async {
-              if (data.auth["archiveDownload"] == null) return;
-              Res<ArchiveDownloadInfo> res;
-              if (cancelUnlock) {
-                cancelUnlock = false;
-                res = await EhNetwork().cancelAndReloadArchiveInfo(info!);
-              } else {
-                res = await EhNetwork().getArchiveDownloadInfo(
-                  data.auth["archiveDownload"]!,
-                );
-              }
-              if (res.error) {
-                showToast(message: "网络错误".tl);
-              } else {
-                info = res.data;
-                loading = false;
-                if (ctx.mounted) setState(() {});
-              }
-            }
-
-            if (loading) load();
-
-            return Container(
-              width: 350,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "下载".tl,
-                    style: const TextStyle(fontSize: 20),
-                  ).paddingLeft(16),
-                  const Divider(),
-                  RadioListTile(
-                    value: 0,
-                    groupValue: current,
-                    onChanged: (value) =>
-                        setState(() => current = value as int),
-                    title: Text("普通下载".tl),
-                  ),
-                  ExpansionTile(
-                    title: Text("归档下载".tl),
-                    shape: Border.all(color: Colors.transparent),
-                    children: [
-                      if (loading)
-                        const CircularProgressIndicator()
-                            .paddingVertical(8)
-                            .toCenter()
-                      else
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            RadioListTile(
-                              value: 1,
-                              groupValue: current,
-                              onChanged: (value) =>
-                                  setState(() => current = value as int),
-                              title: Text("Original".tl),
-                              subtitle: Text(
-                                "${info!.originCost} ${info!.originSize}",
-                              ),
-                            ),
-                            RadioListTile(
-                              value: 2,
-                              groupValue: current,
-                              onChanged: (value) =>
-                                  setState(() => current = value as int),
-                              title: Text("Resample".tl),
-                              subtitle: Text(
-                                "${info!.resampleCost} ${info!.resampleSize}",
-                              ),
-                            ),
-                            if (info!.cancelUnlockUrl != null)
-                              ListTile(
-                                leading: const Icon(Icons.lock_open),
-                                title: Text("取消解锁".tl),
-                                subtitle: Text("长按执行此操作".tl),
-                                onLongPress: () {
-                                  setState(() {
-                                    cancelUnlock = true;
-                                    loading = true;
-                                  });
-                                },
-                              ).paddingLeft(6),
-                          ],
-                        ),
-                    ],
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      _startDownload(data, current);
-                    },
-                    child: Text("确认".tl),
-                  ).toCenter(),
-                ],
-              ),
-            );
-          },
-        ),
+  void _showDownloadDialog(
+    Gallery data,
+    BuildContext context,
+    DownloadManager manager,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text("下载".tl),
+        content: Text("普通下载".tl),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text("取消".tl),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _startDownload(data, context, manager);
+            },
+            child: Text("确认".tl),
+          ),
+        ],
       ),
     );
   }
 
-  void _startDownload(Gallery data, int type) async {
-    final id = downloadManager.getDownloadIdFromComicId(
-      comicType,
-      data.link ?? '',
-    );
-    if (await downloadManager.isExists(id)) {
+  Future<void> _startDownload(
+    Gallery data,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
+    final id = manager.getDownloadIdFromComicId(comicType, data.link ?? '');
+    if (await manager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    downloadManager.addEhDownload(data, type);
+    manager.addEhDownload(data);
     showToast(message: "已加入下载队列".tl);
   }
 }

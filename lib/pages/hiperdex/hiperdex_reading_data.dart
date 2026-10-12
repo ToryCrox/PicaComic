@@ -52,12 +52,12 @@ class HiperdexReadingData extends ReadingData {
   Future<Res<List<String>>> loadEpNetwork(int ep) {
     final key = eps?.keys.elementAtOrNull(ep - 1);
     if (key == null) return Future.value(const Res.error('找不到该章节'));
-    return HiperdexNetwork.instance.getChapterPages(id, key);
+    return sourceServices.hiperdex.getChapterPages(id, key);
   }
 
   @override
   Stream<DownloadProgress> loadImageNetwork(int ep, int page, String url) =>
-      ImageManager().getImage(url, HiperdexNetwork.imageHeaders);
+      ImageManager(downloadManager).getImage(url, HiperdexNetwork.imageHeaders);
 
   @override
   String buildImageKey(int ep, int page, String url) =>

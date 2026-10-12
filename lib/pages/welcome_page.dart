@@ -14,6 +14,7 @@ import 'package:pica_comic/foundation/theme/theme_provider.dart';
 
 import '../main.dart';
 import 'accounts_page.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -123,7 +124,7 @@ mixin class _WelcomePageComponents {
           Button.filled(
             padding: const EdgeInsets.fromLTRB(24, 6, 12, 6),
             onPressed: () async {
-              await ComicSource.reload();
+              await reloadComicSources(context);
               if (context.mounted) {
                 context.to(() => const MainPage());
               }
@@ -344,7 +345,9 @@ class _ComicSourceState extends ConsumerState<_ComicSource>
     with _WelcomePageComponents {
   @override
   Widget build(BuildContext context) {
-    ref.watch(appSettingsProvider);
+    final enabledSourceFlags = ref.watch(
+      appSettingProvider(AppSettingKeys.enabledBuiltInSources),
+    );
     return buildView(
       children: [
         buildTitle("漫画源".tl),
@@ -358,14 +361,16 @@ class _ComicSourceState extends ConsumerState<_ComicSource>
                   ComicSource.builtIn.firstWhere((e) => e.key == key).name,
                 ),
                 trailing: Switch(
-                  value: appdata.appSettings.isComicSourceEnabled(key.name),
-                  onChanged: (v) {
-                    _saveWelcomeSetting(
+                  value: _isBuiltInSourceEnabled(enabledSourceFlags, index),
+                  onChanged: (enabled) async {
+                    final current = ref.read(
+                      appSettingProvider(AppSettingKeys.enabledBuiltInSources),
+                    );
+                    await _saveWelcomeSetting(
                       ref,
                       AppSettingKeys.enabledBuiltInSources,
-                      appdata.appSettings.comicSourceEnabledValue(key.name, v),
+                      _updatedBuiltInSourceFlags(current, index, enabled),
                     );
-                    setState(() {});
                   },
                 ),
               );
@@ -403,6 +408,14 @@ class _More extends StatelessWidget with _WelcomePageComponents {
       ],
     );
   }
+}
+
+bool _isBuiltInSourceEnabled(String values, int index) =>
+    index >= values.length || values[index] == '1';
+
+String _updatedBuiltInSourceFlags(String values, int index, bool enabled) {
+  final padded = values.padRight(index + 1, '1');
+  return padded.replaceRange(index, index + 1, enabled ? '1' : '0');
 }
 
 /// 欢迎页复用统一设置入口，并展示保存失败信息。

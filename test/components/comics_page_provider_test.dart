@@ -38,7 +38,7 @@ class _TestComicsPage extends ComicsPage<BaseComic> {
   ComicType get comicType => ComicType.picacg;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int page) async {
+  Future<Res<List<BaseComic>>> getComics(int page, Ref ref) async {
     return loadPage(page);
   }
 
@@ -56,6 +56,7 @@ class _TestComicsPage extends ComicsPage<BaseComic> {
     BuildContext context,
     BaseComic item,
     ComicListPageLogic logic,
+    WidgetRef _,
   ) {
     return const SizedBox(width: 120, height: 120);
   }

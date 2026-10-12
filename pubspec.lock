@@ -2045,14 +2045,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.2.7"
-  workmanager:
-    dependency: "direct main"
-    description:
-      name: workmanager
-      sha256: "746a50c535af15b6dc225abbd9b52ab272bcd292c535a104c54b5bc02609c38a"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "0.7.0"
   xdg_directories:
     dependency: transitive
     description:

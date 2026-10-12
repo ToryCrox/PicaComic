@@ -169,11 +169,12 @@ Future<bool?> showDeleteDownloadDialog(
 Future<void> deleteDownloadedComics(
   List<String> ids, {
   required bool deleteFiles,
+  required DownloadManager manager,
 }) async {
   if (deleteFiles) {
-    await downloadManager.delete(ids);
+    await manager.delete(ids);
   } else {
-    await downloadManager.deleteWithoutFile(ids);
+    await manager.deleteWithoutFile(ids);
   }
 }
 
@@ -224,6 +225,7 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
   required VoidCallback onRefreshTags,
   required VoidCallback onExitSelecting,
 }) {
+  final manager = ref.read(downloadManagerProvider.notifier);
   return [
     popupMenuItem<void>(
       text: "全选".tl,
@@ -242,13 +244,14 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
         if (selectedComics.isEmpty) return;
         Future.delayed(const Duration(milliseconds: 200), () async {
           final deleteFiles = await showDeleteDownloadDialog(
-            App.globalContext!,
+            context,
             count: selectedComics.length,
           );
           if (deleteFiles == null) return;
           await deleteDownloadedComics(
             selectedComics.map((e) => e.id).toList(),
             deleteFiles: deleteFiles,
+            manager: manager,
           );
           onExitSelecting();
           onRefresh();
@@ -260,11 +263,9 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
       icon: Icons.download,
       onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
         if (selectedComics.isEmpty) return;
-        final overwriteExisting = await showRedownloadDialog(
-          App.globalContext!,
-        );
+        final overwriteExisting = await showRedownloadDialog(context);
         if (overwriteExisting == null) return;
-        final result = await downloadManager.redownloadComics(
+        final result = await manager.redownloadComics(
           selectedComics,
           overwriteExisting: overwriteExisting,
         );
@@ -279,7 +280,7 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
       text: "更新封面".tl,
       icon: Icons.refresh,
       onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
-        final result = await downloadManager.refreshComicCovers(selectedComics);
+        final result = await manager.refreshComicCovers(selectedComics);
         showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
         if (result.successCount > 0) {
           onExitSelecting();
@@ -314,9 +315,9 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
       text: "标记颜色".tl,
       icon: Icons.color_lens_outlined,
       onTap: () => Future.delayed(const Duration(milliseconds: 200), () async {
-        final color = await showDownloadColorDialog(App.globalContext!);
+        final color = await showDownloadColorDialog(context);
         if (color == null) return;
-        await downloadManager.batchUpdateColor(
+        await manager.batchUpdateColor(
           selectedComics.map((e) => e.id).toList(),
           color,
         );
@@ -375,6 +376,7 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
         () => addToLocalFavoriteFolder(
           context: App.globalContext!,
           comics: selectedComics,
+          manager: manager,
         ),
       ),
     ),
@@ -549,6 +551,7 @@ List<PopupMenuEntry<DownloadType?>> buildDownloadTypeFilterMenuItems({
 /// 显示右键菜单
 Future<void> showTileContextMenu({
   required BuildContext context,
+  required DownloadManager manager,
   required TapDownDetails details,
   required DownloadedItem comic,
   required List<String> Function(DownloadedItem) getOriginalTags,
@@ -569,10 +572,8 @@ Future<void> showTileContextMenu({
     return isBatch ? '$translatedText（${targetComics.length}）' : translatedText;
   }
 
-  final canRedownloadTarget = targetComics.any(downloadManager.canRedownload);
-  final canRefreshCoverTarget = targetComics.any(
-    downloadManager.canRefreshCover,
-  );
+  final canRedownloadTarget = targetComics.any(manager.canRedownload);
+  final canRefreshCoverTarget = targetComics.any(manager.canRefreshCover);
   final hasTranslationResult = isBatch
       ? true
       : await TranslationResultReplacer().hasReplacementCandidate(
@@ -622,11 +623,10 @@ Future<void> showTileContextMenu({
           icon: Icons.download,
           onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
-            final overwriteExisting = await showRedownloadDialog(
-              App.globalContext!,
-            );
+            if (!context.mounted) return;
+            final overwriteExisting = await showRedownloadDialog(context);
             if (overwriteExisting == null) return;
-            final result = await downloadManager.redownloadComics([
+            final result = await manager.redownloadComics([
               ...targetComics,
             ], overwriteExisting: overwriteExisting);
             showDownloadBatchResultToast(result, actionName: "已加入重新下载队列".tl);
@@ -641,9 +641,7 @@ Future<void> showTileContextMenu({
           icon: Icons.refresh,
           onTap: () async {
             await Future.delayed(const Duration(milliseconds: 300));
-            final result = await downloadManager.refreshComicCovers(
-              targetComics,
-            );
+            final result = await manager.refreshComicCovers(targetComics);
             showDownloadBatchResultToast(result, actionName: "已更新封面".tl);
             if (result.successCount > 0) {
               (onBatchComplete ?? onRefresh)();
@@ -666,13 +664,14 @@ Future<void> showTileContextMenu({
         onTap: () {
           Future.delayed(const Duration(milliseconds: 200), () async {
             final deleteFiles = await showDeleteDownloadDialog(
-              App.globalContext!,
+              context,
               count: targetComics.length,
             );
             if (deleteFiles == null) return;
             await deleteDownloadedComics(
               targetComics.map((e) => e.id).toList(),
               deleteFiles: deleteFiles,
+              manager: manager,
             );
             (onBatchComplete ?? onRemoveComic)();
           });
@@ -730,15 +729,16 @@ Future<void> showTileContextMenu({
         icon: Icons.color_lens_outlined,
         onTap: () async {
           await Future.delayed(const Duration(milliseconds: 300));
-          final color = await showDownloadColorDialog(App.globalContext!);
+          if (!context.mounted) return;
+          final color = await showDownloadColorDialog(context);
           if (color == null) return;
           if (isBatch) {
-            await downloadManager.batchUpdateColor(
+            await manager.batchUpdateColor(
               targetComics.map((e) => e.id).toList(),
               color,
             );
           } else {
-            await downloadManager.updateColor(comic.id, color);
+            await manager.updateColor(comic.id, color);
           }
           (onBatchComplete ?? onRefresh)();
         },
@@ -748,7 +748,7 @@ Future<void> showTileContextMenu({
         icon: Icons.content_copy,
         onTap: () async {
           Future.delayed(const Duration(milliseconds: 300), () async {
-            var path = await downloadManager.getFullDirectory(comic.id);
+            var path = await manager.getFullDirectory(comic.id);
             Clipboard.setData(ClipboardData(text: path));
           });
         },
@@ -757,7 +757,7 @@ Future<void> showTileContextMenu({
         text: "打开文件".tl,
         icon: Icons.folder_open,
         onTap: () async {
-          var path = await downloadManager.getFullDirectory(comic.id);
+          var path = await manager.getFullDirectory(comic.id);
           FileUtils.openFileOrDirectory(path);
         },
       ),
@@ -769,6 +769,7 @@ Future<void> showTileContextMenu({
 void addToLocalFavoriteFolder({
   required BuildContext context,
   required List<DownloadedItem> comics,
+  required DownloadManager manager,
 }) {
   String? folder;
   showDialog(
@@ -859,6 +860,8 @@ void addToLocalFavoriteFolder({
                             '本地漫画不支持添加到收藏',
                           ),
                         },
+                        null,
+                        manager,
                       );
                     }
                     App.globalBack();

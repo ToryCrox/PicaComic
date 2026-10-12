@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -18,20 +19,24 @@ abstract interface class JmCommentsRepository {
 }
 
 class _JmCommentsRepository implements JmCommentsRepository {
+  _JmCommentsRepository(this._network);
+
+  final JmNetwork _network;
+
   @override
   Future<Res<List<Comment>>> getComments(String id, int page) {
-    return jmNetwork.getComment(id, page);
+    return _network.getComment(id, page);
   }
 
   @override
   Future<Res<dynamic>> sendComment(String id, String text) {
-    return jmNetwork.comment(id, text);
+    return _network.comment(id, text);
   }
 }
 
 /// JM 评论网络仓库 Provider，默认使用现有网络实现。
 final jmCommentsRepositoryProvider = Provider<JmCommentsRepository>(
-  (ref) => _JmCommentsRepository(),
+  (ref) => _JmCommentsRepository(ref.watch(jmNetworkProvider)),
 );
 
 /// JM 评论加载异常。
@@ -79,11 +84,7 @@ class JmCommentsState {
 }
 
 /// JM 评论 Provider。
-@Riverpod(
-  keepAlive: false,
-  retry: _noRetry,
-  name: 'jmCommentsProvider',
-)
+@Riverpod(keepAlive: false, retry: _noRetry, name: 'jmCommentsProvider')
 class JmComments extends _$JmComments {
   late (String, int) _key;
   late JmCommentsRepository _repository;

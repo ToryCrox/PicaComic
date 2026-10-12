@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../comic_source/built_in/ht_manga.dart';
@@ -10,8 +11,8 @@ import '../../foundation/disk_cache.dart';
 import '../../foundation/history.dart';
 import '../../foundation/local_favorites.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/htmanga_network/ht_download_model.dart';
-import '../../network/htmanga_network/htmanga_main_network.dart';
 import '../../network/htmanga_network/models.dart';
 import '../../network/res.dart';
 import '../../foundation/ui_mode.dart';
@@ -21,6 +22,7 @@ import '../comic_page.dart' show EpsData, FavoriteComicWidget, ThumbnailsData;
 import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // HtAdapter — 绅士漫画
@@ -34,14 +36,14 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) => "Ht$id";
+  String downloadId(String id, DownloadManager manager) => "Ht$id";
   @override
   String? url(HtComicInfo data) => null;
 
   // -------- B. 数据加载 --------
   @override
   Future<Res<HtComicInfo>> loadData(String id) =>
-      HtmangaNetwork().getComicInfo(id).then((res) {
+      appComicSourceServices.htmanga.getComicInfo(id).then((res) {
         if (res.success) DiskCache.writeModel(tag(id), res.data.toJson());
         return res;
       });
@@ -92,11 +94,12 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
   EpsData? eps(HtComicInfo data, BuildContext context) => null;
 
   @override
-  ThumbnailsData? createThumbnails(HtComicInfo data) => ThumbnailsData(
-    data.thumbnails,
-    (page) => HtmangaNetwork().getThumbnails(data.id, page),
-    (data.pages / 12).ceil(),
-  );
+  ThumbnailsData? createThumbnails(HtComicInfo data, WidgetRef ref) =>
+      ThumbnailsData(
+        data.thumbnails,
+        (page) => appComicSourceServices.htmanga.getThumbnails(data.id, page),
+        (data.pages / 12).ceil(),
+      );
 
   @override
   Widget buildThumbnailImage(
@@ -132,19 +135,23 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
   }
 
   @override
-  void download(HtComicInfo data, BuildContext context) async {
+  void download(
+    HtComicInfo data,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
     final id = "Ht${data.id}";
-    if (await downloadManager.isExists(id)) {
+    if (await manager.isExists(id)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    downloadManager.addHtDownload(data);
+    manager.addHtDownload(data);
     showToast(message: "已加入下载队列".tl);
   }
 
@@ -153,20 +160,23 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
     HtComicInfo data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: htManga.isLogin,
       needLoadFolderData: true,
-      foldersLoader: () => HtmangaNetwork().getFolders(),
+      foldersLoader: () => appComicSourceServices.htmanga.getFolders(),
       localFavoriteItem: toLocalFavoriteItem(data),
       setFavorite: (b) {},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
-          return HtmangaNetwork().addFavorite(data.id, folder);
+          return appComicSourceServices.htmanga.addFavorite(data.id, folder);
         }
         LocalFavoritesManager().addComic(
           folder,
           FavoriteItem.fromHtcomic(data.toBrief()),
+          null,
+          manager,
         );
         return const Res(true);
       },

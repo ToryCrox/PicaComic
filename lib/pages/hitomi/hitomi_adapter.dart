@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
@@ -11,8 +12,8 @@ import '../../foundation/local_favorites.dart';
 import '../../foundation/log.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/download/download_model.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/hitomi_network/hitomi_download_model.dart';
-import '../../network/hitomi_network/hitomi_main_network.dart';
 import '../../network/hitomi_network/hitomi_models.dart';
 import '../../network/hitomi_network/image.dart';
 import '../../network/res.dart';
@@ -23,6 +24,7 @@ import '../reader/comic_reading_page.dart';
 import '../search_result_page.dart';
 import '../comic_page/comic_page_adapter.dart';
 import 'hitomi_search.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 // ============================================================================
 // HitomiAdapter
@@ -36,8 +38,8 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   @override
   String tag(String id) => comicPageTag(comicType, id);
   @override
-  String downloadId(String id) =>
-      downloadManager.getDownloadIdFromComicId(comicType, id);
+  String downloadId(String id, DownloadManager manager) =>
+      manager.getDownloadIdFromComicId(comicType, id);
   @override
   String? url(HitomiComic data) => null;
   @override
@@ -46,7 +48,7 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   // -------- B. 数据加载 --------
   @override
   Future<Res<HitomiComic>> loadData(String id) async {
-    final result = await HiNetwork().getComicInfo(id);
+    final result = await appComicSourceServices.hitomi.getComicInfo(id);
     if (result.success) DiskCache.writeModel(tag(id), result.data.toMap());
     return result;
   }
@@ -112,27 +114,32 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   EpsData? eps(HitomiComic data, BuildContext context) => null;
 
   @override
-  ThumbnailsData? createThumbnails(HitomiComic data) =>
-      ThumbnailsData([], (page) async {
-        try {
-          var gg = GG();
-          var images = <String>[];
-          for (var file in data.files) {
-            images.add(
-              await gg.urlFromUrlFromHash(
-                data.id,
-                file,
-                "webpsmallsmalltn",
-                "webp",
-              ),
-            );
-          }
-          return Res(images);
-        } catch (e, s) {
-          Log.e("Network $e\n$s");
-          return Res(null, errorMessage: e.toString());
+  ThumbnailsData? createThumbnails(HitomiComic data, WidgetRef ref) {
+    final network = ref.read(hitomiNetworkProvider);
+    final gg = GG(
+      baseDomain: network.baseDomain,
+      clientManager: network.clientManager,
+    );
+    return ThumbnailsData([], (page) async {
+      try {
+        var images = <String>[];
+        for (var file in data.files) {
+          images.add(
+            await gg.urlFromUrlFromHash(
+              data.id,
+              file,
+              "webpsmallsmalltn",
+              "webp",
+            ),
+          );
         }
-      }, 2);
+        return Res(images);
+      } catch (e, s) {
+        Log.e("Network $e\n$s");
+        return Res(null, errorMessage: e.toString());
+      }
+    }, 2);
+  }
 
   @override
   Widget buildThumbnailImage(
@@ -167,18 +174,22 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
   }
 
   @override
-  void download(HitomiComic data, BuildContext context) async {
-    if (await downloadManager.isExists(data.id)) {
+  void download(
+    HitomiComic data,
+    BuildContext context,
+    DownloadManager manager,
+  ) async {
+    if (await manager.isExists(data.id)) {
       showToast(message: "已下载".tl);
       return;
     }
-    for (var i in downloadManager.downloading) {
+    for (var i in manager.downloading) {
       if (i.id == data.id) {
         showToast(message: "下载中".tl);
         return;
       }
     }
-    downloadManager.addHitomiDownload(data, data.cover, data.id);
+    manager.addHitomiDownload(data, data.cover, data.id);
     showToast(message: "已加入下载队列".tl);
   }
 
@@ -187,6 +198,7 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
     HitomiComic data,
     ComicPageBridge bridge,
     BuildContext context,
+    DownloadManager manager,
   ) {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: false,
@@ -199,7 +211,12 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
         }
       },
       selectFolderCallback: (folder, _) {
-        LocalFavoritesManager().addComic(folder, toLocalFavoriteItem(data));
+        LocalFavoritesManager().addComic(
+          folder,
+          toLocalFavoriteItem(data),
+          null,
+          manager,
+        );
         return Future.value(const Res(true));
       },
     );

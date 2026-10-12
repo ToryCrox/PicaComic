@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/map_extension.dart';
@@ -9,14 +10,14 @@ import '../reader/comic_reading_page.dart';
 import 'local_comic_page.dart';
 import 'local_comic_tile.dart';
 
-class LocalFavoritesPage extends StatefulWidget {
+class LocalFavoritesPage extends ConsumerStatefulWidget {
   const LocalFavoritesPage({super.key});
 
   @override
-  State<LocalFavoritesPage> createState() => _LocalFavoritesPageState();
+  ConsumerState<LocalFavoritesPage> createState() => _LocalFavoritesPageState();
 }
 
-class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
+class _LocalFavoritesPageState extends ConsumerState<LocalFavoritesPage> {
   List<LocalComicModel> _favorites = [];
   bool _loading = true;
 
@@ -27,7 +28,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   }
 
   Future<void> _loadFavorites() async {
-    final favoritesData = await downloadManager.getAllLocalFavorites();
+    final engine = ref.read(downloadManagerProvider.notifier);
+    final favoritesData = await engine.getAllLocalFavorites();
     final List<LocalComicModel> list = [];
     for (final data in favoritesData) {
       final path = data['path'] as String;

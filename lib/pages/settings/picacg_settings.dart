@@ -89,9 +89,7 @@ class _PicacgSettingsState extends ConsumerState<PicacgSettings> {
         ListTile(
           leading: const Icon(Icons.today),
           title: Text("自动打卡".tl),
-          subtitle: App.isMobile
-              ? Text("APP启动或是距离上次打卡间隔一天时执行".tl)
-              : Text("启动时执行".tl),
+          subtitle: Text("进入账号页并刷新资料时执行".tl),
           onTap: () {},
           trailing: Switch(
             value: punchIn,
@@ -102,9 +100,6 @@ class _PicacgSettingsState extends ConsumerState<PicacgSettings> {
                 b ? "1" : "0",
                 persist: false,
               );
-              if (App.isMobile) {
-                b ? runBackgroundService() : cancelBackgroundService();
-              }
               _persistSettings(ref, fullData: true);
             },
           ),

@@ -1,6 +1,7 @@
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
@@ -114,17 +115,19 @@ class CustomDownloadingTask extends DownloadingTask {
       int ep = (links?.keys.length ?? 0) > downloadingEp
           ? links!.keys.elementAt(downloadingEp)
           : 0;
-      var config = source!.getImageLoadingConfig!(
-        url,
-        comic.comicId,
-        comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId,
-      );
-      return ImageManager().getImage(
-        config?.url ?? url,
-        Map.from(config?.headers ?? {}),
-      );
+      final config = manager
+          .readProvider(comicSourceCallbackRunnerProvider)
+          .imageConfig(
+            source!,
+            url,
+            comic.comicId,
+            comic.chapters?.keys.elementAtOrNull(ep - 1) ?? comic.comicId,
+          );
+      return ImageManager(
+        manager,
+      ).getImage(config?.url ?? url, Map.from(config?.headers ?? {}));
     }
-    return ImageManager().getImage(url);
+    return ImageManager(manager).getImage(url);
   }
 
   @override
@@ -137,12 +140,14 @@ class CustomDownloadingTask extends DownloadingTask {
 
     while (retry < 3) {
       try {
-        links[i + 1] =
-            (await source?.loadComicPages?.call(
-              comic.comicId,
-              comic.chapters!.keys.elementAt(i),
-            ))?.data ??
-            [];
+        final sourceKey = source?.key.name;
+        if (sourceKey == null) return;
+        final result = await manager.loadSourceComicPages(
+          sourceKey,
+          comic.comicId,
+          comic.chapters!.keys.elementAt(i),
+        );
+        links[i + 1] = result.dataOrNull ?? [];
         return;
       } catch (e) {
         await Future.delayed(const Duration(seconds: 3));
@@ -168,8 +173,15 @@ class CustomDownloadingTask extends DownloadingTask {
       }
       await Future.wait(futures);
     } else {
-      var res = await source?.loadComicPages?.call(comic.comicId, null);
-      links[0] = res?.data ?? [];
+      final sourceKey = source?.key.name;
+      if (sourceKey != null) {
+        final res = await manager.loadSourceComicPages(
+          sourceKey,
+          comic.comicId,
+          null,
+        );
+        links[0] = res.dataOrNull ?? [];
+      }
     }
     return links;
   }
@@ -211,8 +223,8 @@ class CustomDownloadingTask extends DownloadingTask {
   @override
   Future<DownloadedItem> toDownloadedItem() async {
     var previous = <int>[];
-    if (await downloadManager.isExists(id)) {
-      var comic = await downloadManager.getComicOrNull(id);
+    if (await manager.isExists(id)) {
+      var comic = await manager.getComicOrNull(id);
       previous = comic!.downloadedEps;
     }
     var downloaded = (_downloadEps + previous).toSet().toList();

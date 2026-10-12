@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
@@ -49,8 +50,9 @@ class _SearchPageComicList extends ComicsPage<BaseComic> {
   String? get title => null;
 
   @override
-  Future<Res<List<BaseComic>>> getComics(int i) {
+  Future<Res<List<BaseComic>>> getComics(int i, Ref ref) {
     return ComicSource.find(comicType)!.searchPageData!.loadPage!(
+      ref,
       keyword,
       i,
       options,

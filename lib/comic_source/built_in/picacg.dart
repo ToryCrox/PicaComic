@@ -1,9 +1,11 @@
 import 'dart:collection';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/disk_cache.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -25,13 +27,19 @@ final picacg = ComicSource.named(
     key: "picacg",
     title: "Picacg",
     multiFolder: false,
-    loadComic: (i, [folder]) => PicacgNetwork().getFavorites(
-      i,
-      appdata.getSetting(AppSettingKeys.picacgFavoritesNewestFirst) == "1",
-    ),
+    loadComic: (ref, i, [folder]) => ref
+        .read(picacgNetworkProvider)
+        .getFavorites(
+          i,
+          ref
+              .read(appSettingsProvider)
+              .enabled(AppSettingKeys.picacgFavoritesNewestFirst),
+        ),
     loadFolders: null,
-    addOrDelFavorite: (id, folder, isAdding) async {
-      var res = await PicacgNetwork().favouriteOrUnfavouriteComic(id);
+    addOrDelFavorite: (ref, id, folder, isAdding) async {
+      var res = await ref
+          .read(picacgNetworkProvider)
+          .favouriteOrUnfavouriteComic(id);
       return res
           ? const Res(true)
           : const Res(false, errorMessage: "Network Error");
@@ -52,8 +60,9 @@ final picacg = ComicSource.named(
     ],
   ),
   account: AccountConfig.named(
-    login: (account, pwd) async {
+    login: (ref, account, pwd) async {
       var picacg = ComicSource.find(ComicType.picacg.name)!;
+      final network = ref.read(picacgNetworkProvider);
       var res = await network.login(account, pwd);
       if (res.error) {
         return Res.fromErrorRes(res);
@@ -70,26 +79,45 @@ final picacg = ComicSource.named(
       picacg.data['account'] = a;
       return const Res(true);
     },
-    logout: () {
+    logout: (ref) {
       var picacg = ComicSource.find(ComicType.picacg.name)!;
       picacg.data['user'] = null;
       picacg.data['token'] = null;
       picacg.saveData();
     },
     infoItems: [
-      AccountInfoItem(title: "账号", data: () => network.user?.email ?? ''),
-      AccountInfoItem(title: "用户名", data: () => network.user?.name ?? ''),
+      AccountInfoItem(
+        title: "账号",
+        data: () =>
+            (ComicSource.find(ComicType.picacg)?.data['user'] as Map?)?['email']
+                ?.toString() ??
+            '',
+      ),
+      AccountInfoItem(
+        title: "用户名",
+        data: () =>
+            (ComicSource.find(ComicType.picacg)?.data['user'] as Map?)?['name']
+                ?.toString() ??
+            '',
+      ),
       AccountInfoItem(
         title: "等级",
         data: () {
-          var user = network.user;
-          return "Lv${user?.level} ${user?.title} Exp${user?.exp}";
+          final user = ComicSource.find(ComicType.picacg)?.data['user'] as Map?;
+          return "Lv${user?['level']} ${user?['title']} Exp${user?['exp']}";
         },
       ),
-      AccountInfoItem(title: "简介", data: () => network.user?.slogan ?? ''),
+      AccountInfoItem(
+        title: "简介",
+        data: () =>
+            (ComicSource.find(ComicType.picacg)?.data['user']
+                    as Map?)?['slogan']
+                ?.toString() ??
+            '',
+      ),
     ],
   ),
-  initData: (s) {
+  initData: (s, ref) {
     if (s.data['appChannel'] == null) {
       s.data['appChannel'] = '3';
     }
@@ -105,7 +133,8 @@ final picacg = ComicSource.named(
     ExplorePageData.named(
       title: "picacg",
       type: ExplorePageType.singlePageWithMultiPart,
-      loadMultiPart: () async {
+      loadMultiPart: (ref) async {
+        final network = ref.read(picacgNetworkProvider);
         var [res0, res1] = await Future.wait([
           network.getRandomComics(),
           network.getLatest(1),
@@ -146,13 +175,14 @@ final picacg = ComicSource.named(
     ),
   ],
   categoryComicsData: CategoryComicsData.named(
-    load: (category, param, options, page) async {
+    load: (ref, category, param, options, page) async {
+      final network = ref.read(picacgNetworkProvider);
       if (category == "random") {
-        return PicacgNetwork().getRandomComics();
+        return network.getRandomComics();
       } else if (category == "latest") {
-        return PicacgNetwork().getLatest(page);
+        return network.getLatest(page);
       }
-      return PicacgNetwork().getCategoryComics(
+      return network.getCategoryComics(
         category,
         page,
         options[0],
@@ -172,19 +202,16 @@ final picacg = ComicSource.named(
     ],
     rankingData: RankingData.named(
       options: {"H24": "24小时", "D7": "7天", "D30": "30天"},
-      load: (options, page) {
-        return PicacgNetwork().getLeaderboard(options);
+      load: (ref, options, page) {
+        return ref.read(picacgNetworkProvider).getLeaderboard(options);
       },
     ),
   ),
   searchPageData: SearchPageData.named(
-    loadPage: (keyword, page, options) {
-      return PicacgNetwork().search(
-        keyword,
-        options[0],
-        page,
-        addToHistory: true,
-      );
+    loadPage: (ref, keyword, page, options) {
+      return ref
+          .read(picacgNetworkProvider)
+          .search(keyword, options[0], page, addToHistory: true);
     },
     searchOptions: [
       SearchOptions.named(
@@ -224,13 +251,13 @@ class _PicComicTile extends ComicTile {
   );
 
   @override
-  ActionFunc? get read => () async {
+  ActionFunc? readAction(WidgetRef ref) => () async {
     bool cancel = false;
     var dialog = showLoadingDialog(
       App.globalContext!,
       onCancel: () => cancel = true,
     );
-    var res = await network.getEps(comic.id);
+    var res = await ref.read(picacgNetworkProvider).getEps(comic.id);
     if (cancel) {
       return;
     }

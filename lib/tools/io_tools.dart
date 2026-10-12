@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -20,6 +21,14 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 
 import '../foundation/app.dart';
+
+/// 判断文件是否位于名为 `back` 的漫画备份目录中。
+bool isInsideComicBackupDirectory(String filePath, String rootPath) {
+  final relativePath = p.relative(filePath, from: rootPath);
+  return p
+      .split(relativePath)
+      .any((segment) => segment.toLowerCase() == 'back');
+}
 
 Future<double> getFolderSize(Directory path) async {
   double total = 0;
@@ -44,17 +53,18 @@ Future<double> getFolderSize(Directory path) async {
 }
 
 Future<bool> exportComic(
+  DownloadManager manager,
   String id,
   String name, [
   List<String>? epNames,
 ]) async {
   try {
     name = sanitizeFileName(name);
-    final comicPath = await downloadManager.getFullDirectory(id);
-    final coverFile = await downloadManager.getCover(id);
+    final comicPath = await manager.getFullDirectory(id);
+    final coverFile = await manager.getCover(id);
     var data = ExportComicData(
       id,
-      downloadManager.path!,
+      manager.path!,
       comicPath,
       name,
       epNames,
@@ -93,13 +103,16 @@ Future<bool> exportComic(
   }
 }
 
-Future<bool> exportComics(List<DownloadedItem> comics) async {
+Future<bool> exportComics(
+  DownloadManager manager,
+  List<DownloadedItem> comics,
+) async {
   try {
     var exportDatas = <ExportComicData>[];
     for (var comic in comics) {
       var id = comic.id;
       var name = sanitizeFileName(comic.name);
-      var outputPath = downloadManager.path;
+      var outputPath = manager.path;
       var epNames = comic.eps;
       exportDatas.add(
         ExportComicData(
@@ -115,7 +128,7 @@ Future<bool> exportComics(List<DownloadedItem> comics) async {
     await Isolate.run(() => runningExportComics(exportDatas));
     if (App.isMobile) {
       var params = SaveFileDialogParams(
-        sourceFilePath: '${downloadManager.path}/comics.zip',
+        sourceFilePath: '${manager.path}/comics.zip',
       );
       await FlutterFileDialog.saveFile(params: params);
     } else {
@@ -126,13 +139,13 @@ Future<bool> exportComics(List<DownloadedItem> comics) async {
       if (result != null) {
         const String mimeType = 'application/zip';
         final XFile textFile = XFile(
-          '${downloadManager.path}/comics.zip',
+          '${manager.path}/comics.zip',
           mimeType: mimeType,
         );
         await textFile.saveTo(result.path);
       }
     }
-    var file = File('${downloadManager.path}/comics.zip');
+    var file = File('${manager.path}/comics.zip');
     if (file.existsSync()) {
       file.delete();
     }
@@ -418,11 +431,18 @@ Future<String?> _exportData(
   }
 }
 
-Future<String> exportDataToFile(bool includeDownload, String outPath) async {
+Future<String> exportDataToFile(
+  bool includeDownload,
+  String outPath, {
+  DownloadManager? manager,
+}) async {
   var path = App.dataPath;
   try {
     var appdataString = const JsonEncoder().convert(appdata.toJson());
-    var downloadPath = includeDownload ? downloadManager.path : null;
+    if (includeDownload && manager == null) {
+      throw StateError('导出下载数据时必须提供 DownloadManager');
+    }
+    var downloadPath = includeDownload ? manager!.path : null;
     var res = await compute<List<String?>, String?>(
       (message) =>
           _exportData(message[0]!, message[1]!, message[2], message[3]!),
@@ -439,7 +459,10 @@ Future<String> exportDataToFile(bool includeDownload, String outPath) async {
   return outPath;
 }
 
-Future<bool> runExportData(bool includeDownload) async {
+Future<bool> runExportData(
+  bool includeDownload, {
+  required DownloadManager manager,
+}) async {
   try {
     var outPath = '${App.cachePath}/userdata.picadata';
     if (App.isDesktop) {
@@ -454,7 +477,7 @@ Future<bool> runExportData(bool includeDownload) async {
     if (await File(outPath).exists()) {
       await File(outPath).delete();
     }
-    await exportDataToFile(includeDownload, outPath);
+    await exportDataToFile(includeDownload, outPath, manager: manager);
 
     var dialog = showLoadingDialog(
       App.globalContext!,
@@ -477,7 +500,10 @@ Future<bool> runExportData(bool includeDownload) async {
 }
 
 /// import data, filePath is used for webdav
-Future<bool> importData([String? filePath]) async {
+Future<bool> importData({
+  String? filePath,
+  required DownloadManager manager,
+}) async {
   final enableCheck = filePath != null;
   var path = (await getApplicationSupportDirectory()).path;
   if (filePath == null) {
@@ -497,7 +523,7 @@ Future<bool> importData([String? filePath]) async {
     }
   }
   SingleInstanceCookieJar.instance?.dispose();
-  downloadManager.dispose();
+  manager.dispose();
   String data = '';
   try {
     data = await compute<List<String>, String>(
@@ -556,7 +582,7 @@ Future<bool> importData([String? filePath]) async {
       [
         path,
         filePath,
-        downloadManager.path!,
+        manager.path!,
         appdata.getSetting(AppSettingKeys.webdavVersion),
         (enableCheck ? "1" : "0"),
       ],
@@ -565,9 +591,14 @@ Future<bool> importData([String? filePath]) async {
     Log.e("importData $e\n$s");
     return false;
   } finally {
-    await ComicSource.reload();
+    final context = App.globalContext;
+    if (context != null) {
+      await reloadComicSources(context);
+    } else {
+      await ComicSource.reload();
+    }
     SingleInstanceCookieJar.instance?.init();
-    await downloadManager.init();
+    await manager.init();
     Directory("$path/dataTemp").deleteSync(recursive: true);
   }
   var json = const JsonDecoder().convert(data);

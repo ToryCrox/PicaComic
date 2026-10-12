@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/tools/translations.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
 
 class CookieManagementView extends StatefulWidget {
   const CookieManagementView({super.key});
@@ -23,25 +23,25 @@ class _CookieManagementViewState extends State<CookieManagementView> {
       children: [
         ListTile(
           title: const Text("ipb_member_id"),
-          subtitle: Text(EhNetwork().id),
-          onTap: () => setClipboard(EhNetwork().id),
+          subtitle: Text(appComicSourceServices.ehentai.id),
+          onTap: () => setClipboard(appComicSourceServices.ehentai.id),
         ),
         ListTile(
           title: const Text("ipb_pass_hash"),
-          subtitle: Text(EhNetwork().hash),
-          onTap: () => setClipboard(EhNetwork().hash),
+          subtitle: Text(appComicSourceServices.ehentai.hash),
+          onTap: () => setClipboard(appComicSourceServices.ehentai.hash),
         ),
         ListTile(
           title: const Text("igneous"),
-          subtitle: Text(EhNetwork().igneous),
-          onTap: () => setClipboard(EhNetwork().igneous),
+          subtitle: Text(appComicSourceServices.ehentai.igneous),
+          onTap: () => setClipboard(appComicSourceServices.ehentai.igneous),
           trailing: IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (context) {
-                  String text = EhNetwork().igneous;
+                  String text = appComicSourceServices.ehentai.igneous;
                   return AlertDialog(
                     title: const Text("igneous"),
                     content: TextField(
@@ -52,15 +52,17 @@ class _CookieManagementViewState extends State<CookieManagementView> {
                       TextButton(onPressed: context.pop, child: Text("取消".tl)),
                       TextButton(
                         onPressed: () {
-                          EhNetwork().igneous = text;
-                          EhNetwork().cookieJar.saveFromResponse(
-                            Uri.parse("https://exhentai.org"),
-                            [Cookie("igneous", text)],
-                          );
-                          EhNetwork().cookieJar.saveFromResponse(
-                            Uri.parse("https://e-hentai.org"),
-                            [Cookie("igneous", text)],
-                          );
+                          appComicSourceServices.ehentai.igneous = text;
+                          appComicSourceServices.ehentai.cookieJar
+                              .saveFromResponse(
+                                Uri.parse("https://exhentai.org"),
+                                [Cookie("igneous", text)],
+                              );
+                          appComicSourceServices.ehentai.cookieJar
+                              .saveFromResponse(
+                                Uri.parse("https://e-hentai.org"),
+                                [Cookie("igneous", text)],
+                              );
                           context.pop();
                           setState(() {});
                         },

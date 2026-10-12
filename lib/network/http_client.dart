@@ -3,22 +3,24 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
-import '../base.dart';
+import '../foundation/app_settings_provider.dart';
 import '../foundation/app.dart';
 
 ///获取系统设置中的代理, 仅windows,安卓有效
-Future<String?> getProxy() async {
-  if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "1") {
+Future<String?> getProxy({required AppSettingsSnapshot settings}) async {
+  if (settings.enabled(AppSettingKeys.hostsEnabled)) {
     final file = File("${App.dataPath}/rule.json");
     var json = const JsonDecoder().convert(await file.readAsString());
     return "${InternetAddress.loopbackIPv4.address}:${json["port"]}";
   }
 
   //手动设置的代理
-  if (appdata.getSetting(AppSettingKeys.proxy).removeAllBlank == "")
+  if (settings.value(AppSettingKeys.proxy).removeAllBlank == "") {
     return null;
-  if (appdata.getSetting(AppSettingKeys.proxy) != "0")
-    return appdata.getSetting(AppSettingKeys.proxy);
+  }
+  if (settings.value(AppSettingKeys.proxy) != "0") {
+    return settings.value(AppSettingKeys.proxy);
+  }
   //对于安卓, 将获取WIFI设置中的代理
 
   String res;
@@ -60,9 +62,9 @@ Future<String?> getProxy() async {
 ProxyHttpOverrides? proxyHttpOverrides;
 
 ///获取代理设置并应用
-Future<void> setNetworkProxy() async {
+Future<void> setNetworkProxy(AppSettingsSnapshot settings) async {
   //Image加载使用的是Image.network()和CachedNetworkImage(), 均使用flutter内置http进行网络请求
-  var proxy = await getProxy();
+  var proxy = await getProxy(settings: settings);
 
   if (proxy != null) {
     proxy = "PROXY $proxy;";

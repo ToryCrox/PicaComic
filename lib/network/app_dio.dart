@@ -9,7 +9,6 @@ import 'package:pica_comic/network/http_client.dart';
 import 'package:pica_comic/network/network_config.dart';
 import 'package:pica_comic/network/network_interceptors.dart';
 import 'package:pica_comic/network/network_telemetry.dart';
-import '../base.dart';
 import '../foundation/app.dart';
 
 class MyLogInterceptor implements Interceptor {
@@ -131,20 +130,21 @@ class AppHttpAdapter implements HttpClientAdapter {
   HttpClientAdapter? adapter;
 
   final NetworkProtocol protocol;
+  final bool hostsEnabled;
 
-  AppHttpAdapter(this.protocol);
+  AppHttpAdapter(this.protocol, {this.hostsEnabled = false});
 
   static Future<HttpClientAdapter> createAdapter(
-    NetworkProtocol protocol,
-  ) async {
+    NetworkProtocol protocol, {
+    bool hostsEnabled = false,
+  }) async {
     return protocol == NetworkProtocol.http1
         ? IOHttpClientAdapter()
         : Http2Adapter(
             ConnectionManager(
               idleTimeout: const Duration(seconds: 15),
               onClientCreate: (_, config) {
-                if (proxyHttpOverrides?.proxyStr != null &&
-                    appdata.getSetting(AppSettingKeys.hostsEnabled) != "1") {
+                if (proxyHttpOverrides?.proxyStr != null && !hostsEnabled) {
                   config.proxy = Uri.parse(
                     'http://${proxyHttpOverrides?.proxyStr}',
                   );
@@ -181,7 +181,7 @@ class AppHttpAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    adapter ??= await createAdapter(protocol);
+    adapter ??= await createAdapter(protocol, hostsEnabled: hostsEnabled);
     int retry = 0;
     var usedFallback = false;
     while (true) {
@@ -209,7 +209,10 @@ class AppHttpAdapter implements HttpClientAdapter {
         }
         if (protocol != NetworkProtocol.http1 && adapter is Http2Adapter) {
           adapter!.close(force: true);
-          adapter = await createAdapter(NetworkProtocol.http1);
+          adapter = await createAdapter(
+            NetworkProtocol.http1,
+            hostsEnabled: hostsEnabled,
+          );
           usedFallback = true;
         }
         await Future.delayed(const Duration(seconds: 1));
@@ -258,7 +261,7 @@ class AppHttpAdapter implements HttpClientAdapter {
       () =>
           "Network ${options.method} ${options.path}\nheaders:\n${options.headers.toString()}\ndata:${options.data}",
     );
-    if (appdata.getSetting(AppSettingKeys.hostsEnabled) == "0") {
+    if (!hostsEnabled) {
       return checkCookie(
         await adapter!.fetch(options, requestStream, cancelFuture),
       );
@@ -331,7 +334,7 @@ class AppHttpAdapter implements HttpClientAdapter {
 }
 
 Dio logDio([BaseOptions? options, bool http2 = false]) {
-  final bridge = NetworkTelemetryBridge.instance;
+  final bridge = appNetworkTelemetryBridge;
   var dio = Dio(options)
     ..interceptors.add(NetworkSpeedInterceptor(bridge.speedMonitor))
     ..interceptors.add(NetworkLogInterceptor(bridge.logSink))

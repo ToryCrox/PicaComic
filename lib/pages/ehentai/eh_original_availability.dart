@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 import '../../foundation/image_manager.dart';
+import '../../network/download/download_manager.dart';
 import '../../network/eh_network/eh_models.dart';
 import '../../network/res.dart';
 import '../../tools/translations.dart';
 
 /// EH 单页原图可用性提示。
-class EhOriginalAvailabilityBadge extends StatefulWidget {
+class EhOriginalAvailabilityBadge extends ConsumerStatefulWidget {
   const EhOriginalAvailabilityBadge({required this.gallery, super.key});
 
   final Gallery gallery;
 
   @override
-  State<EhOriginalAvailabilityBadge> createState() =>
+  ConsumerState<EhOriginalAvailabilityBadge> createState() =>
       _EhOriginalAvailabilityBadgeState();
 }
 
 class _EhOriginalAvailabilityBadgeState
-    extends State<EhOriginalAvailabilityBadge> {
+    extends ConsumerState<EhOriginalAvailabilityBadge> {
   late Future<Res<bool>> _future;
 
   @override
@@ -36,7 +38,8 @@ class _EhOriginalAvailabilityBadgeState
   }
 
   Future<Res<bool>> _check() {
-    return ImageManager().checkEhOriginalAvailability(widget.gallery);
+    final manager = ref.read(downloadManagerProvider.notifier);
+    return ImageManager(manager).checkEhOriginalAvailability(widget.gallery);
   }
 
   void _retry() {

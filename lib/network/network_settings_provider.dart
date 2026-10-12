@@ -4,7 +4,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:synchronized/synchronized.dart';
 
 import '../foundation/app_settings_provider.dart';
-import 'http_client.dart';
 import 'http_proxy.dart';
 import 'network_client_manager.dart';
 import 'network_config.dart';
@@ -75,7 +74,7 @@ class NetworkSettingsRuntime {
 final networkSettingsRuntimeProvider = Provider<NetworkSettingsRuntime>((ref) {
   final manager = ref.read(networkClientManagerProvider);
   return NetworkSettingsRuntime(
-    applyProxy: setNetworkProxy,
+    applyProxy: manager.applyProxySettings,
     applyClient: manager.applySettings,
     reloadHosts: HttpProxyServer.reload,
   );

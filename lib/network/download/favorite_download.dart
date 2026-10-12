@@ -1,3 +1,4 @@
+import 'package:pica_comic/network/comic_source_services.dart';
 import 'dart:async';
 
 import 'package:pica_comic/foundation/image_manager.dart';
@@ -9,16 +10,10 @@ import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.da
 import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/eh_network/eh_download_model.dart';
-import 'package:pica_comic/network/eh_network/eh_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
-import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
-import 'package:pica_comic/network/jm_network/jm_network.dart';
 import 'package:pica_comic/network/nhentai_network/download.dart';
-import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
-import 'package:pica_comic/network/picacg_network/methods.dart';
 import 'package:pica_comic/network/picacg_network/picacg_download_model.dart';
 
 class FavoriteDownloadingTask extends DownloadingTask {
@@ -48,7 +43,9 @@ class FavoriteDownloadingTask extends DownloadingTask {
       switch (comic.type.key) {
         case 0:
           {
-            var comicItem = await PicacgNetwork().getComicInfo(comic.target);
+            var comicItem = await manager
+                .readProvider(picacgNetworkProvider)
+                .getComicInfo(comic.target);
             downloadLogic = PicDownloadingTask(
               comicItem.data,
               List.generate(comicItem.data.eps.length, (index) => index),
@@ -60,19 +57,22 @@ class FavoriteDownloadingTask extends DownloadingTask {
           }
         case 1:
           {
-            var gallery = await EhNetwork().getGalleryInfo(comic.target);
+            var gallery = await manager
+                .readProvider(ehNetworkProvider)
+                .getGalleryInfo(comic.target);
             downloadLogic = EhDownloadingTask(
               gallery.data,
               onFinish,
               onError,
               updateInfo,
               id,
-              0,
             );
           }
         case 2:
           {
-            var jmComic = await JmNetwork().getComicInfo(comic.target);
+            var jmComic = await manager
+                .readProvider(jmNetworkProvider)
+                .getComicInfo(comic.target);
             var downloadedEp = List.generate(
               jmComic.data.epNames.length,
               (index) => index,
@@ -91,7 +91,9 @@ class FavoriteDownloadingTask extends DownloadingTask {
           }
         case 3:
           {
-            var hitomiComic = await HiNetwork().getComicInfo(comic.target);
+            var hitomiComic = await manager
+                .readProvider(hitomiNetworkProvider)
+                .getComicInfo(comic.target);
             downloadLogic = HitomiDownloadingTask(
               hitomiComic.data,
               comic.coverPath,
@@ -104,7 +106,9 @@ class FavoriteDownloadingTask extends DownloadingTask {
           }
         case 4:
           {
-            var htComic = await HtmangaNetwork().getComicInfo(comic.target);
+            var htComic = await manager
+                .readProvider(htMangaNetworkProvider)
+                .getComicInfo(comic.target);
             downloadLogic = HtDownloadingTask(
               htComic.data,
               onFinish,
@@ -115,7 +119,9 @@ class FavoriteDownloadingTask extends DownloadingTask {
           }
         case 6:
           {
-            var nhComic = await NhentaiNetwork().getComicInfo(comic.target);
+            var nhComic = await manager
+                .readProvider(nhentaiNetworkProvider)
+                .getComicInfo(comic.target);
             downloadLogic = NhentaiDownloadingTask(
               nhComic.data,
               onFinish,
@@ -128,7 +134,13 @@ class FavoriteDownloadingTask extends DownloadingTask {
           {
             var comicSource = comic.type.comicSource;
             if (comicSource == null) throw "Comic source not found";
-            var comicInfoData = await comicSource.loadComicInfo!(comic.target);
+            var comicInfoData = await manager.loadSourceComicInfo(
+              comicSource.key.name,
+              comic.target,
+            );
+            if (comicInfoData.error) {
+              throw StateError(comicInfoData.errorMessageWithoutNull);
+            }
             var downloadedEp = List.generate(
               comicInfoData.data.chapters?.length ?? 0,
               (index) => index,
@@ -160,8 +172,9 @@ class FavoriteDownloadingTask extends DownloadingTask {
       return;
     }
     pause();
-    downloadManager.downloading.removeFirst();
-    downloadManager.downloading.addFirst(downloadLogic);
+    manager.bindTask(downloadLogic);
+    manager.downloading.removeFirst();
+    manager.downloading.addFirst(downloadLogic);
     downloadLogic.start();
   }
 

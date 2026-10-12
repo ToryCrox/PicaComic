@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/pages/reader/comic_reading_page.dart';
@@ -19,21 +20,19 @@ import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
 import 'dart:io';
 import '../../foundation/app.dart';
-import '../../network/eh_network/eh_main_network.dart';
-import '../../network/hitomi_network/hitomi_main_network.dart';
-import '../../network/htmanga_network/htmanga_main_network.dart';
-import '../../network/jm_network/jm_network.dart';
-import '../../network/nhentai_network/nhentai_main_network.dart';
-import '../../network/picacg_network/methods.dart';
+import '../../network/comic_source_services.dart';
 import '../../tools/io_tools.dart';
 
 extension LocalFavoritesExt on FavoriteItem {
-  Future<void> addDownload() async {
-    if (await downloadManager.isExists(toDownloadId())) {
+  String toDownloadId(DownloadManager manager) =>
+      manager.getDownloadIdFromComicId(type.comicType, target);
+
+  Future<void> addDownload(DownloadManager manager) async {
+    if (await manager.isExists(toDownloadId(manager))) {
       return;
     }
     try {
-      downloadManager.addFavoriteDownload(this);
+      manager.addFavoriteDownload(this);
     } catch (e) {
       Log.e("Failed to add a download.\n Missing comic source config file.");
     }
@@ -42,7 +41,7 @@ extension LocalFavoritesExt on FavoriteItem {
   Future<bool> updateInfo(String folder) async {
     FavoriteItem updated = this;
     if (type == FavoriteType.picacg) {
-      var res = await PicacgNetwork().getComicInfo(target);
+      var res = await appComicSourceServices.picacg.getComicInfo(target);
       if (res.error) return false;
       updated = copyWith(
         name: res.data.title,
@@ -51,11 +50,11 @@ extension LocalFavoritesExt on FavoriteItem {
         coverPath: res.data.cover,
       );
     } else if (type == FavoriteType.ehentai) {
-      var res = await EhNetwork().getGalleryInfo(target);
+      var res = await appComicSourceServices.ehentai.getGalleryInfo(target);
       if (res.error) return false;
       updated = copyWith(name: res.data.title, coverPath: res.data.cover);
     } else if (type == FavoriteType.jm) {
-      var res = await JmNetwork().getComicInfo(target);
+      var res = await appComicSourceServices.jm.getComicInfo(target);
       if (res.error) return false;
       updated = copyWith(
         name: res.data.title,
@@ -64,11 +63,11 @@ extension LocalFavoritesExt on FavoriteItem {
         coverPath: res.data.cover,
       );
     } else if (type == FavoriteType.nhentai) {
-      var res = await NhentaiNetwork().getComicInfo(target);
+      var res = await appComicSourceServices.nhentai.getComicInfo(target);
       if (res.error) return false;
       updated = copyWith(name: res.data.title, coverPath: res.data.cover);
     } else if (type == FavoriteType.htmanga) {
-      var res = await HtmangaNetwork().getComicInfo(target);
+      var res = await appComicSourceServices.htmanga.getComicInfo(target);
       if (res.error) return false;
       updated = copyWith(
         name: res.data.title,
@@ -76,7 +75,7 @@ extension LocalFavoritesExt on FavoriteItem {
         coverPath: res.data.cover,
       );
     } else if (type == FavoriteType.hitomi) {
-      var res = await HiNetwork().getComicInfo(target);
+      var res = await appComicSourceServices.hitomi.getComicInfo(target);
       if (res.error) return false;
       updated = copyWith(
         name: res.data.title,
@@ -86,7 +85,10 @@ extension LocalFavoritesExt on FavoriteItem {
     } else {
       var comicSource = type.comicSource;
       if (comicSource == null) return false;
-      var res = await comicSource.loadComicInfo!(target);
+      var res = await loadComicInfoFromProvider(
+        ProviderScope.containerOf(App.globalContext!, listen: false),
+        ComicInfoQuery(comicSource.key.name, target),
+      );
       if (res.error) return false;
       updated = copyWith(
         name: res.data.title,
@@ -350,17 +352,20 @@ class LocalFavoriteTile extends ComicTile {
   static Map<String, File> cache = {};
 
   @override
-  Widget? get badge => FutureBuilder<bool>(
-    future: downloadManager.isExists(comic.toDownloadId()),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.done &&
-          snapshot.hasData &&
-          snapshot.data!) {
-        return Text("已下载".tl);
-      }
-      return const SizedBox.shrink();
-    },
-  );
+  Widget? buildBadge(BuildContext context, WidgetRef ref) {
+    final manager = ref.read(downloadManagerProvider.notifier);
+    return FutureBuilder<bool>(
+      future: manager.isExists(comic.toDownloadId(manager)),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasData &&
+            snapshot.data!) {
+          return Text("已下载".tl);
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
 
   @override
   bool get enableLongPressed => _enableLongPressed;
@@ -372,74 +377,82 @@ class LocalFavoriteTile extends ComicTile {
   bool get showFavorite => false;
 
   @override
-  Widget get image => FutureBuilder<bool>(
-    future: downloadManager.isExists(comic.toDownloadId()),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.done &&
-          snapshot.hasData &&
-          snapshot.data!) {
-        // 漫画已下载，显示下载的封面
-        return FutureBuilder<File>(
-          future: downloadManager.getCover(comic.toDownloadId()),
-          builder: (context, coverSnapshot) {
-            if (coverSnapshot.hasData) {
-              return Image.file(
-                coverSnapshot.data!,
-                fit: BoxFit.cover,
-                height: double.infinity,
-                filterQuality: FilterQuality.medium,
-              );
-            } else if (coverSnapshot.hasError) {
-              return const Center(child: Icon(Icons.error));
-            } else {
-              // 加载中
-              return const Center(child: CircularProgressIndicator());
-            }
-          },
-        );
-      } else if (cache[comic.target] == null) {
-        // 漫画未下载且没有缓存，从网络获取封面
-        return FutureBuilder<File>(
-          future: LocalFavoritesManager().getCover(comic),
-          builder: (context, file) {
-            Widget child;
-            if (file.hasError) {
-              Log.e("Network ${file.stackTrace}");
-              child = const Center(child: Icon(Icons.error));
-            } else if (file.data == null) {
-              child = ColoredBox(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                child: const SizedBox(
-                  width: double.infinity,
+  Widget buildImage(BuildContext context, WidgetRef ref) {
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final downloadId = comic.toDownloadId(manager);
+    return FutureBuilder<bool>(
+      future: manager.isExists(downloadId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasData &&
+            snapshot.data!) {
+          // 漫画已下载，显示下载的封面
+          return FutureBuilder<File>(
+            future: manager.getCover(downloadId),
+            builder: (context, coverSnapshot) {
+              if (coverSnapshot.hasData) {
+                return Image.file(
+                  coverSnapshot.data!,
+                  fit: BoxFit.cover,
                   height: double.infinity,
-                ),
+                  filterQuality: FilterQuality.medium,
+                );
+              } else if (coverSnapshot.hasError) {
+                return const Center(child: Icon(Icons.error));
+              } else {
+                // 加载中
+                return const Center(child: CircularProgressIndicator());
+              }
+            },
+          );
+        } else if (cache[comic.target] == null) {
+          // 漫画未下载且没有缓存，从网络获取封面
+          return FutureBuilder<File>(
+            future: LocalFavoritesManager().getCover(
+              comic,
+              manager: manager,
+              loadDownloadedCover: manager.getCover,
+            ),
+            builder: (context, file) {
+              Widget child;
+              if (file.hasError) {
+                Log.e("Network ${file.stackTrace}");
+                child = const Center(child: Icon(Icons.error));
+              } else if (file.data == null) {
+                child = ColoredBox(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: const SizedBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                );
+              } else {
+                cache[comic.target] = file.data!;
+                child = Image.file(
+                  file.data!,
+                  fit: BoxFit.cover,
+                  height: double.infinity,
+                  filterQuality: FilterQuality.medium,
+                );
+              }
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: child,
               );
-            } else {
-              cache[comic.target] = file.data!;
-              child = Image.file(
-                file.data!,
-                fit: BoxFit.cover,
-                height: double.infinity,
-                filterQuality: FilterQuality.medium,
-              );
-            }
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: child,
-            );
-          },
-        );
-      } else {
-        // 使用缓存的封面
-        return Image.file(
-          cache[comic.target]!,
-          fit: BoxFit.cover,
-          height: double.infinity,
-          filterQuality: FilterQuality.medium,
-        );
-      }
-    },
-  );
+            },
+          );
+        } else {
+          // 使用缓存的封面
+          return Image.file(
+            cache[comic.target]!,
+            fit: BoxFit.cover,
+            height: double.infinity,
+            filterQuality: FilterQuality.medium,
+          );
+        }
+      },
+    );
+  }
 
   BuildContext get context => App.mainNavigatorKey!.currentContext!;
 
@@ -497,16 +510,22 @@ class LocalFavoriteTile extends ComicTile {
   List<String>? get tags => _generateTags(comic.tags);
 
   @override
-  void onSecondaryTap_(TapDownDetails details) {
+  void onSecondaryTap_(
+    TapDownDetails details,
+    WidgetRef ref,
+    String defaultFavoriteFolder,
+  ) {
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final context = App.globalContext!;
     showContextMenu(
-      context: App.globalContext!,
+      context: context,
       globalPosition: details.globalPosition,
       items: [
         popupMenuItem(text: "查看".tl, icon: Icons.info_outline, onTap: showInfo),
         popupMenuItem(
           text: "阅读".tl,
           icon: Icons.menu_book_outlined,
-          onTap: read,
+          onTap: () => readComic(manager),
         ),
         popupMenuItem(
           text: "搜索".tl,
@@ -539,7 +558,7 @@ class LocalFavoriteTile extends ComicTile {
           text: "下载".tl,
           icon: Icons.download,
           onTap: () {
-            comic.addDownload();
+            comic.addDownload(manager);
             showToast(message: "已添加下载任务".tl);
           },
         ),
@@ -555,15 +574,15 @@ class LocalFavoriteTile extends ComicTile {
   }
 
   @override
-  void onLongTap_() {
+  void onLongTap_(WidgetRef ref, String defaultFavoriteFolder) {
     if (onLongPressed != null) {
       onLongPressed!();
     } else {
-      showMenu();
+      showMenu(ref.read(downloadManagerProvider.notifier));
     }
   }
 
-  void showMenu() {
+  void showMenu(DownloadManager manager) {
     showDialog(
       context: App.globalContext!,
       builder: (context) => Dialog(
@@ -603,7 +622,7 @@ class LocalFavoriteTile extends ComicTile {
                 title: Text("阅读".tl),
                 onTap: () {
                   App.globalBack();
-                  read();
+                  readComic(manager);
                 },
               ),
               ListTile(
@@ -627,7 +646,7 @@ class LocalFavoriteTile extends ComicTile {
                 title: Text("下载".tl),
                 onTap: () {
                   App.globalBack();
-                  comic.addDownload();
+                  comic.addDownload(manager);
                   showToast(message: "已添加下载任务".tl);
                 },
               ),
@@ -647,9 +666,10 @@ class LocalFavoriteTile extends ComicTile {
     );
   }
 
-  Future<void> readComic() async {
-    if (await downloadManager.isExists(comic.toDownloadId())) {
-      var download = await downloadManager.getComicOrNull(comic.toDownloadId());
+  Future<void> readComic(DownloadManager manager) async {
+    final downloadId = comic.toDownloadId(manager);
+    if (await manager.isExists(downloadId)) {
+      var download = await manager.getComicOrNull(downloadId);
       if (download != null) {
         download.read();
         return;
@@ -664,7 +684,7 @@ class LocalFavoriteTile extends ComicTile {
     switch (comic.type.comicType) {
       case ComicType.picacg:
         {
-          var res = await network.getEps(comic.target);
+          var res = await appComicSourceServices.picacg.getEps(comic.target);
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -697,7 +717,9 @@ class LocalFavoriteTile extends ComicTile {
         }
       case ComicType.ehentai:
         {
-          var res = await EhNetwork().getGalleryInfo(comic.target);
+          var res = await appComicSourceServices.ehentai.getGalleryInfo(
+            comic.target,
+          );
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -712,7 +734,7 @@ class LocalFavoriteTile extends ComicTile {
         }
       case ComicType.jm:
         {
-          var res = await JmNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.jm.getComicInfo(comic.target);
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -730,7 +752,9 @@ class LocalFavoriteTile extends ComicTile {
         }
       case ComicType.hitomi:
         {
-          var res = await HiNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.hitomi.getComicInfo(
+            comic.target,
+          );
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -748,7 +772,9 @@ class LocalFavoriteTile extends ComicTile {
         }
       case ComicType.htmanga:
         {
-          var res = await HtmangaNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.htmanga.getComicInfo(
+            comic.target,
+          );
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -766,7 +792,9 @@ class LocalFavoriteTile extends ComicTile {
         }
       case ComicType.nhentai:
         {
-          var res = await NhentaiNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.nhentai.getComicInfo(
+            comic.target,
+          );
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -789,7 +817,10 @@ class LocalFavoriteTile extends ComicTile {
             controller.close();
             return;
           }
-          var res = await comic.type.comicSource!.loadComicInfo!(comic.target);
+          var res = await loadComicInfoFromProvider(
+            ProviderScope.containerOf(App.globalContext!, listen: false),
+            ComicInfoQuery(comic.type.comicSource!.key.name, comic.target),
+          );
           if (cancel) return;
           controller.close();
           if (res.error) {
@@ -814,7 +845,8 @@ class LocalFavoriteTile extends ComicTile {
   }
 
   @override
-  ActionFunc get read => readComic;
+  ActionFunc? readAction(WidgetRef ref) =>
+      () => readComic(ref.read(downloadManagerProvider.notifier));
 
   void copyTo() {
     String? folder;
@@ -867,7 +899,7 @@ class LocalFavoriteTile extends ComicTile {
   }
 
   @override
-  void onTap_() {
+  void onTapWithRef(WidgetRef ref) {
     if (onTap != null) {
       var res = onTap!();
       if (res) return;
@@ -879,7 +911,7 @@ class LocalFavoriteTile extends ComicTile {
     if (appdata.getSetting(AppSettingKeys.localFavoriteTapAction) == "0") {
       showInfo();
     } else {
-      read();
+      readComic(ref.read(downloadManagerProvider.notifier));
     }
   }
 
@@ -1169,42 +1201,52 @@ Future<void> checkFolder(String name) async {
       bool available = true;
       switch (comic.type.comicType) {
         case ComicType.picacg:
-          var res = await PicacgNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.picacg.getComicInfo(
+            comic.target,
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
             available = false;
           }
         case ComicType.ehentai:
-          var res = await EhNetwork().getGalleryInfo(comic.target);
+          var res = await appComicSourceServices.ehentai.getGalleryInfo(
+            comic.target,
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
             available = false;
           }
         case ComicType.jm:
-          var res = await JmNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.jm.getComicInfo(comic.target);
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
             available = false;
           }
         case ComicType.hitomi:
-          var res = await HiNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.hitomi.getComicInfo(
+            comic.target,
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
             available = false;
           }
         case ComicType.htmanga:
-          var res = await HtmangaNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.htmanga.getComicInfo(
+            comic.target,
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
             available = false;
           }
         case ComicType.nhentai:
-          var res = await NhentaiNetwork().getComicInfo(comic.target);
+          var res = await appComicSourceServices.nhentai.getComicInfo(
+            comic.target,
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {
@@ -1216,7 +1258,10 @@ Future<void> checkFolder(String name) async {
             available = false;
             break;
           }
-          var res = await source.loadComicInfo!(comic.target);
+          var res = await loadComicInfoFromProvider(
+            ProviderScope.containerOf(App.globalContext!, listen: false),
+            ComicInfoQuery(source.key.name, comic.target),
+          );
           if (res.error && !res.errorMessageWithoutNull.contains("404")) {
             networkError++;
           } else if (res.error) {

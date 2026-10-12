@@ -513,19 +513,3 @@ class EhImageLimit {
     this.credits,
   );
 }
-
-class ArchiveDownloadInfo {
-  final String originSize;
-  final String resampleSize;
-  final String originCost;
-  final String resampleCost;
-  final String? cancelUnlockUrl;
-
-  const ArchiveDownloadInfo(
-    this.originSize,
-    this.resampleSize,
-    this.originCost,
-    this.resampleCost,
-    this.cancelUnlockUrl,
-  );
-}
