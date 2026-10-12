@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import json
 import math
 import os
 import re
@@ -14,13 +15,13 @@ import sys
 import tempfile
 import uuid
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 try:
     import cv2
     import numpy as np
-    from PIL import Image, ImageOps, JpegImagePlugin
+    from PIL import Image, JpegImagePlugin
 except ImportError as error:  # pragma: no cover - dependency guard
     raise SystemExit(
         "需要安装 OpenCV、Pillow 和 NumPy：python -m pip install opencv-python pillow numpy"
@@ -33,6 +34,8 @@ SUPPORTED_FORMATS = {
     ".png": "PNG",
     ".webp": "WEBP",
 }
+MANIFEST_NAME = ".comic-image-splitter.json"
+GROUPED_NAME = re.compile(r"^\d+-\d+$")
 GUTTER_SAMPLE_WIDTH = 320
 GUTTER_WHITE_THRESHOLD = 250
 GUTTER_ROW_WHITE_RATIO = 0.995
@@ -129,7 +132,25 @@ class OutputPart:
         return self.plan.source.width, self.bottom - self.top
 
 
+@dataclass
+class ChapterJob:
+    """一个章节的已校验来源、预览计划与替换范围。"""
+
+    directory: Path
+    backup_dir: Path
+    sources: list[SourceImage]
+    plans: list[ImagePlan]
+    parts: list[OutputPart]
+    skipped: list[tuple[str, str]]
+    previous_outputs: list[Path]
+    records: dict[str, dict]
+    source_hashes: dict[str, str]
+    previous_hashes: dict[str, str]
+    manifest_bytes: bytes | None
+
+
 def parse_args() -> argparse.Namespace:
+    """解析筛选、递归及明确授权的写入参数。"""
     parser = argparse.ArgumentParser(
         description="缩短纵向近白留白并均衡切割 JPG/PNG/WebP 漫画图片。"
     )
@@ -137,8 +158,12 @@ def parse_args() -> argparse.Namespace:
         "--input-dir",
         required=True,
         type=Path,
-        help="必须显式指定图片目录；只处理该目录顶层的数字文件名图片。",
+        help="必须显式指定图片目录；默认只处理顶层，递归时每章独立处理。",
     )
+    parser.add_argument("--max-width", type=int, help="只处理宽度不超过此值的图片（包含边界）。")
+    parser.add_argument("--exclude-webp", action="store_true", help="跳过 WebP，保留原文件。")
+    parser.add_argument("--recursive", action="store_true", help="自动处理子目录，每章独立编号。")
+    parser.add_argument("--resplit", action="store_true", help="从已校验的原图备份重新处理，验证新结果后替换旧切片。")
     parser.add_argument(
         "--reference-width",
         type=int,
@@ -171,7 +196,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--backup-dir",
         type=Path,
-        help="覆盖默认备份目录；递归处理或从临时目录处理时应传入原章节对应的外部备份目录。",
+        help="单章备份目录；递归时作为备份根目录，按章节相对路径分别存放。",
     )
     parser.add_argument(
         "--keep-blank-pages",
@@ -197,6 +222,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("起始编号不能小于 0。")
     if args.preview_limit < 0:
         parser.error("预览条数不能小于 0。")
+    if args.max_width is not None and args.max_width <= 0:
+        parser.error("宽度筛选上限必须大于 0。")
+    if (args.max_width is not None or args.exclude_webp) and args.start_index != 1:
+        parser.error("筛选模式保留原始页号，不能同时指定其他 --start-index。")
     return args
 
 
@@ -288,28 +317,39 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def is_pure_white_page(image: Image.Image) -> bool:
-    """判断图片显示到白色画布后是否每个像素都为纯白。"""
-    if "A" in image.getbands():
+def visible_on_white(image: Image.Image) -> Image.Image:
+    """将包括调色板透明信息在内的图片合成到白色背景。"""
+    if "A" in image.getbands() or "transparency" in image.info:
         rgba = image.convert("RGBA")
         white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-        visible = Image.alpha_composite(white, rgba).convert("RGB")
-    else:
-        visible = image.convert("RGB")
+        return Image.alpha_composite(white, rgba).convert("RGB")
+    return image.convert("RGB")
+
+
+def is_pure_white_page(image: Image.Image) -> bool:
+    """判断图片显示到白色画布后是否每个像素都为纯白。"""
+    visible = visible_on_white(image)
     pixels = np.asarray(visible, dtype=np.uint8)
     return bool(np.all(pixels == PURE_WHITE_PAGE_VALUE))
 
 
-def discover_sources(input_dir: Path) -> tuple[list[SourceImage], int]:
+def discover_sources(
+    input_dir: Path,
+    max_width: int | None = None,
+    exclude_webp: bool = False,
+    skipped: list[tuple[str, str]] | None = None,
+    source_paths: list[Path] | None = None,
+) -> tuple[list[SourceImage], int]:
+    """读取数字原页并筛选；不修改被排除的图片。"""
     input_dir = input_dir.expanduser().resolve()
     if not input_dir.is_dir():
         raise ValueError(f"输入目录不存在或不是目录：{input_dir}")
 
-    paths = [
-        path
-        for path in input_dir.iterdir()
-        if path.is_file() and path.suffix.lower() in SUPPORTED_FORMATS
-    ]
+    if source_paths is not None:
+        paths = source_paths
+    else:
+        paths = [path for path in input_dir.iterdir()
+                 if path.is_file() and path.suffix.lower() in SUPPORTED_FORMATS]
     if not paths:
         raise ValueError("目录顶层没有 JPG/JPEG/PNG/WebP 图片。")
 
@@ -329,6 +369,12 @@ def discover_sources(input_dir: Path) -> tuple[list[SourceImage], int]:
     paths.sort(key=lambda path: int(path.stem))
     sources: list[SourceImage] = []
     for path in paths:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"原图必须是普通文件，不能是链接：{path}")
+        if exclude_webp and path.suffix.lower() == ".webp":
+            if skipped is not None:
+                skipped.append((path.name, "排除 WebP"))
+            continue
         expected_format = SUPPORTED_FORMATS[path.suffix.lower()]
         try:
             with Image.open(path) as image:
@@ -336,6 +382,10 @@ def discover_sources(input_dir: Path) -> tuple[list[SourceImage], int]:
                     raise ValueError(
                         f"格式与扩展名不符：{path.name} 是 {image.format}"
                     )
+                if max_width is not None and image.width > max_width:
+                    if skipped is not None:
+                        skipped.append((path.name, f"宽度 {image.width}px 超过 {max_width}px"))
+                    continue
                 if getattr(image, "n_frames", 1) != 1:
                     raise ValueError(f"不支持动画图片：{path.name}")
                 orientation = image.getexif().get(274, 1)
@@ -376,7 +426,7 @@ def analyze_horizontal_space(
     image: Image.Image,
 ) -> tuple[list[tuple[int, int]], np.ndarray]:
     """返回可靠的横向留白范围和逐行墨量，分析缩略图但不改变输出像素。"""
-    gray = ImageOps.grayscale(image)
+    gray = visible_on_white(image).convert("L")
     sample_width = min(GUTTER_SAMPLE_WIDTH, image.width)
     if sample_width != image.width:
         gray = gray.resize(
@@ -407,12 +457,7 @@ def analyze_horizontal_space(
 def detect_vertical_edge_trim(image: Image.Image) -> tuple[int, int]:
     """只检测并缩短上下边缘的大块近白空白，始终保留完整原始宽度。"""
     sample_width = min(EDGE_TRIM_SAMPLE_WIDTH, image.width)
-    if "A" in image.getbands():
-        rgba = image.convert("RGBA")
-        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-        grayscale = Image.alpha_composite(white, rgba).convert("L")
-    else:
-        grayscale = ImageOps.grayscale(image)
+    grayscale = visible_on_white(image).convert("L")
     if sample_width != image.width:
         grayscale = grayscale.resize(
             (sample_width, image.height),
@@ -519,12 +564,7 @@ def source_y_for_compacted_y(plan: ImagePlan, compacted_y: int) -> int:
 
 def detect_text_protected_intervals(image: Image.Image) -> list[tuple[int, int]]:
     """用小字形连通区域估计文字块范围，供切口避让使用。"""
-    if "A" in image.getbands():
-        rgba = image.convert("RGBA")
-        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-        grayscale = Image.alpha_composite(white, rgba).convert("L")
-    else:
-        grayscale = ImageOps.grayscale(image)
+    grayscale = visible_on_white(image).convert("L")
     if grayscale.width > EDGE_TRIM_SAMPLE_WIDTH:
         sampled_height = round(
             grayscale.height * EDGE_TRIM_SAMPLE_WIDTH / grayscale.width
@@ -975,12 +1015,17 @@ def make_plans(
     return plans
 
 
-def make_output_parts(plans: list[ImagePlan], start_index: int) -> list[OutputPart]:
+def make_output_parts(
+    plans: list[ImagePlan], start_index: int, preserve_page_numbers: bool = False
+) -> list[OutputPart]:
+    """建立输出页序；筛选时保留原始页号，不挤占未处理图片的位置。"""
     parts: list[OutputPart] = []
     page_index = start_index
     for plan in plans:
         if plan.is_blank_white:
             continue
+        if preserve_page_numbers:
+            page_index = int(plan.source.path.stem)
         for segment_index, (top, bottom) in enumerate(zip(plan.cuts, plan.cuts[1:])):
             parts.append(
                 OutputPart(
@@ -1051,6 +1096,8 @@ def print_preview(
         f"需切割：{len(split_plans)} 张；纯白页跳过：{len(blank_plans)} 张；"
         f"预计输出：{len(parts)} 张"
     )
+    for plan in blank_plans:
+        print(f"  纯白页跳过：{plan.source.path.name}（执行时仍保留原图备份）")
     print(
         f"输出格式：{output_formats}；页序格式：{page_range}"
     )
@@ -1079,15 +1126,12 @@ def print_preview(
     preview_plans = [
         plan
         for plan in plans
-        if plan.is_blank_white or plan.piece_count > 1 or plan.trimmed
+        if plan.piece_count > 1 or plan.trimmed
     ]
     if preview_limit == 0:
         return
     print("切割与纵向留白压缩预览：")
     for plan in preview_plans[:preview_limit]:
-        if plan.is_blank_white:
-            print(f"  {plan.source.path.name}: 纯白页，默认跳过并备份原图")
-            continue
         heights = [
             round(equivalent_height(part, reference_width))
             for part in parts
@@ -1262,6 +1306,421 @@ def move_to_recycle_bin(path: Path) -> None:
     send2trash(str(resolved_path))
 
 
+def is_directory_link(path: Path) -> bool:
+    """识别符号链接和 Windows 目录联接，避免递归越过输入边界。"""
+    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+
+
+def skip_directory(path: Path) -> bool:
+    """排除备份、临时、隐藏目录及目录链接。"""
+    if is_directory_link(path):
+        return True
+    name = path.name.lower()
+    hidden = bool(getattr(path.stat(), "st_file_attributes", 0) & 2)
+    return (
+        hidden
+        or name.startswith(".")
+        or name in {"back", "tmp", "temp", "__pycache__", "picacomic image splitter backups"}
+        or "_split_stage_" in name
+        or "_backup_stage_" in name
+        or "_resplit_input_" in name
+    )
+
+
+def discover_chapters(root: Path, recursive: bool) -> tuple[list[Path], list[Path]]:
+    """发现含图片的目录；根目录有图片时也作为独立章节。"""
+    if not root.is_dir():
+        raise ValueError(f"输入目录不存在或不是目录：{root}")
+    if not recursive:
+        return [root], []
+    chapters: list[Path] = []
+    excluded: list[Path] = []
+
+    def report_walk_error(error: OSError) -> None:
+        """目录不可读时中止，避免批处理漏章。"""
+        raise error
+
+    for current, directories, files in os.walk(root, followlinks=False, onerror=report_walk_error):
+        directory = Path(current)
+        allowed = []
+        for name in sorted(directories):
+            child = directory / name
+            if skip_directory(child):
+                excluded.append(child)
+            else:
+                allowed.append(name)
+        directories[:] = allowed
+        if MANIFEST_NAME in files or any(Path(name).suffix.lower() in SUPPORTED_FORMATS for name in files):
+            chapters.append(directory)
+    if not chapters:
+        raise ValueError("输入目录及可遍历的子目录中没有漫画图片。")
+    return chapters, excluded
+
+
+def chapter_backup_dir(root: Path, chapter: Path, args: argparse.Namespace) -> Path:
+    """自动按原章节路径生成备份；递归覆盖路径保留相对层级。"""
+    if args.backup_dir is None:
+        return default_backup_dir(chapter)
+    base = args.backup_dir.expanduser().resolve()
+    if not args.recursive:
+        return base
+    root_hash = hashlib.sha256(os.path.normcase(str(root)).encode("utf-8")).hexdigest()[:12]
+    return base / f"{safe_path_component(root.name)}-{root_hash}" / chapter.relative_to(root) / "back"
+
+
+def validate_backup_location(chapter: Path, backup: Path, root: Path | None = None) -> None:
+    """禁止在输入树内建立备份，也禁止把输入树置于备份内。"""
+    for directory in (chapter, root or chapter):
+        if backup == directory or backup in directory.parents or directory in backup.parents:
+            raise ValueError(f"备份必须位于输入目录树之外：{backup}")
+    if backup.exists() and (not backup.is_dir() or is_directory_link(backup)):
+        raise ValueError(f"备份路径不是普通目录：{backup}")
+
+
+def check_hashes(expected: dict[Path, str]) -> None:
+    """核对来源或备份快照，内容变化时停止，不继续替换或清理。"""
+    for path, digest in expected.items():
+        if path.is_symlink() or not path.is_file() or sha256_file(path) != digest:
+            raise ValueError(f"文件缺失或 SHA-256 已变化：{path}")
+
+
+def read_manifest(chapter: Path) -> tuple[dict[str, dict], bytes | None, Path | None]:
+    """读取原图到切片的对应关系，拒绝越界文件名及歧义页序。"""
+    path = chapter / MANIFEST_NAME
+    if not path.exists():
+        return {}, None, None
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"处理记录不是普通文件：{path}")
+    data = path.read_bytes()
+    try:
+        manifest = json.loads(data)
+        if manifest["version"] != 1 or not isinstance(manifest["sources"], dict):
+            raise ValueError("记录版本或 sources 字段无效")
+        records = manifest["sources"]
+        pages: set[int] = set()
+        outputs: set[str] = set()
+        for name, record in records.items():
+            original = Path(name)
+            if original.name != name or original.suffix.lower() not in SUPPORTED_FORMATS or not original.stem.isdecimal():
+                raise ValueError(f"原图文件名无效：{name}")
+            page = int(original.stem)
+            if page in pages:
+                raise ValueError(f"重复原始页号：{page}")
+            pages.add(page)
+            if not re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) or not isinstance(record["size"], int):
+                raise ValueError(f"原图校验信息无效：{name}")
+            if not isinstance(record["outputs"], list):
+                raise ValueError(f"切片列表无效：{name}")
+            for output in record["outputs"]:
+                output_path = Path(output)
+                if (output_path.name != output or not GROUPED_NAME.fullmatch(output_path.stem)
+                        or output_path.suffix.lower() != original.suffix.lower() or output in outputs):
+                    raise ValueError(f"切片文件名无效或重复：{output}")
+                outputs.add(output)
+        return records, data, Path(manifest["backup_dir"]).expanduser().resolve()
+    except (KeyError, TypeError, AttributeError, UnicodeError, ValueError) as error:
+        raise ValueError(f"章节处理记录无效：{path}：{error}") from error
+
+
+def resplit_candidates(
+    chapter: Path, backup: Path, records: dict[str, dict], image_paths: list[Path]
+) -> tuple[list[Path], bool]:
+    """只从可确认的原图备份重新切割，兼容旧版的整章重切。"""
+    grouped = [path for path in image_paths if GROUPED_NAME.fullmatch(path.stem)]
+    live = [path for path in image_paths if not GROUPED_NAME.fullmatch(path.stem)]
+    if not backup.is_dir():
+        raise ValueError(f"原图备份目录缺失：{backup}")
+    if records:
+        known_outputs = {name for record in records.values() for name in record["outputs"]}
+        if any(path.name not in known_outputs for path in grouped):
+            raise ValueError("发现处理记录以外的切片，无法确认来源；停止该章。")
+        if any(path.name in records for path in live):
+            raise ValueError("目录同时存在已处理页的原图与切片；请先核对来源。")
+        paths = [backup / name for name in records]
+        check_hashes({backup / name: record["sha256"] for name, record in records.items()})
+        for name, record in records.items():
+            if (backup / name).stat().st_size != record["size"]:
+                raise ValueError(f"原图备份字节数已变化：{name}")
+        return paths + live, False
+    if not grouped or live:
+        raise ValueError("旧版重切需要纯切片章节和唯一原图备份；混合目录缺少对应记录，停止该章。")
+    originals = [path for path in backup.iterdir()
+                 if path.suffix.lower() in SUPPORTED_FORMATS and path.stem.isdecimal()]
+    if not originals:
+        raise ValueError("原图备份为空；不能用旧切片或 *_before_resplit 文件猜测原图。")
+    return originals, True
+
+
+def validate_legacy_outputs(image_paths: list[Path], sources: list[SourceImage]) -> None:
+    """旧版整章重切前核对原页数量、扩展名和切片序号，拒绝缺页备份。"""
+    groups: dict[int, list[Path]] = {}
+    for path in image_paths:
+        if GROUPED_NAME.fullmatch(path.stem):
+            page = int(path.stem.split("-")[0])
+            groups.setdefault(page, []).append(path)
+    for files in groups.values():
+        segments = sorted(int(path.stem.split("-")[1]) for path in files)
+        if segments != list(range(len(files))):
+            raise ValueError("旧版切片缺段或序号重复，不能确认整章来源。")
+    pages = sorted(groups)
+    nonblank = []
+    for source in sources:
+        with Image.open(source.path) as image:
+            if not is_pure_white_page(image):
+                nonblank.append(source)
+    # 兼容旧版保留纯白页和跳过纯白页的整章结果。
+    for candidates in (sources, nonblank):
+        if not candidates or len(candidates) != len(pages):
+            continue
+        original_pages = [int(source.path.stem) for source in candidates]
+        sequential_pages = list(range(pages[0], pages[0] + len(pages)))
+        if pages != original_pages and pages != sequential_pages:
+            continue
+        if all(all(path.suffix.lower() == source.path.suffix.lower() for path in groups[page])
+               for page, source in zip(pages, candidates)):
+            return
+    raise ValueError("旧版原图备份数量或格式与旧结果不对应，可能缺少原页；停止该章。")
+
+
+def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> ChapterJob:
+    """建立只读预览；在任何章节写入前确认整批来源和替换范围。"""
+    records, manifest_bytes, recorded_backup = read_manifest(chapter)
+    backup = chapter_backup_dir(root, chapter, args)
+    if args.backup_dir is None and recorded_backup is not None:
+        backup = recorded_backup
+    if recorded_backup is not None and recorded_backup != backup:
+        raise ValueError(f"备份路径与处理记录不一致：{chapter}")
+    validate_backup_location(chapter, backup, root)
+    image_paths = [path for path in chapter.iterdir()
+                   if path.is_file() and path.suffix.lower() in SUPPORTED_FORMATS]
+    has_results = bool(records) or any(GROUPED_NAME.fullmatch(path.stem) for path in image_paths)
+    if has_results and not args.resplit:
+        raise ValueError(f"章节已处理；请使用 --resplit 从原图备份重切：{chapter}")
+    legacy = False
+    candidates = None
+    if args.resplit and has_results:
+        candidates, legacy = resplit_candidates(chapter, backup, records, image_paths)
+    skipped: list[tuple[str, str]] = []
+    sources, ignored = discover_sources(chapter, args.max_width, args.exclude_webp, skipped, candidates)
+    if legacy and skipped and sources:
+        raise ValueError("旧版章节没有原图到切片的对应记录，不能安全局部重切；请整章重切。")
+    if legacy and sources:
+        validate_legacy_outputs(image_paths, sources)
+    selected_names = {source.path.name for source in sources}
+    source_hashes = {source.path.name: sha256_file(source.path) for source in sources}
+    if legacy and sources:
+        previous_outputs = [path for path in image_paths if GROUPED_NAME.fullmatch(path.stem)]
+    else:
+        previous_outputs = [chapter / output for name, record in records.items()
+                            if name in selected_names for output in record["outputs"]]
+    for path in previous_outputs:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"旧结果缺失或不是普通文件，停止该章：{path}")
+    plans = make_plans(sources, args.reference_width, args.min_equivalent_height,
+                       args.max_equivalent_height, keep_blank_pages=args.keep_blank_pages)
+    check_hashes({source.path: source_hashes[source.path.name] for source in sources})
+    preserve = args.max_width is not None or args.exclude_webp
+    if records:
+        untouched = any(name not in selected_names for name in records)
+        preserve = preserve or untouched
+    if preserve and args.start_index != 1:
+        raise ValueError("局部重切保留原始页号，不能指定其他 --start-index。")
+    parts = make_output_parts(plans, args.start_index, preserve)
+    for source in sources:
+        path = backup / source.path.name
+        if path.exists():
+            check_hashes({path: source_hashes[source.path.name]})
+    previous_hashes = {path.name: sha256_file(path) for path in previous_outputs}
+    replaceable = set(previous_outputs)
+    planned_names = {part.filename for part in parts}
+    if len(planned_names) != len(parts):
+        raise ValueError("新结果存在重复文件名。")
+    if any((chapter / name).exists() and chapter / name not in replaceable for name in planned_names):
+        raise ValueError(f"新结果会覆盖不在替换范围内的文件：{chapter}")
+    # 同页不同扩展名同样会破坏阅读顺序，不能只检查完整文件名。
+    new_pages = {part.page_index for part in parts}
+    for path in image_paths:
+        if path in replaceable or path.name in selected_names:
+            continue
+        prefix = path.stem.split("-")[0]
+        if prefix.isdecimal() and int(prefix) in new_pages:
+            raise ValueError(f"新页号与未处理图片冲突：{path.name}")
+    print(f"筛选条件：宽度 ≤ {args.max_width}px" if args.max_width is not None else "筛选条件：不限制宽度")
+    print(f"WebP：{'排除' if args.exclude_webp else '包含'}；编号：{'保留原始页号' if preserve else '连续编号'}")
+    print_preview(chapter, sources, plans, parts, ignored, args.reference_width,
+                  args.min_equivalent_height, args.max_equivalent_height, args.start_index, args.preview_limit)
+    for name, reason in skipped:
+        print(f"  跳过并保持原样：{name}（{reason}）")
+    if args.resplit:
+        print(f"重切来源：{backup}；待替换旧切片：{len(previous_outputs)} 张")
+    print(f"原图备份目录：{backup}")
+    return ChapterJob(chapter, backup, sources, plans, parts, skipped, previous_outputs,
+                      records, source_hashes, previous_hashes, manifest_bytes)
+
+
+def stage_output_parts(stage_dir: Path, parts: list[OutputPart]) -> None:
+    """每张原图解码一次，按预览计划生成暂存结果。"""
+    offset = 0
+    while offset < len(parts):
+        plan = parts[offset].plan
+        source_parts = parts[offset:offset + plan.piece_count]
+        if len(source_parts) != plan.piece_count:
+            raise RuntimeError(f"输出计划不完整：{plan.source.path.name}")
+        offset += plan.piece_count
+        if plan.piece_count == 1 and not plan.trimmed:
+            shutil.copy2(plan.source.path, stage_dir / source_parts[0].filename)
+            continue
+        with Image.open(plan.source.path) as image:
+            image.load()
+            compacted = build_vertical_compacted_image(
+                image, plan.source_spans or ((plan.crop_top, plan.effective_bottom),))
+            for part in source_parts:
+                crop = compacted.crop((0, part.top, plan.source.width, part.bottom))
+                save_piece(crop, plan.source, stage_dir / part.filename)
+
+
+def copy_verified(
+    source: Path, destination: Path, digest: str, created: list[Path] | None = None
+) -> None:
+    """复制且核对字节数和哈希，禁止覆盖已有文件。"""
+    if destination.exists():
+        raise FileExistsError(f"拒绝覆盖已有文件：{destination}")
+    # 排他创建防止并发任务在检查之后创建同名备份。
+    with source.open("rb") as reader, destination.open("xb") as writer:
+        if created is not None:
+            created.append(destination)
+        shutil.copyfileobj(reader, writer)
+    check_hashes({source: digest, destination: digest})
+    if source.stat().st_size != destination.stat().st_size:
+        raise OSError(f"复制后的字节数不符：{destination}")
+
+
+def backup_sources(job: ChapterJob, sources: list[SourceImage]) -> dict[Path, str]:
+    """保留原图备份，不同内容的同名文件必须停止。"""
+    job.backup_dir.mkdir(parents=True, exist_ok=True)
+    protected: dict[Path, str] = {}
+    for source in sources:
+        destination = job.backup_dir / source.path.name
+        digest = job.source_hashes[source.path.name]
+        if destination.exists():
+            check_hashes({destination: digest})
+        else:
+            # 先放在独立暂存文件，校验通过后才成为可识别的原图备份。
+            temporary = job.backup_dir / f".{source.path.name}.{uuid.uuid4().hex}.tmp"
+            try:
+                copy_verified(source.path, temporary, digest)
+                # 使用排他目标写入，避免 rename 在不同平台覆盖已有备份。
+                copy_verified(temporary, destination, digest)
+            except Exception:
+                print(f"原图备份失败；临时副本保留供核对：{temporary}", file=sys.stderr)
+                raise
+            recycle_temporary(temporary, job.backup_dir, {destination: digest})
+        protected[destination] = digest
+    return protected
+
+
+def recycle_temporary(path: Path, parent: Path, protected: dict[Path, str]) -> None:
+    """仅清理本次创建且边界明确的暂存路径；备份异常时保留现场。"""
+    if not path.exists():
+        return
+    try:
+        if path.is_symlink() or is_directory_link(path) or path.resolve().parent != parent.resolve():
+            raise ValueError(f"暂存路径超出清理边界：{path}")
+        check_hashes(protected)
+        move_to_recycle_bin(path)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"暂存路径未清理，已保留：{path}；原因：{error}", file=sys.stderr)
+
+
+def archive_previous_outputs(job: ChapterJob) -> dict[Path, Path]:
+    """在删除旧切片前保存校验副本，使用序号避免覆盖历史记录。"""
+    archives: dict[Path, Path] = {}
+    check_hashes({path: job.previous_hashes[path.name] for path in job.previous_outputs})
+    for path in job.previous_outputs:
+        index = 0
+        while True:
+            suffix = "" if index == 0 else f"_{index}"
+            archive = job.backup_dir / f"{path.stem}_before_resplit{suffix}{path.suffix}"
+            if not archive.exists():
+                break
+            index += 1
+        copy_verified(path, archive, job.previous_hashes[path.name])
+        archives[path] = archive
+    return archives
+
+
+def manifest_for_job(job: ChapterJob) -> bytes:
+    """记录原图哈希和实际输出，纯白页也保留记录以便重新处理。"""
+    records = dict(job.records)
+    for source in job.sources:
+        records[source.path.name] = {
+            "sha256": job.source_hashes[source.path.name],
+            "size": source.path.stat().st_size,
+            "outputs": [part.filename for part in job.parts if part.plan.source.path == source.path],
+        }
+    return json.dumps({"version": 1, "backup_dir": str(job.backup_dir), "sources": records},
+                      ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def check_manifest_snapshot(job: ChapterJob) -> None:
+    """执行前确认处理记录仍与预览时一致。"""
+    path = job.directory / MANIFEST_NAME
+    current = path.read_bytes() if path.exists() else None
+    if current != job.manifest_bytes:
+        raise ValueError(f"处理记录在预览后发生变化：{path}")
+
+
+def rollback_commit(job: ChapterJob, placed: list[Path], archives: dict[Path, Path]) -> None:
+    """提交失败时恢复旧切片和已移走的原图，保留全部外部备份。"""
+    errors: list[str] = []
+    for path in reversed(placed):
+        try:
+            move_to_recycle_bin(path)
+        except (OSError, RuntimeError) as error:
+            errors.append(str(error))
+    restore = [(source.path, job.backup_dir / source.path.name, job.source_hashes[source.path.name])
+               for source in job.sources if source.path.parent == job.directory]
+    restore += [(path, archive, job.previous_hashes[path.name]) for path, archive in archives.items()]
+    for path, backup, digest in restore:
+        try:
+            if not path.exists():
+                copy_verified(backup, path, digest)
+            else:
+                check_hashes({path: digest})
+        except (OSError, RuntimeError, ValueError) as error:
+            errors.append(str(error))
+    if errors:
+        raise RuntimeError("回滚未完成；原图和旧结果备份保留于外部目录：" + "；".join(errors))
+
+
+def commit_outputs(job: ChapterJob, stage_dir: Path, protected: dict[Path, str]) -> None:
+    """先归档旧结果，再替换新结果；任何中途失败均尝试回滚。"""
+    check_manifest_snapshot(job)
+    check_hashes(protected)
+    archives = archive_previous_outputs(job)
+    manifest_path = stage_dir / MANIFEST_NAME
+    manifest_path.write_bytes(manifest_for_job(job))
+    placed: list[Path] = []
+    try:
+        for path in job.previous_outputs:
+            check_hashes({path: job.previous_hashes[path.name]})
+            move_to_recycle_bin(path)
+        for part in job.parts:
+            destination = job.directory / part.filename
+            copy_verified(stage_dir / part.filename, destination, sha256_file(stage_dir / part.filename), placed)
+        check_hashes(protected)
+        for source in job.sources:
+            if source.path.parent == job.directory:
+                check_hashes({source.path: job.source_hashes[source.path.name]})
+                move_to_recycle_bin(source.path)
+        check_manifest_snapshot(job)
+        # 处理记录是事务最后一步；失败时旧记录尚未更改。
+        os.replace(manifest_path, job.directory / MANIFEST_NAME)
+    except Exception:
+        rollback_commit(job, placed, archives)
+        raise
+
+
 def apply_plans(
     input_dir: Path,
     sources: list[SourceImage],
@@ -1270,278 +1729,97 @@ def apply_plans(
     min_equivalent_height: int,
     max_equivalent_height: int,
     backup_dir: Path,
+    job: ChapterJob,
 ) -> tuple[Path, list[OutputPart]]:
+    """按同一预览计划暂存并验证结果，再备份及提交章节。"""
     input_dir = input_dir.expanduser().resolve()
-    external_sources = [
-        source.path
-        for source in sources
-        if source.path.expanduser().resolve().parent != input_dir
-    ]
-    if external_sources:
-        examples = ", ".join(str(path) for path in external_sources[:3])
-        raise ValueError(
-            "拒绝处理来源于输入目录之外的原图；请先将原图复制到独立输入目录，"
-            f"避免备份或清理暂存目录时误移动/删除来源文件：{examples}"
-        )
-
-    backup_dir = backup_dir.expanduser().resolve()
-    if (
-        backup_dir == input_dir
-        or backup_dir in input_dir.parents
-        or input_dir in backup_dir.parents
-    ):
-        raise ValueError(f"备份目录必须位于输入目录之外：{backup_dir}")
-    if backup_dir.exists() and not backup_dir.is_dir():
-        raise ValueError(f"备份路径已存在但不是目录：{backup_dir}")
-    backup_conflicts = []
-    for source in sources:
-        backup_path = backup_dir / source.path.name
-        if backup_path.is_file() and (
-            backup_path.stat().st_size != source.path.stat().st_size
-            or sha256_file(backup_path) != sha256_file(source.path)
-        ):
-            backup_conflicts.append(backup_path)
-        elif backup_path.exists() and not backup_path.is_file():
-            backup_conflicts.append(backup_path)
-    if backup_conflicts:
-        examples = ", ".join(str(path) for path in backup_conflicts[:5])
-        raise ValueError(
-            "外部备份目录中存在与当前原图不同的同名文件，拒绝覆盖："
-            f"{examples}"
-        )
-    output_conflicts = [
-        input_dir / part.filename
-        for part in parts
-        if (input_dir / part.filename).exists()
-    ]
-    if output_conflicts:
-        examples = ", ".join(str(path) for path in output_conflicts[:5])
-        raise ValueError(f"拒绝覆盖输入目录中已有结果：{examples}")
-
-    parent = input_dir.parent
-    stage_dir = Path(
-        tempfile.mkdtemp(prefix=f".{input_dir.name}_split_stage_", dir=parent)
-    )
-    backup_stage_dir: Path | None = None
-
+    if any(source.path.resolve().parent != input_dir for source in sources):
+        raise ValueError("原图必须全部是输入目录的直接子文件；重切时先复制到独立临时目录。")
+    if backup_dir.resolve() != job.backup_dir:
+        raise ValueError("备份目录与预览计划不一致。")
+    validate_backup_location(job.directory, job.backup_dir)
+    source_snapshot = {source.path: job.source_hashes[source.path.name] for source in sources}
+    check_hashes(source_snapshot)
+    stage_dir = Path(tempfile.mkdtemp(prefix=f".{job.directory.name}_split_stage_", dir=job.directory.parent))
+    protected = {job.backup_dir / source.path.name: job.source_hashes[source.path.name]
+                 for source in sources if (job.backup_dir / source.path.name).exists()}
     try:
-        actual_parts: list[OutputPart] = []
-        part_offset = 0
-        processed_sources = 0
-        total_output_sources = len({part.plan.source.path for part in parts})
-        while part_offset < len(parts):
-            plan = parts[part_offset].plan
-            # 每张源图只读一次；同一张图的所有裁切共享这次解码结果。
-            source_parts = parts[part_offset : part_offset + plan.piece_count]
-            if len(source_parts) != plan.piece_count:
-                raise RuntimeError(f"输出计划不完整：{plan.source.path.name}")
-            part_offset += plan.piece_count
-            if plan.piece_count == 1 and not plan.trimmed:
-                part = source_parts[0]
-                shutil.copy2(plan.source.path, stage_dir / part.filename)
-                actual_parts.append(part)
-                processed_sources += 1
-                if (
-                    processed_sources % 25 == 0
-                    or processed_sources == total_output_sources
-                ):
-                    print(
-                        f"生成切片暂存：{processed_sources}/{len(sources)} 张原图",
-                        flush=True,
-                    )
-                continue
-
-            with Image.open(plan.source.path) as image:
-                image.load()
-                compacted = build_vertical_compacted_image(
-                    image,
-                    plan.source_spans
-                    or ((plan.crop_top, plan.effective_bottom),),
-                )
-                for source_part in source_parts:
-                    crop = compacted.crop(
-                        (0, source_part.top, plan.source.width, source_part.bottom)
-                    )
-                    save_piece(crop, plan.source, stage_dir / source_part.filename)
-                    actual_parts.append(source_part)
-            processed_sources += 1
-            if (
-                processed_sources % 25 == 0
-                or processed_sources == total_output_sources
-            ):
-                print(
-                    f"生成切片暂存：{processed_sources}/{len(sources)} 张原图",
-                    flush=True,
-                )
-
-        verify_staged_parts(
-            stage_dir,
-            actual_parts,
-            reference_width,
-            min_equivalent_height,
-            max_equivalent_height,
-        )
-
-        backup_dir.parent.mkdir(parents=True, exist_ok=True)
-        backup_stage_dir = Path(
-            tempfile.mkdtemp(
-                prefix=f".{backup_dir.name}_backup_stage_", dir=backup_dir.parent
-            )
-        )
-        for source in sources:
-            backup_path = backup_dir / source.path.name
-            if backup_path.exists():
-                continue
-            staged_backup_path = backup_stage_dir / source.path.name
-            shutil.copy2(source.path, staged_backup_path)
-            if (
-                staged_backup_path.stat().st_size != source.path.stat().st_size
-                or sha256_file(staged_backup_path) != sha256_file(source.path)
-            ):
-                raise OSError(
-                    f"原图备份校验失败，原图仍保留在输入目录：{source.path}"
-                )
-
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        for staged_backup_path in backup_stage_dir.iterdir():
-            backup_path = backup_dir / staged_backup_path.name
-            if backup_path.exists():
-                if (
-                    not backup_path.is_file()
-                    or backup_path.stat().st_size != staged_backup_path.stat().st_size
-                    or sha256_file(backup_path) != sha256_file(staged_backup_path)
-                ):
-                    raise FileExistsError(f"拒绝覆盖不同内容的原图备份：{backup_path}")
-                move_to_recycle_bin(staged_backup_path)
-            else:
-                staged_backup_path.rename(backup_path)
-
-        placed_outputs: list[Path] = []
-        try:
-            for part in actual_parts:
-                staged_path = stage_dir / part.filename
-                output_path = input_dir / part.filename
-                staged_path.rename(output_path)
-                placed_outputs.append(output_path)
-            for source in sources:
-                move_to_recycle_bin(source.path)
-        except Exception:
-            rollback_errors: list[str] = []
-            for source in sources:
-                if source.path.exists():
-                    continue
-                backup_path = backup_dir / source.path.name
-                try:
-                    shutil.copy2(backup_path, source.path)
-                    if sha256_file(backup_path) != sha256_file(source.path):
-                        raise OSError(f"恢复原图后校验失败：{source.path}")
-                except (OSError, RuntimeError) as error:
-                    rollback_errors.append(str(error))
-            for output_path in reversed(placed_outputs):
-                try:
-                    move_to_recycle_bin(output_path)
-                except (OSError, RuntimeError) as error:
-                    rollback_errors.append(str(error))
-            if rollback_errors:
-                raise RuntimeError(
-                    "回滚未完成；原始备份仍保存在下载目录。以下操作未能完成："
-                    + "；".join(rollback_errors)
-                )
-            raise
-
-        print(f"原图备份目录：{backup_dir}")
-        return backup_dir, actual_parts
+        stage_output_parts(stage_dir, parts)
+        verify_staged_parts(stage_dir, parts, reference_width, min_equivalent_height, max_equivalent_height)
+        check_hashes(source_snapshot)
+        protected = backup_sources(job, sources)
+        commit_outputs(job, stage_dir, protected)
+        return job.backup_dir, parts
     finally:
-        if backup_stage_dir is not None and backup_stage_dir.exists():
-            try:
-                move_to_recycle_bin(backup_stage_dir)
-            except (OSError, RuntimeError) as error:
-                print(
-                    "备份暂存目录无法移入回收站，已保留在原处："
-                    f"{backup_stage_dir}；原因：{error}",
-                    file=sys.stderr,
-                )
-        if stage_dir.exists():
-            if stage_dir.parent.resolve() != parent.resolve():
-                raise RuntimeError(f"拒绝清理输入目录以外的暂存路径：{stage_dir}")
-            try:
-                move_to_recycle_bin(stage_dir)
-            except (OSError, RuntimeError) as error:
-                print(
-                    f"暂存目录无法移入回收站，已保留在原处：{stage_dir}；原因：{error}",
-                    file=sys.stderr,
-                )
+        recycle_temporary(stage_dir, job.directory.parent, protected)
+
+
+def execute_chapter(job: ChapterJob, args: argparse.Namespace) -> None:
+    """执行单章；重切只复制已核验的原图，不把外部原图直接传给写入函数。"""
+    if not job.sources:
+        print(f"无符合条件的图片，保持章节原样：{job.directory}")
+        return
+    check_hashes({source.path: job.source_hashes[source.path.name] for source in job.sources})
+    check_hashes({path: job.previous_hashes[path.name] for path in job.previous_outputs})
+    temporary: Path | None = None
+    sources = job.sources
+    parts = job.parts
+    input_dir = job.directory
+    try:
+        if any(source.path.parent != job.directory for source in sources):
+            temporary = Path(tempfile.mkdtemp(prefix=f".{job.directory.name}_resplit_input_", dir=job.directory.parent))
+            copies = []
+            for source in sources:
+                destination = temporary / source.path.name
+                copy_verified(source.path, destination, job.source_hashes[source.path.name])
+                copies.append(replace(source, path=destination))
+            sources = copies
+            by_name = {source.path.name: source for source in copies}
+            plans = {id(plan): replace(plan, source=by_name[plan.source.path.name]) for plan in job.plans}
+            parts = [replace(part, plan=plans[id(part.plan)]) for part in job.parts]
+            input_dir = temporary
+        backup, actual = apply_plans(input_dir, sources, parts, args.reference_width,
+                                     args.min_equivalent_height, args.max_equivalent_height, job.backup_dir, job)
+        print(f"章节完成：{job.directory}；原图 {len(sources)} 张 → 结果 {len(actual)} 张；筛选跳过 {len(job.skipped)} 张")
+        print(f"原始图片保存在：{backup}")
+    finally:
+        if temporary is not None:
+            # 唯一原图始终在原路径；每个临时副本必须有可验证的外部原图才清理。
+            originals = {}
+            for source in job.sources:
+                original = job.backup_dir / source.path.name
+                if not original.exists():
+                    original = source.path
+                originals[original] = job.source_hashes[source.path.name]
+            recycle_temporary(temporary, job.directory.parent, originals)
 
 
 def main() -> int:
+    """先预览整批章节，全部通过后才按章执行；失败时停止后续章节。"""
     args = parse_args()
-    input_dir = args.input_dir.expanduser().resolve()
-
+    requested = args.input_dir.expanduser().absolute()
     try:
-        sources, ignored_count = discover_sources(input_dir)
-        plans = make_plans(
-            sources,
-            args.reference_width,
-            args.min_equivalent_height,
-            args.max_equivalent_height,
-            keep_blank_pages=args.keep_blank_pages,
-        )
-        parts = make_output_parts(plans, args.start_index)
-        print_preview(
-            input_dir,
-            sources,
-            plans,
-            parts,
-            ignored_count,
-            args.reference_width,
-            args.min_equivalent_height,
-            args.max_equivalent_height,
-            args.start_index,
-            args.preview_limit,
-        )
+        if is_directory_link(requested):
+            raise ValueError("输入目录不能是符号链接或目录联接。")
+        root = requested.resolve()
+        chapters, excluded = discover_chapters(root, args.recursive)
+        for path in excluded:
+            print(f"跳过目录：{path}（备份、隐藏、临时或链接目录）")
+        jobs = [prepare_chapter(root, chapter, args) for chapter in chapters]
+        eligible = [job for job in jobs if job.sources]
+        print(f"批次汇总：发现章节 {len(jobs)} 个；符合条件 {len(eligible)} 个；"
+              f"原图 {sum(len(job.sources) for job in jobs)} 张；筛选跳过 {sum(len(job.skipped) for job in jobs)} 张；"
+              f"纯白页跳过 {sum(plan.is_blank_white for job in jobs for plan in job.plans)} 张；"
+              f"预计输出 {sum(len(job.parts) for job in jobs)} 张")
         if not args.apply:
-            print("当前为只读预览；添加 --apply 后才会写入切片和备份原图。")
+            print("当前为只读预览；添加 --apply 后才会写入结果和备份原图。")
             return 0
-
-        backup_dir, actual_parts = apply_plans(
-            input_dir,
-            sources,
-            parts,
-            args.reference_width,
-            args.min_equivalent_height,
-            args.max_equivalent_height,
-            args.backup_dir or default_backup_dir(input_dir),
-        )
-        filename_range = (
-            f"文件名范围 {parts[0].filename}–{parts[-1].filename}"
-            if parts
-            else "没有保留页面"
-        )
-        print(f"处理完成：{len(sources)} 张原图 → {len(parts)} 张结果；{filename_range}。")
-        blank_page_count = sum(plan.is_blank_white for plan in plans)
-        if blank_page_count:
-            print(f"已跳过纯白页：{blank_page_count} 张；原图备份在下载目录。")
-        split_heights = [
-            equivalent_height(part, args.reference_width)
-            for part in actual_parts
-            if part.plan.piece_count > 1
-        ]
-        split_ratios = [
-            (part.bottom - part.top)
-            / (part.plan.effective_height / part.plan.piece_count)
-            for part in actual_parts
-            if part.plan.piece_count > 1
-        ]
-        if split_heights:
-            print(
-                f"切片核验：切割段等效高度 {min(split_heights):.0f}–"
-                f"{max(split_heights):.0f} px；切割段相对均分目标 "
-                f"{min(split_ratios):.0%}–{max(split_ratios):.0%}。"
-            )
-        print(f"原始图片已保存在：{backup_dir}")
+        for job in eligible:
+            execute_chapter(job, args)
+        print(f"处理完成：{len(eligible)} 个章节。各章独立提交，原图备份始终保留。")
         return 0
     except (OSError, RuntimeError, ValueError) as error:
-        print(f"处理失败：{error}", file=sys.stderr)
+        print(f"处理失败，后续章节未执行：{error}", file=sys.stderr)
         return 1
 
 
