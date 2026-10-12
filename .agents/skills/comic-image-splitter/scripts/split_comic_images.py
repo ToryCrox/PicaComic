@@ -36,6 +36,7 @@ SUPPORTED_FORMATS = {
 }
 MANIFEST_NAME = ".comic-image-splitter.json"
 GROUPED_NAME = re.compile(r"^\d+-\d+$")
+BLANK_BACKUP_SUBDIR = "blank_pages"
 GUTTER_SAMPLE_WIDTH = 320
 GUTTER_WHITE_THRESHOLD = 250
 GUTTER_ROW_WHITE_RATIO = 0.995
@@ -52,7 +53,7 @@ EDGE_TRIM_MAX_NONWHITE_RATIO = 0.002
 EDGE_TRIM_MIN_MARGIN_RATIO = 0.02
 EDGE_TRIM_SAFETY_PADDING_RATIO = 0.009
 EDGE_TRIM_SAMPLE_WIDTH = 1000
-PURE_WHITE_PAGE_VALUE = 255
+BLANK_PAGE_MIN_CHANNEL_VALUE = 250
 TEXT_COMPONENT_THRESHOLD = 170
 TEXT_COMPONENT_MAX_WIDTH = 180
 TEXT_COMPONENT_MAX_HEIGHT = 160
@@ -138,6 +139,7 @@ class ChapterJob:
 
     directory: Path
     backup_dir: Path
+    blank_backup_dir: Path
     sources: list[SourceImage]
     plans: list[ImagePlan]
     parts: list[OutputPart]
@@ -201,7 +203,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-blank-pages",
         action="store_true",
-        help="保留纯白页；默认跳过纯白页并在执行时备份原图。",
+        help="保留纯白或近白空白页；默认跳过空白页并在执行时备份原图。",
     )
     parser.add_argument(
         "--preview-limit",
@@ -287,6 +289,13 @@ def safe_path_component(value: str) -> str:
     return cleaned or "comic"
 
 
+def blank_archive_chapter_name(chapter: Path) -> str:
+    """生成稳定且可读的空白页归档章节子目录名。"""
+    resolved = chapter.expanduser().resolve()
+    digest = hashlib.sha256(os.path.normcase(str(resolved)).encode("utf-8")).hexdigest()[:8]
+    return f"{safe_path_component(resolved.name)[:80]}-{digest}"
+
+
 def default_backup_dir(input_dir: Path) -> Path:
     """根据章节原路径生成稳定且不易冲突的系统下载目录备份路径。"""
     chapter_dir = input_dir.expanduser().resolve()
@@ -326,11 +335,16 @@ def visible_on_white(image: Image.Image) -> Image.Image:
     return image.convert("RGB")
 
 
-def is_pure_white_page(image: Image.Image) -> bool:
-    """判断图片显示到白色画布后是否每个像素都为纯白。"""
+def is_blank_page(image: Image.Image) -> bool:
+    """判断图片显示到白色画布后是否每个像素都为白色或近白色。"""
     visible = visible_on_white(image)
     pixels = np.asarray(visible, dtype=np.uint8)
-    return bool(np.all(pixels == PURE_WHITE_PAGE_VALUE))
+    return bool(np.all(pixels >= BLANK_PAGE_MIN_CHANNEL_VALUE))
+
+
+def is_pure_white_page(image: Image.Image) -> bool:
+    """兼容旧函数名；实际判断纯白及近白空白页。"""
+    return is_blank_page(image)
 
 
 def discover_sources(
@@ -901,7 +915,7 @@ def make_plans(
     plans: list[ImagePlan] = []
     for source in sources:
         with Image.open(source.path) as image:
-            if not keep_blank_pages and is_pure_white_page(image):
+            if not keep_blank_pages and is_blank_page(image):
                 plans.append(ImagePlan(source, (), is_blank_white=True))
                 continue
             crop_top, crop_bottom = detect_vertical_edge_trim(image)
@@ -1047,6 +1061,18 @@ def equivalent_height(part: OutputPart, reference_width: int) -> float:
     return part.expected_size[1] * reference_width / part.expected_size[0]
 
 
+def minimum_height_is_feasible(
+    plan: ImagePlan,
+    reference_width: int,
+    min_equivalent_height: int,
+) -> bool:
+    """判断处理后的总等效高度能否满足所有分段的最小高度。"""
+    return (
+        plan.effective_height * reference_width
+        >= min_equivalent_height * plan.piece_count * plan.source.width
+    )
+
+
 def print_preview(
     input_dir: Path,
     sources: list[SourceImage],
@@ -1089,15 +1115,15 @@ def print_preview(
         f"切割规则：分段等效高度目标 {min_equivalent_height}–"
         f"{max_equivalent_height} px (@ {reference_width} px 宽)，"
         "缩短上下边缘与过宽横向白沟并保留间距；左右边缘完整保留；"
-        "切口优先完整横向留白，其次选择墨量较低的行；默认跳过纯白页"
+        "切口优先完整横向留白，其次选择墨量较低的行；默认跳过白/近白空白页"
     )
     print(
         f"纵向留白有缩短：{len(trimmed_plans)} 张（左右边缘不裁）；"
-        f"需切割：{len(split_plans)} 张；纯白页跳过：{len(blank_plans)} 张；"
+        f"需切割：{len(split_plans)} 张；空白页跳过：{len(blank_plans)} 张；"
         f"预计输出：{len(parts)} 张"
     )
     for plan in blank_plans:
-        print(f"  纯白页跳过：{plan.source.path.name}（执行时仍保留原图备份）")
+        print(f"  空白页跳过：{plan.source.path.name}（执行时仍保留原图备份）")
     print(
         f"输出格式：{output_formats}；页序格式：{page_range}"
     )
@@ -1114,8 +1140,9 @@ def print_preview(
     infeasible_minimum = sum(
         1
         for plan in split_plans
-        if plan.effective_height * reference_width
-        < min_equivalent_height * plan.piece_count * plan.source.width
+        if not minimum_height_is_feasible(
+            plan, reference_width, min_equivalent_height
+        )
     )
     if infeasible_minimum:
         print(
@@ -1239,15 +1266,10 @@ def verify_staged_parts(
 
         if equivalent_height(part, reference_width) > max_equivalent_height + 1e-6:
             raise RuntimeError(f"切片超过等效高度上限：{part.filename}")
-        source_equivalent_height = (
-            part.plan.effective_height * reference_width / part.plan.source.width
+        can_meet_minimum = minimum_height_is_feasible(
+            part.plan, reference_width, min_equivalent_height
         )
         one_pixel_tolerance = reference_width / part.plan.source.width
-        can_meet_minimum = (
-            source_equivalent_height
-            + one_pixel_tolerance
-            >= min_equivalent_height * part.plan.piece_count
-        )
         if (
             part.plan.piece_count > 1
             and can_meet_minimum
@@ -1368,6 +1390,28 @@ def chapter_backup_dir(root: Path, chapter: Path, args: argparse.Namespace) -> P
     return base / f"{safe_path_component(root.name)}-{root_hash}" / chapter.relative_to(root) / "back"
 
 
+def shared_blank_backup_dir(root: Path, chapter: Path, args: argparse.Namespace) -> Path:
+    """为一次输入范围内的章节返回共同空白页归档目录。"""
+    if args.backup_dir is not None:
+        base = args.backup_dir.expanduser().resolve()
+        if args.recursive:
+            root_hash = hashlib.sha256(os.path.normcase(str(root.resolve())).encode("utf-8")).hexdigest()[:12]
+            scope = base / f"{safe_path_component(root.name)}-{root_hash}"
+        else:
+            scope = base
+        return scope / BLANK_BACKUP_SUBDIR
+
+    scope = root.resolve() if args.recursive else chapter.resolve().parent
+    scope_hash = hashlib.sha256(os.path.normcase(str(scope)).encode("utf-8")).hexdigest()[:12]
+    scope_name = safe_path_component(scope.name)
+    return (
+        get_downloads_directory()
+        / "PicaComic Image Splitter Backups"
+        / f"{scope_name}-{scope_hash}"
+        / BLANK_BACKUP_SUBDIR
+    )
+
+
 def validate_backup_location(chapter: Path, backup: Path, root: Path | None = None) -> None:
     """禁止在输入树内建立备份，也禁止把输入树置于备份内。"""
     for directory in (chapter, root or chapter):
@@ -1377,6 +1421,50 @@ def validate_backup_location(chapter: Path, backup: Path, root: Path | None = No
         raise ValueError(f"备份路径不是普通目录：{backup}")
 
 
+def validate_blank_archive_chapter(blank_backup: Path, chapter: Path) -> Path:
+    """验证共享归档目录中的章节子目录边界。"""
+    directory = blank_backup / blank_archive_chapter_name(chapter)
+    if directory.exists() or directory.is_symlink():
+        if directory.is_symlink() or not directory.is_dir() or is_directory_link(directory):
+            raise ValueError(f"空白页章节归档路径不是普通目录：{directory}")
+        if directory.resolve().parent != blank_backup.resolve():
+            raise ValueError(f"空白页章节归档路径越界：{directory}")
+    return directory
+
+
+def original_backup_path(
+    backup: Path,
+    name: str,
+    subdir: str = "",
+    blank_backup_dir: Path | None = None,
+    backup_chapter: str = "",
+) -> Path:
+    """按记录中的安全子目录定位原图备份，兼容旧版布局。"""
+    if subdir not in ("", BLANK_BACKUP_SUBDIR):
+        raise ValueError(f"原图备份子目录无效：{subdir}")
+    if not subdir:
+        return backup / name
+    if not backup_chapter:
+        # 兼容旧版及过渡版清单：空白页仍在章节 back/blank_pages 下。
+        return backup / subdir / name
+    if blank_backup_dir is None:
+        raise ValueError("清单指定了共享空白页归档，但缺少 blank_backup_dir。")
+    if Path(backup_chapter).name != backup_chapter or backup_chapter in (".", ".."):
+        raise ValueError(f"空白页章节归档名无效：{backup_chapter}")
+    return blank_backup_dir / backup_chapter / name
+
+
+def planned_backup_paths(job: ChapterJob) -> dict[str, Path]:
+    """按本次计划将空白页集中到共享目录、普通原图留在章节备份中。"""
+    return {
+        plan.source.path.name: (
+            job.blank_backup_dir / blank_archive_chapter_name(job.directory) / plan.source.path.name
+            if plan.is_blank_white else job.backup_dir / plan.source.path.name
+        )
+        for plan in job.plans
+    }
+
+
 def check_hashes(expected: dict[Path, str]) -> None:
     """核对来源或备份快照，内容变化时停止，不继续替换或清理。"""
     for path, digest in expected.items():
@@ -1384,11 +1472,13 @@ def check_hashes(expected: dict[Path, str]) -> None:
             raise ValueError(f"文件缺失或 SHA-256 已变化：{path}")
 
 
-def read_manifest(chapter: Path) -> tuple[dict[str, dict], bytes | None, Path | None]:
+def read_manifest(
+    chapter: Path,
+) -> tuple[dict[str, dict], bytes | None, Path | None, Path | None]:
     """读取原图到切片的对应关系，拒绝越界文件名及歧义页序。"""
     path = chapter / MANIFEST_NAME
     if not path.exists():
-        return {}, None, None
+        return {}, None, None, None
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"处理记录不是普通文件：{path}")
     data = path.read_bytes()
@@ -1397,6 +1487,14 @@ def read_manifest(chapter: Path) -> tuple[dict[str, dict], bytes | None, Path | 
         if manifest["version"] != 1 or not isinstance(manifest["sources"], dict):
             raise ValueError("记录版本或 sources 字段无效")
         records = manifest["sources"]
+        blank_backup_value = manifest.get("blank_backup_dir")
+        if (blank_backup_value is not None
+                and (not isinstance(blank_backup_value, str) or not blank_backup_value.strip())):
+            raise ValueError("blank_backup_dir 字段无效")
+        recorded_blank_backup = (
+            Path(blank_backup_value).expanduser().resolve()
+            if blank_backup_value else None
+        )
         pages: set[int] = set()
         outputs: set[str] = set()
         for name, record in records.items():
@@ -1411,19 +1509,42 @@ def read_manifest(chapter: Path) -> tuple[dict[str, dict], bytes | None, Path | 
                 raise ValueError(f"原图校验信息无效：{name}")
             if not isinstance(record["outputs"], list):
                 raise ValueError(f"切片列表无效：{name}")
+            if record.get("backup_subdir", "") not in ("", BLANK_BACKUP_SUBDIR):
+                raise ValueError(f"原图备份子目录无效：{name}")
+            backup_chapter = record.get("backup_chapter", "")
+            if (not isinstance(backup_chapter, str)
+                    or (backup_chapter and (Path(backup_chapter).name != backup_chapter
+                                            or backup_chapter in (".", "..")))):
+                raise ValueError(f"空白页章节归档名无效：{name}")
+            if backup_chapter and record.get("backup_subdir", "") != BLANK_BACKUP_SUBDIR:
+                raise ValueError(f"普通原图不能指定空白页章节归档名：{name}")
+            if backup_chapter and recorded_blank_backup is None:
+                raise ValueError(f"清单缺少共享空白页归档路径：{name}")
             for output in record["outputs"]:
                 output_path = Path(output)
                 if (output_path.name != output or not GROUPED_NAME.fullmatch(output_path.stem)
                         or output_path.suffix.lower() != original.suffix.lower() or output in outputs):
                     raise ValueError(f"切片文件名无效或重复：{output}")
                 outputs.add(output)
-        return records, data, Path(manifest["backup_dir"]).expanduser().resolve()
+        recorded_backup_value = manifest["backup_dir"]
+        if not isinstance(recorded_backup_value, str):
+            raise ValueError("backup_dir 字段无效")
+        return (
+            records,
+            data,
+            Path(recorded_backup_value).expanduser().resolve(),
+            recorded_blank_backup,
+        )
     except (KeyError, TypeError, AttributeError, UnicodeError, ValueError) as error:
         raise ValueError(f"章节处理记录无效：{path}：{error}") from error
 
 
 def resplit_candidates(
-    chapter: Path, backup: Path, records: dict[str, dict], image_paths: list[Path]
+    chapter: Path,
+    backup: Path,
+    blank_backup_dir: Path,
+    records: dict[str, dict],
+    image_paths: list[Path],
 ) -> tuple[list[Path], bool]:
     """只从可确认的原图备份重新切割，兼容旧版的整章重切。"""
     grouped = [path for path in image_paths if GROUPED_NAME.fullmatch(path.stem)]
@@ -1436,10 +1557,35 @@ def resplit_candidates(
             raise ValueError("发现处理记录以外的切片，无法确认来源；停止该章。")
         if any(path.name in records for path in live):
             raise ValueError("目录同时存在已处理页的原图与切片；请先核对来源。")
-        paths = [backup / name for name in records]
-        check_hashes({backup / name: record["sha256"] for name, record in records.items()})
+        paths = [
+            original_backup_path(
+                backup,
+                name,
+                record.get("backup_subdir", ""),
+                blank_backup_dir,
+                record.get("backup_chapter", ""),
+            )
+            for name, record in records.items()
+        ]
+        check_hashes({
+            original_backup_path(
+                backup,
+                name,
+                record.get("backup_subdir", ""),
+                blank_backup_dir,
+                record.get("backup_chapter", ""),
+            ): record["sha256"]
+            for name, record in records.items()
+        })
         for name, record in records.items():
-            if (backup / name).stat().st_size != record["size"]:
+            source_backup = original_backup_path(
+                backup,
+                name,
+                record.get("backup_subdir", ""),
+                blank_backup_dir,
+                record.get("backup_chapter", ""),
+            )
+            if source_backup.stat().st_size != record["size"]:
                 raise ValueError(f"原图备份字节数已变化：{name}")
         return paths + live, False
     if not grouped or live:
@@ -1466,7 +1612,7 @@ def validate_legacy_outputs(image_paths: list[Path], sources: list[SourceImage])
     nonblank = []
     for source in sources:
         with Image.open(source.path) as image:
-            if not is_pure_white_page(image):
+            if not is_blank_page(image):
                 nonblank.append(source)
     # 兼容旧版保留纯白页和跳过纯白页的整章结果。
     for candidates in (sources, nonblank):
@@ -1484,13 +1630,20 @@ def validate_legacy_outputs(image_paths: list[Path], sources: list[SourceImage])
 
 def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> ChapterJob:
     """建立只读预览；在任何章节写入前确认整批来源和替换范围。"""
-    records, manifest_bytes, recorded_backup = read_manifest(chapter)
+    records, manifest_bytes, recorded_backup, recorded_blank_backup = read_manifest(chapter)
     backup = chapter_backup_dir(root, chapter, args)
     if args.backup_dir is None and recorded_backup is not None:
         backup = recorded_backup
     if recorded_backup is not None and recorded_backup != backup:
         raise ValueError(f"备份路径与处理记录不一致：{chapter}")
     validate_backup_location(chapter, backup, root)
+    blank_backup = shared_blank_backup_dir(root, chapter, args)
+    if args.backup_dir is None and recorded_blank_backup is not None:
+        blank_backup = recorded_blank_backup
+    if recorded_blank_backup is not None and recorded_blank_backup != blank_backup:
+        raise ValueError(f"空白页汇总目录与处理记录不一致：{chapter}")
+    validate_backup_location(chapter, blank_backup, root)
+    validate_blank_archive_chapter(blank_backup, chapter)
     image_paths = [path for path in chapter.iterdir()
                    if path.is_file() and path.suffix.lower() in SUPPORTED_FORMATS]
     has_results = bool(records) or any(GROUPED_NAME.fullmatch(path.stem) for path in image_paths)
@@ -1499,7 +1652,9 @@ def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> Chap
     legacy = False
     candidates = None
     if args.resplit and has_results:
-        candidates, legacy = resplit_candidates(chapter, backup, records, image_paths)
+        candidates, legacy = resplit_candidates(
+            chapter, backup, blank_backup, records, image_paths
+        )
     skipped: list[tuple[str, str]] = []
     sources, ignored = discover_sources(chapter, args.max_width, args.exclude_webp, skipped, candidates)
     if legacy and skipped and sources:
@@ -1527,9 +1682,14 @@ def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> Chap
         raise ValueError("局部重切保留原始页号，不能指定其他 --start-index。")
     parts = make_output_parts(plans, args.start_index, preserve)
     for source in sources:
-        path = backup / source.path.name
-        if path.exists():
-            check_hashes({path: source_hashes[source.path.name]})
+        candidate_paths = (
+            backup / source.path.name,
+            backup / BLANK_BACKUP_SUBDIR / source.path.name,
+            blank_backup / blank_archive_chapter_name(chapter) / source.path.name,
+        )
+        for path in candidate_paths:
+            if path.exists():
+                check_hashes({path: source_hashes[source.path.name]})
     previous_hashes = {path.name: sha256_file(path) for path in previous_outputs}
     replaceable = set(previous_outputs)
     planned_names = {part.filename for part in parts}
@@ -1554,8 +1714,9 @@ def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> Chap
     if args.resplit:
         print(f"重切来源：{backup}；待替换旧切片：{len(previous_outputs)} 张")
     print(f"原图备份目录：{backup}")
-    return ChapterJob(chapter, backup, sources, plans, parts, skipped, previous_outputs,
-                      records, source_hashes, previous_hashes, manifest_bytes)
+    return ChapterJob(chapter, backup, blank_backup, sources, plans, parts, skipped,
+                      previous_outputs, records, source_hashes, previous_hashes,
+                      manifest_bytes)
 
 
 def stage_output_parts(stage_dir: Path, parts: list[OutputPart]) -> None:
@@ -1596,17 +1757,30 @@ def copy_verified(
 
 
 def backup_sources(job: ChapterJob, sources: list[SourceImage]) -> dict[Path, str]:
-    """保留原图备份，不同内容的同名文件必须停止。"""
+    """保留原图备份；空白页集中归档并按章节分目录。"""
+    validate_backup_location(job.directory, job.backup_dir)
     job.backup_dir.mkdir(parents=True, exist_ok=True)
+    validate_backup_location(job.directory, job.backup_dir)
+    validate_backup_location(job.directory, job.blank_backup_dir)
+    job.blank_backup_dir.mkdir(parents=True, exist_ok=True)
+    validate_backup_location(job.directory, job.blank_backup_dir)
+    destinations = planned_backup_paths(job)
+    blank_chapter_dir = validate_blank_archive_chapter(job.blank_backup_dir, job.directory)
     protected: dict[Path, str] = {}
     for source in sources:
-        destination = job.backup_dir / source.path.name
+        destination = destinations[source.path.name]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        expected_parent = blank_chapter_dir if destination.parent == blank_chapter_dir else job.backup_dir
+        if (destination.parent.is_symlink() or not destination.parent.is_dir()
+                or is_directory_link(destination.parent)
+                or destination.parent.resolve() != expected_parent.resolve()):
+            raise ValueError(f"原图备份子目录越界或不是普通目录：{destination.parent}")
         digest = job.source_hashes[source.path.name]
         if destination.exists():
             check_hashes({destination: digest})
         else:
             # 先放在独立暂存文件，校验通过后才成为可识别的原图备份。
-            temporary = job.backup_dir / f".{source.path.name}.{uuid.uuid4().hex}.tmp"
+            temporary = destination.parent / f".{source.path.name}.{uuid.uuid4().hex}.tmp"
             try:
                 copy_verified(source.path, temporary, digest)
                 # 使用排他目标写入，避免 rename 在不同平台覆盖已有备份。
@@ -1614,9 +1788,66 @@ def backup_sources(job: ChapterJob, sources: list[SourceImage]) -> dict[Path, st
             except Exception:
                 print(f"原图备份失败；临时副本保留供核对：{temporary}", file=sys.stderr)
                 raise
-            recycle_temporary(temporary, job.backup_dir, {destination: digest})
+            recycle_temporary(temporary, destination.parent, {destination: digest})
         protected[destination] = digest
     return protected
+
+
+def cleanup_duplicate_blank_backups(
+    chapter: Path,
+    backup: Path,
+    blank_backup_dir: Path,
+    records: dict[str, dict],
+) -> int:
+    """共享副本校验成功后，将旧章节备份中的重复空白原图移入回收站。"""
+    moved = 0
+    chapter_key = blank_archive_chapter_name(chapter)
+    validate_backup_location(chapter, backup)
+    validate_backup_location(chapter, blank_backup_dir)
+    for name, record in records.items():
+        if record.get("backup_subdir", "") != BLANK_BACKUP_SUBDIR:
+            continue
+        try:
+            shared_copy = original_backup_path(
+                backup,
+                name,
+                BLANK_BACKUP_SUBDIR,
+                blank_backup_dir,
+                record.get("backup_chapter", ""),
+            )
+            if not shared_copy.is_file() or shared_copy.is_symlink():
+                raise ValueError(f"共享空白页副本缺失或不是普通文件：{shared_copy}")
+            digest = record["sha256"]
+            check_hashes({shared_copy: digest})
+            if shared_copy.stat().st_size != record["size"]:
+                raise ValueError(f"共享空白页副本字节数不符：{shared_copy}")
+            # 旧清单可能仍指向章节内 blank_pages；只清理共享副本之外的已校验重复件。
+            duplicates = (backup / name, backup / BLANK_BACKUP_SUBDIR / name)
+            for duplicate in duplicates:
+                if not duplicate.exists():
+                    continue
+                if duplicate.resolve() == shared_copy.resolve():
+                    continue
+                if duplicate.parent not in (backup, backup / BLANK_BACKUP_SUBDIR):
+                    raise ValueError(f"旧空白页副本路径越界：{duplicate}")
+                if duplicate.parent != backup and (
+                    duplicate.parent.is_symlink()
+                    or not duplicate.parent.is_dir()
+                    or is_directory_link(duplicate.parent)
+                    or duplicate.parent.resolve().parent != backup.resolve()
+                ):
+                    raise ValueError(f"旧空白页副本目录不是普通目录：{duplicate.parent}")
+                check_hashes({duplicate: digest})
+                if duplicate.stat().st_size != record["size"]:
+                    raise ValueError(f"旧空白页副本字节数不符：{duplicate}")
+                move_to_recycle_bin(duplicate)
+                moved += 1
+        except (OSError, RuntimeError, ValueError, KeyError) as error:
+            print(
+                f"旧章节空白页副本保留，未能安全集中：{chapter_key}/{name}；原因：{error}",
+                file=sys.stderr,
+            )
+    return moved
 
 
 def recycle_temporary(path: Path, parent: Path, protected: dict[Path, str]) -> None:
@@ -1650,15 +1881,20 @@ def archive_previous_outputs(job: ChapterJob) -> dict[Path, Path]:
 
 
 def manifest_for_job(job: ChapterJob) -> bytes:
-    """记录原图哈希和实际输出，纯白页也保留记录以便重新处理。"""
+    """记录原图哈希、实际输出和归档位置，空白页也可重新处理。"""
     records = dict(job.records)
+    plans_by_name = {plan.source.path.name: plan for plan in job.plans}
     for source in job.sources:
+        plan = plans_by_name[source.path.name]
         records[source.path.name] = {
             "sha256": job.source_hashes[source.path.name],
             "size": source.path.stat().st_size,
             "outputs": [part.filename for part in job.parts if part.plan.source.path == source.path],
+            "backup_subdir": BLANK_BACKUP_SUBDIR if plan.is_blank_white else "",
+            "backup_chapter": blank_archive_chapter_name(job.directory) if plan.is_blank_white else "",
         }
-    return json.dumps({"version": 1, "backup_dir": str(job.backup_dir), "sources": records},
+    return json.dumps({"version": 1, "backup_dir": str(job.backup_dir),
+                       "blank_backup_dir": str(job.blank_backup_dir), "sources": records},
                       ensure_ascii=False, indent=2).encode("utf-8")
 
 
@@ -1678,7 +1914,8 @@ def rollback_commit(job: ChapterJob, placed: list[Path], archives: dict[Path, Pa
             move_to_recycle_bin(path)
         except (OSError, RuntimeError) as error:
             errors.append(str(error))
-    restore = [(source.path, job.backup_dir / source.path.name, job.source_hashes[source.path.name])
+    backup_paths = planned_backup_paths(job)
+    restore = [(source.path, backup_paths[source.path.name], job.source_hashes[source.path.name])
                for source in job.sources if source.path.parent == job.directory]
     restore += [(path, archive, job.previous_hashes[path.name]) for path, archive in archives.items()]
     for path, backup, digest in restore:
@@ -1738,11 +1975,13 @@ def apply_plans(
     if backup_dir.resolve() != job.backup_dir:
         raise ValueError("备份目录与预览计划不一致。")
     validate_backup_location(job.directory, job.backup_dir)
+    validate_backup_location(job.directory, job.blank_backup_dir)
     source_snapshot = {source.path: job.source_hashes[source.path.name] for source in sources}
     check_hashes(source_snapshot)
     stage_dir = Path(tempfile.mkdtemp(prefix=f".{job.directory.name}_split_stage_", dir=job.directory.parent))
-    protected = {job.backup_dir / source.path.name: job.source_hashes[source.path.name]
-                 for source in sources if (job.backup_dir / source.path.name).exists()}
+    backup_paths = planned_backup_paths(job)
+    protected = {backup_paths[source.path.name]: job.source_hashes[source.path.name]
+                 for source in sources if backup_paths[source.path.name].exists()}
     try:
         stage_output_parts(stage_dir, parts)
         verify_staged_parts(stage_dir, parts, reference_width, min_equivalent_height, max_equivalent_height)
@@ -1780,14 +2019,21 @@ def execute_chapter(job: ChapterJob, args: argparse.Namespace) -> None:
             input_dir = temporary
         backup, actual = apply_plans(input_dir, sources, parts, args.reference_width,
                                      args.min_equivalent_height, args.max_equivalent_height, job.backup_dir, job)
+        blank_records = json.loads(manifest_for_job(job).decode("utf-8"))["sources"]
+        moved_blank_copies = cleanup_duplicate_blank_backups(
+            job.directory, job.backup_dir, job.blank_backup_dir, blank_records
+        )
         print(f"章节完成：{job.directory}；原图 {len(sources)} 张 → 结果 {len(actual)} 张；筛选跳过 {len(job.skipped)} 张")
         print(f"原始图片保存在：{backup}")
+        if moved_blank_copies:
+            print(f"已将旧章节备份中的空白页重复副本移入回收站：{moved_blank_copies} 张")
     finally:
         if temporary is not None:
             # 唯一原图始终在原路径；每个临时副本必须有可验证的外部原图才清理。
             originals = {}
+            backup_paths = planned_backup_paths(job)
             for source in job.sources:
-                original = job.backup_dir / source.path.name
+                original = backup_paths[source.path.name]
                 if not original.exists():
                     original = source.path
                 originals[original] = job.source_hashes[source.path.name]
@@ -1809,8 +2055,17 @@ def main() -> int:
         eligible = [job for job in jobs if job.sources]
         print(f"批次汇总：发现章节 {len(jobs)} 个；符合条件 {len(eligible)} 个；"
               f"原图 {sum(len(job.sources) for job in jobs)} 张；筛选跳过 {sum(len(job.skipped) for job in jobs)} 张；"
-              f"纯白页跳过 {sum(plan.is_blank_white for job in jobs for plan in job.plans)} 张；"
+              f"空白页跳过 {sum(plan.is_blank_white for job in jobs for plan in job.plans)} 张；"
               f"预计输出 {sum(len(job.parts) for job in jobs)} 张")
+        blank_jobs = [job for job in jobs if any(plan.is_blank_white for plan in job.plans)]
+        if blank_jobs:
+            blank_dirs = {job.blank_backup_dir for job in blank_jobs}
+            if len(blank_dirs) != 1:
+                raise ValueError("本批次章节计算出多个空白页汇总目录，停止以避免分散归档。")
+            blank_count = sum(
+                plan.is_blank_white for job in jobs for plan in job.plans
+            )
+            print(f"空白页汇总目录：{blank_jobs[0].blank_backup_dir}（{blank_count} 张，按章节分目录）")
         if not args.apply:
             print("当前为只读预览；添加 --apply 后才会写入结果和备份原图。")
             return 0
