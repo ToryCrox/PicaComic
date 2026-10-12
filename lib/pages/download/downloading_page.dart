@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:silky_scroll/src/silky_scroll_widget.dart';
 
 // ignore_for_file: implementation_imports
 
 import 'package:pica_comic/ai/ai.dart';
 import 'package:pica_comic/ai/ai_cached_title_builder.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
-import 'package:pica_comic/network/eh_network/eh_download_model.dart';
-import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
+import 'package:pica_comic/network/download/download_model.dart';
+import 'package:pica_comic/network/eh_network/eh_download_model.dart';
+import 'package:pica_comic/network/jm_network/jm_chapter_loader.dart';
+import 'package:pica_comic/network/jm_network/jm_download.dart';
 import 'package:pica_comic/pages/download/download_providers.dart';
-import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/pages/download/components/download_tile.dart'
     show toDownloadingComicInfoPage;
-import 'package:silky_scroll/src/silky_scroll_widget.dart';
+import 'package:pica_comic/tools/translations.dart';
 
 class DownloadingPage extends ConsumerStatefulWidget {
   const DownloadingPage({Key? key}) : super(key: key);
@@ -166,11 +168,8 @@ class _DownloadingTileState extends State<_DownloadingTile> {
   @override
   void didUpdateWidget(covariant _DownloadingTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.comic != comic) {
-      setState(() {
-        comic = widget.comic;
-      });
-    }
+    comic = widget.comic;
+    updateStatistic();
   }
 
   void updateStatistic() {
@@ -218,10 +217,15 @@ class _DownloadingTileState extends State<_DownloadingTile> {
     final archiveDownloadRemoved =
         comic is EhDownloadingTask &&
         (comic as EhDownloadingTask).archiveDownloadRemoved;
+    final jmError =
+        !widget.manager.isDownloading &&
+            comic.lastError is JmChapterLoadException
+        ? comic.lastError as JmChapterLoadException
+        : null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: SizedBox(
-        height: comic.pauseReason == null ? 114 : 136,
+        height: comic.pauseReason == null && jmError == null ? 114 : 136,
         child: Row(
           children: [
             // 封面区域：点击导航到详情页
@@ -319,7 +323,35 @@ class _DownloadingTileState extends State<_DownloadingTile> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 4),
-                    LinearProgressIndicator(value: value),
+                    LinearProgressIndicator(
+                      value: value,
+                      color: jmError == null ? null : context.colorScheme.error,
+                    ),
+                    if (jmError != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 14,
+                            color: context.colorScheme.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${comic.getEpisodeName(jmError.episodeIndex)} · '
+                              '${"章节信息获取失败".tl} (ID ${jmError.chapterId})',
+                              style: TextStyle(
+                                color: context.colorScheme.error,
+                                fontSize: 11,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (comic.pauseReason != null) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -559,6 +591,15 @@ class _DownloadingTileState extends State<_DownloadingTile> {
     }
 
     String status = "${"已下载".tl}$downloadPages/$pagesCount";
+
+    if (comic is JmDownloadingTask) {
+      final unresolvedCount =
+          (comic as JmDownloadingTask).unresolvedEpisodeCount;
+      if (unresolvedCount > 0) {
+        status +=
+            ' · ${"还有@count章待获取".tlParams({"count": unresolvedCount.toString()})}';
+      }
+    }
 
     // Kemono 附件任务以字节为单位显示。
     if (comic.runtimeType.toString() == 'KemonoAttachmentDownloadingTask') {

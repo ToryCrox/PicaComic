@@ -1,15 +1,17 @@
 import 'dart:async';
+
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
-import 'jm_image.dart';
-import 'jm_models.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/download/image_download_queue.dart';
-import 'package:pica_comic/network/comic_source_services.dart';
-import 'jm_network.dart';
-
 import 'package:pica_comic/network/download/models/download_color_tag.dart';
+
+import 'jm_chapter_loader.dart';
+import 'jm_image.dart';
+import 'jm_models.dart';
+import 'jm_network.dart';
 
 class DownloadedJmComic extends DownloadedItem {
   JmComicInfo comic;
@@ -102,29 +104,38 @@ class JmDownloadingTask extends DownloadingTask {
   ///要下载的章节
   final List<int> _downloadEps;
 
+  /// 尚未取得有效图片列表的已选章节数。
+  int get unresolvedEpisodeCount => _downloadEps.toSet().where((index) {
+    return links?[index + 1]?.isNotEmpty != true;
+  }).length;
+
+  @override
+  Map<int, ({int downloaded, int total})> get episodeProgress {
+    final progress = Map<int, ({int downloaded, int total})>.of(
+      super.episodeProgress,
+    );
+    for (final index in _downloadEps) {
+      progress.putIfAbsent(index + 1, () => (downloaded: 0, total: 0));
+    }
+    return progress;
+  }
+
   @override
   String get cover => getJmCoverUrl(comic.id);
 
   @override
   String get title => comic.name;
 
+  /// 获取指定章节的图片链接，并拒绝已缓存的空列表。
   Future<void> getOneEp(int key, Map<int, List<String>> res) async {
-    if (res[key] != null) return;
-
-    int retry = 0;
-
-    while (retry < 3) {
-      try {
-        final network = manager.readProvider(jmNetworkProvider);
-        res[key] = (await network.getChapter(comic.series[key]!)).data;
-        return;
-      } catch (e) {
-        await Future.delayed(const Duration(seconds: 3));
-        retry++;
-      }
-    }
-
-    throw Exception("Failed to get chapter");
+    if (res[key]?.isNotEmpty == true) return;
+    res.remove(key);
+    res[key] = await fetchJmChapterImages(
+      key,
+      comic.series[key] ?? '',
+      (chapterId) =>
+          manager.readProvider(jmNetworkProvider).getChapter(chapterId),
+    );
   }
 
   @override
@@ -163,20 +174,12 @@ class JmDownloadingTask extends DownloadingTask {
     for (var i in sortedEps) {
       final key = i + 1;
 
-      // 检查 series 中是否有该章节（理论上应该有，除非数据不一致）
-      if (!comic.series.containsKey(key)) continue;
-
-      // 如果 links 中已有（恢复下载），直接使用，否则请求
-      if (!links!.containsKey(key)) {
-        // 复用 getOneEp 逻辑，它会将结果写入 links (因为我们将 links 传给它... 等等，getOneEp 接受 res 参数)
-        // 我们需要创建一个临时 map 或者直接把 links 当作 res 传进去?
-        // getOneEp 签名: Future<void> getOneEp(int key, Map<int, List<String>> res)
-        // links 的类型是 Map<int, List<String>>?
+      // 恢复下载时复用有效链接；缺失或空列表需要重新获取。
+      if (links![key]?.isNotEmpty != true) {
         await getOneEp(key, links!);
       }
 
-      final urls = links![key];
-      if (urls == null) continue;
+      final urls = links![key]!;
 
       // 4. 入队
       for (var j = 0; j < urls.length; j++) {
@@ -283,6 +286,10 @@ class JmDownloadingTask extends DownloadingTask {
     super.cancelEpisode(episodeIndex);
     // 从 _downloadEps 中移除（_downloadEps 存储的是 0-based索引）
     _downloadEps.remove(episodeIndex - 1);
+    if (lastError is JmChapterLoadException &&
+        (lastError as JmChapterLoadException).episodeIndex == episodeIndex) {
+      lastError = null;
+    }
   }
 
   @override
