@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
-import 'package:pica_comic/base.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
-import '../../foundation/image_loader/base_image_provider.dart';
 import 'touch_control.dart';
 
-class ComicImage extends StatefulWidget {
+/// 按原图比例显示漫画图片，并在加载期间保留已知尺寸。
+class ComicImage extends ConsumerStatefulWidget {
   /// Modified from flutter Image
   ComicImage({
     required ImageProvider image,
@@ -74,10 +76,12 @@ class ComicImage extends StatefulWidget {
   final bool isShowOriginSize;
 
   @override
-  State<ComicImage> createState() => _ComicImageState();
+  ConsumerState<ComicImage> createState() => _ComicImageState();
 }
 
-class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
+/// 管理漫画图片流、尺寸缓存和加载状态。
+class _ComicImageState extends ConsumerState<ComicImage>
+    with WidgetsBindingObserver {
   ImageStream? _imageStream;
   ImageInfo? _imageInfo;
   ImageChunkEvent? _loadingProgress;
@@ -116,7 +120,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
     _updateInvertColors();
     _resolveImage();
 
-    if (TickerMode.of(context)) {
+    if (TickerMode.valuesOf(context).enabled) {
       _listenToStream();
     } else {
       _stopListeningToStream(keepStreamAlive: true);
@@ -325,23 +329,21 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
     var width = widget.width ?? MediaQuery.of(context).size.width;
     double? height;
 
-    Size? cacheSize = _cache[widget.image.hashCode];
-    if (cacheSize != null) {
-      height = cacheSize.height * (width / cacheSize.width);
-      height = height.ceilToDouble();
-    }
-
-    var brightness = Theme.of(context).brightness;
-    if (appdata.appSettings.useDarkBackground) {
-      brightness = Brightness.dark;
-    }
-
+    // 优先使用当前帧尺寸，让首次加载和后续重建保持一致。
+    Size? imageSize = _cache[widget.image.hashCode];
     if (_imageInfo != null) {
-      // Record the height and the width of the image
-      _cache[widget.image.hashCode] = Size(
+      imageSize = Size(
         _imageInfo!.image.width.toDouble(),
         _imageInfo!.image.height.toDouble(),
       );
+      _cache[widget.image.hashCode] = imageSize;
+    }
+    if (imageSize != null) {
+      // 不取整高度，避免 contain 居中绘制时在上下边缘露出背景。
+      height = imageSize.height * (width / imageSize.width);
+    }
+
+    if (_imageInfo != null) {
       // build image
       Widget result = RawImage(
         // Do not clone the image, because RawImage is a stateless wrapper.
@@ -381,6 +383,15 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       );
       return result;
     } else {
+      var brightness = Theme.of(context).brightness;
+      final useDarkBackground = ref.watch(
+        readerSettingsProvider.select(
+          (settings) => settings.readerDarkBackground,
+        ),
+      );
+      if (useDarkBackground) {
+        brightness = Brightness.dark;
+      }
       // build progress
       return SizedBox(
         width: width,
