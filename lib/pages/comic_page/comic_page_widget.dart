@@ -47,7 +47,7 @@ class ComicPageWidget extends ConsumerStatefulWidget {
   final String id;
   final String? cover;
 
-  /// 阅读器页面关闭后，更新最后活跃详情页的历史记录。
+  /// 阅读器页面关闭后，更新对应漫画详情页的历史记录。
   static void updateActivePageHistory(History? history) {
     _ComicPageWidgetState.updateActivePageHistory(history);
   }
@@ -90,10 +90,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     super.dispose();
   }
 
-  /// 阅读器页面关闭后，通过此方法更新最后活跃页面的历史记录
+  /// 阅读器页面关闭后，由各详情页按漫画 ID 匹配历史记录。
   static void updateActivePageHistory(History? history) {
-    if (_activePages.isNotEmpty) {
-      _activePages.last.updateHistory(history);
+    for (final page in _activePages) {
+      page.updateHistory(history);
     }
   }
 

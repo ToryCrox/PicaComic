@@ -241,6 +241,12 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     _controller.addListener(_scrollListener);
     ref.onDispose(() => _controller.dispose());
 
+    // 历史保存完成后主动同步，避免依赖阅读器退出时的一次性通知。
+    final historySubscription = HistoryManager().changes.listen((_) {
+      unawaited(_loadHistory(id));
+    });
+    ref.onDispose(() => historySubscription.cancel());
+
     _load(id);
     return const ComicPageState();
   }
@@ -378,9 +384,10 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   Future<void> _loadHistory(String id) async {
     final h = await HistoryManager().find(id);
     if (!ref.mounted) return;
-    if (h != null) {
-      state = state.copyWith(history: h);
-    }
+    state = state.copyWith(
+      history: h == null ? null : History.fromRecord(h.toRecord()),
+      clearHistory: h == null,
+    );
   }
 
   // ========================================================================
@@ -463,10 +470,12 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     );
   }
 
-  /// 阅读器页面关闭后更新历史记录
+  /// 阅读器页面关闭后，仅更新当前漫画的历史快照。
   void updateHistory(History? newHistory) {
-    if (newHistory != null) {
-      state = state.copyWith(history: newHistory);
+    if (ref.mounted && newHistory != null && newHistory.target == _key.$2) {
+      state = state.copyWith(
+        history: History.fromRecord(newHistory.toRecord()),
+      );
     }
   }
 
