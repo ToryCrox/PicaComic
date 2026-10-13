@@ -97,13 +97,13 @@ class ComicImageSplitterTest(unittest.TestCase):
         args = self.args(max_width=2160, exclude_webp=True)
         job = self.prepare(args)
         self.assertEqual([source.path.name for source in job.sources], ["1.jpg", "7.png"])
-        self.assertEqual([part.filename for part in job.parts], ["1-0.jpg", "7-0.png"])
+        self.assertEqual([part.filename for part in job.parts], ["1.jpg", "7.png"])
         self.assertEqual(len(job.skipped), 2)
         splitter.execute_chapter(job, args)
         for path, content in skipped_bytes.items():
             self.assertEqual(path.read_bytes(), content)
             self.assertFalse((self.backup / path.name).exists())
-        self.assertEqual((self.chapter / "7-0.png").read_bytes(), (self.backup / later.name).read_bytes())
+        self.assertEqual((self.chapter / "7.png").read_bytes(), (self.backup / later.name).read_bytes())
 
     def test_filtered_split_preserves_original_page_number(self) -> None:
         """切割后仍属于第 3 原页，而不是重排成第 1 页。"""
@@ -190,14 +190,14 @@ class ComicImageSplitterTest(unittest.TestCase):
         self.image("2.webp", (30, 10))
         args = self.args()
         splitter.execute_chapter(self.prepare(args), args)
-        webp_bytes = (self.chapter / "2-0.webp").read_bytes()
+        webp_bytes = (self.chapter / "2.webp").read_bytes()
         self.image("4.jpg", (30, 10))
         args = self.args(resplit=True, exclude_webp=True)
         job = self.prepare(args)
-        self.assertEqual([path.name for path in job.previous_outputs], ["1-0.png"])
+        self.assertEqual([path.name for path in job.previous_outputs], ["1.png"])
         splitter.execute_chapter(job, args)
-        self.assertEqual((self.chapter / "2-0.webp").read_bytes(), webp_bytes)
-        self.assertTrue((self.chapter / "4-0.jpg").exists())
+        self.assertEqual((self.chapter / "2.webp").read_bytes(), webp_bytes)
+        self.assertTrue((self.chapter / "4.jpg").exists())
         self.assertFalse(list(self.chapter.parent.glob(".*_resplit_input_*")))
 
     def test_resplit_failure_restores_old_results_and_manifest(self) -> None:
@@ -236,8 +236,8 @@ class ComicImageSplitterTest(unittest.TestCase):
 
     def test_original_recycle_failure_rolls_back_entire_chapter(self) -> None:
         """第二张原图回收失败时恢复第一张原图，并回滚全部新结果。"""
-        self.image("1.png", (30, 10))
-        self.image("2.png", (30, 10))
+        self.image("1.png")
+        self.image("2.png")
         before = self.snapshot(self.chapter)
         job = self.prepare()
 
@@ -299,7 +299,7 @@ class ComicImageSplitterTest(unittest.TestCase):
         self.assertFalse(list(self.chapter.glob("*.png")))
         args = self.args(resplit=True, max_width=2160, keep_blank_pages=True)
         splitter.execute_chapter(self.prepare(args), args)
-        self.assertEqual((self.chapter / "3-0.png").read_bytes(), (self.backup / "3.png").read_bytes())
+        self.assertEqual((self.chapter / "3.png").read_bytes(), (self.backup / "3.png").read_bytes())
 
     def test_all_excluded_is_successful_and_does_not_write(self) -> None:
         """全部被筛掉时成功报告零处理，不创建记录或备份。"""
@@ -335,7 +335,7 @@ class ComicImageSplitterTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("排除 WebP", result.stdout)
         self.assertIn("只读预览", result.stdout)
-        self.assertIn("3-0.png", result.stdout)
+        self.assertIn("3.png", result.stdout)
         self.assertEqual(self.snapshot(self.root), before)
 
     def test_input_and_backup_boundaries(self) -> None:
@@ -346,6 +346,139 @@ class ComicImageSplitterTest(unittest.TestCase):
         job = self.prepare()
         with self.assertRaisesRegex(ValueError, "直接子文件"):
             splitter.apply_plans(self.root, job.sources, job.parts, 30, 30, 50, self.backup, job)
+
+    def gutter_image(self, color) -> Image.Image:
+        """生成两块非纯色内容之间有全宽间隔的图片。"""
+        image = Image.new("RGB", (120, 600), color)
+        image.paste((20, 60, 120), (0, 0, 60, 100))
+        image.paste((120, 60, 20), (60, 0, 120, 100))
+        image.paste((20, 60, 120), (0, 500, 60, 600))
+        image.paste((120, 60, 20), (60, 500, 120, 600))
+        return image
+
+    def test_colored_gutters_compact_without_changing_content(self) -> None:
+        """黑、灰、粉、白间隔缩短后保留间距及两侧内容像素。"""
+        for color in ((0, 0, 0), (60, 60, 75), (253, 237, 246), (255, 255, 255)):
+            with self.subTest(color=color):
+                image = self.gutter_image(color)
+                spans = splitter.make_vertical_source_spans(image, 0, image.height)
+                result = splitter.build_vertical_compacted_image(image, spans)
+                self.assertEqual(result.size, (120, 248))
+                self.assertEqual(result.crop((0, 0, 120, 100)).tobytes(),
+                                 image.crop((0, 0, 120, 100)).tobytes())
+                self.assertEqual(result.crop((0, 148, 120, 248)).tobytes(),
+                                 image.crop((0, 500, 120, 600)).tobytes())
+                self.assertEqual(result.getpixel((60, 124)), color)
+
+    def test_minor_color_noise_is_accepted(self) -> None:
+        """小幅压缩色差可以识别，区域色差按整体而非逐行累计。"""
+        image = self.gutter_image((50, 60, 70))
+        for row in range(100, 500):
+            image.putpixel((row % image.width, row), (54, 64, 74))
+        self.assertEqual(splitter.detect_solid_gutters(image), [(100, 500)])
+
+    def test_gradients_and_thin_marks_are_preserved(self) -> None:
+        """明显渐变及仅一像素宽的线条不会被缩略采样吞掉。"""
+        gradient = self.gutter_image((50, 60, 70))
+        for row in range(100, 500):
+            value = 50 + (row - 100) // 5
+            gradient.paste((value, value, value), (0, row, 120, row + 1))
+        marked = self.gutter_image((253, 237, 246))
+        marked.paste((0, 0, 0), (61, 100, 62, 500))
+        self.assertEqual(splitter.detect_solid_gutters(marked), [])
+        for image in (gradient, marked):
+            self.assertEqual(splitter.make_vertical_source_spans(image, 0, 600), ((0, 600),))
+
+    def test_edge_encoding_noise_does_not_hide_black_gutter(self) -> None:
+        """全宽黑沟允许最外侧两像素轻微杂色，但明显边线仍受保护。"""
+        image = self.gutter_image((0, 0, 0)).resize((2160, 600), Image.Resampling.NEAREST)
+        image.paste((26, 26, 26), (0, 100, 2, 500))
+        self.assertEqual(splitter.detect_solid_gutters(image), [(100, 500)])
+        image.paste((255, 255, 255), (0, 100, 2, 500))
+        self.assertEqual(splitter.detect_solid_gutters(image), [])
+
+    def test_short_gutters_and_colored_pages_are_not_removed(self) -> None:
+        """普通短间隔和整张非白纯色页保持原样。"""
+        image = self.gutter_image((0, 0, 0))
+        short = Image.new("RGB", (120, 240))
+        short.paste(image.crop((0, 0, 120, 120)), (0, 0))
+        short.paste(image.crop((0, 480, 120, 600)), (0, 120))
+        self.assertEqual(splitter.make_vertical_source_spans(short, 0, 240), ((0, 240),))
+        for color in ((0, 0, 0), (253, 237, 246)):
+            solid = Image.new("RGB", (120, 600), color)
+            self.assertFalse(splitter.is_blank_page(solid))
+            self.assertEqual(splitter.detect_solid_gutters(solid), [])
+
+    def test_unchanged_page_keeps_bytes_and_filename_without_encoding(self) -> None:
+        """未处理页无后缀且不重编码、不回收同名原图，仍支持重切。"""
+        original = self.image("7.webp", (30, 10))
+        content = original.read_bytes()
+        args = self.args(max_width=2160)
+        with patch.object(splitter, "save_piece", side_effect=AssertionError("不应重编码")):
+            job = self.prepare(args)
+            self.assertEqual([part.filename for part in job.parts], ["7.webp"])
+            splitter.execute_chapter(job, args)
+        self.assertEqual(original.read_bytes(), content)
+        self.assertFalse(list(self.trash.glob("*_7.webp")))
+        resplit_args = self.args(max_width=2160, resplit=True)
+        splitter.execute_chapter(self.prepare(resplit_args), resplit_args)
+        self.assertEqual(original.read_bytes(), content)
+
+    def test_compacted_single_page_still_has_segment_suffix(self) -> None:
+        """实际缩短的单页仍按处理结果命名，并重新编码生成。"""
+        self.gutter_image((0, 0, 0)).save(self.chapter / "7.png")
+        args = self.args(max_width=2160, reference_width=120,
+                         min_equivalent_height=300, max_equivalent_height=500)
+        job = self.prepare(args)
+        self.assertEqual([part.filename for part in job.parts], ["7-0.png"])
+        splitter.execute_chapter(job, args)
+        with Image.open(self.chapter / "7-0.png") as result:
+            self.assertEqual(result.size, (120, 248))
+
+    def test_resplit_can_replace_suffixed_results_with_unchanged_page(self) -> None:
+        """旧分段结果重切后无需处理时，输出无后缀且原图字节保持一致。"""
+        original = self.image("3.png").read_bytes()
+        args = self.args(max_width=2160)
+        splitter.execute_chapter(self.prepare(args), args)
+        self.assertTrue((self.chapter / "3-0.png").exists())
+        args = self.args(max_width=2160, resplit=True,
+                         min_equivalent_height=80, max_equivalent_height=150)
+        splitter.execute_chapter(self.prepare(args), args)
+        self.assertEqual((self.chapter / "3.png").read_bytes(), original)
+        self.assertFalse(list(self.chapter.glob("3-*.png")))
+
+    def test_continuous_numbering_can_reuse_source_names(self) -> None:
+        """白页移除后连续编号可复用原页名，内容不覆盖且可再次重切。"""
+        self.image("1.png", (30, 10), color=(255, 255, 255))
+        second = self.image("2.png", (30, 10), color=(80, 60, 40)).read_bytes()
+        third = self.image("3.png", (30, 10), color=(40, 60, 80)).read_bytes()
+        splitter.execute_chapter(self.prepare(), self.args())
+        self.assertEqual((self.chapter / "1.png").read_bytes(), second)
+        self.assertEqual((self.chapter / "2.png").read_bytes(), third)
+        self.assertFalse((self.chapter / "3.png").exists())
+        args = self.args(resplit=True)
+        splitter.execute_chapter(self.prepare(args), args)
+        self.assertEqual((self.chapter / "1.png").read_bytes(), second)
+        self.assertEqual((self.chapter / "2.png").read_bytes(), third)
+
+    def test_reused_source_name_failure_restores_originals(self) -> None:
+        """腾出同名原图后写入失败，原图及旧目录状态均可恢复。"""
+        self.image("1.png", (30, 10), color=(255, 255, 255))
+        self.image("2.png", (30, 10), color=(40, 60, 80))
+        before = self.snapshot(self.chapter)
+        job = self.prepare()
+        original_copy = splitter.copy_verified
+
+        def fail_output(source, destination, digest, created=None):
+            """只在提交新输出时模拟写入失败。"""
+            if created is not None:
+                raise OSError("模拟同名输出失败")
+            return original_copy(source, destination, digest, created)
+
+        with patch.object(splitter, "copy_verified", side_effect=fail_output):
+            with self.assertRaisesRegex(OSError, "模拟同名输出失败"):
+                splitter.execute_chapter(job, self.args())
+        self.assertEqual(self.snapshot(self.chapter), before)
 
 
 if __name__ == "__main__":

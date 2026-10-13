@@ -1,3 +1,3 @@
 interface:
   display_name: "漫画长图切割"
-  short_description: "按宽度和格式筛选漫画长图，递归切割并支持从原图备份重新处理"
+  short_description: "缩短过宽纯色间隔并切割漫画长图，未处理图片不加分段后缀"

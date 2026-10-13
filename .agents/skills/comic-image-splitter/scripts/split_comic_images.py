@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""缩短漫画上下与横向白色留白并均衡切割长图，保持原格式与页序。"""
+"""缩短漫画近白边缘与横向纯色间隔并均衡切割长图，保持原格式与页序。"""
 
 from __future__ import annotations
 
@@ -39,7 +39,8 @@ GROUPED_NAME = re.compile(r"^\d+-\d+$")
 BLANK_BACKUP_SUBDIR = "blank_pages"
 GUTTER_SAMPLE_WIDTH = 320
 GUTTER_WHITE_THRESHOLD = 250
-GUTTER_ROW_WHITE_RATIO = 0.995
+GUTTER_COLOR_TOLERANCE = 8
+GUTTER_EDGE_COLOR_TOLERANCE = 32
 GUTTER_MIN_RUN_WIDTH_RATIO = 0.03
 GUTTER_SEARCH_RATIO = 0.15
 GUTTER_RETAINED_HEIGHT_MIN = 48
@@ -436,10 +437,65 @@ def discover_sources(
     return sources, ignored_count
 
 
+def detect_solid_gutters(image: Image.Image) -> list[tuple[int, int]]:
+    """逐像素确认横跨全宽的近纯色间隔，排除文字、线条和明显渐变。"""
+    pixels = np.asarray(visible_on_white(image), dtype=np.uint8)
+    row_min = np.empty((image.height, 3), dtype=np.int16)
+    row_max = np.empty_like(row_min)
+    edge_valid = np.ones(image.height, dtype=bool)
+    edge_width = min(2, image.width // 1000)
+    # 分批统计原始宽度，避免缩略图漏掉细小文字和线条。
+    for top in range(0, image.height, 128):
+        batch = pixels[top:top + 128]
+        interior = batch[:, edge_width:image.width - edge_width] if edge_width else batch
+        row_min[top:top + len(batch)] = interior.min(axis=1)
+        row_max[top:top + len(batch)] = interior.max(axis=1)
+        if edge_width:
+            # 最外侧至多两像素可有轻微编码杂色，明显画线仍使整行不合格。
+            edges = np.concatenate((batch[:, :edge_width], batch[:, -edge_width:]), axis=1)
+            midpoint = (row_min[top:top + len(batch)] + row_max[top:top + len(batch)]) / 2
+            edge_valid[top:top + len(batch)] = np.all(
+                np.abs(edges.astype(np.int16) - midpoint[:, None, :])
+                <= GUTTER_EDGE_COLOR_TOLERANCE, axis=(1, 2)
+            )
+    uniform = np.all(row_max - row_min <= GUTTER_COLOR_TOLERANCE, axis=1) & edge_valid
+    centers = (row_min + row_max) / 2
+    color_changes = np.any(
+        np.abs(np.diff(centers, axis=0)) > GUTTER_COLOR_TOLERANCE, axis=1
+    )
+    breaks = np.flatnonzero(~uniform[:-1] | ~uniform[1:] | color_changes) + 1
+    boundaries = np.concatenate(([0], breaks, [image.height]))
+    minimum_run = max(8, math.ceil(image.width * GUTTER_MIN_RUN_WIDTH_RATIO))
+    gutters: list[tuple[int, int]] = []
+    for start, end in zip(boundaries, boundaries[1:]):
+        # 只缩短内容之间的间隔；整张纯色页及非白边缘保持原样。
+        if start == 0 or end == image.height or end - start < minimum_run:
+            continue
+        if not np.all(uniform[start:end]):
+            continue
+        # 按区域累计色差分组，避免边界抗锯齿使中间的大块纯色整体失效。
+        band_start = int(start)
+        minimum = row_min[start].copy()
+        maximum = row_max[start].copy()
+        for row in range(int(start) + 1, int(end)):
+            next_minimum = np.minimum(minimum, row_min[row])
+            next_maximum = np.maximum(maximum, row_max[row])
+            if np.any(next_maximum - next_minimum > GUTTER_COLOR_TOLERANCE):
+                if row - band_start >= minimum_run:
+                    gutters.append((band_start, row))
+                band_start = row
+                minimum, maximum = row_min[row].copy(), row_max[row].copy()
+            else:
+                minimum, maximum = next_minimum, next_maximum
+        if end - band_start >= minimum_run:
+            gutters.append((band_start, int(end)))
+    return gutters
+
+
 def analyze_horizontal_space(
     image: Image.Image,
 ) -> tuple[list[tuple[int, int]], np.ndarray]:
-    """返回可靠的横向留白范围和逐行墨量，分析缩略图但不改变输出像素。"""
+    """返回全宽纯色间隔与逐行墨量，缩略图只用于切口墨量评分。"""
     gray = visible_on_white(image).convert("L")
     sample_width = min(GUTTER_SAMPLE_WIDTH, image.width)
     if sample_width != image.width:
@@ -449,18 +505,7 @@ def analyze_horizontal_space(
         )
 
     pixels = np.asarray(gray, dtype=np.uint8)
-    white_ratio = np.mean(pixels >= GUTTER_WHITE_THRESHOLD, axis=1)
-    blank_rows = white_ratio >= GUTTER_ROW_WHITE_RATIO
-    padded = np.concatenate(([False], blank_rows, [False])).astype(np.int8)
-    changes = np.diff(padded)
-    starts = np.flatnonzero(changes == 1)
-    ends = np.flatnonzero(changes == -1)
-    minimum_run = max(8, math.ceil(image.width * GUTTER_MIN_RUN_WIDTH_RATIO))
-    gutters = [
-        (int(start), int(end))
-        for start, end in zip(starts, ends)
-        if end - start >= minimum_run and start > 0 and end < image.height
-    ]
+    gutters = detect_solid_gutters(image)
     ink_ratio = np.mean(pixels < GUTTER_WHITE_THRESHOLD, axis=1)
     smoothing = np.ones(LOW_INK_ROW_SMOOTHING, dtype=np.float32)
     smoothing /= smoothing.size
@@ -509,9 +554,9 @@ def make_vertical_source_spans(
     crop_top: int,
     crop_bottom: int,
 ) -> tuple[tuple[int, int], ...]:
-    """缩短上下边缘与过宽横向白沟，只保留原图中连续的行区间。"""
+    """缩短上下近白边缘与过宽纯色间隔，只保留原图中连续的行区间。"""
     content = image.crop((0, crop_top, image.width, crop_bottom))
-    gutters, _ = analyze_horizontal_space(content)
+    gutters = detect_solid_gutters(content)
     retained_height = min(
         GUTTER_RETAINED_HEIGHT_MAX,
         max(
@@ -1041,6 +1086,9 @@ def make_output_parts(
         if preserve_page_numbers:
             page_index = int(plan.source.path.stem)
         for segment_index, (top, bottom) in enumerate(zip(plan.cuts, plan.cuts[1:])):
+            suffix = ""
+            if plan.piece_count > 1 or plan.trimmed:
+                suffix = f"-{segment_index}"
             parts.append(
                 OutputPart(
                     plan=plan,
@@ -1049,7 +1097,7 @@ def make_output_parts(
                     top=top,
                     bottom=bottom,
                     filename=(
-                        f"{page_index}-{segment_index}{plan.source.path.suffix}"
+                        f"{page_index}{suffix}{plan.source.path.suffix}"
                     ),
                 )
             )
@@ -1094,7 +1142,7 @@ def print_preview(
         f"{ext} {count} 张" for ext, count in sorted(output_ext_counts.items())
     ) or "无"
     page_range = (
-        f"{parts[0].page_index}-0 至 {parts[-1].filename}"
+        f"{parts[0].filename} 至 {parts[-1].filename}"
         if parts
         else "无（没有保留页面）"
     )
@@ -1114,7 +1162,7 @@ def print_preview(
     print(
         f"切割规则：分段等效高度目标 {min_equivalent_height}–"
         f"{max_equivalent_height} px (@ {reference_width} px 宽)，"
-        "缩短上下边缘与过宽横向白沟并保留间距；左右边缘完整保留；"
+        "缩短上下近白边缘与过宽横向纯色间隔并保留间距；左右边缘完整保留；"
         "切口优先完整横向留白，其次选择墨量较低的行；默认跳过白/近白空白页"
     )
     print(
@@ -1188,7 +1236,7 @@ def print_preview(
             f"  {plan.source.path.name}: {action}，"
             f"上下边缘留白 {plan.crop_top}px/"
             f"{plan.source.height - plan.effective_bottom}px，"
-            f"大横向白沟缩短 {interior_removed}px，"
+            f"大横向纯色间隔缩短 {interior_removed}px，"
             f"切口 {cuts}；等效高度 {' / '.join(map(str, heights))} px"
         )
     remaining = len(preview_plans) - min(preview_limit, len(preview_plans))
@@ -1522,7 +1570,8 @@ def read_manifest(
                 raise ValueError(f"清单缺少共享空白页归档路径：{name}")
             for output in record["outputs"]:
                 output_path = Path(output)
-                if (output_path.name != output or not GROUPED_NAME.fullmatch(output_path.stem)
+                if (output_path.name != output
+                        or not (GROUPED_NAME.fullmatch(output_path.stem) or output_path.stem.isdecimal())
                         or output_path.suffix.lower() != original.suffix.lower() or output in outputs):
                     raise ValueError(f"切片文件名无效或重复：{output}")
                 outputs.add(output)
@@ -1553,6 +1602,7 @@ def resplit_candidates(
         raise ValueError(f"原图备份目录缺失：{backup}")
     if records:
         known_outputs = {name for record in records.values() for name in record["outputs"]}
+        live = [path for path in live if path.name not in known_outputs]
         if any(path.name not in known_outputs for path in grouped):
             raise ValueError("发现处理记录以外的切片，无法确认来源；停止该章。")
         if any(path.name in records for path in live):
@@ -1691,7 +1741,9 @@ def prepare_chapter(root: Path, chapter: Path, args: argparse.Namespace) -> Chap
             if path.exists():
                 check_hashes({path: source_hashes[source.path.name]})
     previous_hashes = {path.name: sha256_file(path) for path in previous_outputs}
-    replaceable = set(previous_outputs)
+    replaceable = set(previous_outputs) | {
+        source.path for source in sources if source.path.parent == chapter
+    }
     planned_names = {part.filename for part in parts}
     if len(planned_names) != len(parts):
         raise ValueError("新结果存在重复文件名。")
@@ -1938,16 +1990,34 @@ def commit_outputs(job: ChapterJob, stage_dir: Path, protected: dict[Path, str])
     manifest_path = stage_dir / MANIFEST_NAME
     manifest_path.write_bytes(manifest_for_job(job))
     placed: list[Path] = []
+    kept_originals = {
+        part.plan.source.path for part in job.parts
+        if part.plan.piece_count == 1 and not part.plan.trimmed
+        and part.plan.source.path == job.directory / part.filename
+        and part.plan.source.path not in job.previous_outputs
+    }
+    destinations = {job.directory / part.filename for part in job.parts}
+    moved_originals: set[Path] = set()
     try:
         for path in job.previous_outputs:
             check_hashes({path: job.previous_hashes[path.name]})
             move_to_recycle_bin(path)
+        # 连续编号可能复用其他原图的文件名，先确认备份再腾出这些路径。
+        for source in job.sources:
+            if source.path in destinations and source.path not in kept_originals:
+                check_hashes({source.path: job.source_hashes[source.path.name]})
+                move_to_recycle_bin(source.path)
+                moved_originals.add(source.path)
         for part in job.parts:
             destination = job.directory / part.filename
+            if destination in kept_originals:
+                check_hashes({destination: sha256_file(stage_dir / part.filename)})
+                continue
             copy_verified(stage_dir / part.filename, destination, sha256_file(stage_dir / part.filename), placed)
         check_hashes(protected)
         for source in job.sources:
-            if source.path.parent == job.directory:
+            if (source.path.parent == job.directory
+                    and source.path not in kept_originals | moved_originals):
                 check_hashes({source.path: job.source_hashes[source.path.name]})
                 move_to_recycle_bin(source.path)
         check_manifest_snapshot(job)
