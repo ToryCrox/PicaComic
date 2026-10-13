@@ -70,7 +70,7 @@ class DownloadDatabase {
 
   Database? _db;
   bool _initialized = false;
-  final Completer<Database> _initCompleter = Completer<Database>();
+  Completer<Database> _initCompleter = Completer<Database>();
 
   /// 初始化数据库
   Future<void> init({required String dbPath}) async {
@@ -955,6 +955,7 @@ class DownloadDatabase {
       await _db!.close();
       _db = null;
       _initialized = false;
+      _initCompleter = Completer<Database>();
     }
   }
 }

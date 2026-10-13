@@ -41,15 +41,6 @@ void saveImage(File file) async {
   }
 }
 
-Future<String> persistentCurrentImage(File file) async {
-  var newFile = File("${App.dataPath}/images/${file.path.split('/').last}");
-  if (!(await newFile.exists())) {
-    await newFile.create(recursive: true);
-    await newFile.writeAsBytes(await file.readAsBytes());
-  }
-  return newFile.path;
-}
-
 void shareImage(File file) {
   Share.shareXFiles([XFile(file.path)]);
 }

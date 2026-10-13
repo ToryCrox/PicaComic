@@ -3,6 +3,7 @@ import 'package:pica_comic/ai/ai_models.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/history.dart';
+import 'package:pica_comic/foundation/image_favorites.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/local_history.dart';
 import 'package:pica_comic/foundation/local_repository_manager.dart';
@@ -316,7 +317,8 @@ void main() {
         time: 'time',
       );
       const image = ImageFavorite(
-        id: 'image',
+        sourceKey: 'test',
+        comicId: 'image',
         imagePath: 'path',
         title: '标题',
         ep: 1,

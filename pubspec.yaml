@@ -166,6 +166,7 @@ flutter:
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
   assets:
+    - assets/executables/
     - images/app_icon.png
     - images/avatar.png
     - images/avatar_small.png

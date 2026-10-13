@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'history.dart';
+import 'image_favorites_providers.dart';
 
 /// 历史数据库和图片收藏的摘要数据。
 class HistorySummary {
@@ -35,25 +36,18 @@ final historySummaryProvider = FutureProvider<HistorySummary>((ref) async {
   ref.keepAlive();
   final manager = HistoryManager();
   StreamSubscription<void>? historySubscription;
-  StreamSubscription<void>? imageSubscription;
+  final imageCount = ref.watch(imageFavoriteCountProvider.future);
   var disposed = false;
   ref.onDispose(() {
     disposed = true;
     historySubscription?.cancel();
-    imageSubscription?.cancel();
   });
   await manager.init();
   if (disposed) return const HistorySummary(historyCount: 0, imageCount: 0);
   historySubscription = manager.changes.listen((_) {
     if (!disposed) ref.invalidateSelf();
   });
-  imageSubscription = ImageFavoriteManager.changes.listen((_) {
-    if (!disposed) ref.invalidateSelf();
-  });
-  final counts = await Future.wait<int>([
-    manager.count(),
-    ImageFavoriteManager.length,
-  ]);
+  final counts = await Future.wait<int>([manager.count(), imageCount]);
   return HistorySummary(historyCount: counts[0], imageCount: counts[1]);
 });
 

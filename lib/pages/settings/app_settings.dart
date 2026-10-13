@@ -633,6 +633,14 @@ Future<void> clearCacheData(BuildContext context) async {
     },
   );
   Log.d('clearCache select $result');
+  if ((result == 0 || result == 1) && context.mounted) {
+    final repository = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(imageFavoritesRepositoryProvider);
+    await repository.clearThumbnails();
+    PaintingBinding.instance.imageCache.clear();
+  }
   if (result == 1) {
     CacheManager().clear();
   } else if (result == 0) {

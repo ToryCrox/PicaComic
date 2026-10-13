@@ -1,240 +1,238 @@
-import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
-import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
-import 'package:pica_comic/comic_source/comic_source.dart';
-import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/history.dart';
-import 'package:pica_comic/foundation/image_loader/base_image_provider.dart';
-import 'package:pica_comic/foundation/image_manager.dart';
-import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/foundation/ui_mode.dart';
-import 'package:pica_comic/network/eh_network/eh_models.dart';
-import 'package:pica_comic/network/hitomi_network/hitomi_models.dart';
-import 'package:pica_comic/tools/map_extension.dart';
-import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/base.dart';
-import 'package:pica_comic/components/components.dart';
-import 'package:pica_comic/network/jm_network/jm_image.dart';
+import 'package:photo_view/photo_view.dart';
 
+import '../comic_source/comic_source.dart';
+import '../components/components.dart';
+import '../foundation/app.dart';
+import '../foundation/app_settings_provider.dart';
+import '../foundation/image_favorites.dart';
+import '../foundation/image_favorites_providers.dart';
+import '../foundation/log.dart';
+import '../foundation/ui_mode.dart';
+import '../network/eh_network/eh_models.dart';
+import '../network/hitomi_network/hitomi_models.dart';
+import '../tools/map_extension.dart';
+import '../tools/translations.dart';
 import 'reader/comic_reading_page.dart';
 
-class ImageFavoritesPage extends StatefulWidget {
-  const ImageFavoritesPage({super.key, this.filterTitle = ""});
-
+/// 图片收藏列表与标题分组。
+class ImageFavoritesPage extends ConsumerStatefulWidget {
+  const ImageFavoritesPage({super.key, this.filterTitle = ''});
   final String filterTitle;
 
   @override
-  State<ImageFavoritesPage> createState() => _ImageFavoritesPageState();
+  ConsumerState<ImageFavoritesPage> createState() => _ImageFavoritesPageState();
 }
 
-class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
-  String _filterTitle = '';
-  List<ImageFavorite> _imageList = [];
-
+/// 页面仅保存显示方式，收藏数据由 Riverpod 管理。
+class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
   bool _showGroup = false;
-  List<String> _titles = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _filterTitle = widget.filterTitle;
-    _refresh();
-  }
-
-  Future<void> _refresh() async {
-    if (_showGroup) {
-      _titles = await ImageFavoriteManager.getAllTitle();
-    } else {
-      if (_filterTitle.isNotEmpty) {
-        _imageList = await ImageFavoriteManager.getAllByTitle(_filterTitle);
-      } else {
-        _imageList = await ImageFavoriteManager.getAll();
-      }
-    }
-    Log.d('ImageFavorites _imageList $_imageList');
-    if (!mounted) return;
-    setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
     final title = Text(
-      "图片收藏".tl + (_filterTitle.isEmpty ? "" : " - $_filterTitle"),
+      '图片收藏'.tl +
+          (widget.filterTitle.isEmpty ? '' : ' - ${widget.filterTitle}'),
     );
-    if (UiMode.m1(context)) {
-      return Scaffold(
-        appBar: AppBar(title: title, actions: [..._buildActions()]),
-        body: buildPage(),
-      );
-    } else {
-      return Material(
-        child: Column(
-          children: [
-            Appbar(title: title, actions: [..._buildActions()]),
-            Expanded(child: buildPage()),
-          ],
-        ),
-      );
-    }
-  }
-
-  List<Widget> _buildActions() {
-    return [
-      Tooltip(
-        message: _showGroup ? "显示列表".tl : "显示分组".tl,
-        child: IconButton(
-          icon: _showGroup
-              ? const Icon(Icons.list)
-              : const Icon(Icons.grid_view),
-          onPressed: () {
-            _showGroup = !_showGroup;
-            _refresh();
-          },
-        ),
+    final actions = [
+      IconButton(
+        tooltip: _showGroup ? '显示列表'.tl : '显示分组'.tl,
+        icon: Icon(_showGroup ? Icons.list : Icons.grid_view),
+        onPressed: () => setState(() => _showGroup = !_showGroup),
       ),
     ];
-  }
-
-  Widget buildPage() {
-    if (_showGroup) {
-      return ListView.separated(
-        itemCount: _titles.length,
-        separatorBuilder: (context, index) => const Divider(),
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(_titles[index]),
-            onTap: () {
-              // _showGroup = false;
-              // _filterTitle = _titles[index];
-              // _refresh();
-              context.to(() => ImageFavoritesPage(filterTitle: _titles[index]));
-            },
-          );
-        },
-      );
-    }
-
-    return GridView.builder(
-      gridDelegate: SliverGridDelegateWithComics(
-        true,
-        appdata.getSetting(AppSettingKeys.imageFavoriteScale),
-      ),
-      itemCount: _imageList.length,
-      itemBuilder: (context, index) {
-        return FavoriteImageTile(_imageList[index], onDeleted: _refresh);
-      },
+    return Scaffold(
+      appBar: UiMode.m1(context)
+          ? AppBar(title: title, actions: actions)
+          : Appbar(title: title, actions: actions),
+      body: _body(),
     );
   }
+
+  /// 为分组及列表提供明确的加载、错误、空状态。
+  Widget _body() {
+    if (_showGroup) {
+      return ref
+          .watch(imageFavoriteTitlesProvider)
+          .when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => _error(error),
+            data: (titles) => titles.isEmpty
+                ? Center(child: Text('暂无图片收藏'.tl))
+                : ListView.separated(
+                    itemCount: titles.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) => ListTile(
+                      title: Text(titles[index]),
+                      onTap: () => context.to(
+                        () => ImageFavoritesPage(filterTitle: titles[index]),
+                      ),
+                    ),
+                  ),
+          );
+    }
+    final scale = ref.watch(
+      appearanceSettingsProvider.select((value) => value.imageFavoriteScale),
+    );
+    return ref
+        .watch(filteredImageFavoritesProvider(widget.filterTitle))
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _error(error),
+          data: (images) => images.isEmpty
+              ? Center(child: Text('暂无图片收藏'.tl))
+              : GridView.builder(
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200 * scale,
+                    childAspectRatio: 9 / 16,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  itemCount: images.length,
+                  itemBuilder: (_, index) => FavoriteImageTile(
+                    images[index],
+                    key: ValueKey(images[index].recordId),
+                  ),
+                ),
+        );
+  }
+
+  /// 数据读取失败时允许重试。
+  Widget _error(Object error) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('图片收藏加载失败'.tl),
+        TextButton(
+          onPressed: () => ref.invalidate(imageFavoritesProvider),
+          child: Text('重试'.tl),
+        ),
+      ],
+    ),
+  );
 }
 
+/// 使用磁盘 WebP 缩略图的竖向收藏卡片。
 class FavoriteImageTile extends ConsumerWidget {
-  const FavoriteImageTile(this.image, {super.key, this.onDeleted});
-
+  const FavoriteImageTile(this.image, {super.key});
   final ImageFavorite image;
-  final VoidCallback? onDeleted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ratio = MediaQuery.of(context).devicePixelRatio;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        elevation: 1,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+    final thumbnail = ref.watch(imageFavoriteThumbnailProvider(image));
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          thumbnail.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) => _fallback(ref),
+            data: (file) => Image.file(
+              file,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _retry(ref),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                  ],
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Image(
-                  image: ResizeImage.resizeIfNeeded(
-                    (200 * ratio).toInt(),
-                    null,
-                    _ImageProvider(
-                      image,
-                      ref.read(downloadManagerProvider.notifier),
-                    ),
-                  ),
-                  fit: BoxFit.cover,
+              ),
+              child: Text(
+                image.title.replaceAll('\n', ''),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.3),
-                      Colors.black.withOpacity(0.5),
-                    ],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                  child: Text(
-                    image.title.replaceAll("\n", ""),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14.0,
-                      color: Colors.white,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  mouseCursor: appClickableMouseCursor,
-                  onTap: onTap,
-                  onLongPress: onLongTap,
-                  onSecondaryTapDown: (details) =>
-                      onSecondaryTap(details, context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: const SizedBox.expand(),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+          InkWell(
+            mouseCursor: appClickableMouseCursor,
+            onTap: () => _openComic(ref),
+            onLongPress: () => _menu(context, ref, null),
+            onSecondaryTapDown: (details) =>
+                _menu(context, ref, details.globalPosition),
+          ),
+        ],
       ),
     );
   }
 
-  void onTap() {
-    var type = image.id.split("-")[0];
-    _readWithKey(
-      type,
-      image.id.replaceFirst("$type-", ""),
-      image.ep,
-      image.page,
-      image.title,
-      image.otherInfo,
-    );
+  /// 工具不可用时用限定解码尺寸的原图临时预览。
+  Widget _fallback(WidgetRef ref) => FutureBuilder<File>(
+    future: ref.read(imageFavoritesRepositoryProvider).originalFile(image),
+    builder: (_, snapshot) => snapshot.hasData
+        ? Image(
+            image: ResizeImage(
+              FileImage(snapshot.data!),
+              width: 432,
+              height: 768,
+              policy: ResizeImagePolicy.fit,
+            ),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _retry(ref),
+          )
+        : _retry(ref),
+  );
+
+  /// 失败占位；卡片菜单提供重新生成操作。
+  Widget _retry(WidgetRef ref) => Center(
+    child: Icon(
+      Icons.broken_image_outlined,
+      color: Theme.of(ref.context).colorScheme.onSecondaryContainer,
+    ),
+  );
+
+  /// 按来源打开原章节；本地或已移除的来源查看收藏原图。
+  void _openComic(WidgetRef ref) {
+    if (image.sourceKey == 'local' ||
+        (ComicSource.find(image.sourceKey) == null &&
+            !const [
+              'picacg',
+              'ehentai',
+              'jm',
+              'hitomi',
+              'htmanga',
+              'nhentai',
+            ].contains(image.sourceKey))) {
+      _viewOriginal(ref);
+      return;
+    }
+    try {
+      _readWithKey(
+        image.sourceKey,
+        image.comicId,
+        image.ep,
+        image.page,
+        image.title,
+        image.otherInfo,
+      );
+    } catch (error, stack) {
+      Log.e('打开收藏漫画失败', error: error, stackTrace: stack);
+      _viewOriginal(ref);
+    }
   }
 
   void _readWithKey(
@@ -244,7 +242,7 @@ class FavoriteImageTile extends ConsumerWidget {
     int page,
     String title,
     Map<String, dynamic> otherInfo,
-  ) async {
+  ) {
     switch (key) {
       case "picacg":
         App.globalTo(
@@ -282,7 +280,8 @@ class FavoriteImageTile extends ConsumerWidget {
             HitomiReadingData(
               title,
               target,
-              (otherInfo["hitomi"] as List)
+              otherInfo
+                  .optDynamicList("hitomi")
                   .map((e) => HitomiFile.fromMap(e))
                   .toList(),
               target,
@@ -318,127 +317,139 @@ class FavoriteImageTile extends ConsumerWidget {
     }
   }
 
-  void onLongTap() {
-    showConfirmDialog(App.globalContext!, "确认删除".tl, "要删除这个图片吗".tl, delete);
-  }
-
-  Future<void> delete() async {
-    await ImageFavoriteManager.delete(image);
-    showToast(message: "删除成功".tl);
-    onDeleted?.call();
-  }
-
-  void onSecondaryTap(TapDownDetails details, BuildContext context) {
-    showContextMenu(
-      context: App.globalContext!,
-      globalPosition: details.globalPosition,
-      items: [
-        popupMenuItem(
-          text: "查看".tl,
-          icon: Icons.visibility_outlined,
-          onTap: onTap,
-        ),
-        popupMenuItem(
-          text: "分组".tl,
-          icon: Icons.folder_outlined,
-          onTap: () {
-            context.to(() => ImageFavoritesPage(filterTitle: image.title));
-          },
-        ),
-        popupMenuItem(text: "删除".tl, icon: Icons.delete_outline, onTap: delete),
-      ],
-    );
-  }
-}
-
-class _ImageProvider extends BaseImageProvider<_ImageProvider> {
-  _ImageProvider(this.image, this.downloadManager);
-
-  final ImageFavorite image;
-  final DownloadManager downloadManager;
-
-  @override
-  String get key => image.id + image.ep.toString() + image.page.toString();
-
-  @override
-  Future<Uint8List> load(StreamController<ImageChunkEvent> chunkEvents) async {
-    final isLocalFile = image.imagePath.startsWith("file://");
-    Log.d("load image ${image.imagePath}, isLocalFile: $isLocalFile");
-    if (isLocalFile) {
-      return await File(
-        image.imagePath.replaceFirst("file://", ""),
-      ).readAsBytes();
-    } else if (File(image.imagePath).existsSync()) {
-      return await File(
-        "${App.dataPath}/images/${image.imagePath}",
-      ).readAsBytes();
-    } else {
-      var type = image.id.split("-")[0];
-      bool hasEp = type == "jm";
-
-      final downloadFile = await downloadManager.getDownloadImageOrNull(
-        image.title,
-        hasEp ? image.ep : 0,
-        image.page,
-      );
-      if (downloadFile != null) {
-        return await downloadFile.readAsBytes();
-      }
-
-      Stream<DownloadProgress> stream;
-      switch (type) {
-        case "ehentai":
-          stream = ImageManager(downloadManager).getEhImageNew(
-            Gallery.fromJson(image.otherInfo["gallery"]),
-            image.page,
-          );
-        case "jm":
-          stream = ImageManager(downloadManager).getJmImage(
-            image.otherInfo["url"],
-            null,
-            epsId: image.otherInfo["epsId"],
-            scrambleId: kJmScrambleId,
-            bookId: image.otherInfo["bookId"],
-          );
-        case "hitomi":
-          stream = ImageManager(downloadManager).getHitomiImage(
-            HitomiFile.fromMap(image.otherInfo["hitomi"][image.page - 1]),
-            image.otherInfo["galleryId"],
-          );
-        case 'hiperdex':
-          stream = ImageManager(
-            downloadManager,
-          ).getImage(image.otherInfo['url'], HiperdexNetwork.imageHeaders);
-        default:
-          stream = ImageManager(
-            downloadManager,
-          ).getImage(image.otherInfo["url"]);
-      }
-      DownloadProgress? finishProgress;
-      await for (var progress in stream) {
-        if (progress.currentBytes == progress.expectedBytes) {
-          finishProgress = progress;
-        }
-        chunkEvents.add(
-          ImageChunkEvent(
-            cumulativeBytesLoaded: progress.currentBytes,
-            expectedTotalBytes: progress.expectedBytes,
+  /// 显示原图，可缩放，不使用缩略图替代原图。
+  Future<void> _viewOriginal(WidgetRef ref) async {
+    try {
+      final file = await ref
+          .read(imageFavoritesRepositoryProvider)
+          .originalFile(image);
+      if (!ref.context.mounted) return;
+      await Navigator.of(ref.context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(image.title)),
+            body: PhotoView(imageProvider: FileImage(file)),
           ),
-        );
-      }
-      var file = finishProgress!.getFile();
-      var data = await file.readAsBytes();
-      var file2 = File("${App.dataPath}/images/${image.imagePath}");
-      if (!file2.existsSync()) {
-        await file2.create(recursive: true);
-      }
-      await file2.writeAsBytes(data);
-      return data;
+        ),
+      );
+    } catch (error, stack) {
+      Log.e('查看收藏原图失败', error: error, stackTrace: stack);
+      showToast(message: '收藏原图不存在'.tl);
     }
   }
 
-  @override
-  Future<_ImageProvider> obtainKey(ImageConfiguration configuration) async {
-    return this;
+  /// 删除成功后由 Provider 自动刷新所有收藏页面。
+  Future<void> _delete(WidgetRef ref) async {
+    try {
+      await ref.read(imageFavoritesProvider.notifier).delete(image.recordId);
+      showToast(message: '删除成功'.tl);
+    } catch (error, stack) {
+      Log.e('删除图片收藏失败', error: error, stackTrace: stack);
+      showToast(message: '图片收藏操作失败'.tl);
+    }
+  }
+
+  /// 重新生成缩略图，不影响原图。
+  Future<void> _regenerate(WidgetRef ref) async {
+    try {
+      await ref
+          .read(imageFavoritesRepositoryProvider)
+          .regenerateThumbnail(image);
+      if (ref.context.mounted) {
+        ref.invalidate(imageFavoriteThumbnailProvider(image));
+      }
+    } catch (error) {
+      showToast(message: '图片收藏操作失败'.tl);
+    }
+  }
+
+  /// 长按与右键共用操作菜单。
+  void _menu(BuildContext context, WidgetRef ref, Offset? position) {
+    final items = [
+      popupMenuItem(
+        text: '查看'.tl,
+        icon: Icons.menu_book,
+        onTap: () => _openComic(ref),
+      ),
+      popupMenuItem(
+        text: '查看原图'.tl,
+        icon: Icons.image_outlined,
+        onTap: () => _viewOriginal(ref),
+      ),
+      popupMenuItem(
+        text: '重新生成缩略图'.tl,
+        icon: Icons.refresh,
+        onTap: () async {
+          final repository = ref.read(imageFavoritesRepositoryProvider);
+          try {
+            await repository.regenerateThumbnail(image);
+            if (context.mounted) {
+              ref.invalidate(imageFavoriteThumbnailProvider(image));
+            }
+          } catch (error) {
+            showToast(message: '图片收藏操作失败'.tl);
+          }
+        },
+      ),
+      popupMenuItem(
+        text: '分组'.tl,
+        icon: Icons.folder_outlined,
+        onTap: () =>
+            context.to(() => ImageFavoritesPage(filterTitle: image.title)),
+      ),
+      popupMenuItem(
+        text: '删除'.tl,
+        icon: Icons.delete_outline,
+        onTap: () => showConfirmDialog(
+          context,
+          '确认删除'.tl,
+          '要删除这个图片吗'.tl,
+          () => _delete(ref),
+        ),
+      ),
+    ];
+    if (position != null) {
+      showContextMenu(context: context, globalPosition: position, items: items);
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: Text('查看原图'.tl),
+                onTap: () {
+                  Navigator.pop(context);
+                  _viewOriginal(ref);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text('重新生成缩略图'.tl),
+                onTap: () {
+                  Navigator.pop(context);
+                  _regenerate(ref);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text('删除'.tl),
+                onTap: () {
+                  Navigator.pop(context);
+                  showConfirmDialog(
+                    context,
+                    '确认删除'.tl,
+                    '要删除这个图片吗'.tl,
+                    () => _delete(ref),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 }

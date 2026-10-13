@@ -12,6 +12,8 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/image_favorites_providers.dart';
+import 'package:pica_comic/tools/download_directory_migration.dart';
 import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -329,38 +331,80 @@ class DownloadManager extends _$DownloadManager {
     }
   }
 
-  ///更换下载目录
+  /// 更换下载目录，关闭连接后复制，失败时继续使用原目录。
   Future<String> updatePath(String newPath, {bool transform = true}) async {
-    Log.d(
-      () => 'DownloadManager: 更换下载目录 newPath=$newPath, transform=$transform',
-    );
-    if (transform) {
-      var source = Directory(path!);
-      final appPath = await getApplicationSupportDirectory();
-      var destination = Directory(
-        newPath == "" ? "${appPath.path}${pathSep}download" : newPath,
-      );
-      try {
-        Log.d(
-          () =>
-              'DownloadManager: 复制目录 from=${source.path} to=${destination.path}',
-        );
-        await copyDirectory(source, destination);
-        for (var i in source.listSync()) {
-          await i.delete(recursive: true);
-        }
-        Log.d(() => 'DownloadManager: 目录迁移成功');
-      } catch (e) {
-        Log.e('DownloadManager: 目录迁移失败 $e');
-        return e.toString();
-      }
-    }
-
-    _initializationFuture = null;
-    _initialized = false;
-    downloading.clear();
     await init();
-    return "ok";
+    final oldPath = path!;
+    final appPath = await getApplicationSupportDirectory();
+    final target = path_util.normalize(
+      path_util.absolute(
+        newPath.isEmpty ? path_util.join(appPath.path, 'download') : newPath,
+      ),
+    );
+    if (path_util.equals(path_util.normalize(oldPath), target)) return 'ok';
+    final repository = readProvider(imageFavoritesRepositoryProvider);
+    final wasRunning = isDownloading;
+    final previousTasks = _queueManager.getAllTasks().toList();
+    await _queueManager.stopAll();
+    _saveInfoThrottle.dispose();
+    await _pendingSaveInfo;
+    await saveToFile(
+      SaveInfoItem({
+        'downloading': previousTasks.map((task) => task.toMap()).toList(),
+      }, oldPath),
+    );
+    return repository.changingRoot(() async {
+      await _db.close();
+      try {
+        if (transform) {
+          await copyDownloadDirectory(Directory(oldPath), Directory(target));
+        }
+        path = target;
+        AddDownloadExt._cache.clear();
+        _downloadedFileName.clear();
+        _initialized = false;
+        _initializationFuture = null;
+        // 调用方已更新设置，但有效路径以本次切换参数为准。
+        await _db.init(dbPath: path_util.join(target, 'download.db'));
+        await _getInfo();
+        _initialized = true;
+        if (wasRunning) _queueManager.start();
+      } catch (error, stack) {
+        Log.e('下载目录切换失败', error: error, stackTrace: stack);
+        await _queueManager.stopAll();
+        await _db.close();
+        path = oldPath;
+        AddDownloadExt._cache.clear();
+        _downloadedFileName.clear();
+        _initialized = false;
+        _initializationFuture = null;
+        await _db.init(dbPath: path_util.join(oldPath, 'download.db'));
+        await _getInfo();
+        _initialized = true;
+        if (wasRunning) _queueManager.start();
+        return error.toString();
+      }
+      // 新目录已打开且可读取后才清理旧文件；清理失败不回滚可用的新库。
+      if (transform) {
+        try {
+          final oldRoot = path_util.normalize(path_util.absolute(oldPath));
+          if (path_util.equals(oldRoot, target) ||
+              path_util.isWithin(oldRoot, target) ||
+              path_util.isWithin(target, oldRoot)) {
+            throw StateError('旧目录清理位置无效');
+          }
+          await for (final entry in Directory(
+            oldRoot,
+          ).list(followLinks: false)) {
+            await entry.delete(recursive: true);
+          }
+        } catch (error, stack) {
+          Log.e('下载迁移成功，旧目录清理失败', error: error, stackTrace: stack);
+        }
+      }
+      _notifyComicsChanged();
+      return 'ok';
+    });
   }
 
   ///读取数据, 获取未完成的下载和已下载的漫画ID
@@ -460,6 +504,8 @@ class DownloadManager extends _$DownloadManager {
     duration: const Duration(milliseconds: 200),
   );
 
+  Future<void> _pendingSaveInfo = Future.value();
+
   ///储存当前的下载队列信息, 每完成一张图片的下载调用一次
   Future<void> _saveInfo() async {
     _saveInfoThrottle.call(() async {
@@ -471,7 +517,8 @@ class DownloadManager extends _$DownloadManager {
         data["downloading"].add(item.toMap());
       }
       final saveItem = SaveInfoItem(data, path ?? '');
-      unawaited(workerPool.execute(_buildSaveTask(saveItem)));
+      _pendingSaveInfo = workerPool.execute(_buildSaveTask(saveItem));
+      await _pendingSaveInfo;
       // var file = File("$path${pathSep}newDownload.json");
       // await file.writeAsString(const JsonEncoder().convert(data));
     });
@@ -803,51 +850,61 @@ class DownloadManager extends _$DownloadManager {
 
   ///删除已下载的漫画
   Future<void> delete(List<String> ids) async {
-    for (var id in ids) {
-      Log.i("IO delete comic: $id");
-      final item = await getComicOrNull(id);
-      final dirPath = await getFullDirectory(id);
-      await _deleteFromDb(id);
-      if (dirPath.isNotEmpty) {
-        var comic = Directory(dirPath);
-        try {
-          Log.d('delete comic path: $dirPath');
-          await comic.delete(recursive: true);
-        } catch (e, s) {
-          showToast(message: 'delete error $dirPath');
-          Log.e('delete comic error $e', stackTrace: s);
-          if (e is PathNotFoundException) {
-            //忽略
-          } else {
-            rethrow;
-          }
-        }
-      } else {
-        Log.w("IO delete comic error: comic not found $id");
-      }
+    await init();
+    for (final id in ids) {
+      await readProvider(
+        imageFavoritesRepositoryProvider,
+      ).preservingDownload(id, () => _deleteComic(id));
+    }
+    _notifyComicsChanged();
+  }
 
-      if (item != null && item.type != DownloadType.local) {
-        final coverPath = item.coverPath;
-        if (coverPath != null) {
-          try {
-            final coverFile = File(coverPath);
-            if (await coverFile.exists()) {
-              await coverFile.delete();
-            }
-          } catch (e, s) {
-            Log.e('delete comic cover error $coverPath: $e', stackTrace: s);
+  /// 调用方已转存关联收藏，随后删除漫画文件与记录。
+  Future<void> _deleteComic(String id) async {
+    Log.i("IO delete comic: $id");
+    final item = await getComicOrNull(id);
+    final dirPath = await getFullDirectory(id);
+    await _deleteFromDb(id);
+    if (dirPath.isNotEmpty) {
+      var comic = Directory(dirPath);
+      try {
+        Log.d('delete comic path: $dirPath');
+        await comic.delete(recursive: true);
+      } catch (e, s) {
+        showToast(message: 'delete error $dirPath');
+        Log.e('delete comic error $e', stackTrace: s);
+        if (e is PathNotFoundException) {
+          //忽略
+        } else {
+          rethrow;
+        }
+      }
+    } else {
+      Log.w("IO delete comic error: comic not found $id");
+    }
+
+    if (item != null && item.type != DownloadType.local) {
+      final coverPath = item.coverPath;
+      if (coverPath != null) {
+        try {
+          final coverFile = File(coverPath);
+          if (await coverFile.exists()) {
+            await coverFile.delete();
           }
+        } catch (e, s) {
+          Log.e('delete comic cover error $coverPath: $e', stackTrace: s);
         }
       }
     }
-    _notifyComicsChanged();
   }
 
   Future<void> deleteWithoutFile(List<String> ids) async {
     await init();
     Log.d(() => 'DB DownloadManager: 删除数据库记录(不删除文件) ids=$ids');
     for (var id in ids) {
-      await _deleteFromDb(id);
+      await readProvider(
+        imageFavoritesRepositoryProvider,
+      ).preservingDownload(id, () => _deleteFromDb(id));
     }
     _notifyComicsChanged();
   }
@@ -863,6 +920,26 @@ class DownloadManager extends _$DownloadManager {
   /// 返回：
   /// - 成功返回 null，失败返回错误信息
   Future<String?> deleteEpisode(DownloadedItem comic, int ep) async {
+    await init();
+    if (comic.downloadedEps.length == 1) {
+      return 'Delete Error: only one downloaded episode';
+    }
+    try {
+      return await readProvider(
+        imageFavoritesRepositoryProvider,
+      ).preservingDownload(
+        comic.id,
+        () => _deleteEpisode(comic, ep),
+        episodeDirectory: comic.getEpisodeDirectoryName(ep + 1),
+      );
+    } catch (error, stack) {
+      Log.e('保留章节图片收藏失败', error: error, stackTrace: stack);
+      return '图片收藏操作失败'.tl;
+    }
+  }
+
+  /// 在收藏完成转存后删除章节。
+  Future<String?> _deleteEpisode(DownloadedItem comic, int ep) async {
     try {
       Log.d(() => 'DownloadManager: 删除章节 comicId=${comic.id}, episode=$ep');
       // 检查是否只剩一个章节，不允许删除最后一个章节

@@ -1,5 +1,7 @@
 library pica_settings;
 
+import '../../foundation/image_favorites_providers.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

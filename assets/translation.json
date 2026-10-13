@@ -1,5 +1,10 @@
 {
   "zh_TW": {
+    "暂无图片收藏": "暫無圖片收藏",
+    "图片收藏操作失败": "圖片收藏操作失敗",
+    "收藏原图不存在": "收藏原圖不存在",
+    "查看原图": "查看原圖",
+    "重新生成缩略图": "重新生成縮圖",
     "跨章节连续阅读": "跨章節連續閱讀",
     "自动衔接相邻章节": "自動銜接相鄰章節",
     "章节加载失败": "章節載入失敗",
@@ -642,6 +647,11 @@
     "存在未处理或替换失败的翻译结果，暂不能标记完成": "存在未處理或替換失敗的翻譯結果，暫不能標記完成"
   },
   "en_US": {
+    "暂无图片收藏": "No favorite images",
+    "图片收藏操作失败": "Unable to update image favorites",
+    "收藏原图不存在": "The original favorite image is missing",
+    "查看原图": "View original image",
+    "重新生成缩略图": "Regenerate thumbnail",
     "跨章节连续阅读": "Continuous chapter reading",
     "自动衔接相邻章节": "Automatically connect adjacent chapters",
     "章节加载失败": "Failed to load chapter",

@@ -13,8 +13,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:signals/signals.dart';
 
-part "image_favorites.dart";
-
 // 表名常量
 const String kTableHistory = 'history';
 
@@ -449,27 +447,6 @@ class HistoryManager {
       Log.i(
         "HistoryManager merge history, skipped $skips, added ${newHistory.length - skips}",
       );
-
-      //import favorite images
-      skips = 0;
-
-      // 查询收藏的图片
-      var newImages0 = await db.query('image_favorites');
-      var newImages = newImages0.map((e) => ImageFavorite.fromRow(e)).toList();
-
-      for (var image in newImages) {
-        if (await ImageFavoriteManager.exist(image.id, image.ep, image.page)) {
-          skips++;
-        } else {
-          ImageFavoriteManager.add(image);
-          Log.i(
-            "HistoryManager merge favorite image ep ${image.ep} page ${image.page} @ ${image.id}",
-          );
-        }
-      }
-      Log.i(
-        "HistoryManager merge favorite images, skipped $skips, added ${newImages.length - skips}",
-      );
     }
 
     // 关闭数据库连接
@@ -533,8 +510,6 @@ class HistoryManager {
         $kHistoryMaxPage INTEGER
       )
     ''');
-
-    await ImageFavoriteManager.createTable(db);
   }
 
   /// 升级数据库表

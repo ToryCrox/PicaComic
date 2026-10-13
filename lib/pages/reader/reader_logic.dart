@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'dart:io';
 import 'dart:math';
 
@@ -19,14 +22,14 @@ import '../../foundation/app_settings_provider.dart';
 import '../../foundation/log.dart';
 import '../../foundation/state_controller.dart';
 import '../../tools/image_size_getter.dart' as image_sizes;
-import '../../tools/save_image.dart';
 import '../../tools/translations.dart';
 import 'reading_data.dart';
 import 'reading_type.dart';
 import 'touch_control.dart';
 import 'package:pica_comic/base.dart';
 import '../../components/components.dart';
-import '../../foundation/history.dart';
+import '../../foundation/image_favorites.dart';
+import '../../foundation/image_favorites_providers.dart';
 import '../../foundation/local_history.dart';
 import 'continuous_reader_data.dart';
 import '../../tools/iterable_extension.dart';
@@ -684,8 +687,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
     saveLocalReadingHistory();
     _loadVersion++;
     _loadingInfo = false;
-    if (readingData is LocalReadingData) {
-      (readingData as LocalReadingData).goNext();
+    final data = readingData;
+    if (data is LocalReadingData) {
+      data.goNext();
     }
     state = state.copyWith(
       urls: [],
@@ -706,8 +710,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
     saveLocalReadingHistory();
     _loadVersion++;
     _loadingInfo = false;
-    if (readingData is LocalReadingData) {
-      (readingData as LocalReadingData).goTo(index - 1);
+    final data = readingData;
+    if (data is LocalReadingData) {
+      data.goTo(index - 1);
     }
     state = state.copyWith(
       urls: [],
@@ -741,8 +746,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
     saveLocalReadingHistory();
     _loadVersion++;
     _loadingInfo = false;
-    if (readingData is LocalReadingData) {
-      (readingData as LocalReadingData).goPrev();
+    final data = readingData;
+    if (data is LocalReadingData) {
+      data.goPrev();
     }
     state = state.copyWith(
       urls: [],
@@ -1102,7 +1108,26 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
 
   // ---- Favorite current image ----
 
+  /// 按实际阅读数据类型获取 EH 元数据，不使用强制转换。
+  Map<String, dynamic> _galleryMetadata(ReadingData data) {
+    if (data is EhReadingData) return data.gallery.toJson();
+    throw StateError('阅读数据与漫画源不一致');
+  }
+
+  /// 按实际阅读数据类型获取 Hitomi 元数据。
+  List<Map<String, dynamic>> _hitomiMetadata(ReadingData data) {
+    if (data is HitomiReadingData) {
+      return data.images.map((image) => image.toMap()).toList();
+    }
+    throw StateError('阅读数据与漫画源不一致');
+  }
+
+  bool _favoriteBusy = false;
+
+  /// 收藏或取消当前图片，操作成功后才通知用户。
   Future<void> favoriteCurrentImage({Offset? position}) async {
+    if (_favoriteBusy) return;
+    _favoriteBusy = true;
     try {
       final readingData = this.readingData;
 
@@ -1182,10 +1207,31 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       }
       if (selected == null) return;
       final episode = selected.episode;
-      final id =
-          "${readingData.sourceKey}-${readingData.idForEpisode(episode)}";
+      final sourceKey = readingData.sourceKey;
+      var comicId = readingData.idForEpisode(episode);
+      if (readingData.type == ComicType.local) {
+        comicId = sha256.convert(utf8.encode(comicId)).toString();
+      }
       pageIndex = selected.page;
       final imageUrl = selected.url;
+      final draft = ImageFavorite(
+        sourceKey: sourceKey,
+        comicId: comicId,
+        title: readingData.titleForEpisode(episode),
+        ep: episode,
+        page: pageIndex + 1,
+        imagePath: '',
+        imageUrl: imageUrl,
+      );
+      final repository = ref.read(imageFavoritesRepositoryProvider);
+      final existing = await repository.find(draft.recordId);
+      if (existing != null) {
+        await ref
+            .read(imageFavoritesProvider.notifier)
+            .delete(existing.recordId);
+        showToast(message: "已取消图片收藏".tl);
+        return;
+      }
 
       File? file;
       try {
@@ -1205,19 +1251,15 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
         return;
       }
 
-      var image = await persistentCurrentImage(file);
-      image = image.split("/").last;
-
       var otherInfo = <String, dynamic>{};
       if (readingData.type == ReadingType.ehentai) {
-        otherInfo["gallery"] = (readingData as EhReadingData).gallery.toJson();
+        otherInfo["gallery"] = _galleryMetadata(readingData);
       } else if (readingData.type == ReadingType.hitomi) {
-        otherInfo["hitomi"] = (readingData as HitomiReadingData).images
-            .map((e) => e.toMap())
-            .toList();
+        otherInfo["hitomi"] = _hitomiMetadata(readingData);
         otherInfo["galleryId"] = readingData.id;
       } else if (readingData.type == ReadingType.jm) {
         Log.d("TooBar ${readingData.eps}, ${state.currentEpisode}");
+        otherInfo["eps"] = readingData.eps!.keys.toList();
         otherInfo["jmEpNames"] = readingData.eps!.values.toList();
         otherInfo["epsId"] = readingData.eps!.keys.getOrNull(episode - 1);
         otherInfo["bookId"] = readingData.id;
@@ -1227,26 +1269,25 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       } else {
         otherInfo["eps"] = readingData.eps;
       }
-      otherInfo["url"] = imageUrl;
-
-      var favorite = ImageFavorite(
-        id: id,
-        imagePath: image,
-        title: readingData.titleForEpisode(episode),
+      final favorite = ImageFavorite(
+        sourceKey: sourceKey,
+        comicId: comicId,
+        imagePath: '',
+        title: draft.title,
         ep: episode,
         page: pageIndex + 1,
+        imageUrl: imageUrl,
         otherInfo: otherInfo,
       );
-      if (!(await ImageFavoriteManager.exist(id, episode, pageIndex + 1))) {
-        ImageFavoriteManager.add(favorite);
-        showToast(message: "已添加至图片收藏".tl);
-      } else {
-        ImageFavoriteManager.delete(favorite);
-        showToast(message: "已取消图片收藏".tl);
-      }
+      await ref
+          .read(imageFavoritesProvider.notifier)
+          .add(favorite, file, downloadId: readingData.downloadId);
+      showToast(message: "已添加至图片收藏".tl);
     } catch (e, s) {
-      Log.e('TooBar $e', stackTrace: s);
-      showToast(message: e.toString());
+      Log.e('图片收藏失败：$e', stackTrace: s);
+      showToast(message: "图片收藏操作失败".tl);
+    } finally {
+      _favoriteBusy = false;
     }
   }
 
