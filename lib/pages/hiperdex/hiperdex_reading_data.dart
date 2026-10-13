@@ -20,6 +20,21 @@ class HiperdexReadingData extends ReadingData {
   @override
   final Map<String, String>? eps;
 
+  /// HiperDEX 通常以新章在前排列，同时兼容已有的正序下载快照。
+  @override
+  int get chapterStep {
+    double? previous;
+    for (final key in eps?.keys ?? const <String>[]) {
+      final number = double.tryParse(key.split('|').first);
+      if (number == null) continue;
+      if (previous != null && number != previous) {
+        return number < previous ? -1 : 1;
+      }
+      previous = number;
+    }
+    return -1;
+  }
+
   final Map<String, int> _localChapters = {};
 
   @override

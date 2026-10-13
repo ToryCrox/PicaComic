@@ -218,15 +218,18 @@ class _ComicViewBuilder {
           if (!readerItem.isImage) {
             final episode = readerItem.episode;
             final titles = readingData.eps!.values.toList();
+            final previous = readingData.adjacentEpisode(episode, -1);
             return ChapterSeparator(
               key: ValueKey(readerItem.identity),
               item: readerItem,
               title: titles[episode - 1],
-              previousTitle: episode > 1 ? titles[episode - 2] : null,
+              previousTitle: previous != null ? titles[previous - 1] : null,
               onRetry: () => logic.retryContinuousChapter(episode),
               onSkip: () => logic.skipContinuousChapter(
                 episode,
-                episode < state.currentEpisode ? -1 : 1,
+                (episode - state.currentEpisode) * readingData.chapterStep < 0
+                    ? -1
+                    : 1,
               ),
             );
           }
@@ -553,14 +556,13 @@ class _ComicViewBuilder {
       pageController: logic.pageController,
       onPageChanged: (i) {
         if (i == 0) {
-          if (!readingData.hasEp || state.currentEpisode == 1) {
+          if (readingData.adjacentEpisode(state.currentEpisode, -1) == null) {
             logic.pageController.jumpByDeviceType(1, logic);
             return;
           }
           logic.jumpToLastChapter();
         } else if (i == calcItemCount() - 1) {
-          if (!readingData.hasEp ||
-              state.currentEpisode == readingData.eps?.length) {
+          if (readingData.adjacentEpisode(state.currentEpisode, 1) == null) {
             logic.pageController.jumpByDeviceType(
               logic.pageController.page!.round() - 1,
               logic,
@@ -633,17 +635,16 @@ class _ComicViewBuilder {
         logic.continuousScrollUpdate(notification.scrollDelta);
         return false;
       }
-      var length = readingData.eps?.length ?? 1;
       if (!logic.scrollController.hasClients) return false;
       if (logic.scrollController.position.pixels -
                   logic.scrollController.position.minScrollExtent <=
               0 &&
-          state.currentEpisode != 0) {
+          readingData.adjacentEpisode(state.currentEpisode, -1) != null) {
         logic.showFloatingButton(-1);
       } else if (logic.scrollController.position.pixels -
                   logic.scrollController.position.maxScrollExtent >=
               0 &&
-          state.currentEpisode < length) {
+          readingData.adjacentEpisode(state.currentEpisode, 1) != null) {
         logic.showFloatingButton(1);
       } else {
         logic.showFloatingButton(0);

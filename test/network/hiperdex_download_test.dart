@@ -96,6 +96,28 @@ void main() {
     expect(HiperdexAdapter().dataFromDownloadedItem(legacyItem()), info);
   });
 
+  test('倒序目录的翻章方向正确，章节和下载索引保持不变', () {
+    final reader = HiperdexReadingData('sample', 'Sample', chapters)
+      ..onDownloadedItemLoaded(legacyItem());
+    expect(reader.eps, chapters);
+    expect(reader.chapterStep, -1);
+    expect(reader.adjacentEpisode(2, 1), 1);
+    expect(reader.adjacentEpisode(1, -1), 2);
+    expect(reader.adjacentEpisode(1, 1), isNull);
+    expect(reader.adjacentEpisode(2, -1), isNull);
+    expect(reader.localEpisode(1), 1);
+    expect(reader.localEpisode(2), 2);
+
+    final ascending = HiperdexReadingData('sample', 'Sample', {
+      '12.5|101': 'Special',
+      '12.50|102': 'Revised',
+      '13|103': 'Chapter 13',
+    });
+    expect(ascending.chapterStep, 1);
+    expect(ascending.adjacentEpisode(2, 1), 3);
+    expect(ascending.adjacentEpisode(2, -1), 1);
+  });
+
   test('独立下载类型继续找到原 other 封面文件', () async {
     final root = await Directory.systemTemp.createTemp('hiperdex-cover-');
     addTearDown(() => root.delete(recursive: true));

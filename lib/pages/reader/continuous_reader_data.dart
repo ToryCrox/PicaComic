@@ -57,9 +57,11 @@ class ContinuousReaderData {
     required this.loadEpisode,
     required this.onChanged,
     required this.canPrepend,
-  });
+    this.chapterStep = 1,
+  }) : assert(chapterStep == 1 || chapterStep == -1);
 
   final int episodeCount;
+  final int chapterStep;
   final Stream<Res<List<String>>> Function(int) loadEpisode;
   final void Function() onChanged;
   final bool Function() canPrepend;
@@ -74,8 +76,25 @@ class ContinuousReaderData {
   StreamSubscription<Res<List<String>>>? _subscription;
   Completer<void>? _streamCompletion;
 
-  int get firstEpisode => _attached.reduce((a, b) => a < b ? a : b);
-  int get lastEpisode => _attached.reduce((a, b) => a > b ? a : b);
+  int get firstEpisode =>
+      _attached.reduce((a, b) => _compareEpisodes(a, b) < 0 ? a : b);
+  int get lastEpisode =>
+      _attached.reduce((a, b) => _compareEpisodes(a, b) > 0 ? a : b);
+
+  /// 首尾相邻章节沿阅读方向查找，目录索引可以递增或递减。
+  int? get previousEpisode =>
+      _attached.isEmpty ? null : _adjacentEpisode(firstEpisode, -1);
+  int? get nextEpisode =>
+      _attached.isEmpty ? null : _adjacentEpisode(lastEpisode, 1);
+
+  /// 按阅读顺序比较目录索引。
+  int _compareEpisodes(int a, int b) => (a - b) * chapterStep;
+
+  /// 将阅读方向转换为目录索引，并排除首尾之外的章节。
+  int? _adjacentEpisode(int episode, int direction) {
+    final adjacent = episode + direction * chapterStep;
+    return adjacent >= 1 && adjacent <= episodeCount ? adjacent : null;
+  }
 
   /// 首次加载或手动跳章设置新的列表起点。
   void seed(int episode, List<String> urls) {
@@ -87,8 +106,9 @@ class ContinuousReaderData {
   List<ReaderItem> get items {
     if (_attached.isEmpty) return const [];
     final result = <ReaderItem>[];
-    if (firstEpisode > 1) result.add(_boundary(firstEpisode - 1));
-    final episodes = _attached.toList()..sort();
+    final previous = previousEpisode;
+    if (previous != null) result.add(_boundary(previous));
+    final episodes = _attached.toList()..sort(_compareEpisodes);
     for (final episode in episodes) {
       result.add(ReaderItem.header(episode));
       final chapter = chapters[episode]!;
@@ -100,7 +120,8 @@ class ContinuousReaderData {
         }
       }
     }
-    if (lastEpisode < episodeCount) result.add(_boundary(lastEpisode + 1));
+    final next = nextEpisode;
+    if (next != null) result.add(_boundary(next));
     return List.unmodifiable(result);
   }
 
@@ -215,7 +236,9 @@ class ContinuousReaderData {
 
   /// 拖动期间不插入头部，避免打断正在进行的滚动。
   void _attach(int episode) {
-    if (_attached.isNotEmpty && episode < firstEpisode && !canPrepend()) {
+    if (_attached.isNotEmpty &&
+        _compareEpisodes(episode, firstEpisode) < 0 &&
+        !canPrepend()) {
       _deferred.add(episode);
     } else {
       _attached.add(episode);
@@ -233,7 +256,9 @@ class ContinuousReaderData {
   /// 用户明确跳过空章或失败章节。
   Future<void> skip(int episode, int direction) {
     _skipped.add(episode);
-    return load(episode + direction, priority: true);
+    final adjacent = _adjacentEpisode(episode, direction);
+    if (adjacent == null) return Future.value();
+    return load(adjacent, priority: true);
   }
 
   /// 取消队列，后续网络结果不会修改会话。

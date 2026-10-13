@@ -46,6 +46,7 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
     late final ContinuousReaderData data;
     data = ContinuousReaderData(
       episodeCount: _reader.readingData.eps!.length,
+      chapterStep: _reader.readingData.chapterStep,
       loadEpisode: (episode) =>
           _reader.readingData.loadEp(episode, markRead: false),
       canPrepend: () =>
@@ -261,11 +262,15 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
     }
     final position = _reader.scrollController.position;
     final threshold = position.viewportDimension * 2;
-    if (position.extentAfter <= threshold && data.canLoadNext) {
-      unawaited(data.load(data.lastEpisode + 1));
+    final next = data.nextEpisode;
+    final previous = data.previousEpisode;
+    if (position.extentAfter <= threshold && data.canLoadNext && next != null) {
+      unawaited(data.load(next));
     }
-    if (position.extentBefore <= threshold && data.canLoadPrevious) {
-      unawaited(data.load(data.firstEpisode - 1));
+    if (position.extentBefore <= threshold &&
+        data.canLoadPrevious &&
+        previous != null) {
+      unawaited(data.load(previous));
     }
   }
 
@@ -346,13 +351,11 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
   /// 自动滚动到列表末尾时等待相邻章，失败则停止。
   bool waitForContinuousChapter() {
     final data = _continuousData;
-    if (data == null ||
-        data.lastEpisode >= data.episodeCount ||
-        !data.canLoadNext) {
+    if (data == null || data.nextEpisode == null || !data.canLoadNext) {
       return false;
     }
     _waitingForChapter = true;
-    unawaited(data.load(data.lastEpisode + 1));
+    unawaited(data.load(data.nextEpisode!));
     return true;
   }
 

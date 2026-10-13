@@ -527,7 +527,7 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       state = state.copyWith(showFloatingButtonValue: 1);
     } else if (value == -1 &&
         state.showFloatingButtonValue == 0 &&
-        state.currentEpisode != 1) {
+        readingData.adjacentEpisode(state.currentEpisode, -1) != null) {
       state = state.copyWith(showFloatingButtonValue: -1);
     }
   }
@@ -661,9 +661,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
   }
 
   void jumpToNextChapter() {
-    var eps = readingData.eps;
+    final newOrder = readingData.adjacentEpisode(state.currentEpisode, 1);
     state = state.copyWith(showFloatingButtonValue: 0);
-    if (!readingData.hasEp || state.currentEpisode == eps?.length) {
+    if (newOrder == null) {
       final method = state.readingMethod;
       if (method != ReadingMethod.topToBottomContinuously) {
         if (method.index < 3) {
@@ -677,7 +677,6 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       }
       return;
     }
-    final newOrder = state.currentEpisode + 1;
     if (continuousReading) {
       jumpContinuousChapter(newOrder);
       return;
@@ -722,8 +721,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
   }
 
   void jumpToLastChapter() {
+    final newOrder = readingData.adjacentEpisode(state.currentEpisode, -1);
     state = state.copyWith(showFloatingButtonValue: 0);
-    if (state.currentEpisode == 1 || !readingData.hasEp) {
+    if (newOrder == null) {
       final method = state.readingMethod;
       if (method != ReadingMethod.topToBottomContinuously) {
         jumpByDeviceType(1);
@@ -734,7 +734,6 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       return;
     }
 
-    final newOrder = state.currentEpisode - 1;
     if (continuousReading) {
       jumpContinuousChapter(newOrder);
       return;

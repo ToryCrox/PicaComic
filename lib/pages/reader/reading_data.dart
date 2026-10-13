@@ -77,6 +77,17 @@ abstract class ReadingData {
 
   Map<String, String>? get eps;
 
+  /// 下一章在目录中的索引方向，保留原有章节索引用于下载和历史。
+  int get chapterStep => 1;
+
+  /// 按阅读方向获取相邻章节（一基），到达首尾时返回空值。
+  int? adjacentEpisode(int episode, int direction) {
+    if (!hasEp) return null;
+    final adjacent = episode + direction * chapterStep;
+    if (adjacent < 1 || adjacent > (eps?.length ?? 0)) return null;
+    return adjacent;
+  }
+
   bool _isDownloaded = false;
 
   /// Whether the comic is downloaded locally.
@@ -324,6 +335,7 @@ class JmReadingData extends ReadingData {
   final String id;
 
   final _commentsLengths = <int, int?>{};
+
   /// 评论数量按章节保存，预加载不会覆盖当前章的附属信息。
   int? commentsLengthForEpisode(int episode) => _commentsLengths[episode];
 

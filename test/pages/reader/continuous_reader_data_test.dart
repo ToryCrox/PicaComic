@@ -6,6 +6,62 @@ import 'package:pica_comic/pages/reader/continuous_reader_data.dart';
 import 'package:pica_comic/pages/reader/reading_data.dart';
 
 void main() {
+  test('倒序章节沿阅读方向拼接，上一章插入仍等待滚动结束', () async {
+    var idle = false;
+    final data = ContinuousReaderData(
+      episodeCount: 4,
+      chapterStep: -1,
+      loadEpisode: (ep) async* {
+        yield Res(['$ep-a', '$ep-b']);
+      },
+      onChanged: () {},
+      canPrepend: () => idle,
+    );
+    addTearDown(data.dispose);
+    expect(data.nextEpisode, isNull);
+    expect(data.previousEpisode, isNull);
+    data.seed(2, ['2']);
+    expect(data.nextEpisode, 1);
+    expect(data.previousEpisode, 3);
+    await data.load(3);
+    await data.load(1);
+    expect(data.firstEpisode, 2);
+    expect(data.lastEpisode, 1);
+    expect(data.nextEpisode, isNull);
+    idle = true;
+    data.flushPrepend();
+    expect(data.firstEpisode, 3);
+    expect(data.previousEpisode, 4);
+    final images = data.items.where((item) => item.isImage).toList();
+    expect(images.map((item) => item.episode), [3, 3, 2, 1, 1]);
+    expect(images.map((item) => item.page), [0, 1, 0, 0, 1]);
+    expect(data.items.first.episode, 4);
+  });
+
+  test('倒序空章按阅读方向跳过，并在最新章停止加载', () async {
+    final requested = <int>[];
+    final data = ContinuousReaderData(
+      episodeCount: 3,
+      chapterStep: -1,
+      loadEpisode: (ep) async* {
+        requested.add(ep);
+        yield Res(ep == 2 ? <String>[] : ['$ep']);
+      },
+      onChanged: () {},
+      canPrepend: () => true,
+    );
+    addTearDown(data.dispose);
+    await data.load(3);
+    await data.load(data.nextEpisode!);
+    expect(data.canLoadNext, isFalse);
+    await data.skip(2, 1);
+    expect(data.lastEpisode, 1);
+    expect(data.nextEpisode, isNull);
+    await data.skip(1, 1);
+    expect(requested, [3, 2, 1]);
+    expect(data.previousEpisode, isNull);
+  });
+
   test('章节图片保留章内页码，分隔条不计入页数', () async {
     final data = _data((episode) async* {
       yield Res(['$episode-a', '$episode-b']);

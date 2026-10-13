@@ -208,12 +208,14 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     final history = readingData.history;
     if (history == null) return;
     if (readingData.hasEp) {
-      if (logic.snapshot.currentEpisode == 1 &&
+      if (readingData.adjacentEpisode(logic.snapshot.currentEpisode, -1) ==
+              null &&
           logic.snapshot.currentPage == 1) {
         history.ep = 0;
         history.page = 0;
       } else {
-        if (logic.snapshot.currentEpisode == readingData.eps?.length &&
+        if (readingData.adjacentEpisode(logic.snapshot.currentEpisode, 1) ==
+                null &&
             logic.snapshot.currentPage == logic.length) {
           history.ep = 0;
           history.page = 0;

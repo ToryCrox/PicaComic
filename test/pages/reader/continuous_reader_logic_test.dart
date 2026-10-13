@@ -28,6 +28,38 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(AppTranslation.init);
 
+  for (final mode in ['1', '4', '5']) {
+    test('倒序目录在阅读模式 $mode 中正确手动翻章及识别首尾', () async {
+      final harness = _Harness(readingMode: mode);
+      addTearDown(harness.dispose);
+      harness.data.chapterStep = -1;
+      await harness.logic.loadInfo();
+      harness.logic.jumpToNextChapter();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.logic.snapshot.currentEpisode, 1);
+      expect(harness.logic.snapshot.currentPage, 1);
+      await harness.logic.loadInfo();
+      harness.logic.jumpToLastChapter();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.logic.snapshot.currentEpisode, 2);
+      await harness.logic.loadInfo();
+      harness.logic.jumpToLastChapter();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.logic.snapshot.currentEpisode, 3);
+      await harness.logic.loadInfo();
+      harness.logic.showFloatingButton(-1);
+      expect(harness.logic.snapshot.showFloatingButtonValue, 0);
+      if (harness.logic.continuousReading) {
+        harness.logic.jumpToNextChapter();
+        await Future<void>.delayed(Duration.zero);
+        harness.logic.jumpToNextChapter();
+        await Future<void>.delayed(Duration.zero);
+        expect(harness.logic.snapshot.currentEpisode, 1);
+        expect(harness.logic.waitForContinuousChapter(), isFalse);
+      }
+    });
+  }
+
   test('默认开启，章节加载不标记已读，参考线经过图片才标记', () async {
     final harness = _Harness();
     addTearDown(harness.dispose);
@@ -547,6 +579,9 @@ class _ReadingData extends ReadingData {
   }
 
   ImageProvider? imageProvider;
+
+  @override
+  int chapterStep = 1;
 
   @override
   ImageProvider createImageProvider(int ep, int page, String url) =>
