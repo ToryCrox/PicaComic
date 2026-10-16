@@ -77,24 +77,29 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final String _sessionId;
-  ComicReaderLogic? _logicCache;
+  // 卸载时不能访问 WidgetRef，提前保存清理所需的依赖和最新设置。
+  late final ComicReaderLogic _readerLogic;
+  late final DownloadManager _downloadManager;
+  late ReaderPageState _readerState;
+  late bool _useDarkBackground;
 
   ReadingData get readingData => widget.readingData;
   ReadingType get type => readingData.type;
-  bool get useDarkBackground =>
-      ref.read(readerSettingsProvider).readerDarkBackground;
-
-  ComicReaderLogic _logic() {
-    _logicCache ??= ref.read(comicReaderLogicProvider(_sessionId).notifier);
-    return _logicCache!;
-  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _downloadManager = ref.read(downloadManagerProvider.notifier);
+    ref.listenManual(
+      appSettingsProvider.select(
+        (settings) => settings.enabled(AppSettingKeys.readerDarkBackground),
+      ),
+      (_, value) => _useDarkBackground = value,
+      fireImmediately: true,
+    );
     readingData.bindDependencies(
-      downloadManager: ref.read(downloadManagerProvider.notifier),
+      downloadManager: _downloadManager,
       sourceServices: ref.read(comicSourceServicesProvider),
       sourceCallbacks: ref.read(comicSourceCallbackRunnerProvider),
     );
@@ -120,7 +125,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     BaseImageProvider.setCacheSizeLimit(500 * 1024 * 1024);
     PaintingBinding.instance.imageCache.maximumSizeBytes = 800 * 1024 * 1024;
 
-    if (useDarkBackground) {
+    if (_useDarkBackground) {
       Future.microtask(
         () =>
             StateController.findOrNull<WindowFrameController>()?.setDarkTheme(),
@@ -133,13 +138,19 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
       widget.initialPage,
       widget.initialEp,
     );
+    _readerLogic = ref.read(comicReaderLogicProvider(_sessionId).notifier);
+    ref.listenManual(
+      comicReaderLogicProvider(_sessionId),
+      (_, value) => _readerState = value,
+      fireImmediately: true,
+    );
   }
 
   @override
   void dispose() {
-    final logic = _logic();
+    final logic = _readerLogic;
     WidgetsBinding.instance.removeObserver(this);
-    logic.saveLocalReadingHistory();
+    logic.saveLocalReadingHistory(snapshot: _readerState);
 
     PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
     BaseImageProvider.clearCache();
@@ -164,14 +175,14 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
       readingData.favoriteType,
     );
 
-    _updateHistory(logic, true);
+    _updateHistory(logic, true, snapshot: _readerState);
 
     // Exit fullscreen if active — only touch the window manager, not state.
-    if (logic.snapshot.isFullScreen) {
+    if (_readerState.isFullScreen) {
       WindowManager.instance.setFullScreen(false);
       StateController.findOrNull<WindowFrameController>()?.showWindowFrame();
     }
-    if (!ref.read(downloadManagerProvider.notifier).isDownloading) {
+    if (!_downloadManager.isDownloading) {
       ImageManager.clearTasks();
     }
 
@@ -179,10 +190,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
       ComicReaderPage.updateActiveComicPageHistory(readingData.history);
     });
 
-    if (ref.read(readerSettingsProvider).screenOrientation != 0) {
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
-    if (useDarkBackground) {
+    if (_useDarkBackground) {
       Future.microtask(
         () => StateController.findOrNull<WindowFrameController>()?.resetTheme(),
       );
@@ -196,48 +204,49 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      _updateHistory(_logic(), false);
+      _updateHistory(_readerLogic, false);
     }
   }
 
-  void _updateHistory(ComicReaderLogic logic, bool updateMePage) {
+  /// 使用退出前缓存的快照保存进度，避免卸载时触发 Provider 刷新。
+  void _updateHistory(
+    ComicReaderLogic logic,
+    bool updateMePage, {
+    ReaderPageState? snapshot,
+  }) {
+    final state = snapshot ?? logic.snapshot;
     if (readingData is LocalReadingData) {
-      logic.saveLocalReadingHistory();
+      logic.saveLocalReadingHistory(snapshot: state);
       return;
     }
     final history = readingData.history;
     if (history == null) return;
     if (readingData.hasEp) {
-      if (readingData.adjacentEpisode(logic.snapshot.currentEpisode, -1) ==
-              null &&
-          logic.snapshot.currentPage == 1) {
+      if (readingData.adjacentEpisode(state.currentEpisode, -1) == null &&
+          state.currentPage == 1) {
         history.ep = 0;
         history.page = 0;
       } else {
-        if (readingData.adjacentEpisode(logic.snapshot.currentEpisode, 1) ==
-                null &&
-            logic.snapshot.currentPage == logic.length) {
+        if (readingData.adjacentEpisode(state.currentEpisode, 1) == null &&
+            state.currentPage == state.urls.length) {
           history.ep = 0;
           history.page = 0;
         } else {
-          history.ep = logic.snapshot.currentEpisode;
-          history.page = logic.snapshot.currentPage;
+          history.ep = state.currentEpisode;
+          history.page = state.currentPage;
         }
       }
     } else {
-      if (logic.snapshot.currentPage == 1) {
+      if (state.currentPage == 1) {
         history.ep = 0;
         history.page = 0;
       } else {
         history.ep = 1;
-        history.page = logic.snapshot.currentPage;
+        history.page = state.currentPage;
       }
     }
-    readingData.saveChapterPosition(
-      logic.snapshot.currentEpisode,
-      logic.snapshot.currentPage,
-    );
-    history.maxPage = logic.length;
+    readingData.saveChapterPosition(state.currentEpisode, state.currentPage);
+    history.maxPage = state.urls.length;
     HistoryManager().saveReadHistory(history, updateMePage);
   }
 
@@ -268,7 +277,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
       ),
     );
     final state = ref.watch(comicReaderLogicProvider(_sessionId));
-    final logic = _logic();
+    final logic = _readerLogic;
 
     TapController.attach(logic, _sessionId);
     logic.openEpsView = openEpsDrawer;

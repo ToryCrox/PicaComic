@@ -377,22 +377,23 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
     if (state.runningAutoPageTurning) unawaited(_reader.autoPageTurning());
   }
 
-  /// 本地进度按目录保存，预加载目录不会创建记录。
-  void saveLocalReadingHistory() {
+  /// 本地进度按目录保存；退出时传入缓存快照，避免访问已卸载的 Provider。
+  void saveLocalReadingHistory({ReaderPageState? snapshot}) {
     final reading = _reader.readingData;
-    if (reading is! LocalReadingData ||
-        state.urls.isEmpty ||
-        !_visitedLocalEpisodes.contains(state.currentEpisode)) {
+    if (reading is! LocalReadingData) return;
+    final readingState = snapshot ?? state;
+    if (readingState.urls.isEmpty ||
+        !_visitedLocalEpisodes.contains(readingState.currentEpisode)) {
       return;
     }
     unawaited(
       (saveLocalHistoryOverride ?? LocalHistoryManager().saveReadHistory)(
         LocalHistory(
-          path: reading.directoryForEpisode(state.currentEpisode),
+          path: reading.directoryForEpisode(readingState.currentEpisode),
           isReversed: reading.isReversed ? 1 : 0,
-          pageIndex: state.currentPage,
+          pageIndex: readingState.currentPage,
           time: DateTime.now().millisecondsSinceEpoch,
-          totalPages: state.urls.length,
+          totalPages: readingState.urls.length,
         ),
       ).catchError((Object error, StackTrace stack) {
         Log.e('保存本地阅读进度失败', error: error, stackTrace: stack);
