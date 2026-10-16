@@ -38,6 +38,8 @@ import 'package:pica_comic/network/hitomi_network/hitomi_download_model.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_models.dart' as hitomi;
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.dart';
+import 'package:pica_comic/network/manhuagui/manhuagui_downloaded_item.dart';
+import 'package:pica_comic/network/manhuagui/manhuagui_downloading_task.dart';
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
@@ -1137,7 +1139,7 @@ class DownloadManager extends _$DownloadManager {
     final dirName = await getDirectoryName(id);
     final root = path_util.join(comicsPath, dirName);
     if (ep == 0) return root;
-    if (id.startsWith('hiperdex-')) {
+    if (id.startsWith('hiperdex-') || id.startsWith('manhuagui-')) {
       final comic = await getComicOrNull(id);
       if (comic != null) {
         return path_util.join(root, comic.getEpisodeDirectoryName(ep));
@@ -1212,6 +1214,7 @@ class DownloadManager extends _$DownloadManager {
 
   /// 根据下载 ID 推断内置漫画源类型，用于兼容没有数据库记录的调用方。
   DownloadType _inferDownloadType(String id) {
+    if (id.startsWith('manhuagui-')) return DownloadType.manhuagui;
     if (id.startsWith('hiperdex-')) return DownloadType.hiperdex;
     if (id.startsWith('jm')) return DownloadType.jm;
     if (id.startsWith('hitomi')) return DownloadType.hitomi;
@@ -1303,6 +1306,13 @@ DownloadingTask downloadingItemFromMap(
         whenError,
         updateInfo,
         map["id"],
+      );
+    case 10:
+      return ManhuaguiDownloadingTask.fromMap(
+        map,
+        whenFinish,
+        whenError,
+        updateInfo,
       );
     case 9:
       return HiperdexDownloadingTask.fromMap(
@@ -1484,6 +1494,21 @@ extension AddDownloadExt on DownloadManager {
     _addDownloadTask(task);
   }
 
+  /// 添加漫画柜内置源下载任务。
+  void addManhuaguiDownload(ComicInfoData comic, List<int> downloadEps) {
+    if (downloadEps.isEmpty) return;
+    _addDownloadTask(
+      ManhuaguiDownloadingTask(
+        comic,
+        downloadEps,
+        _onFinish,
+        _onError,
+        _saveInfo,
+        generateId('manhuagui', comic.comicId),
+      ),
+    );
+  }
+
   void addFavoriteDownload(FavoriteItem comic) {
     var id = switch (comic.type.key) {
       0 => comic.target,
@@ -1541,7 +1566,8 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.hitomi ||
       DownloadType.htmanga ||
       DownloadType.nhentai ||
-      DownloadType.hiperdex => true,
+      DownloadType.hiperdex ||
+      DownloadType.manhuagui => true,
       DownloadType.other ||
       DownloadType.favorite ||
       DownloadType.local => false,
@@ -1724,6 +1750,7 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.htmanga => (comic as DownloadedHtComic).comic.cover,
       DownloadType.nhentai => (comic as NhentaiDownloadedComic).cover,
       DownloadType.hiperdex => (comic as HiperdexDownloadedItem).cover,
+      DownloadType.manhuagui => (comic as ManhuaguiDownloadedItem).cover,
       DownloadType.other || DownloadType.favorite || DownloadType.local => '',
     };
   }
@@ -1749,6 +1776,9 @@ extension AddDownloadExt on DownloadManager {
       DownloadType.nhentai => await _buildNhentaiDownloadContext(
         comic as NhentaiDownloadedComic,
       ),
+      DownloadType.manhuagui => await _buildManhuaguiDownloadContext(
+        comic as ManhuaguiDownloadedItem,
+      ),
       DownloadType.hiperdex => await _buildHiperdexDownloadContext(
         comic as HiperdexDownloadedItem,
       ),
@@ -1770,6 +1800,28 @@ extension AddDownloadExt on DownloadManager {
     if (result.error) throw StateError(result.errorMessageWithoutNull);
     final item = comic.withComicInfo(result.data);
     final task = HiperdexDownloadingTask(
+      item.comic,
+      item.downloadedEps,
+      _onFinish,
+      _onError,
+      _saveInfo,
+      comic.id,
+    );
+    return (item: item, task: task);
+  }
+
+  /// 用最新目录构建 漫画柜 重下载或封面更新任务，保留原章节映射。
+  Future<({DownloadedItem item, DownloadingTask task})>
+  _buildManhuaguiDownloadContext(ManhuaguiDownloadedItem comic) async {
+    final source = ComicSource.find(ComicType.manhuagui.name);
+    if (source?.loadComicInfo == null) throw StateError('找不到 漫画柜 漫画源');
+    final result = await loadSourceComicInfo(
+      ComicType.manhuagui.name,
+      comic.comicId,
+    );
+    if (result.error) throw StateError(result.errorMessageWithoutNull);
+    final item = comic.withComicInfo(result.data);
+    final task = ManhuaguiDownloadingTask(
       item.comic,
       item.downloadedEps,
       _onFinish,
@@ -1945,6 +1997,8 @@ extension AddDownloadExt on DownloadManager {
         // Kemono 附件下载 - 不应该被保存到数据库，但如果被保存了就忽略
         // 返回 null 会被 whereType<DownloadedItem>() 过滤掉
         return null;
+      } else if (id.startsWith('manhuagui-')) {
+        comic = ManhuaguiDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.startsWith('hiperdex-')) {
         comic = HiperdexDownloadedItem.fromJson(jsonDecode(json));
       } else if (id.contains('-')) {

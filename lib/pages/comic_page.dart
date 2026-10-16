@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/comic_source/comic_chapter_group.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
@@ -43,7 +44,15 @@ class EpsData {
   /// 点击章节时触发。
   final void Function(int) onTap;
 
-  const EpsData(this.eps, this.onTap);
+  final List<ComicChapterGroup> groups;
+  final List<String> chapterIds;
+
+  const EpsData(
+    this.eps,
+    this.onTap, {
+    this.groups = const [],
+    this.chapterIds = const [],
+  });
 }
 
 /// 缩略图分页数据。

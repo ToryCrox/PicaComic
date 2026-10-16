@@ -21,6 +21,7 @@ import '../../network/res.dart';
 import '../../tools/type_util.dart';
 import '../../base.dart';
 import '../hiperdex/hiperdex_reading_data.dart';
+import '../manhuagui/manhuagui_reading_data.dart';
 
 abstract class ReadingData {
   ReadingData();
@@ -53,8 +54,20 @@ abstract class ReadingData {
     String id,
     String title,
     ComicSource? source,
-    Map<String, String>? eps,
-  ) {
+    Map<String, String>? eps, {
+    List<ComicChapterGroup> chapterGroups = const [],
+  }) {
+    if (source?.key == ComicType.manhuagui) {
+      return ManhuaguiReadingData(
+        ComicInfoData(
+          comicId: id,
+          title: title,
+          sourceKey: "manhuagui",
+          chapters: eps,
+          chapterGroups: chapterGroups,
+        ),
+      );
+    }
     if (source?.key == ComicType.hiperdex) {
       return HiperdexReadingData(id, title, eps);
     }
@@ -79,6 +92,18 @@ abstract class ReadingData {
 
   /// 下一章在目录中的索引方向，保留原有章节索引用于下载和历史。
   int get chapterStep => 1;
+
+  /// 可选分组目录，未分组来源保持原有行为。
+  List<ComicChapterGroup> get chapterGroups => const [];
+
+  /// 带短期签名的来源每次从网站取得链接，不读取过期的章节链接缓存。
+  bool get cacheChapterLinks => true;
+
+  /// 当前页面确实可见时标记已读，预加载不调用此方法。
+  void markEpisodeRead(int episode) => history?.addReadEpisode(episode);
+
+  /// 写入来源特有的稳定阅读位置。
+  void saveChapterPosition(int episode, int page) {}
 
   /// 按阅读方向获取相邻章节（一基），到达首尾时返回空值。
   int? adjacentEpisode(int episode, int direction) {
@@ -125,14 +150,13 @@ abstract class ReadingData {
   /// 加载指定章节；预加载传入 markRead: false，不提前标记已读。
   Stream<Res<List<String>>> loadEp(int ep, {bool markRead = true}) async* {
     history ??= await HistoryManager().findSync(id);
-    if (markRead) history?.addReadEpisode(ep);
-    _isDownloaded = await _downloadManager.isExists(downloadId);
-    if (_isDownloaded) {
-      final item = await _downloadManager.getComicOrNull(downloadId);
-      if (item != null) {
-        downloadedEps = item.downloadedEps;
-        onDownloadedItemLoaded(item);
-      }
+    if (markRead) markEpisodeRead(ep);
+    // 从同一份下载快照确定存在状态和章节映射，避免并发删除造成状态不一致。
+    final item = await _downloadManager.getComicOrNull(downloadId);
+    _isDownloaded = item != null;
+    if (item != null) {
+      downloadedEps = item.downloadedEps;
+      onDownloadedItemLoaded(item);
     }
     final episodeDirectory = directoryForEpisode(ep);
     if (episodeDirectory.isNotEmpty) {
@@ -163,20 +187,24 @@ abstract class ReadingData {
       //yield Res(List.filled(length, ""));
     } else {
       final cacheKey = 'reading-data-${type.name}-$id-$ep';
-      final cacheRes = await DiskCache.readModel(
-        cacheKey,
-        (e) => TypeUtil.parseStringList(e['data']),
-      );
+      final cacheRes = !cacheChapterLinks
+          ? null
+          : await DiskCache.readModel(
+              cacheKey,
+              (e) => TypeUtil.parseStringList(e['data']),
+            );
       if (cacheRes != null && cacheRes.isNotEmpty) {
         yield Res(cacheRes);
       }
       final netRes = await loadEpNetwork(ep);
       if (netRes.success) {
         yield netRes;
-        DiskCache.writeString(
-          'reading-data-${type.name}-$id-$ep',
-          TypeUtil.parseString({'data': netRes.data}),
-        );
+        if (cacheChapterLinks) {
+          DiskCache.writeString(
+            'reading-data-${type.name}-$id-$ep',
+            TypeUtil.parseString({'data': netRes.data}),
+          );
+        }
       } else {
         yield netRes;
       }

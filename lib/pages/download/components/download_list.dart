@@ -477,6 +477,8 @@ class DownloadList extends ConsumerWidget {
               sourceKey = "htmanga";
             } else if (comic.type == DownloadType.nhentai) {
               sourceKey = "nhentai";
+            } else if (comic.type == DownloadType.manhuagui) {
+              sourceKey = 'manhuagui';
             } else if (comic.type == DownloadType.hiperdex) {
               sourceKey = 'hiperdex';
             } else if (comic.type == DownloadType.other) {

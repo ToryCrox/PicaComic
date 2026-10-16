@@ -1,3 +1,5 @@
+import '../pages/comic_page.dart';
+import '../foundation/def.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/extensions.dart';
@@ -17,6 +19,8 @@ bool canHandle(String text) {
     "exhentai.org",
     "nhentai.net",
     "hitomi.la",
+    "www.manhuagui.com",
+    "manhuagui.com",
   ];
 
   return acceptedHosts.contains(uri.host);
@@ -41,6 +45,16 @@ bool handleAppLinks(Uri uri, {bool showMessageWhenError = true}) {
           ),
         );
       }
+    case "www.manhuagui.com":
+    case "manhuagui.com":
+      final match = RegExp(
+        r'^/comic/(\d+)/?(?:\d+\.html)?$',
+      ).firstMatch(uri.path);
+      if (match == null) return false;
+      context.to(
+        () => ComicPage(comicType: ComicType.manhuagui, id: match[1]!),
+      );
+      break;
     case "hitomi.la":
       if (["doujinshi", "cg", "manga"].contains(uri.pathSegments[0])) {
         context.to(

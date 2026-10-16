@@ -1263,6 +1263,11 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
         otherInfo["jmEpNames"] = readingData.eps!.values.toList();
         otherInfo["epsId"] = readingData.eps!.keys.getOrNull(episode - 1);
         otherInfo["bookId"] = readingData.id;
+      } else if (readingData.type == ComicType.manhuagui) {
+        otherInfo['eps'] = readingData.eps;
+        otherInfo['chapterGroups'] = readingData.chapterGroups
+            .map((group) => group.toMap())
+            .toList();
       } else if (readingData.type != ComicType.other &&
           readingData.type != ComicType.hiperdex) {
         otherInfo["eps"] = readingData.eps?.keys.toList() ?? [];

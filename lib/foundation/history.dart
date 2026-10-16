@@ -27,6 +27,8 @@ const String kHistoryEp = 'ep';
 const String kHistoryPage = 'page';
 const String kHistoryReadEpisode = 'readEpisode';
 const String kHistoryMaxPage = 'max_page';
+const String kHistoryChapterId = 'chapter_id';
+const String kHistoryReadChapterIds = 'read_chapter_ids';
 
 abstract mixin class HistoryMixin {
   String get title;
@@ -108,6 +110,8 @@ final class HistoryRecord {
   final String target;
   final Set<int> readEpisode;
   final int? maxPage;
+  final String? chapterId;
+  final Set<String> readChapterIds;
 
   const HistoryRecord({
     required this.type,
@@ -120,6 +124,8 @@ final class HistoryRecord {
     required this.target,
     this.readEpisode = const {},
     this.maxPage,
+    this.chapterId,
+    this.readChapterIds = const {},
   });
 
   HistoryRecord copyWith({
@@ -133,6 +139,8 @@ final class HistoryRecord {
     String? target,
     Set<int>? readEpisode,
     int? maxPage,
+    String? chapterId,
+    Set<String>? readChapterIds,
     bool clearMaxPage = false,
   }) => HistoryRecord(
     type: type ?? this.type,
@@ -145,6 +153,8 @@ final class HistoryRecord {
     target: target ?? this.target,
     readEpisode: readEpisode ?? this.readEpisode,
     maxPage: clearMaxPage ? null : maxPage ?? this.maxPage,
+    chapterId: chapterId ?? this.chapterId,
+    readChapterIds: readChapterIds ?? this.readChapterIds,
   );
 
   static DateTime _parseTime(dynamic value) {
@@ -167,6 +177,18 @@ final class HistoryRecord {
     return TypeUtil.parseIntList(value).toSet();
   }
 
+  /// 兼容数据库 JSON 文本与导入导出数组。
+  static Set<String> _parseChapterIds(Object? value) {
+    if (value is String) {
+      try {
+        value = jsonDecode(value);
+      } on FormatException {
+        return {};
+      }
+    }
+    return TypeUtil.parseStringList(value).toSet();
+  }
+
   factory HistoryRecord.fromMap(Map<String, dynamic> map) => HistoryRecord(
     type: HistoryType(map.optInt(kHistoryType)),
     time: _parseTime(map[kHistoryTime]),
@@ -178,6 +200,8 @@ final class HistoryRecord {
     target: map.optString(kHistoryTarget),
     readEpisode: Set.unmodifiable(_parseReadEpisode(map[kHistoryReadEpisode])),
     maxPage: map.optIntOrNull(kHistoryMaxPage),
+    chapterId: map[kHistoryChapterId] as String?,
+    readChapterIds: _parseChapterIds(map[kHistoryReadChapterIds]),
   );
 
   factory HistoryRecord.fromRow(Map<String, dynamic> map) => HistoryRecord(
@@ -191,6 +215,8 @@ final class HistoryRecord {
     target: TypeUtil.parseString(map[kHistoryTarget]),
     readEpisode: Set.unmodifiable(_parseReadEpisode(map[kHistoryReadEpisode])),
     maxPage: TypeUtil.parseIntOrNull(map[kHistoryMaxPage]),
+    chapterId: map[kHistoryChapterId] as String?,
+    readChapterIds: _parseChapterIds(map[kHistoryReadChapterIds]),
   );
 
   Map<String, dynamic> toMap() => {
@@ -204,6 +230,8 @@ final class HistoryRecord {
     kHistoryTarget: target,
     kHistoryReadEpisode: readEpisode.toList(),
     kHistoryMaxPage: maxPage,
+    kHistoryChapterId: chapterId,
+    kHistoryReadChapterIds: readChapterIds.toList(),
   };
 
   Map<String, dynamic> toRow() => {
@@ -217,6 +245,8 @@ final class HistoryRecord {
     kHistoryPage: page,
     kHistoryReadEpisode: readEpisode.join(','),
     kHistoryMaxPage: maxPage,
+    kHistoryChapterId: chapterId,
+    kHistoryReadChapterIds: jsonEncode(readChapterIds.toList()),
   };
 
   factory HistoryRecord.fromJson(Map<String, dynamic> json) =>
@@ -237,7 +267,9 @@ final class HistoryRecord {
           page == other.page &&
           target == other.target &&
           TypeUtil.equal(readEpisode, other.readEpisode) &&
-          maxPage == other.maxPage;
+          maxPage == other.maxPage &&
+          chapterId == other.chapterId &&
+          TypeUtil.equal(readChapterIds, other.readChapterIds);
 
   @override
   int get hashCode => jsonEncode(toMap()).hashCode;
@@ -267,6 +299,10 @@ base class History extends LinkedListEntry<History> {
   Set<int> readEpisode;
 
   int? maxPage;
+
+  /// 可选稳定章节标识，仅支持该能力的来源写入。
+  String? chapterId;
+  Set<String> readChapterIds = {};
 
   void addReadEpisode(int ep) {
     if (readEpisode.contains(ep)) return;
@@ -302,20 +338,25 @@ base class History extends LinkedListEntry<History> {
     target: target,
     readEpisode: Set.unmodifiable(readEpisode),
     maxPage: maxPage,
+    chapterId: chapterId,
+    readChapterIds: Set.unmodifiable(readChapterIds),
   );
 
-  factory History.fromRecord(HistoryRecord record) => History(
-    record.type,
-    record.time,
-    record.title,
-    record.subtitle,
-    record.cover,
-    record.ep,
-    record.page,
-    record.target,
-    record.readEpisode,
-    record.maxPage,
-  );
+  factory History.fromRecord(HistoryRecord record) =>
+      History(
+          record.type,
+          record.time,
+          record.title,
+          record.subtitle,
+          record.cover,
+          record.ep,
+          record.page,
+          record.target,
+          record.readEpisode,
+          record.maxPage,
+        )
+        ..chapterId = record.chapterId
+        ..readChapterIds = record.readChapterIds.toSet();
 
   History.fromModel({
     required HistoryMixin model,
@@ -404,7 +445,7 @@ class HistoryManager {
   }
 
   // 数据库版本号
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   /// 缓存已查明进度的历史详情
   /// Key: target, Value: 单个被 Signal 包裹的历史信息
@@ -507,16 +548,26 @@ class HistoryManager {
         $kHistoryEp INTEGER,
         $kHistoryPage INTEGER,
         $kHistoryReadEpisode TEXT,
-        $kHistoryMaxPage INTEGER
+        $kHistoryMaxPage INTEGER,
+        $kHistoryChapterId TEXT,
+        $kHistoryReadChapterIds TEXT
       )
     ''');
   }
 
   /// 升级数据库表
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // 可以在这里添加更多版本升级逻辑
     if (oldVersion < 1) {
       await _onCreate(db, newVersion);
+      return;
+    }
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $kTableHistory ADD COLUMN $kHistoryChapterId TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE $kTableHistory ADD COLUMN $kHistoryReadChapterIds TEXT',
+      );
     }
   }
 
@@ -606,6 +657,8 @@ class HistoryManager {
         kHistoryPage: history.page,
         kHistoryReadEpisode: history.readEpisode.join(','),
         kHistoryMaxPage: history.maxPage,
+        kHistoryChapterId: history.chapterId,
+        kHistoryReadChapterIds: jsonEncode(history.readChapterIds.toList()),
       },
       where: '$kHistoryTarget = ?',
       whereArgs: [history.target],

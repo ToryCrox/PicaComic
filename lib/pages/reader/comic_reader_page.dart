@@ -233,6 +233,10 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
         history.page = logic.snapshot.currentPage;
       }
     }
+    readingData.saveChapterPosition(
+      logic.snapshot.currentEpisode,
+      logic.snapshot.currentPage,
+    );
     history.maxPage = logic.length;
     HistoryManager().saveReadHistory(history, updateMePage);
   }

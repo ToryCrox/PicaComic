@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
+import '../../components/grouped_chapters.dart';
 import '../../foundation/app.dart';
 import '../../foundation/theme/app_mouse_cursor.dart';
 import '../../tools/translations.dart';
@@ -29,6 +30,31 @@ class _EpsViewState extends ConsumerState<EpsView> {
     final logic = ref.read(comicReaderLogicProvider(widget.sessionId).notifier);
     var type = widget.data.type;
     var data = widget.data;
+    if (data.chapterGroups.isNotEmpty) {
+      final currentId = data.eps!.keys.elementAtOrNull(
+        state.currentEpisode - 1,
+      );
+      return SizedBox(
+        height: 500,
+        width: 600,
+        child: SafeArea(
+          child: GroupedChapters(
+            chapters: data.eps!,
+            groups: data.chapterGroups,
+            currentId: currentId,
+            visitedIds: data.history?.readChapterIds ?? const {},
+            downloadedIds: {
+              for (var i = 0; i < data.eps!.length; i++)
+                if (data.checkEpDownloaded(i + 1)) data.eps!.keys.elementAt(i),
+            },
+            onTap: (id) {
+              Navigator.pop(context);
+              logic.jumpToChapter(data.eps!.keys.toList().indexOf(id) + 1);
+            },
+          ),
+        ),
+      );
+    }
 
     return Container(
       constraints: const BoxConstraints(

@@ -13,6 +13,9 @@ class CategoryData {
 
   final List<CategoryButtonData> buttons;
 
+  /// 动态分类源可自行构建页面，仍复用首页分类入口和开关配置。
+  final Widget Function(BuildContext)? overridePageBuilder;
+
   /// Data class for building category page.
   const CategoryData({
     required this.title,
@@ -20,6 +23,7 @@ class CategoryData {
     required this.enableRankingPage,
     required this.key,
     this.buttons = const [],
+    this.overridePageBuilder,
   });
 }
 

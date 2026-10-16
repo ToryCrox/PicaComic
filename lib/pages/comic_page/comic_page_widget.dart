@@ -8,6 +8,7 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 
 import '../../base.dart';
 import '../../components/components.dart';
+import '../../components/grouped_chapters.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_page_route.dart';
@@ -1388,6 +1389,18 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   ) sync* {
     final eps = adapter.eps(data, context);
     if (eps == null) return;
+    if (eps.groups.isNotEmpty) {
+      yield GroupedChapters(
+        key: ValueKey('${widget.comicType}-${widget.id}'),
+        sliver: true,
+        chapters: Map.fromIterables(eps.chapterIds, eps.eps),
+        groups: eps.groups,
+        currentId: state.history?.chapterId,
+        visitedIds: state.history?.readChapterIds ?? const {},
+        onTap: (id) => eps.onTap(eps.chapterIds.indexOf(id)),
+      );
+      return;
+    }
     final hasCurrentEpisode =
         state.history != null &&
         state.history!.ep > 0 &&

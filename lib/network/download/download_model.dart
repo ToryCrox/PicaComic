@@ -106,7 +106,8 @@ enum DownloadType {
   other,
   favorite,
   local,
-  hiperdex;
+  hiperdex,
+  manhuagui;
 
   ComicType toComicType() => switch (this) {
     picacg => ComicType.picacg,
@@ -119,6 +120,7 @@ enum DownloadType {
     favorite => ComicType.other,
     local => ComicType.other,
     hiperdex => ComicType.hiperdex,
+    manhuagui => ComicType.manhuagui,
   };
 }
 

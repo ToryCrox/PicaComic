@@ -34,7 +34,10 @@ enum ComicType {
   other,
 
   /// HiperDEX
-  hiperdex;
+  hiperdex,
+
+  /// 漫画柜
+  manhuagui;
 
   @override
   toString() => name;
@@ -102,4 +105,5 @@ const builtInSources = [
   ComicType.nhentai,
   ComicType.kemono,
   ComicType.hiperdex,
+  ComicType.manhuagui,
 ];

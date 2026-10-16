@@ -1,3 +1,4 @@
+import '../manhuagui/manhuagui_adapter.dart';
 import '../../pages/ehentai/eh_adapter.dart';
 import '../../pages/hitomi/hitomi_adapter.dart';
 import '../../pages/hiperdex/hiperdex_adapter.dart';
@@ -20,4 +21,5 @@ void registerAllComicPageAdapters() {
   ComicPageAdapterRegistry.register(NhentaiAdapter());
   ComicPageAdapterRegistry.register(KemonoAdapter());
   ComicPageAdapterRegistry.register(HiperdexAdapter());
+  ComicPageAdapterRegistry.register(ManhuaguiAdapter());
 }

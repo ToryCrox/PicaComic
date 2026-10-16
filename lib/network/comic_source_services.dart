@@ -8,6 +8,7 @@ import 'package:pica_comic/network/hiperdex_network/hiperdex_main_network.dart';
 import 'package:pica_comic/network/hitomi_network/hitomi_main_network.dart';
 import 'package:pica_comic/network/htmanga_network/htmanga_main_network.dart';
 import 'package:pica_comic/network/jm_network/jm_network.dart';
+import 'package:pica_comic/network/manhuagui/manhuagui_network.dart';
 import 'package:pica_comic/network/kemono_network/kemono_main_network.dart';
 import 'package:pica_comic/network/nhentai_network/nhentai_main_network.dart';
 import 'package:pica_comic/network/picacg_network/methods.dart';
@@ -44,6 +45,7 @@ class ComicSourceServices implements ComicSourceServiceResolver {
     required NhentaiNetwork Function() nhentai,
     required KemonoNetwork Function() kemono,
     required HiperdexNetwork Function() hiperdex,
+    ManhuaguiNetwork Function()? manhuagui,
   }) : _resolvers = {
          'picacg': picacg,
          'ehentai': ehentai,
@@ -53,6 +55,7 @@ class ComicSourceServices implements ComicSourceServiceResolver {
          'nhentai': nhentai,
          'kemono': kemono,
          'hiperdex': hiperdex,
+         if (manhuagui != null) 'manhuagui': manhuagui,
        };
 
   final Map<String, Object Function()> _resolvers;
@@ -65,6 +68,7 @@ class ComicSourceServices implements ComicSourceServiceResolver {
   NhentaiNetwork get nhentai => get<NhentaiNetwork>('nhentai');
   KemonoNetwork get kemono => get<KemonoNetwork>('kemono');
   HiperdexNetwork get hiperdex => get<HiperdexNetwork>('hiperdex');
+  ManhuaguiNetwork get manhuagui => get<ManhuaguiNetwork>('manhuagui');
 
   @override
   T get<T extends Object>(String sourceKey) {
@@ -88,6 +92,7 @@ final comicSourceServicesProvider = Provider<ComicSourceServices>((ref) {
     nhentai: () => ref.read(nhentaiNetworkProvider),
     kemono: () => ref.read(kemonoNetworkProvider),
     hiperdex: () => ref.read(hiperdexNetworkProvider),
+    manhuagui: () => ref.read(manhuaguiNetworkProvider),
   );
 });
 

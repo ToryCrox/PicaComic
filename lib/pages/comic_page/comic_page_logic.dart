@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../comic_source/comic_source.dart' show ComicInfoData;
 
 import '../../ai/ai.dart';
 import '../../base.dart';
@@ -384,6 +385,16 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   Future<void> _loadHistory(String id) async {
     final h = await HistoryManager().find(id);
     if (!ref.mounted) return;
+    if (h != null && _data is ComicInfoData && _key.$1 == ComicType.manhuagui) {
+      final info = _data as ComicInfoData;
+      h.ep = info.episodeForHistory(h);
+      final keys = info.chapters!.keys.toList();
+      h.readEpisode = h.readChapterIds
+          .map(keys.indexOf)
+          .where((index) => index >= 0)
+          .map((index) => index + 1)
+          .toSet();
+    }
     state = state.copyWith(
       history: h == null ? null : History.fromRecord(h.toRecord()),
       clearHistory: h == null,

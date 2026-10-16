@@ -309,6 +309,13 @@ class FavoriteImageTile extends ConsumerWidget {
               title,
               source,
               Map.from(otherInfo["eps"]),
+              chapterGroups: [
+                for (final group
+                    in otherInfo['chapterGroups'] as List? ?? const [])
+                  ComicChapterGroup.fromMap(
+                    Map<String, dynamic>.from(group as Map),
+                  ),
+              ],
             ),
             page,
             ep,

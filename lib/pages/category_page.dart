@@ -1,20 +1,26 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:flutter/material.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/def.dart';
+import 'package:pica_comic/pages/category_comics_page.dart';
 import 'package:pica_comic/pages/ranking_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
-import 'package:pica_comic/pages/category_comics_page.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/tools/translations.dart';
 
-class AllCategoryPage extends StatelessWidget {
+class AllCategoryPage extends ConsumerWidget {
   const AllCategoryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    var categories = appdata.appSettings.categoryPages;
+  Widget build(BuildContext context, WidgetRef ref) {
+    var categories = ref
+        .watch(appSettingProvider(AppSettingKeys.categoryPages))
+        .split(',')
+        .where((value) => value.isNotEmpty)
+        .toList();
     var allCategories = ComicSource.sources
         .map((e) => e.categoryData?.key)
         .where((element) => element != null)
@@ -115,6 +121,8 @@ class CategoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final builder = data.overridePageBuilder;
+    if (builder != null) return builder(context);
     var children = <Widget>[];
     if (data.enableRankingPage || data.buttons.isNotEmpty) {
       children.add(buildTitle(data.title));

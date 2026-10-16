@@ -22,12 +22,16 @@ import '../network/base_comic.dart';
 import '../network/res.dart';
 import 'built_in/ehentai.dart';
 import 'built_in/hiperdex.dart';
+import 'built_in/manhuagui.dart';
 import 'built_in/hitomi.dart';
 import 'built_in/ht_manga.dart';
 import 'built_in/jm.dart';
 import 'built_in/kemono.dart';
 import 'built_in/nhentai.dart';
 import 'built_in/picacg.dart';
+import 'comic_chapter_group.dart';
+
+export 'comic_chapter_group.dart';
 
 part 'category.dart';
 
@@ -97,6 +101,7 @@ class ComicSource {
     nhentai,
     kemono,
     hiperdex,
+    manhuagui,
   ];
 
   static List<ComicSource> sources = [];
@@ -641,6 +646,9 @@ class ComicInfoData with HistoryMixin {
   /// id-name
   final Map<String, String>? chapters;
 
+  /// 可选的分组目录，旧来源保持平铺行为。
+  final List<ComicChapterGroup> chapterGroups;
+
   final List<String>? thumbnails;
 
   final Future<Res<List<String>>> Function(String id, int page)?
@@ -665,6 +673,7 @@ class ComicInfoData with HistoryMixin {
     this.description,
     this.tags = const {},
     this.chapters,
+    this.chapterGroups = const [],
     this.thumbnails,
     this.thumbnailLoader,
     this.thumbnailMaxPage = 0,
@@ -675,6 +684,16 @@ class ComicInfoData with HistoryMixin {
     this.subId,
   });
 
+  /// 按稳定章节 ID 恢复位置，兼容旧记录中的一基索引。
+  int episodeForHistory(History? history) {
+    final keys = chapters?.keys.toList() ?? const <String>[];
+    final index = keys.indexOf(history?.chapterId ?? '');
+    if (index >= 0) return index + 1;
+    if (history?.chapterId != null) return 1;
+    final episode = history?.ep ?? 1;
+    return episode >= 1 && episode <= keys.length ? episode : 1;
+  }
+
   ComicInfoData copyWith({
     String? title,
     String? subTitle,
@@ -682,6 +701,7 @@ class ComicInfoData with HistoryMixin {
     String? description,
     Map<String, List<String>>? tags,
     Map<String, String>? chapters,
+    List<ComicChapterGroup>? chapterGroups,
     List<String>? thumbnails,
     Future<Res<List<String>>> Function(String id, int page)? thumbnailLoader,
     int? thumbnailMaxPage,
@@ -706,6 +726,9 @@ class ComicInfoData with HistoryMixin {
       description: clearDescription ? null : description ?? this.description,
       tags: tags ?? this.tags,
       chapters: clearChapters ? null : chapters ?? this.chapters,
+      chapterGroups: clearChapters
+          ? const []
+          : chapterGroups ?? this.chapterGroups,
       thumbnails: clearThumbnails ? null : thumbnails ?? this.thumbnails,
       thumbnailLoader: clearThumbnailLoader
           ? null
@@ -727,6 +750,7 @@ class ComicInfoData with HistoryMixin {
       "description": description,
       "tags": tags,
       "chapters": chapters,
+      "chapterGroups": chapterGroups.map((group) => group.toMap()).toList(),
       "thumbnails": thumbnails,
       "thumbnailMaxPage": thumbnailMaxPage,
       "suggestions": suggestions
@@ -772,6 +796,11 @@ class ComicInfoData with HistoryMixin {
           : chaptersMap.map(
               (key, value) => MapEntry(key, TypeUtil.parseString(value)),
             ),
+      chapterGroups: [
+        for (final group in map['chapterGroups'] as List? ?? const [])
+          if (group is Map)
+            ComicChapterGroup.fromMap(Map<String, dynamic>.from(group)),
+      ],
       sourceKey: map.optString('sourceKey'),
       comicId: map.optString('comicId'),
       thumbnails: map['thumbnails'] == null
@@ -808,6 +837,7 @@ class ComicInfoData with HistoryMixin {
           description == other.description &&
           TypeUtil.equal(tags, other.tags) &&
           TypeUtil.equal(chapters, other.chapters) &&
+          TypeUtil.equal(chapterGroups, other.chapterGroups) &&
           TypeUtil.equal(thumbnails, other.thumbnails) &&
           thumbnailMaxPage == other.thumbnailMaxPage &&
           TypeUtil.equal(suggestions, other.suggestions) &&

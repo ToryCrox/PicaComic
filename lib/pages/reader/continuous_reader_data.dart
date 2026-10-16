@@ -58,8 +58,10 @@ class ContinuousReaderData {
     required this.onChanged,
     required this.canPrepend,
     this.chapterStep = 1,
+    this.adjacentEpisode,
   }) : assert(chapterStep == 1 || chapterStep == -1);
 
+  final int? Function(int episode, int direction)? adjacentEpisode;
   final int episodeCount;
   final int chapterStep;
   final Stream<Res<List<String>>> Function(int) loadEpisode;
@@ -92,6 +94,7 @@ class ContinuousReaderData {
 
   /// 将阅读方向转换为目录索引，并排除首尾之外的章节。
   int? _adjacentEpisode(int episode, int direction) {
+    if (adjacentEpisode != null) return adjacentEpisode!(episode, direction);
     final adjacent = episode + direction * chapterStep;
     return adjacent >= 1 && adjacent <= episodeCount ? adjacent : null;
   }

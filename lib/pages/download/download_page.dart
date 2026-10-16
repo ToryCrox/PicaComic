@@ -430,6 +430,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         return "本地".tl;
       case DownloadType.hiperdex:
         return 'HiperDEX';
+      case DownloadType.manhuagui:
+        return '漫画柜'.tl;
     }
   }
 

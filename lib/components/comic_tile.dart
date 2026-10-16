@@ -1388,9 +1388,12 @@ class CustomComicTile extends ComicTile {
             res.data.title,
             comicSource,
             res.data.chapters,
+            chapterGroups: res.data.chapterGroups,
           ),
           history.page,
-          history.ep,
+          comic.sourceKey == "manhuagui"
+              ? res.data.episodeForHistory(history)
+              : history.ep,
         ),
       );
     }

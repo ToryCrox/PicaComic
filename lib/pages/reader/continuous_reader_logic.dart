@@ -47,6 +47,7 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
     data = ContinuousReaderData(
       episodeCount: _reader.readingData.eps!.length,
       chapterStep: _reader.readingData.chapterStep,
+      adjacentEpisode: _reader.readingData.adjacentEpisode,
       loadEpisode: (episode) =>
           _reader.readingData.loadEp(episode, markRead: false),
       canPrepend: () =>
@@ -239,7 +240,7 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
 
   /// 只有实际展示的章节参与阅读记录，预加载不创建本地历史。
   void markCurrentEpisodeRead() {
-    _reader.readingData.history?.addReadEpisode(state.currentEpisode);
+    _reader.readingData.markEpisodeRead(state.currentEpisode);
     if (_reader.readingData is LocalReadingData) {
       _visitedLocalEpisodes.add(state.currentEpisode);
     }

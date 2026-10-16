@@ -12,7 +12,9 @@ import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/network/download/download_model.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloaded_item.dart';
+import 'package:pica_comic/network/manhuagui/manhuagui_downloaded_item.dart';
 import 'package:pica_comic/network/hiperdex_network/hiperdex_downloading_task.dart';
+import 'package:pica_comic/network/manhuagui/manhuagui_downloading_task.dart';
 
 import 'package:pica_comic/network/htmanga_network/ht_download_model.dart';
 import 'package:pica_comic/network/jm_network/jm_download.dart';
@@ -588,6 +590,10 @@ void toComicInfoPage(DownloadedItem comic) {
     context.to(() => HtComicPage(comic.id.replaceFirst('Ht', '')));
   } else if (comic is NhentaiDownloadedComic) {
     context.to(() => NhentaiComicPage(comic.id.replaceFirst("nhentai", "")));
+  } else if (comic is ManhuaguiDownloadedItem) {
+    context.to(
+      () => ComicPage(comicType: ComicType.manhuagui, id: comic.comicId),
+    );
   } else if (comic is HiperdexDownloadedItem) {
     context.to(
       () => ComicPage(comicType: ComicType.hiperdex, id: comic.comicId),
@@ -664,6 +670,14 @@ void toDownloadingComicInfoPage(DownloadingTask task) {
         );
       } else {
         showToast(message: "无法打开该漫画详情".tl);
+      }
+      break;
+    case DownloadType.manhuagui:
+      if (task is ManhuaguiDownloadingTask) {
+        context.to(
+          () =>
+              ComicPage(comicType: ComicType.manhuagui, id: task.comic.comicId),
+        );
       }
       break;
     case DownloadType.hiperdex:
@@ -762,6 +776,8 @@ String getComicTypeName(DownloadedItem item) {
   var type = item.type.name;
   if (item.type == DownloadType.other) {
     type = (item as CustomDownloadedItem).sourceName;
+  } else if (item.type == DownloadType.manhuagui) {
+    type = '漫画柜'.tl;
   } else if (item.type == DownloadType.hiperdex) {
     type = 'HiperDEX';
   } else if (item.type == DownloadType.local) {
