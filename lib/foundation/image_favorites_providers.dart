@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../network/download/download_manager.dart';
 import 'image_favorites.dart';
+import 'image_favorites_display.dart';
 import 'image_favorites_repository.dart';
 
 part 'image_favorites_providers.g.dart';
@@ -76,8 +77,13 @@ Future<List<ImageFavorite>> filteredImageFavorites(
 Future<List<String>> imageFavoriteTitles(Ref ref) async {
   return (await ref.watch(
     imageFavoritesProvider.future,
-  )).map((image) => image.title).toSet().toList();
+  )).reversed.map((image) => image.title).toSet().toList();
 }
+
+/// 按作品身份分组，同名作品仍有各自的入口。
+final imageFavoriteGroupsProvider = Provider<AsyncValue<List<ImageFavorite>>>(
+  (ref) => ref.watch(imageFavoritesProvider).whenData(groupImageFavorites),
+);
 
 /// 图片收藏数量。
 @riverpod

@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
 import 'package:pica_comic/tools/translations.dart';
@@ -44,15 +45,19 @@ class LocalImageViewerComparison {
 class LocalImageViewerItem {
   /// 创建一个本地图片查看项。
   const LocalImageViewerItem({
-    required this.imagePath,
+    this.imagePath = '',
+    this.imagePathLoader,
     this.title,
     this.subtitle,
     this.heroTag,
     this.comparison,
   });
 
-  /// 图片文件路径。
+  /// 图片文件路径；设置异步加载回调时可以省略。
   final String imagePath;
+
+  /// 按需解析当前原图路径；非对照图优先使用此回调。
+  final Future<String> Function()? imagePathLoader;
 
   /// 顶部标题。
   final String? title;
@@ -291,7 +296,20 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
 
   Future<void> _resolveImageInfo() async {
     final generation = _loadGeneration;
-    final file = _file;
+    var file = _file;
+    final loader = _currentItem.imagePathLoader;
+    if (loader != null && !_hasComparison) {
+      try {
+        file = File(await loader());
+        if (!mounted || generation != _loadGeneration) return;
+        _file = file;
+      } catch (error, stack) {
+        Log.e('解析原图路径失败', error: error, stackTrace: stack);
+        if (!mounted || generation != _loadGeneration) return;
+        setState(() => _loadError = '读取图片失败'.tl);
+        return;
+      }
+    }
     final imageSize = await _resolveImagePixelSize(file);
     if (!mounted || generation != _loadGeneration) return;
     if (imageSize == null) {

@@ -1265,7 +1265,11 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
         return;
       }
 
-      var otherInfo = <String, dynamic>{};
+      var otherInfo = <String, dynamic>{
+        'hasEp': readingData.hasEp,
+        'chapterName': readingData.eps?.values.elementAtOrNull(episode - 1),
+        'chapterStep': readingData.chapterStep,
+      };
       if (readingData.type == ReadingType.ehentai) {
         otherInfo["gallery"] = _galleryMetadata(readingData);
       } else if (readingData.type == ReadingType.hitomi) {

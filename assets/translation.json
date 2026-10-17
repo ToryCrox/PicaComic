@@ -1,5 +1,8 @@
 {
   "zh_TW": {
+    "切换为正序": "切換為正序",
+    "切换为倒序": "切換為倒序",
+    "第 @page 页": "第 @page 頁",
     "打开链接失败": "打開連結失敗",
     "收起": "收起",
     "没有更多了": "沒有更多了",
@@ -674,6 +677,9 @@
     "存在未处理或替换失败的翻译结果，暂不能标记完成": "存在未處理或替換失敗的翻譯結果，暫不能標記完成"
   },
   "en_US": {
+    "切换为正序": "Switch to ascending order",
+    "切换为倒序": "Switch to descending order",
+    "第 @page 页": "Page @page",
     "收起": "Collapse",
     "没有更多了": "No more comments",
     "打开链接失败": "Unable to open link",

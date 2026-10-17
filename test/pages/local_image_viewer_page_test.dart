@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as image;
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/pages/local_image_viewer_page.dart';
 import 'package:pica_comic/tools/prefs_helper.dart';
@@ -27,6 +29,87 @@ void main() {
 
   tearDown(() {
     appdata.settings = originalSettings;
+  });
+
+  testWidgets('异步图集按需加载，失败不阻止切图且忽略过期结果', (tester) async {
+    final pending = Completer<String>();
+    final calls = <int>[];
+    final temporary = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('viewer_lazy_'),
+    ))!;
+    final original = File('${temporary.path}/original.png');
+    await tester.runAsync(
+      () => original.writeAsBytes(
+        image.encodePng(image.Image(width: 8, height: 8)),
+      ),
+    );
+    addTearDown(() => temporary.delete(recursive: true));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalImageViewerPage(
+          imagePath: '',
+          initialIndex: 1,
+          gallery: [
+            LocalImageViewerItem(
+              title: '失效收藏',
+              imagePathLoader: () async {
+                calls.add(0);
+                throw StateError('收藏已删除');
+              },
+            ),
+            LocalImageViewerItem(
+              title: '缓慢收藏',
+              imagePathLoader: () {
+                calls.add(1);
+                return pending.future;
+              },
+            ),
+            LocalImageViewerItem(
+              title: '正常收藏',
+              imagePathLoader: () async {
+                calls.add(2);
+                return original.path;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(calls, [1]);
+    await tester.runAsync(
+      () => precacheImage(
+        FileImage(original),
+        tester.element(find.byType(LocalImageViewerPage)),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pump();
+    expect(find.text('失效收藏'), findsOneWidget);
+    expect(find.text('读取图片失败'.tl), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pump();
+    expect(calls, [1, 0]);
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    expect(find.text('正常收藏'), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    final displayed = tester.widget<Image>(find.byType(Image));
+    expect((displayed.image as FileImage).file.path, original.path);
+    pending.complete('${temporary.path}/missing.png');
+    await tester.pump();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(find.text('正常收藏'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    expect(calls, [1, 0, 1, 2]);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('本地图片查看器支持按钮、方向键切换和关闭', (tester) async {

@@ -596,6 +596,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   AppPageRoute(
                     builder: (_) => ImageFavoritesPage(
                       filterTitle: adapter.title(data) ?? '',
+                      filterSourceKey: adapter.comicType.name,
+                      filterComicId: widget.id,
                     ),
                   ),
                 );

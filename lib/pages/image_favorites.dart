@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:photo_view/photo_view.dart';
 
 import '../comic_source/comic_source.dart';
 import '../components/components.dart';
 import '../foundation/app.dart';
 import '../foundation/app_settings_provider.dart';
 import '../foundation/image_favorites.dart';
+import '../foundation/image_favorites_display.dart';
 import '../foundation/image_favorites_providers.dart';
 import '../foundation/log.dart';
 import '../foundation/ui_mode.dart';
@@ -16,12 +16,20 @@ import '../network/eh_network/eh_models.dart';
 import '../network/hitomi_network/hitomi_models.dart';
 import '../tools/map_extension.dart';
 import '../tools/translations.dart';
+import 'local_image_viewer_page.dart';
 import 'reader/comic_reading_page.dart';
 
 /// 图片收藏列表与标题分组。
 class ImageFavoritesPage extends ConsumerStatefulWidget {
-  const ImageFavoritesPage({super.key, this.filterTitle = ''});
+  const ImageFavoritesPage({
+    super.key,
+    this.filterTitle = '',
+    this.filterSourceKey,
+    this.filterComicId,
+  });
   final String filterTitle;
+  final String? filterSourceKey;
+  final String? filterComicId;
 
   @override
   ConsumerState<ImageFavoritesPage> createState() => _ImageFavoritesPageState();
@@ -30,6 +38,7 @@ class ImageFavoritesPage extends ConsumerStatefulWidget {
 /// 页面仅保存显示方式，收藏数据由 Riverpod 管理。
 class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
   bool _showGroup = false;
+  bool _reversed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +47,11 @@ class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
           (widget.filterTitle.isEmpty ? '' : ' - ${widget.filterTitle}'),
     );
     final actions = [
+      IconButton(
+        tooltip: (_reversed ? '切换为正序' : '切换为倒序').tl,
+        icon: Icon(_reversed ? Icons.arrow_upward : Icons.arrow_downward),
+        onPressed: () => setState(() => _reversed = !_reversed),
+      ),
       IconButton(
         tooltip: _showGroup ? '显示列表'.tl : '显示分组'.tl,
         icon: Icon(_showGroup ? Icons.list : Icons.grid_view),
@@ -56,19 +70,23 @@ class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
   Widget _body() {
     if (_showGroup) {
       return ref
-          .watch(imageFavoriteTitlesProvider)
+          .watch(imageFavoriteGroupsProvider)
           .when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => _error(error),
-            data: (titles) => titles.isEmpty
+            data: (groups) => groups.isEmpty
                 ? Center(child: Text('暂无图片收藏'.tl))
                 : ListView.separated(
-                    itemCount: titles.length,
+                    itemCount: groups.length,
                     separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, index) => ListTile(
-                      title: Text(titles[index]),
+                      title: Text(groups[index].title),
                       onTap: () => context.to(
-                        () => ImageFavoritesPage(filterTitle: titles[index]),
+                        () => ImageFavoritesPage(
+                          filterTitle: groups[index].title,
+                          filterSourceKey: groups[index].sourceKey,
+                          filterComicId: groups[index].comicId,
+                        ),
                       ),
                     ),
                   ),
@@ -78,26 +96,45 @@ class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
       appearanceSettingsProvider.select((value) => value.imageFavoriteScale),
     );
     return ref
-        .watch(filteredImageFavoritesProvider(widget.filterTitle))
+        .watch(
+          filteredImageFavoritesProvider(
+            widget.filterSourceKey == null ? widget.filterTitle : '',
+          ),
+        )
         .when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _error(error),
-          data: (images) => images.isEmpty
-              ? Center(child: Text('暂无图片收藏'.tl))
-              : GridView.builder(
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200 * scale,
-                    childAspectRatio: 9 / 16,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  itemCount: images.length,
-                  itemBuilder: (_, index) => FavoriteImageTile(
-                    images[index],
-                    key: ValueKey(images[index].recordId),
-                  ),
-                ),
+          data: (records) {
+            final images = sortImageFavorites(
+              records
+                  .where(
+                    (image) =>
+                        (widget.filterSourceKey == null ||
+                            image.sourceKey == widget.filterSourceKey) &&
+                        (widget.filterComicId == null ||
+                            image.comicId == widget.filterComicId),
+                  )
+                  .toList(),
+              reversed: _reversed,
+            );
+            return images.isEmpty
+                ? Center(child: Text('暂无图片收藏'.tl))
+                : GridView.builder(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200 * scale,
+                      childAspectRatio: 9 / 16,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    itemCount: images.length,
+                    itemBuilder: (_, index) => FavoriteImageTile(
+                      images[index],
+                      gallery: images,
+                      key: ValueKey(images[index].recordId),
+                    ),
+                  );
+          },
         );
   }
 
@@ -118,8 +155,18 @@ class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
 
 /// 使用磁盘 WebP 缩略图的竖向收藏卡片。
 class FavoriteImageTile extends ConsumerWidget {
-  const FavoriteImageTile(this.image, {super.key});
+  const FavoriteImageTile(this.image, {super.key, this.gallery = const []});
   final ImageFavorite image;
+  final List<ImageFavorite> gallery;
+
+  /// 卡片与原图查看器共用的章节、页码说明。
+  static String _subtitle(ImageFavorite image) {
+    final page = '第 @page 页'.tlParams({'page': '${image.page}'});
+    if (!image.hasChapters) return page;
+    final chapter =
+        image.chapterName ?? '第 @c 章'.tlParams({'c': '${image.ep}'});
+    return '$chapter · $page';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -157,14 +204,26 @@ class FavoriteImageTile extends ConsumerWidget {
                   ],
                 ),
               ),
-              child: Text(
-                image.title.replaceAll('\n', ''),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    image.title.replaceAll('\n', ''),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    _subtitle(image),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
               ),
             ),
           ),
@@ -174,6 +233,19 @@ class FavoriteImageTile extends ConsumerWidget {
             onLongPress: () => _menu(context, ref, null),
             onSecondaryTapDown: (details) =>
                 _menu(context, ref, details.globalPosition),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton.filled(
+              tooltip: '查看原图'.tl,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.55),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.zoom_in),
+              onPressed: () => _viewOriginal(ref),
+            ),
           ),
         ],
       ),
@@ -324,25 +396,29 @@ class FavoriteImageTile extends ConsumerWidget {
     }
   }
 
-  /// 显示原图，可缩放，不使用缩略图替代原图。
+  /// 固定当前列表快照，切图时再通过仓库解析最新原图位置。
   Future<void> _viewOriginal(WidgetRef ref) async {
-    try {
-      final file = await ref
-          .read(imageFavoritesRepositoryProvider)
-          .originalFile(image);
-      if (!ref.context.mounted) return;
-      await Navigator.of(ref.context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: Text(image.title)),
-            body: PhotoView(imageProvider: FileImage(file)),
-          ),
-        ),
-      );
-    } catch (error, stack) {
-      Log.e('查看收藏原图失败', error: error, stackTrace: stack);
-      showToast(message: '收藏原图不存在'.tl);
+    final repository = ref.read(imageFavoritesRepositoryProvider);
+    final images = List<ImageFavorite>.of(gallery);
+    var index = images.indexWhere((item) => item.recordId == image.recordId);
+    if (index < 0) {
+      images.add(image);
+      index = images.length - 1;
     }
+    await LocalImageViewerPage.open<void>(
+      ref.context,
+      imagePath: '',
+      initialIndex: index,
+      gallery: List.unmodifiable([
+        for (final item in images)
+          LocalImageViewerItem(
+            imagePathLoader: () async =>
+                (await repository.originalFile(item)).path,
+            title: item.title,
+            subtitle: _subtitle(item),
+          ),
+      ]),
+    );
   }
 
   /// 删除成功后由 Provider 自动刷新所有收藏页面。
@@ -401,8 +477,13 @@ class FavoriteImageTile extends ConsumerWidget {
       popupMenuItem(
         text: '分组'.tl,
         icon: Icons.folder_outlined,
-        onTap: () =>
-            context.to(() => ImageFavoritesPage(filterTitle: image.title)),
+        onTap: () => context.to(
+          () => ImageFavoritesPage(
+            filterTitle: image.title,
+            filterSourceKey: image.sourceKey,
+            filterComicId: image.comicId,
+          ),
+        ),
       ),
       popupMenuItem(
         text: '删除'.tl,
