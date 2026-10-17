@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import '../foundation/window_frame_provider.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/pages/accounts_page.dart';
@@ -20,48 +22,28 @@ import 'components.dart';
 
 const _kTitleBarHeight = 32.0;
 
-class WindowFrameController extends StateController {
-  bool useDarkTheme = false;
-
-  bool isHideWindowFrame = false;
-
-  void setDarkTheme() {
-    useDarkTheme = true;
-    update();
-  }
-
-  void resetTheme() {
-    useDarkTheme = false;
-    update();
-  }
-
-  VoidCallback openSideBar = () {};
-
-  void hideWindowFrame() {
-    isHideWindowFrame = true;
-    update();
-  }
-
-  void showWindowFrame() {
-    isHideWindowFrame = false;
-    update();
-  }
-}
-
-class WindowFrame extends StatelessWidget {
+/// 应用窗口栏，显示状态由 Riverpod 管理。
+class WindowFrame extends ConsumerStatefulWidget {
   const WindowFrame(this.child, {super.key});
 
   final Widget child;
 
   @override
+  ConsumerState<WindowFrame> createState() => _WindowFrameState();
+}
+
+/// 侧栏动画属于当前窗口 Widget，不写入全局业务状态。
+class _WindowFrameState extends ConsumerState<WindowFrame> {
+  final _sideBarKey = GlobalKey<__SideBarState>();
+  Widget get child => widget.child;
+
+  @override
   Widget build(BuildContext context) {
-    StateController.putIfNotExists<WindowFrameController>(
-      WindowFrameController(),
-    );
     if (App.isMobile) return child;
-    return StateBuilder<WindowFrameController>(
-      builder: (controller) {
-        if (controller.isHideWindowFrame) return child;
+    final controller = ref.watch(windowFrameProvider);
+    return Builder(
+      builder: (context) {
+        if (controller.hidden) return child;
 
         var body = Stack(
           children: [
@@ -73,7 +55,7 @@ class WindowFrame extends StatelessWidget {
                 child: child,
               ),
             ),
-            const _SideBar(),
+            _SideBar(key: _sideBarKey),
             Positioned(
               top: 0,
               left: 0,
@@ -147,14 +129,11 @@ class WindowFrame extends StatelessWidget {
     );
   }
 
-  Widget buildMenuButton(
-    WindowFrameController controller,
-    BuildContext context,
-  ) {
+  Widget buildMenuButton(WindowFrameState controller, BuildContext context) {
     return InkWell(
       mouseCursor: appClickableMouseCursor,
       onTap: () {
-        controller.openSideBar();
+        _sideBarKey.currentState?.run();
       },
       child: SizedBox(
         width: 42,
@@ -199,7 +178,7 @@ class _MenuPainter extends CustomPainter {
 }
 
 class _SideBar extends StatefulWidget {
-  const _SideBar();
+  const _SideBar({super.key});
 
   @override
   State<_SideBar> createState() => __SideBarState();
@@ -226,8 +205,6 @@ class __SideBarState extends State<_SideBar>
       duration: const Duration(milliseconds: 160),
       value: 0,
     );
-    var controller = StateController.find<WindowFrameController>();
-    controller.openSideBar = run;
   }
 
   @override
@@ -275,8 +252,8 @@ class __SideBarState extends State<_SideBar>
                 child: SizedBox(
                   width: 250,
                   height: double.infinity,
-                  child: const SingleChildScrollView(
-                    child: _SideBarBody(),
+                  child: SingleChildScrollView(
+                    child: _SideBarBody(onClose: run),
                   ).paddingTop(_kTitleBarHeight),
                 ),
               ),
@@ -289,7 +266,9 @@ class __SideBarState extends State<_SideBar>
 }
 
 class _SideBarBody extends StatelessWidget {
-  const _SideBarBody();
+  const _SideBarBody({required this.onClose});
+
+  final VoidCallback onClose;
 
   void toPage(Widget Function() builder) {
     var context = App.mainNavigatorKey!.currentContext!;
@@ -305,7 +284,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.person_outline,
           title: '账号管理'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             showPopUpWidget(App.globalContext!, const AccountsPage());
           },
         ),
@@ -313,7 +292,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.history,
           title: '历史记录'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             toPage(() => const HistoryPage());
           },
         ),
@@ -321,7 +300,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.download_outlined,
           title: '已下载'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             toPage(() => const DownloadPage());
           },
         ),
@@ -329,7 +308,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.downloading,
           title: '下载管理器'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             showPopUpWidget(App.globalContext!, const DownloadingPage());
           },
         ),
@@ -337,7 +316,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.image_outlined,
           title: '图片收藏'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             toPage(() => const ImageFavoritesPage());
           },
         ),
@@ -346,7 +325,7 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.image_outlined,
           title: '本地漫画'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             toPage(() => const LocalComicPage());
           },
         ),
@@ -355,15 +334,15 @@ class _SideBarBody extends StatelessWidget {
           icon: Icons.search,
           title: '搜索'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
-            toPage(() => PreSearchPage());
+            onClose();
+            toPage(() => const PreSearchPage());
           },
         ),
         buildItem(
           icon: Icons.settings,
           title: '设置'.tl,
           onTap: () {
-            StateController.find<WindowFrameController>().openSideBar();
+            onClose();
             toPage(() => const SettingsPage());
           },
         ),

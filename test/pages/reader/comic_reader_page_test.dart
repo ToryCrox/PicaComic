@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pica_comic/components/window_frame.dart';
-import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/foundation/window_frame_provider.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -31,7 +30,6 @@ void main() {
     favorites = _ReaderFavorites();
     LocalFavoritesManager.cache = favorites;
     windowFrame = _ReaderWindowFrame();
-    StateController.put<WindowFrameController>(windowFrame);
     platformCalls.clear();
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -48,7 +46,6 @@ void main() {
 
   tearDown(() {
     LocalFavoritesManager.cache = previousFavorites;
-    windowFrame.dispose();
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       null,
@@ -73,6 +70,7 @@ void main() {
       final data = _PendingReadingData();
       final container = ProviderContainer(
         overrides: [
+          windowFrameProvider.overrideWith(() => windowFrame),
           appSettingsRepositoryProvider.overrideWithValue(repository),
           downloadManagerProvider.overrideWith(() => manager),
           comicReaderLogicProvider.overrideWith(() => logic),
@@ -259,7 +257,7 @@ class _ReaderFavorites extends Fake implements LocalFavoritesManager {
 }
 
 /// 记录退出后的窗口主题恢复。
-class _ReaderWindowFrame extends WindowFrameController {
+class _ReaderWindowFrame extends WindowFrameNotifier {
   int resetCount = 0;
 
   @override

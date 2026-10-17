@@ -9,7 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:pica_comic/base.dart';
 
 import '../../components/components.dart';
-import '../../components/window_frame.dart';
+import '../../foundation/window_frame_provider.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_settings_provider.dart';
 import '../../network/comic_source_services.dart';
@@ -82,6 +82,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
   // 卸载时不能访问 WidgetRef，提前保存清理所需的依赖和最新设置。
   late final ComicReaderLogic _readerLogic;
   late final DownloadManager _downloadManager;
+  late final WindowFrameNotifier _windowFrame;
   late final HistoryManager _historyRepository;
   late final LocalFavoritesManager _favoritesRepository;
   late ReaderPageState _readerState;
@@ -95,6 +96,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _downloadManager = ref.read(downloadManagerProvider.notifier);
+    _windowFrame = ref.read(windowFrameProvider.notifier);
     _historyRepository = ref.read(historyRepositoryProvider);
     _favoritesRepository = ref.read(localFavoritesRepositoryProvider);
     ref.listenManual(
@@ -132,10 +134,9 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     PaintingBinding.instance.imageCache.maximumSizeBytes = 800 * 1024 * 1024;
 
     if (_useDarkBackground) {
-      Future.microtask(
-        () =>
-            StateController.findOrNull<WindowFrameController>()?.setDarkTheme(),
-      );
+      Future.microtask(() {
+        if (mounted) _windowFrame.setDarkTheme();
+      });
     }
 
     ReaderSession.prepare(
@@ -187,7 +188,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     // Exit fullscreen if active — only touch the window manager, not state.
     if (_readerState.isFullScreen) {
       WindowManager.instance.setFullScreen(false);
-      StateController.findOrNull<WindowFrameController>()?.showWindowFrame();
+      Future.microtask(_windowFrame.showWindowFrame);
     }
     if (!_downloadManager.isDownloading) {
       ImageManager.clearTasks();
@@ -198,9 +199,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     });
 
     if (_useDarkBackground) {
-      Future.microtask(
-        () => StateController.findOrNull<WindowFrameController>()?.resetTheme(),
-      );
+      Future.microtask(() => _windowFrame.resetTheme());
     }
 
     super.dispose();

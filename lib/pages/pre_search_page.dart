@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pica_comic/base.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -11,6 +11,9 @@ import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:sliver_tools/sliver_tools.dart';
+import '../foundation/def.dart';
+import '../foundation/user_library_preferences.dart';
+import 'pre_search_providers.dart';
 
 typedef FilterChip = FilterChipFixedWidth;
 
@@ -20,14 +23,12 @@ class _FloatingSearchBar extends StatefulWidget {
     required this.supportingText,
     required this.onFinish,
     required this.controller,
-    this.onChanged,
     this.focusNode,
   }) : super(key: key);
 
   final void Function(String) onFinish;
   final String supportingText;
   final TextEditingController controller;
-  final void Function(String)? onChanged;
   final FocusNode? focusNode;
 
   @override
@@ -35,6 +36,21 @@ class _FloatingSearchBar extends StatefulWidget {
 }
 
 class _FloatingSearchBarState extends State<_FloatingSearchBar> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  /// 程序化补全也刷新清空按钮。
+  void _onTextChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -64,12 +80,6 @@ class _FloatingSearchBarState extends State<_FloatingSearchBar> {
             child: Center(
               child: TextField(
                 controller: widget.controller,
-                onChanged: (s) {
-                  if (s.length <= 1) {
-                    setState(() {});
-                  }
-                  widget.onChanged?.call(s);
-                },
                 focusNode: widget.focusNode,
                 decoration: InputDecoration(
                   isCollapsed: true,
@@ -112,67 +122,57 @@ class _FloatingSearchBarState extends State<_FloatingSearchBar> {
   }
 }
 
-class PreSearchController extends StateController {
-  ComicType target = ComicType.picacg;
+/// 搜索页的输入与焦点仅在页面存活期间保留。
+class PreSearchPage extends ConsumerStatefulWidget {
+  const PreSearchPage({this.initialValue = '', super.key});
 
-  SearchPageData get searchPageData =>
-      ComicSource.find(target)!.searchPageData!;
+  final String initialValue;
 
-  var options = <String>[];
-
-  var suggestions = <Pair<String, TranslationType>>[];
-
-  String? language;
-
-  bool limitHistory = true;
-
-  void updateOptions() {
-    for (var source in ComicSource.sources) {
-      if (source.key == target &&
-          source.searchPageData?.searchOptions != null) {
-        options = List.generate(
-          source.searchPageData!.searchOptions!.length,
-          (index) => source.searchPageData!.searchOptions![index].defaultValue,
-        );
-      }
-    }
-  }
-
-  void updateTarget(ComicType i) {
-    target = i;
-    updateOptions();
-    update();
-  }
-
-  PreSearchController() {
-    var searchSource = <ComicType>[];
-    for (var source in ComicSource.sources) {
-      searchSource.add(source.key);
-    }
-    if (!searchSource.contains(
-      ComicType.fromString(appdata.appSettings.initialSearchTarget),
-    )) {
-      appdata.appSettings.initialSearchTarget = searchSource.first.name;
-      appdata.updateSettings();
-    }
-    target = ComicType.fromString(appdata.appSettings.initialSearchTarget);
-    updateOptions();
-  }
+  @override
+  ConsumerState<PreSearchPage> createState() => _PreSearchPageState();
 }
 
-class PreSearchPage extends StatelessWidget {
-  PreSearchPage({String initialValue = "", super.key})
-    : controller = TextEditingController(text: initialValue);
+/// 页面业务状态由独立的 Riverpod 会话管理。
+class _PreSearchPageState extends ConsumerState<PreSearchPage> {
+  final _session = Object();
+  late final controller = TextEditingController(text: widget.initialValue);
+  final FocusNode _focusNode = FocusNode();
 
-  final TextEditingController controller;
+  PreSearchState get searchController => ref.read(preSearchProvider(_session));
+  PreSearch get searchActions => ref.read(preSearchProvider(_session).notifier);
+  UserLibraryPreferencesActions get libraryActions =>
+      ref.read(userLibraryPreferencesActionsProvider.notifier);
 
-  final searchController = StateController.put(PreSearchController());
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_onTextChanged);
+  }
+
+  /// 输入及程序化补全、清空都更新建议。
+  void _onTextChanged() => findSuggestions();
+
+  @override
+  void dispose() {
+    controller.removeListener(_onTextChanged);
+    controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  /// 等待数据保存，失败时保留弹窗并提示。
+  Future<void> saveLibraryChange(Future<void> Function() operation) async {
+    try {
+      await operation();
+      if (mounted) App.globalBack();
+    } catch (_) {
+      if (mounted) showToast(message: '保存失败，请重试'.tl);
+    }
+  }
 
   final comicSources = ComicSource.sources.where(
     (element) => element.searchPageData != null,
   );
-
-  final FocusNode _focusNode = FocusNode();
 
   void search([String? s, String? type]) {
     var keyword = (s ?? controller.text).trim();
@@ -200,9 +200,7 @@ class PreSearchPage extends StatelessWidget {
 
   void findSuggestions() {
     var text = controller.text.split(" ").last;
-    var suggestions = searchController.suggestions;
-
-    suggestions.clear();
+    final suggestions = <Pair<String, TranslationType>>[];
 
     if (canHandle(controller.text)) {
       suggestions.add(Pair("**URL**", TranslationType.other));
@@ -218,7 +216,10 @@ class PreSearchPage extends StatelessWidget {
       }
     }
 
-    if (!searchController.searchPageData.enableTagsSuggestions) return;
+    if (!searchController.searchPageData.enableTagsSuggestions) {
+      searchActions.setSuggestions(suggestions);
+      return;
+    }
 
     bool check(String text, String key, String value) {
       if (text.removeAllBlank == "") {
@@ -256,10 +257,18 @@ class PreSearchPage extends StatelessWidget {
     find(TagsTranslation.artistTags, TranslationType.artist);
     find(TagsTranslation.groupTags, TranslationType.group);
     find(TagsTranslation.cosplayerTags, TranslationType.cosplayer);
+    searchActions.setSuggestions(suggestions);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (comicSources.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text('没有可搜索的漫画源'.tl)),
+      );
+    }
+    ref.listen(preSearchProvider(_session), (_, _) {});
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: search,
@@ -278,10 +287,6 @@ class PreSearchPage extends StatelessWidget {
                   search();
                 },
                 controller: controller,
-                onChanged: (s) {
-                  findSuggestions();
-                  searchController.update([1, 100]);
-                },
                 focusNode: _focusNode,
               ),
             ),
@@ -294,9 +299,12 @@ class PreSearchPage extends StatelessWidget {
   }
 
   Widget buildBody(BuildContext context) {
-    var widget = StateBuilder<PreSearchController>(
-      id: 100,
-      builder: (logic) {
+    var widget = Consumer(
+      builder: (context, ref, _) {
+        ref.watch(
+          preSearchProvider(_session).select((value) => value.suggestions),
+        );
+        final logic = searchController;
         if (controller.text.removeAllBlank.isEmpty ||
             controller.text.endsWith(" ") ||
             searchController.suggestions.isEmpty) {
@@ -309,7 +317,7 @@ class PreSearchPage extends StatelessWidget {
     return Expanded(child: widget);
   }
 
-  Widget buildMainView(BuildContext context, PreSearchController logic) {
+  Widget buildMainView(BuildContext context, PreSearchState logic) {
     final showSideBar = MediaQuery.of(context).size.width > 950;
     var addWidth = (MediaQuery.of(context).size.width - 950) * 0.25;
     addWidth = addWidth.clamp(0, 50);
@@ -370,8 +378,10 @@ class PreSearchPage extends StatelessWidget {
       return false;
     }
 
-    return StateBuilder<PreSearchController>(
-      builder: (logic) {
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.watch(preSearchProvider(_session));
+        final logic = searchController;
         void onSelected(String text, TranslationType? type) {
           var words = controller.text.split(" ");
           if (words.length >= 2 &&
@@ -408,7 +418,7 @@ class PreSearchPage extends StatelessWidget {
           } else {
             controller.text += "$text ";
           }
-          logic.update([1, 100]);
+
           _focusNode.requestFocus();
         }
 
@@ -504,8 +514,7 @@ class PreSearchPage extends StatelessWidget {
                       mouseCursor: appClickableMouseCursor,
                       borderRadius: BorderRadius.circular(14),
                       onTap: () {
-                        searchController.suggestions.clear();
-                        logic.update([100]);
+                        searchActions.setSuggestions([]);
                       },
                       child: const Padding(
                         padding: EdgeInsets.all(4),
@@ -529,24 +538,25 @@ class PreSearchPage extends StatelessWidget {
         }
         return widget;
       },
-      id: 1,
     );
   }
 
   Widget buildTargetSelector(BuildContext context) {
-    return StateBuilder<PreSearchController>(
-      builder: (logic) {
-        buildItem(PreSearchController logic, ComicType id, String text) =>
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: FilterChip(
-                label: Text(text),
-                selected: logic.target == id,
-                onSelected: (b) {
-                  logic.updateTarget(id);
-                },
-              ),
-            );
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.watch(preSearchProvider(_session).select((value) => value.target));
+        final logic = searchController;
+        buildItem(PreSearchState logic, ComicType id, String text) => Padding(
+          padding: const EdgeInsets.all(4),
+          child: FilterChip(
+            label: Text(text),
+            selected: logic.target == id,
+            onSelected: (b) {
+              searchActions.updateTarget(id);
+              findSuggestions();
+            },
+          ),
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,7 +565,7 @@ class PreSearchPage extends StatelessWidget {
             ListTile(title: Text("目标".tl)),
             Wrap(
               children: [
-                for (var source in ComicSource.sources)
+                for (var source in comicSources)
                   buildItem(logic, source.key, source.name.tl),
               ],
             ).paddingHorizontal(12),
@@ -578,7 +588,7 @@ class PreSearchPage extends StatelessWidget {
             const SizedBox(width: 16),
             Select(
               initialValue: languages.indexOf(searchController.language ?? ""),
-              onChange: (i) => searchController.language = languages[i],
+              onChange: (i) => searchActions.setLanguage(languages[i]),
               values: languages,
               outline: true,
             ),
@@ -587,15 +597,20 @@ class PreSearchPage extends StatelessWidget {
       );
     }
 
-    return StateBuilder<PreSearchController>(
-      id: "mode",
-      builder: (logic) {
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.watch(preSearchProvider(_session));
+        final logic = searchController;
         var children = <Widget>[];
         if (logic.searchPageData.customOptionsBuilder != null) {
           children.add(
-            logic.searchPageData.customOptionsBuilder!(context, [], (options) {
-              logic.options = options;
-            }),
+            logic.searchPageData.customOptionsBuilder!(
+              context,
+              logic.options.toList(),
+              (options) {
+                searchActions.setOptions(options);
+              },
+            ),
           );
         } else {
           final searchOptions =
@@ -612,8 +627,7 @@ class PreSearchPage extends StatelessWidget {
                     text: e.value.tl,
                     isSelected: logic.options[i] == e.key,
                     onTap: () {
-                      logic.options[i] = e.key;
-                      logic.update();
+                      searchActions.setOption(i, e.key);
                     },
                   );
                 }).toList(),
@@ -632,7 +646,7 @@ class PreSearchPage extends StatelessWidget {
     );
   }
 
-  Widget buildHistoryItem(String history, PreSearchController logic) {
+  Widget buildHistoryItem(String history, PreSearchState logic) {
     return Flyout(
       enableLongPress: true,
       enableSecondaryTap: true,
@@ -648,10 +662,9 @@ class PreSearchPage extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                appdata.searchHistory.remove(history);
-                logic.update(["history"]);
-                appdata.writeHistory();
-                App.globalBack();
+                saveLibraryChange(
+                  () => libraryActions.removeSearchHistory(history),
+                );
               },
               child: Text("确认".tl),
             ),
@@ -675,7 +688,7 @@ class PreSearchPage extends StatelessWidget {
     );
   }
 
-  Widget buildFavoriteItem(String tag, PreSearchController logic) {
+  Widget buildFavoriteItem(String tag, PreSearchState logic) {
     return Flyout(
       enableLongPress: true,
       enableSecondaryTap: true,
@@ -691,10 +704,7 @@ class PreSearchPage extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                appdata.favoriteTags.remove(tag);
-                searchController.update();
-                appdata.writeHistory();
-                App.globalBack();
+                saveLibraryChange(() => libraryActions.removeFavoriteTag(tag));
               },
               child: Text("确认".tl),
             ),
@@ -722,7 +732,7 @@ class PreSearchPage extends StatelessWidget {
     );
   }
 
-  Widget buildClearHistoryButton(PreSearchController logic) {
+  Widget buildClearHistoryButton(PreSearchState logic) {
     return FlyoutIconButton(
       navigator: App.navigatorKey.currentState,
       flyoutBuilder: (context) {
@@ -736,10 +746,7 @@ class PreSearchPage extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                appdata.searchHistory.clear();
-                appdata.writeHistory();
-                logic.update(["history"]);
-                App.globalBack();
+                saveLibraryChange(() => libraryActions.removeSearchHistory());
               },
               child: Text("确认".tl),
             ),
@@ -750,7 +757,7 @@ class PreSearchPage extends StatelessWidget {
     );
   }
 
-  Widget buildClearFavoriteButton(PreSearchController logic) {
+  Widget buildClearFavoriteButton(PreSearchState logic) {
     return FlyoutIconButton(
       navigator: App.navigatorKey.currentState,
       flyoutBuilder: (context) {
@@ -764,10 +771,7 @@ class PreSearchPage extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                appdata.favoriteTags.clear();
-                appdata.writeHistory();
-                logic.update();
-                App.globalBack();
+                saveLibraryChange(() => libraryActions.removeFavoriteTag());
               },
               child: Text("确认".tl),
             ),
@@ -779,12 +783,18 @@ class PreSearchPage extends StatelessWidget {
   }
 
   Widget buildHistorySideBar() {
-    return StateBuilder<PreSearchController>(
-      id: "history",
-      builder: (logic) {
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.watch(
+          preSearchProvider(_session).select((value) => value.limitHistory),
+        );
+        final logic = searchController;
+        final historyItems = ref.watch(
+          userLibraryProvider.select((value) => value.searchHistory),
+        );
         return ListView.builder(
           padding: EdgeInsets.zero,
-          itemCount: appdata.searchHistory.length + 1,
+          itemCount: historyItems.length + 1,
           itemBuilder: (context, index) {
             if (index == 0) {
               return ListTile(
@@ -793,8 +803,7 @@ class PreSearchPage extends StatelessWidget {
                 trailing: buildClearHistoryButton(logic),
               );
             } else {
-              var history =
-                  appdata.searchHistory[appdata.searchHistory.length - index];
+              var history = historyItems[historyItems.length - index];
               return buildHistoryItem(history, logic);
             }
           },
@@ -804,28 +813,33 @@ class PreSearchPage extends StatelessWidget {
   }
 
   Widget buildFavoriteSideBar() {
-    return StateBuilder<PreSearchController>(
-      builder: (logic) => ListView.builder(
-        padding: EdgeInsets.zero,
-        itemCount: appdata.favoriteTags.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return ListTile(
-              leading: const Icon(Icons.favorite_border),
-              title: Text("收藏".tl),
-              trailing: buildClearFavoriteButton(logic),
-            );
-          } else {
-            final s = appdata.favoriteTags.elementAt(index - 1);
-            return buildFavoriteItem(s, logic);
-          }
-        },
-      ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final tags = ref.watch(
+          userLibraryProvider.select((value) => value.favoriteTags),
+        );
+        return ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: tags.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return ListTile(
+                leading: const Icon(Icons.favorite_border),
+                title: Text("收藏".tl),
+                trailing: buildClearFavoriteButton(searchController),
+              );
+            } else {
+              final s = tags[index - 1];
+              return buildFavoriteItem(s, searchController);
+            }
+          },
+        );
+      },
     );
   }
 
   Iterable<Widget> buildHistoryAndFavoritesForMobile(
-    PreSearchController logic,
+    PreSearchState logic,
   ) sync* {
     yield const Divider().paddingHorizontal(16).toSliver();
     yield ListTile(
@@ -833,30 +847,32 @@ class PreSearchPage extends StatelessWidget {
       title: Text("历史搜索".tl),
       trailing: buildClearHistoryButton(logic),
     ).toSliver();
-    yield StateBuilder<PreSearchController>(
-      id: "history",
-      builder: (logic) {
-        var length = appdata.searchHistory.length;
-        if (length < 10) {
-          logic.limitHistory = false;
-        }
-        if (logic.limitHistory) {
+    yield Consumer(
+      builder: (context, ref, _) {
+        ref.watch(
+          preSearchProvider(_session).select((value) => value.limitHistory),
+        );
+        final logic = searchController;
+        final historyItems = ref.watch(
+          userLibraryProvider.select((value) => value.searchHistory),
+        );
+        var length = historyItems.length;
+        final limited = logic.limitHistory && length >= 10;
+        if (limited) {
           length = length.clamp(0, 10);
         }
         return SliverList.builder(
           itemCount: length,
           itemBuilder: (context, index) {
-            if (index == length - 1 && logic.limitHistory) {
+            if (index == length - 1 && limited) {
               return TextButton(
                 child: Text("查看更多".tl),
                 onPressed: () {
-                  logic.limitHistory = false;
-                  logic.update(["history"]);
+                  searchActions.showAllHistory();
                 },
               ).toAlign(Alignment.center);
             }
-            var history =
-                appdata.searchHistory[appdata.searchHistory.length - index - 1];
+            var history = historyItems[historyItems.length - index - 1];
             return buildHistoryItem(history, logic);
           },
         );
@@ -866,17 +882,22 @@ class PreSearchPage extends StatelessWidget {
     yield ListTile(
       leading: const Icon(Icons.favorite_border),
       title: Text("收藏".tl),
-      trailing: buildClearFavoriteButton(logic),
+      trailing: buildClearFavoriteButton(searchController),
     ).toSliver();
 
-    yield StateBuilder<PreSearchController>(
-      builder: (logic) => SliverList.builder(
-        itemCount: appdata.favoriteTags.length,
-        itemBuilder: (context, index) {
-          final s = appdata.favoriteTags.elementAt(index);
-          return buildFavoriteItem(s, logic);
-        },
-      ),
+    yield Consumer(
+      builder: (context, ref, _) {
+        final tags = ref.watch(
+          userLibraryProvider.select((value) => value.favoriteTags),
+        );
+        return SliverList.builder(
+          itemCount: tags.length,
+          itemBuilder: (context, index) {
+            final s = tags.elementAt(index);
+            return buildFavoriteItem(s, searchController);
+          },
+        );
+      },
     );
   }
 }

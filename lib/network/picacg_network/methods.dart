@@ -4,9 +4,7 @@ import 'package:pica_comic/comic_source/built_in/picacg.dart';
 import 'package:pica_comic/network/cache_network.dart';
 import 'dart:convert' as convert;
 import 'package:pica_comic/network/picacg_network/headers.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
 import '../../base.dart';
-import '../../foundation/app.dart';
 import '../../foundation/log.dart';
 import '../res.dart';
 import '../network_client_manager.dart';
@@ -369,15 +367,6 @@ class PicacgNetwork extends _$PicacgNetwork {
         } catch (e) {
           continue;
         }
-      }
-      if (addToHistory) {
-        Future.delayed(const Duration(microseconds: 500), () {
-          try {
-            StateController.find<PreSearchController>().update();
-          } catch (e) {
-            //忽视
-          }
-        });
       }
       return Res(comics, subData: pages);
     } catch (e, s) {

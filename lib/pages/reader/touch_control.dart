@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../../components/components.dart';
-import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/log.dart';
-import '../../foundation/state_controller.dart';
 import '../../tools/translations.dart';
 import 'reader_logic.dart';
 import 'reading_settings.dart';
@@ -407,11 +405,11 @@ class TapController {
       logic.toggleTools();
       if (logic.snapshot.toolsVisible) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        StateController.findOrNull<WindowFrameController>()?.resetTheme();
+        logic.setWindowDarkTheme(false);
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
         if (settings.readerDarkBackground) {
-          StateController.findOrNull<WindowFrameController>()?.setDarkTheme();
+          logic.setWindowDarkTheme(true);
         }
       }
     }

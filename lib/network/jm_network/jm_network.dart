@@ -9,9 +9,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/parser.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/built_in/jm.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/cache_network.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
@@ -649,13 +647,6 @@ class JmNetwork extends _$JmNetwork {
           continue;
         }
       }
-      Future.delayed(const Duration(microseconds: 500), () {
-        try {
-          StateController.find<PreSearchController>().update();
-        } catch (e) {
-          //跳过
-        }
-      });
       return Res(
         comics,
         subData: comics.isEmpty
@@ -664,10 +655,6 @@ class JmNetwork extends _$JmNetwork {
       );
     } catch (e, s) {
       Log.e("Data Analysis $e\n$s");
-      Future.delayed(
-        const Duration(microseconds: 500),
-        () => StateController.find<PreSearchController>().update(),
-      );
       return Res(null, errorMessage: e.toString());
     }
   }

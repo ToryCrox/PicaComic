@@ -16,12 +16,11 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../components/scrollable_list/src/item_positions_listener.dart';
 import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
-import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_settings_provider.dart';
 import '../../foundation/reader_layout_provider.dart';
 import '../../foundation/log.dart';
-import '../../foundation/state_controller.dart';
+import '../../foundation/window_frame_provider.dart';
 import '../../tools/image_size_getter.dart' as image_sizes;
 import '../../tools/translations.dart';
 import 'reading_data.dart';
@@ -851,6 +850,16 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
 
   // ---- Fullscreen ----
 
+  /// 按阅读工具栏状态切换窗口主题。
+  void setWindowDarkTheme(bool dark) {
+    final window = ref.read(windowFrameProvider.notifier);
+    if (dark) {
+      window.setDarkTheme();
+    } else {
+      window.resetTheme();
+    }
+  }
+
   void fullscreen() {
     WindowManager.instance.setFullScreen(!state.isFullScreen);
     final newFullScreen = !state.isFullScreen;
@@ -858,9 +867,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
     focusNode.requestFocus();
 
     if (newFullScreen) {
-      StateController.find<WindowFrameController>().hideWindowFrame();
+      ref.read(windowFrameProvider.notifier).hideWindowFrame();
     } else {
-      StateController.find<WindowFrameController>().showWindowFrame();
+      ref.read(windowFrameProvider.notifier).showWindowFrame();
     }
   }
 

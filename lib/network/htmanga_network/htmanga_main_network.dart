@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pica_comic/comic_source/built_in/ht_manga.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/network/cache_network.dart';
@@ -12,7 +11,6 @@ import 'package:pica_comic/network/htmanga_network/models.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:html/parser.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
 import '../../base.dart';
@@ -310,10 +308,6 @@ class HtmangaNetwork extends _$HtmangaNetwork {
       appdata.searchHistory.add(keyword);
       appdata.writeHistory();
     }
-    Future.delayed(
-      const Duration(milliseconds: 300),
-      () => StateController.find<PreSearchController>().update(),
-    ).onError((error, stackTrace) => null);
     return getComicList(
       "$baseUrl/search/?q=${Uri.encodeComponent(keyword)}&f=_all&s=create_time_DESC&syn=yes",
       page,

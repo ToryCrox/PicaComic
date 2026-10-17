@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -9,18 +8,19 @@ import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/pages/category_comics_page.dart';
 import 'package:pica_comic/pages/search_result_page.dart';
-import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/network/comic_source_services.dart';
+import '../foundation/def.dart';
+import '../foundation/app_settings_provider.dart';
+import 'explore_providers.dart';
 
-class ExplorePage extends StatefulWidget {
+class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
 
   @override
-  State<ExplorePage> createState() => _ExplorePageState();
+  ConsumerState<ExplorePage> createState() => _ExplorePageState();
 }
 
-class _ExplorePageState extends State<ExplorePage>
+class _ExplorePageState extends ConsumerState<ExplorePage>
     with TickerProviderStateMixin {
   late TabController controller;
 
@@ -28,32 +28,44 @@ class _ExplorePageState extends State<ExplorePage>
 
   double location = 0;
 
-  var pages = appdata.appSettings.explorePages;
+  final _session = Object();
+  late List<String> pages;
 
   @override
   void initState() {
-    pages = appdata.appSettings.explorePages;
+    super.initState();
+    pages = ref
+        .read(appSettingsProvider)
+        .value(AppSettingKeys.explorePages)
+        .split(',');
     var all = ComicSource.sources
         .map((e) => e.explorePages)
         .expand((e) => e.map((e) => e.title))
         .toList();
     pages = pages.where((e) => all.contains(e)).toList();
-    if (pages.isEmpty && appdata.appSettings.explorePages.isNotEmpty) {
-      if (appdata.appSettings.explorePages.first.isNum) {
-        // is odd data, update
-        appdata.appSettings.explorePages = all;
-        pages = all;
-        appdata.updateSettings();
-      }
-    }
     controller = TabController(length: pages.length, vsync: this);
-    super.initState();
   }
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  /// 仅刷新当前来源的探索页，不通过全局标签查找 Widget。
   void refresh() {
-    int page = controller.index;
-    String currentPageId = pages[page];
-    StateController.find<SimpleController>(tag: currentPageId).refresh();
+    if (pages.isEmpty) return;
+    final title = pages[controller.index];
+    for (final source in ComicSource.sources) {
+      if (source.explorePages.any((page) => page.title == title)) {
+        ref
+            .read(
+              exploreRefreshProvider(_session, source.key.name, title).notifier,
+            )
+            .refresh();
+        return;
+      }
+    }
   }
 
   Widget buildFAB() => Material(
@@ -69,7 +81,7 @@ class _ExplorePageState extends State<ExplorePage>
     return Tab(text: i.tl, key: Key(i));
   }
 
-  Widget buildBody(String i) => _SingleExplorePage(i, key: Key(i));
+  Widget buildBody(String i) => _SingleExplorePage(_session, i, key: Key(i));
 
   @override
   Widget build(BuildContext context) {
@@ -159,152 +171,115 @@ class _ExplorePageState extends State<ExplorePage>
   }
 }
 
-class _SingleExplorePage extends StatefulWidget {
-  const _SingleExplorePage(this.title, {super.key});
+/// 单个探索页按来源和父页面会话观察刷新信号。
+class _SingleExplorePage extends ConsumerStatefulWidget {
+  const _SingleExplorePage(this.session, this.title, {super.key});
 
+  final Object session;
   final String title;
 
   @override
-  State<_SingleExplorePage> createState() => _SingleExplorePageState();
+  ConsumerState<_SingleExplorePage> createState() => _SingleExplorePageState();
 }
 
-class _SingleExplorePageState extends StateWithController<_SingleExplorePage> {
+/// 滚动与自定义页面的 Widget 生命周期保持在当前页面。
+class _SingleExplorePageState extends ConsumerState<_SingleExplorePage> {
   late final ExplorePageData data;
-
-  bool loading = true;
-
-  String? message;
-
-  List<ExplorePagePart>? parts;
-
   late final ComicType comicSourceKey;
-
-  int key = 0;
 
   @override
   void initState() {
     super.initState();
-    for (var source in ComicSource.sources) {
-      for (var d in source.explorePages) {
-        if (d.title == widget.title) {
-          data = d;
+    for (final source in ComicSource.sources) {
+      for (final page in source.explorePages) {
+        if (page.title == widget.title) {
+          data = page;
           comicSourceKey = source.key;
           return;
         }
       }
     }
-    throw "Explore Page ${widget.title} Not Found!";
+    throw StateError('Explore Page ${widget.title} Not Found!');
   }
+
+  /// 手动重试与浮动按钮走同一刷新入口。
+  void refresh() => ref
+      .read(
+        exploreRefreshProvider(
+          widget.session,
+          comicSourceKey.name,
+          widget.title,
+        ).notifier,
+      )
+      .refresh();
 
   @override
   Widget build(BuildContext context) {
+    final refreshProvider = exploreRefreshProvider(
+      widget.session,
+      comicSourceKey.name,
+      widget.title,
+    );
+    final revision = ref.watch(refreshProvider);
     if (data.loadMultiPart != null) {
-      return buildMultiPart();
-    } else if (data.loadPage != null) {
-      return buildComicList(context);
-    } else if (data.loadMixed != null) {
+      final parts = ref.watch(
+        explorePartsProvider(widget.session, comicSourceKey.name, data),
+      );
+      return parts.when(
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: false,
+        data: (parts) => SmoothCustomScrollView(
+          slivers: [
+            for (final part in parts)
+              ..._buildExplorePagePart(part, comicSourceKey),
+          ],
+        ),
+        error: (error, _) => NetworkError(
+          message: error.toString(),
+          retry: refresh,
+          withAppbar: false,
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (data.loadPage != null) {
+      final pageKey =
+          '${comicSourceKey.name}:${widget.title}:${identityHashCode(widget.session)}';
+      ref.listen(refreshProvider, (_, _) {
+        refreshComicListPage(
+          context,
+          ComicListPageConfig(
+            pageKey: pageKey,
+            loadPage: (ref, page) => data.loadPage!(ref, page),
+            loadCache: data.loadCache,
+            onError: (message) => showToast(message: message),
+          ),
+        );
+      });
+      return _ComicList(
+        (ref, page) => data.loadPage!(ref, page),
+        pageKey,
+        comicSourceKey,
+        cacheBuilder: data.loadCache,
+      );
+    }
+    if (data.loadMixed != null) {
       return _MixedExplorePage(
         data,
         comicSourceKey,
         ProviderScope.containerOf(context, listen: false),
-        key: ValueKey(key),
+        widget.session,
+        revision,
+        key: ValueKey(revision),
       );
-    } else if (data.overridePageBuilder != null) {
+    }
+    if (data.overridePageBuilder != null) {
       return Builder(
-        builder: (context) {
-          return data.overridePageBuilder!(context);
-        },
-        key: ValueKey(key),
+        builder: data.overridePageBuilder!,
+        key: ValueKey(revision),
       );
-    } else {
-      return const Center(child: Text("Empty Page"));
     }
-  }
-
-  Widget buildComicList(BuildContext context) => _ComicList(
-    (ref, page) => data.loadPage!(ref, page),
-    tag.toString(),
-    comicSourceKey,
-    cacheBuilder: data.loadCache,
-  );
-
-  void load() async {
-    final loadCache = data.loadMultiPartCache;
-    if (loadCache != null) {
-      final cache = await loadCache();
-      if (cache.isNotEmpty) {
-        parts = cache;
-        setState(() {
-          loading = false;
-        });
-      }
-    }
-
-    final container = ProviderScope.containerOf(context, listen: false);
-    var res = await container.read(
-      exploreMultiPartQueryProvider((
-        sourceKey: comicSourceKey.name,
-        title: widget.title,
-      )).future,
-    );
-    loading = false;
-    if (mounted) {
-      setState(() {
-        if (res.error) {
-          message = res.errorMessageWithoutNull;
-        } else {
-          parts = res.data;
-        }
-      });
-    }
-  }
-
-  Widget buildMultiPart() {
-    if (loading) {
-      load();
-      return const Center(child: CircularProgressIndicator());
-    } else if (message != null) {
-      return NetworkError(message: message!, retry: refresh, withAppbar: false);
-    } else {
-      return buildPage();
-    }
-  }
-
-  Widget buildPage() {
-    return SmoothCustomScrollView(slivers: _buildPage().toList());
-  }
-
-  Iterable<Widget> _buildPage() sync* {
-    for (var part in parts!) {
-      yield* _buildExplorePagePart(part, comicSourceKey);
-    }
-  }
-
-  @override
-  Object? get tag => widget.title;
-
-  @override
-  void refresh() {
-    message = null;
-    if (data.loadMultiPart != null) {
-      setState(() {
-        loading = true;
-      });
-    } else if (data.loadPage != null) {
-      refreshComicListPage(
-        context,
-        ComicListPageConfig(
-          pageKey: tag.toString(),
-          loadPage: (ref, page) => data.loadPage!(ref, page),
-          loadCache: data.loadCache,
-          onError: (message) => showToast(message: message),
-        ),
-      );
-    } else {
-      setState(() {
-        key++;
-      });
-    }
+    return const Center(child: Text('Empty Page'));
   }
 }
 
@@ -339,7 +314,9 @@ class _MixedExplorePage extends StatefulWidget {
   const _MixedExplorePage(
     this.data,
     this.comicType,
-    this.container, {
+    this.container,
+    this.session,
+    this.revision, {
     super.key,
   });
 
@@ -348,6 +325,8 @@ class _MixedExplorePage extends StatefulWidget {
   final ComicType comicType;
 
   final ProviderContainer container;
+  final Object session;
+  final int revision;
 
   @override
   State<_MixedExplorePage> createState() => _MixedExplorePageState();
@@ -388,11 +367,12 @@ class _MixedExplorePageState
   @override
   Future<Res<List<Object>>> loadData(int page) async {
     var res = await widget.container.read(
-      exploreMixedPageQueryProvider((
-        sourceKey: widget.comicType.name,
-        title: widget.data.title,
-        page: page,
-      )).future,
+      exploreMixedProvider(
+        widget.session,
+        widget.data,
+        widget.revision,
+        page,
+      ).future,
     );
     if (res.error) {
       return res;

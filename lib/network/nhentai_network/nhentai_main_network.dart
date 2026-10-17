@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/dom.dart';
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cookie_jar.dart';
 import 'package:pica_comic/network/network_client_manager.dart';
@@ -12,7 +11,6 @@ import 'package:pica_comic/network/res.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
 import 'models.dart';
 import 'package:html/parser.dart';
 
@@ -243,14 +241,6 @@ class NhentaiNetwork extends _$NhentaiNetwork {
           .querySelector("section.pagination > a.last")
           ?.attributes["href"]
           ?.nums;
-
-      Future.microtask(() {
-        try {
-          StateController.find<PreSearchController>().update();
-        } catch (e) {
-          //
-        }
-      });
 
       if (comicDoms.isEmpty) {
         return const Res([], subData: 0);
@@ -506,14 +496,6 @@ class NhentaiNetwork extends _$NhentaiNetwork {
           .querySelector("section.pagination > a.last")
           ?.attributes["href"]
           ?.nums;
-
-      Future.microtask(() {
-        try {
-          StateController.find<PreSearchController>().update();
-        } catch (e) {
-          //
-        }
-      });
 
       if (comicDoms.isEmpty) {
         return const Res([], subData: 0);

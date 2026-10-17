@@ -3,6 +3,7 @@ library pica_settings;
 import '../favorites/local_favorites_providers.dart';
 
 import '../../foundation/image_favorites_providers.dart';
+import '../../foundation/user_library_preferences.dart';
 
 import 'dart:async';
 import 'dart:convert';

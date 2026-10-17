@@ -7,7 +7,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 import 'package:pica_comic/comic_source/built_in/ehentai.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/cache_network.dart';
@@ -16,7 +15,6 @@ import 'package:pica_comic/network/network_client_manager.dart';
 import 'package:pica_comic/network/eh_network/eh_models.dart';
 import 'package:pica_comic/network/eh_network/get_gallery_id.dart';
 import 'package:pica_comic/network/res.dart';
-import 'package:pica_comic/pages/pre_search_page.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/js.dart';
 import 'package:pica_comic/tools/map_extension.dart';
@@ -1219,13 +1217,6 @@ class EhNetwork extends _$EhNetwork {
       requestUrl += "&f_sh=on";
     }
     var res = await getGalleries(requestUrl);
-    Future.delayed(const Duration(microseconds: 500), () {
-      try {
-        StateController.find<PreSearchController>().update();
-      } catch (e) {
-        //忽视
-      }
-    });
     return res;
   }
 

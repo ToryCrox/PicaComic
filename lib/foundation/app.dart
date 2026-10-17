@@ -6,7 +6,6 @@ import 'package:pica_comic/foundation/app_page_route.dart';
 import 'package:pica_comic/foundation/log.dart';
 import '../base.dart';
 
-export 'state_controller.dart';
 export 'widget_utils.dart';
 
 /// 标记需要打开在根 Navigator 上的页面。

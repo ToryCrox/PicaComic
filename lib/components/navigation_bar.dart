@@ -93,7 +93,11 @@ class _NaviPaneState extends State<NaviPane>
       _kBottomBarHeight + MediaQuery.paddingOf(context).bottom;
 
   void onNavigatorStateChange() {
-    onRebuild(context);
+    // Navigator 可能在创建路由的构建阶段通知，布局更新放到当前帧结束。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onRebuild(context);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -105,7 +109,6 @@ class _NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
-    StateController.put(NaviPaddingWidgetController());
     super.initState();
   }
 
@@ -117,7 +120,6 @@ class _NaviPaneState extends State<NaviPane>
 
   @override
   void dispose() {
-    StateController.remove<NaviPaddingWidgetController>();
     controller.dispose();
     widget.observer.removeListener(onNavigatorStateChange);
     super.dispose();
@@ -151,14 +153,9 @@ class _NaviPaneState extends State<NaviPane>
         }
       }
       if (target == _kPaneModeTopBar) {
-        StateController.find<NaviPaddingWidgetController>().setWithPadding(
-          true,
-        );
         controller.value = target;
       } else if (controller.value == _kPaneModeTopBar &&
           target == _kPaneModeMobile) {
-        StateController.findOrNull<NaviPaddingWidgetController>()
-            ?.setWithPadding(false);
         controller.value = target;
       } else {
         controller.animateTo(
@@ -201,62 +198,65 @@ class _NaviPaneState extends State<NaviPane>
                   pageTop + (removePageTopPadding ? 0 : mediaQuery.padding.top),
             ),
           );
-          return Stack(
-            children: [
-              Positioned(
-                left:
-                    _kFoldedSideBarWidth *
-                    ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
-                top: 0,
-                bottom: 0,
-                child: buildLeft(),
-              ),
-              Positioned(
-                // Windows 的标题栏是覆盖层，页面背景从窗口顶部开始绘制；
-                // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
-                top: App.isWindows ? 0 : pageTop,
-                left:
-                    _kFoldedSideBarWidth *
-                        ((value - _kPaneModeTopBar).clamp(0, 1)) +
-                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
-                right: 0,
-                bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
-                child: App.isWindows
-                    ? MediaQuery(
-                        data: pageMediaQuery,
-                        child: Material(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          child: widget.pageBuilder(currentPage),
-                        ),
-                      )
-                    : MediaQuery.removePadding(
-                        removeTop: removePageTopPadding,
-                        context: context,
-                        child: Material(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          child: widget.pageBuilder(currentPage),
-                        ),
-                      ),
-              ),
-              // 导航栏覆盖在页面背景之上，避免页面背景遮住窄屏导航栏内容。
-              if (value <= _kPaneModeTopBar)
+          return _NaviLayout(
+            withPadding: targetFormContext(context) == _kPaneModeTopBar,
+            child: Stack(
+              children: [
                 Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: bottomBarHeight * (0 - value),
-                  child: buildBottom(),
+                  left:
+                      _kFoldedSideBarWidth *
+                      ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
+                  top: 0,
+                  bottom: 0,
+                  child: buildLeft(),
                 ),
-              if (value <= _kPaneModeTopBar)
                 Positioned(
-                  left: 0,
+                  // Windows 的标题栏是覆盖层，页面背景从窗口顶部开始绘制；
+                  // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
+                  top: App.isWindows ? 0 : pageTop,
+                  left:
+                      _kFoldedSideBarWidth *
+                          ((value - _kPaneModeTopBar).clamp(0, 1)) +
+                      (_kSideBarWidth - _kFoldedSideBarWidth) *
+                          ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
                   right: 0,
-                  top:
-                      _kTopBarHeight * (0 - value) +
-                      MediaQuery.paddingOf(context).top * (1 - value),
-                  child: buildTop(),
+                  bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
+                  child: App.isWindows
+                      ? MediaQuery(
+                          data: pageMediaQuery,
+                          child: Material(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            child: widget.pageBuilder(currentPage),
+                          ),
+                        )
+                      : MediaQuery.removePadding(
+                          removeTop: removePageTopPadding,
+                          context: context,
+                          child: Material(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            child: widget.pageBuilder(currentPage),
+                          ),
+                        ),
                 ),
-            ],
+                // 导航栏覆盖在页面背景之上，避免页面背景遮住窄屏导航栏内容。
+                if (value <= _kPaneModeTopBar)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: bottomBarHeight * (0 - value),
+                    child: buildBottom(),
+                  ),
+                if (value <= _kPaneModeTopBar)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top:
+                        _kTopBarHeight * (0 - value) +
+                        MediaQuery.paddingOf(context).top * (1 - value),
+                    child: buildTop(),
+                  ),
+              ],
+            ),
           );
         },
       ),
@@ -711,19 +711,18 @@ class _NaviPopScope extends StatelessWidget {
   }
 }
 
-class NaviPaddingWidgetController extends StateController {
-  NaviPaddingWidgetController() {
-    print("init");
-  }
+/// 当前导航布局的派生值，按组件树隔离不同导航实例。
+class _NaviLayout extends InheritedWidget {
+  const _NaviLayout({required this.withPadding, required super.child});
 
-  bool _withPadding = false;
+  final bool withPadding;
 
-  void setWithPadding(bool value) {
-    _withPadding = value;
-    update();
-  }
+  @override
+  bool updateShouldNotify(_NaviLayout oldWidget) =>
+      withPadding != oldWidget.withPadding;
 }
 
+/// 根页面在窄屏二级导航布局下避让顶部和底部工具栏。
 class NaviPaddingWidget extends StatelessWidget {
   const NaviPaddingWidget({super.key, required this.child});
 
@@ -731,19 +730,19 @@ class NaviPaddingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StateBuilder<NaviPaddingWidgetController>(
-      builder: (controller) {
-        return Padding(
-          padding: controller._withPadding
-              ? EdgeInsets.only(
-                  top: _NaviPaneState._kTopBarHeight + context.padding.top,
-                  bottom:
-                      _NaviPaneState._kBottomBarHeight + context.padding.bottom,
-                )
-              : EdgeInsets.zero,
-          child: child,
-        );
-      },
+    final withPadding =
+        context
+            .dependOnInheritedWidgetOfExactType<_NaviLayout>()
+            ?.withPadding ??
+        false;
+    return Padding(
+      padding: withPadding
+          ? EdgeInsets.only(
+              top: _NaviPaneState._kTopBarHeight + context.padding.top,
+              bottom: _NaviPaneState._kBottomBarHeight + context.padding.bottom,
+            )
+          : EdgeInsets.zero,
+      child: child,
     );
   }
 }

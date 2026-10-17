@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
 import 'foundation/def.dart';
 import 'foundation/settings_events.dart';
+import 'foundation/user_library_events.dart';
 import 'foundation/app_setting_keys.dart';
 export 'foundation/app_setting_keys.dart';
 import 'network/network_config.dart';
@@ -136,6 +137,7 @@ class Appdata {
     var s = await SharedPreferences.getInstance();
     await s.setStringList("search", searchHistory);
     await s.setStringList("favoriteTags", favoriteTags.toList());
+    notifyUserLibraryChanged();
   }
 
   Future<void> writeData([bool sync = true]) async {
@@ -146,6 +148,7 @@ class Appdata {
     await updateSettings(false);
     await s.setStringList("blockingKeyword", blockingKeyword);
     await s.setStringList("firstUse", firstUse);
+    notifyUserLibraryChanged();
   }
 
   Future<bool> readData() async {
@@ -162,6 +165,7 @@ class Appdata {
         }
       }
       await readImplicitData();
+      notifyUserLibraryChanged();
       return firstUse[3] == "1";
     } catch (e) {
       return false;
@@ -220,6 +224,7 @@ Appdata get appdata => _appdata;
 set appdata(Appdata value) {
   _appdata = value;
   notifySettingsChanged();
+  notifyUserLibraryChanged();
 }
 
 var notifications = Notifications();
