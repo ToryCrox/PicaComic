@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../components/components.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
+import '../../foundation/log.dart';
 import '../../foundation/state_controller.dart';
 import '../../tools/translations.dart';
 import 'reader_logic.dart';
@@ -197,16 +198,32 @@ class TapController {
 
   static void Function(PointerUpEvent detail)? _doubleClickRecognizer;
 
-  static void handleSecondaryTapUp(PointerDownEvent detail) {
-    var logic = _currentLogic!;
-    showContextMenu(
-      context: App.globalContext!,
+  /// 按右键命中的图片查询收藏状态，并固定本次菜单的操作目标。
+  static Future<void> handleSecondaryTapUp(PointerDownEvent detail) async {
+    final logic = _currentLogic;
+    final sessionId = _sessionId;
+    final context = App.globalContext;
+    if (logic == null || sessionId == null || context == null) return;
+    final image = logic.imageAtPosition(detail.position);
+    var isFavorited = false;
+    try {
+      if (image != null) isFavorited = await logic.isImageFavorited(image);
+    } catch (error, stack) {
+      Log.e('读取图片收藏状态失败', error: error, stackTrace: stack);
+      showToast(message: '图片收藏操作失败'.tl);
+      return;
+    }
+    if (!context.mounted || _currentLogic != logic || _sessionId != sessionId) {
+      return;
+    }
+    await showContextMenu(
+      context: context,
       globalPosition: detail.position,
       items: [
         popupMenuItem<void>(
           text: "设置".tl,
           icon: Icons.settings_outlined,
-          onTap: () => showSettings(App.globalContext!, _sessionId!),
+          onTap: () => showSettings(context, sessionId),
         ),
         if (App.isDesktop)
           popupMenuItem<void>(
@@ -245,9 +262,10 @@ class TapController {
             },
           ),
         popupMenuItem<void>(
-          text: "收藏图片".tl,
-          icon: Icons.favorite_border,
-          onTap: () => logic.favoriteCurrentImage(position: detail.position),
+          text: isFavorited ? "取消收藏".tl : "收藏图片".tl,
+          icon: isFavorited ? Icons.favorite : Icons.favorite_border,
+          enabled: image != null,
+          onTap: () => logic.favoriteCurrentImage(image: image),
         ),
         popupMenuItem<void>(
           text: "退出".tl,

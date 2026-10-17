@@ -9,10 +9,14 @@ import 'package:pica_comic/components/scrollable_list/src/item_positions_listene
 import 'package:pica_comic/components/scrollable_list/src/item_positions_notifier.dart';
 import 'package:pica_comic/components/scrollable_list/src/scrollable_positioned_list.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
+import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_history.dart';
 import 'package:pica_comic/foundation/image_manager.dart';
+import 'package:pica_comic/foundation/image_favorites.dart';
+import 'package:pica_comic/foundation/image_favorites_providers.dart';
+import 'package:pica_comic/foundation/image_favorites_repository.dart';
 import 'package:pica_comic/foundation/image_loader/stream_image_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/network/res.dart';
@@ -23,10 +27,73 @@ import 'package:pica_comic/pages/reader/continuous_reader_data.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/pages/reader/reading_data.dart';
 import 'package:pica_comic/pages/reader/reading_type.dart';
+import 'package:pica_comic/pages/reader/touch_control.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(AppTranslation.init);
+
+  testWidgets('右键菜单随收藏状态切换，取消操作固定命中的图片', (tester) async {
+    final favorites = _ImageFavoritesRepository();
+    final harness = _Harness(readingMode: '1', favorites: favorites);
+    addTearDown(harness.dispose);
+    addTearDown(TapController.detach);
+    await harness.logic.loadInfo();
+    TapController.attach(harness.logic, 'favorite-menu-test');
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: App.navigatorKey,
+        home: const Scaffold(body: SizedBox.expand()),
+      ),
+    );
+    Future<void> openMenu() async {
+      unawaited(
+        TapController.handleSecondaryTapUp(
+          const PointerDownEvent(position: Offset(100, 100)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await openMenu();
+    expect(find.text('收藏图片'.tl), findsOneWidget);
+    expect(find.text('取消收藏'.tl), findsNothing);
+    App.navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+
+    const favorite = ImageFavorite(
+      sourceKey: 'picacg',
+      comicId: 'test',
+      title: 'test',
+      ep: 2,
+      page: 1,
+      imagePath: '',
+    );
+    favorites.records[favorite.recordId] = favorite;
+    await openMenu();
+    expect(find.text('取消收藏'.tl), findsOneWidget);
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    harness.logic.setCurrentPage(2);
+    await tester.tap(find.text('取消收藏'.tl));
+    await tester.pumpAndSettle();
+    expect(favorites.records, isEmpty);
+    // 取消后再次查看原图，菜单恢复为收藏。
+    harness.logic.setCurrentPage(1);
+    await openMenu();
+    expect(find.text('收藏图片'.tl), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+    App.navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+
+    harness.logic.setReadingMethod(ReadingMethod.twoPage);
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(harness.logic.imageAtPosition(Offset.zero)!.page, 0);
+    expect(harness.logic.imageAtPosition(Offset(width - 1, 0))!.page, 1);
+    harness.logic.setCurrentPage(3);
+    expect(harness.logic.imageAtPosition(Offset(width - 1, 0))!.page, 2);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox());
+  });
 
   for (final mode in ['1', '4', '5']) {
     test('倒序目录在阅读模式 $mode 中正确手动翻章及识别首尾', () async {
@@ -293,6 +360,15 @@ void main() {
     expect(hit, isNotNull);
     expect(harness.logic.imageAtListIndex(hit!)!.episode, 3);
     expect(harness.logic.imageAtListIndex(hit)!.page, 0);
+    final favoriteTarget = harness.logic.imageAtPosition(
+      tester.getCenter(find.byKey(const ValueKey('image:3:0'))),
+    );
+    expect(favoriteTarget!.episode, 3);
+    expect(favoriteTarget.page, 0);
+    expect(
+      harness.logic.imageAtPosition(tester.getCenter(find.text('3 · 第三章'))),
+      isNull,
+    );
 
     expect(harness.logic.snapshot.currentEpisode, 3);
     expect(harness.logic.snapshot.currentPage, 1);
@@ -523,7 +599,7 @@ void main() {
 
 /// 使用内存设置及伪章节，不连接真实网络或用户历史数据库。
 class _Harness {
-  _Harness({String readingMode = '4'}) {
+  _Harness({String readingMode = '4', ImageFavoritesRepository? favorites}) {
     final values = {
       ...defaultAppSettings,
       AppSettingKeys.readingMode: readingMode,
@@ -534,7 +610,11 @@ class _Harness {
       notifyChanges: () {},
     );
     container = ProviderContainer(
-      overrides: [appSettingsRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        appSettingsRepositoryProvider.overrideWithValue(repository),
+        if (favorites != null)
+          imageFavoritesRepositoryProvider.overrideWithValue(favorites),
+      ],
     );
     final session = 'test-${DateTime.now().microsecondsSinceEpoch}';
     ReaderSession.prepare(session, data, 1, 2);
@@ -554,6 +634,26 @@ class _Harness {
     logic.clearPhotoViewControllers();
     subscription.close();
     container.dispose();
+  }
+}
+
+/// 在内存中模拟收藏增删，避免菜单回归测试访问真实下载目录。
+class _ImageFavoritesRepository extends Fake
+    implements ImageFavoritesRepository {
+  final records = <String, ImageFavorite>{};
+
+  @override
+  Stream<void> get changes => const Stream.empty();
+
+  @override
+  Future<List<ImageFavorite>> getAll() async => records.values.toList();
+
+  @override
+  Future<ImageFavorite?> find(String recordId) async => records[recordId];
+
+  @override
+  Future<void> delete(String recordId) async {
+    records.remove(recordId);
   }
 }
 

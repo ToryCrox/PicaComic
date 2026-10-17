@@ -1124,75 +1124,102 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
 
   bool _favoriteBusy = false;
 
+  /// 根据右键位置定位图片，连续阅读保留实际章节，双页分别命中左右页。
+  ReaderItem? imageAtPosition(Offset position) {
+    final method = state.readingMethod;
+    if (method == ReadingMethod.topToBottomContinuously) {
+      final index = imageIndexAtPosition(position);
+      return index == null ? null : imageAtListIndex(index);
+    }
+    var page = state.currentPage - 1;
+    if (method.isTwoPage) {
+      final width = MediaQuery.of(App.globalContext!).size.width;
+      if (position.dx >= width / 2 && page + 1 < state.urls.length) {
+        page++;
+      }
+    }
+    if (page < 0 || page >= state.urls.length) return null;
+    return ReaderItem.image(state.currentEpisode, page, state.urls[page]);
+  }
+
+  /// 共用收藏身份，保证菜单状态查询和收藏操作识别同一张图片。
+  ImageFavorite _imageFavoriteDraft(ReaderItem image) {
+    var comicId = readingData.idForEpisode(image.episode);
+    if (readingData.type == ComicType.local) {
+      comicId = sha256.convert(utf8.encode(comicId)).toString();
+    }
+    return ImageFavorite(
+      sourceKey: readingData.sourceKey,
+      comicId: comicId,
+      title: readingData.titleForEpisode(image.episode),
+      ep: image.episode,
+      page: image.page + 1,
+      imagePath: '',
+      imageUrl: image.url,
+    );
+  }
+
+  /// 每次打开菜单时查询持久化状态，避免收藏或取消后仍显示旧文案。
+  Future<bool> isImageFavorited(ReaderItem image) async {
+    final repository = ref.read(imageFavoritesRepositoryProvider);
+    return await repository.find(_imageFavoriteDraft(image).recordId) != null;
+  }
+
   /// 收藏或取消当前图片，操作成功后才通知用户。
-  Future<void> favoriteCurrentImage({Offset? position}) async {
+  Future<void> favoriteCurrentImage({ReaderItem? image}) async {
     if (_favoriteBusy) return;
     _favoriteBusy = true;
     try {
       final readingData = this.readingData;
 
-      int? pageIndex = state.currentPage - 1;
-      ReaderItem? pickedImage;
+      var pageIndex = state.currentPage - 1;
+      ReaderItem? pickedImage = image;
       final method = state.readingMethod;
-      if (method == ReadingMethod.topToBottomContinuously) {
-        if (position != null) {
-          pageIndex = imageIndexAtPosition(position);
+      if (pickedImage == null &&
+          method == ReadingMethod.topToBottomContinuously) {
+        var items = visibleImages;
+        if (items.isEmpty) return;
+        final choices = {
+          for (final item in items) item.index: imageAtListIndex(item.index),
+        };
+        if (items.length == 1) {
+          pageIndex = items[0].index;
         } else {
-          var items = visibleImages;
-          if (items.isEmpty) return;
-          final choices = {
-            for (final item in items) item.index: imageAtListIndex(item.index),
-          };
-          if (items.length == 1) {
-            pageIndex = items[0].index;
-          } else {
-            isShowSelectImage = true;
-            int? res;
-            await showDialog(
-              context: App.globalContext!,
-              builder: (context) {
-                return SimpleDialog(
-                  title: Text("选择屏幕上的图片".tl),
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: Column(
-                        children: [
-                          for (var item in items)
-                            ListTile(
-                              title: Text(imageLabel(item.index)),
-                              onTap: () {
-                                res = item.index;
-                                pickedImage = choices[item.index];
-                                App.globalBack();
-                              },
-                              trailing: const Icon(Icons.arrow_right),
-                            ),
-                        ],
-                      ),
+          isShowSelectImage = true;
+          int? res;
+          await showDialog(
+            context: App.globalContext!,
+            builder: (context) {
+              return SimpleDialog(
+                title: Text("选择屏幕上的图片".tl),
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      children: [
+                        for (var item in items)
+                          ListTile(
+                            title: Text(imageLabel(item.index)),
+                            onTap: () {
+                              res = item.index;
+                              pickedImage = choices[item.index];
+                              App.globalBack();
+                            },
+                            trailing: const Icon(Icons.arrow_right),
+                          ),
+                      ],
                     ),
-                  ],
-                );
-              },
-            );
-            isShowSelectImage = false;
-            if (res == null) return;
-            pageIndex = res;
-          }
-        }
-      } else if (method.isTwoPage && position != null) {
-        final screenWidth = MediaQuery.of(App.globalContext!).size.width;
-        final leftPageIndex = state.currentPage - 1;
-        final rightPageIndex = leftPageIndex + 1;
-        if (position.dx < screenWidth / 2) {
-          pageIndex = leftPageIndex;
-        } else {
-          pageIndex = rightPageIndex < state.urls.length
-              ? rightPageIndex
-              : leftPageIndex;
+                  ),
+                ],
+              );
+            },
+          );
+          isShowSelectImage = false;
+          final selectedIndex = res;
+          if (selectedIndex == null) return;
+          pageIndex = selectedIndex;
         }
       }
-      if (pageIndex == null) return;
       ReaderItem? selected = pickedImage;
       if (selected == null && method == ReadingMethod.topToBottomContinuously) {
         selected = imageAtListIndex(pageIndex);
@@ -1207,22 +1234,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
       }
       if (selected == null) return;
       final episode = selected.episode;
-      final sourceKey = readingData.sourceKey;
-      var comicId = readingData.idForEpisode(episode);
-      if (readingData.type == ComicType.local) {
-        comicId = sha256.convert(utf8.encode(comicId)).toString();
-      }
       pageIndex = selected.page;
       final imageUrl = selected.url;
-      final draft = ImageFavorite(
-        sourceKey: sourceKey,
-        comicId: comicId,
-        title: readingData.titleForEpisode(episode),
-        ep: episode,
-        page: pageIndex + 1,
-        imagePath: '',
-        imageUrl: imageUrl,
-      );
+      final draft = _imageFavoriteDraft(selected);
       final repository = ref.read(imageFavoritesRepositoryProvider);
       final existing = await repository.find(draft.recordId);
       if (existing != null) {
@@ -1275,8 +1289,8 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
         otherInfo["eps"] = readingData.eps;
       }
       final favorite = ImageFavorite(
-        sourceKey: sourceKey,
-        comicId: comicId,
+        sourceKey: draft.sourceKey,
+        comicId: draft.comicId,
         imagePath: '',
         title: draft.title,
         ep: episode,
