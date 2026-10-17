@@ -19,6 +19,7 @@ import '../../components/scrollable_list/src/scrollable_positioned_list.dart';
 import '../../components/window_frame.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_settings_provider.dart';
+import '../../foundation/reader_layout_provider.dart';
 import '../../foundation/log.dart';
 import '../../foundation/state_controller.dart';
 import '../../tools/image_size_getter.dart' as image_sizes;
@@ -31,6 +32,7 @@ import '../../components/components.dart';
 import '../../foundation/image_favorites.dart';
 import '../../foundation/image_favorites_providers.dart';
 import '../../foundation/local_history.dart';
+import '../../foundation/history_providers.dart';
 import 'continuous_reader_data.dart';
 import '../../tools/iterable_extension.dart';
 import '../../tools/key_down_event.dart';
@@ -306,6 +308,7 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
 
   // ---- Reading data (set once in build) ----
   late ReadingData readingData;
+  late Future<void> Function(LocalHistory) _saveLocalHistory;
 
   // ---- Internal mutable state (don't trigger rebuild) ----
 
@@ -350,7 +353,8 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
   bool get isCtrlPressed => HardwareKeyboard.instance.isControlPressed;
 
   /// 双页模式下是否在第一页时显示单页
-  bool get singlePageForFirstScreen => appdata.implicitData[1] == '1';
+  bool get singlePageForFirstScreen =>
+      ref.read(readerLayoutProvider).firstPageSingle;
 
   /// 当前阅读会话读取最新的持久化阅读设置。
   ReaderSettingsState get readerSettings => ref.read(readerSettingsProvider);
@@ -381,6 +385,9 @@ class ComicReaderLogic extends _$ComicReaderLogic with _ContinuousReaderLogic {
 
   @override
   ReaderPageState build(String sessionId) {
+    _saveLocalHistory = ref
+        .read(localHistoryRepositoryProvider)
+        .saveReadHistory;
     final settings = readerSettings;
     final params = ReaderSession._pendingParams.remove(sessionId)!;
     final readingData = params.readingData;

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'package:signals/signals_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -18,7 +17,6 @@ import 'package:pica_comic/foundation/cache_manager.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/tools/type_util.dart';
-import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
 import 'package:pica_comic/foundation/worker_pool.dart';
@@ -735,115 +733,6 @@ class DownloadManager extends _$DownloadManager {
     _saveInfo();
     notifyListeners();
   }
-
-  // ==================== Local Favorite Management ====================
-
-  /// 本地收藏状态的 Signal 缓存
-  final Map<String, Signal<LocalFavoriteItem?>> localFavoriteCache = {};
-  final Set<String> _pendingFavoriteTargets = {};
-  bool _isBatchFavoriteQueryPending = false;
-
-  void _enqueueFavoriteQuery(String path) {
-    _pendingFavoriteTargets.add(path);
-    if (!_isBatchFavoriteQueryPending) {
-      _isBatchFavoriteQueryPending = true;
-      Future.microtask(_processBatchFavoriteQuery);
-    }
-  }
-
-  Future<void> _processBatchFavoriteQuery() async {
-    await Future.delayed(const Duration(milliseconds: 10)); // 防止微任务合并过多
-    if (_pendingFavoriteTargets.isEmpty) {
-      _isBatchFavoriteQueryPending = false;
-      return;
-    }
-
-    final targetsToQuery = _pendingFavoriteTargets.toList();
-    _pendingFavoriteTargets.clear();
-    _isBatchFavoriteQueryPending = false;
-
-    try {
-      await init();
-      // 通过单一查询批量处理(由于无原生批量借口，或者可以多次查询，SQLite性能良好)
-      for (var path in targetsToQuery) {
-        final result = await _db.getLocalFavorite(path);
-        if (result != null) {
-          localFavoriteCache[path]?.value = LocalFavoriteItem.fromMap(result);
-        } else {
-          localFavoriteCache[path]?.value = null; // 查询为空时，确认为 null
-        }
-      }
-    } catch (e, s) {
-      Log.e("Batch favorite query failed", stackTrace: s);
-    }
-  }
-
-  /// 获取本地收藏状态的响应式 Signal。
-  /// 用于 UI，特别是 Watch.builder 中调用。
-  LocalFavoriteItem? findLocalFavoriteInCache(String path) {
-    if (!localFavoriteCache.containsKey(path)) {
-      // 占位并触发异步查询
-      localFavoriteCache[path] = signal(null);
-      _enqueueFavoriteQuery(path);
-    }
-    return localFavoriteCache[path]!.value;
-  }
-
-  Future<void> addLocalFavorite(String path, {int sortOrder = 0}) async {
-    await init();
-    await _db.addOrUpdateLocalFavorite(path, sortOrder: sortOrder);
-
-    // 同步更新或新增 Signal
-    final newItem = LocalFavoriteItem(
-      path: path,
-      sortOrder: sortOrder,
-      time: DateTime.now().millisecondsSinceEpoch,
-    );
-    if (localFavoriteCache.containsKey(path)) {
-      localFavoriteCache[path]!.value = newItem;
-    } else {
-      localFavoriteCache[path] = signal(newItem);
-    }
-  }
-
-  Future<void> updateLocalFavoriteSortOrder(String path, int sortOrder) async {
-    await init();
-    await _db.updateLocalFavoriteSortOrder(path, sortOrder);
-
-    // 同步更新 Signal
-    if (localFavoriteCache.containsKey(path)) {
-      final oldItem = localFavoriteCache[path]!.value;
-      if (oldItem != null) {
-        localFavoriteCache[path]!.value = oldItem.copyWith(
-          sortOrder: sortOrder,
-        );
-      } else {
-        _enqueueFavoriteQuery(path);
-      }
-    }
-  }
-
-  Future<void> deleteLocalFavorite(String path) async {
-    await init();
-    await _db.deleteLocalFavorite(path);
-
-    // 同步清除 Signal
-    if (localFavoriteCache.containsKey(path)) {
-      localFavoriteCache[path]!.value = null;
-    }
-  }
-
-  Future<List<Map<String, Object?>>> getAllLocalFavorites() async {
-    await init();
-    return _db.getAllLocalFavorites();
-  }
-
-  Future<Map<String, Object?>?> getLocalFavorite(String path) async {
-    await init();
-    return _db.getLocalFavorite(path);
-  }
-
-  // ====================================================================
 
   Future<DownloadedItem?> getComicOrNull(String id) async {
     await init();
@@ -2969,58 +2858,4 @@ class DownloadBatchResult {
   });
 
   int get totalCount => successCount + skippedCount + failedCount;
-}
-
-class LocalFavoriteItem {
-  final String path;
-  final int sortOrder;
-  final int time;
-
-  const LocalFavoriteItem({
-    required this.path,
-    required this.sortOrder,
-    required this.time,
-  });
-
-  LocalFavoriteItem copyWith({String? path, int? sortOrder, int? time}) =>
-      LocalFavoriteItem(
-        path: path ?? this.path,
-        sortOrder: sortOrder ?? this.sortOrder,
-        time: time ?? this.time,
-      );
-
-  factory LocalFavoriteItem.fromMap(Map<String, dynamic> map) {
-    return LocalFavoriteItem(
-      path: map.optString(kLocalFavoritePath),
-      sortOrder: map.optInt(kLocalFavoriteSortOrder),
-      time: map.optInt(kLocalFavoriteTime),
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      kLocalFavoritePath: path,
-      kLocalFavoriteSortOrder: sortOrder,
-      kLocalFavoriteTime: time,
-    };
-  }
-
-  factory LocalFavoriteItem.fromJson(Map<String, dynamic> json) =>
-      LocalFavoriteItem.fromMap(json);
-
-  Map<String, dynamic> toJson() => toMap();
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LocalFavoriteItem &&
-          path == other.path &&
-          sortOrder == other.sortOrder &&
-          time == other.time;
-
-  @override
-  int get hashCode => Object.hash(path, sortOrder, time);
-
-  @override
-  String toString() => 'LocalFavoriteItem${toMap()}';
 }

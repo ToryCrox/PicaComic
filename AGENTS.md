@@ -4,10 +4,10 @@
 这是一个使用 Flutter 开发的跨平台漫画阅读应用，支持 Android、iOS、Windows、Linux、macOS 和 Web 平台。
 
 ## 技术栈
-- **框架**: Flutter (通过 FVM 管理，当前 SDK 版本 3.38.10)
+- **框架**: Flutter (通过 FVM 管理，当前 SDK 版本 3.47.1)
 - **语言**: Dart (SDK constraint >=3.10.0 <4.0.0)
 - **代码分析**: flutter_lints (>=2.0.0)
-- **状态管理**: `signals` (6.3.0) + `flutter_riverpod` (>=3.0.3) + `riverpod_annotation` (代码生成)
+- **状态管理**: `flutter_riverpod` (>=3.0.3) + `riverpod_annotation` (代码生成)
 - **主要依赖**: dio, shared_preferences, dynamic_color, photo_view, sqlite3, worker_manager, cached_network_image, window_manager 等
 
 ## 代码风格规范
@@ -35,7 +35,6 @@
    // 3. 第三方包
    import 'package:dio/dio.dart';
    import 'package:flutter_riverpod/flutter_riverpod.dart';
-   import 'package:signals/signals_flutter.dart';
    
    // 4. 项目内部
    import 'package:pica_comic/base.dart';
@@ -58,24 +57,9 @@
 `lib/comic_source/built_in/` 下包含: picacg、ehentai、jm、htmanga、nhentai、hitomi、kemono
 
 #### 状态管理
-项目同时使用 **signals** 和 **flutter_riverpod**：
+业务状态统一使用 **flutter_riverpod**。历史、漫画收藏、目录收藏、网络收藏及图片收藏的分层与生命周期见 `docs/history_and_favorites.md`。
 
-1. **signals** — 轻量级响应式状态，适用于简单场景
-   ```dart
-   import 'package:signals/signals_flutter.dart';
-   
-   final counter = signal(0);
-   
-   // 细粒度局部更新
-   Widget buildCounter() {
-     return Watch.builder(
-       builder: (context) => Text('Counter: ${counter.value}'),
-     );
-   }
-   ```
-   使用场景：`lib/foundation/history.dart`、`lib/foundation/local_history.dart`、`lib/network/download/download_manager.dart`
-
-2. **flutter_riverpod** — 复杂状态管理，适用于下载页面等数据密集型场景
+1. **flutter_riverpod** — 复杂状态管理，适用于下载页面等数据密集型场景
    - 使用 @riverpod 注解 + 代码生成（riverpod_generator + build_runner）
    - Notifier 管理可变状态，函数式注解处理简单计算/异步场景
    - `@Riverpod(keepAlive: false)` 实现 autoDispose 行为（3.x 默认 autoDispose）
@@ -83,7 +67,7 @@
    
    使用场景：`lib/pages/download/download_providers.dart`（注解式定义）、`lib/pages/download/**`（ConsumerStatefulWidget、ConsumerWidget）
 
-3. **ChangeNotifier** — 用于需要通知 UI 变化的 Manager 类
+2. **ChangeNotifier** — 用于需要通知 UI 变化的 Manager 类
    - `DownloadManager`、`DownloadStateManager` 使用 ChangeNotifier 模式
 
 #### 组件开发
@@ -225,7 +209,7 @@
 
 ## 常用命令
 
-项目使用 FVM 管理 Flutter SDK 版本（当前锁定 3.38.10）。以下命令优先列出 FVM 版本，如果未安装 FVM 则直接使用 `flutter` 命令替代。
+项目使用 FVM 管理 Flutter SDK 版本（当前锁定 3.47.1）。以下命令优先列出 FVM 版本，如果未安装 FVM 则直接使用 `flutter` 命令替代。
 
 ### 依赖管理
 ```bash
@@ -262,7 +246,7 @@ fvm flutter pub cache clean  # 清理 pub 缓存
 ### 版本管理
 ```bash
 fvm list                     # 查看已安装的 Flutter 版本
-fvm use 3.38.10              # 切换到指定版本
+fvm use 3.47.1              # 切换到指定版本
 ```
 
 ### 桌面端打包辅助

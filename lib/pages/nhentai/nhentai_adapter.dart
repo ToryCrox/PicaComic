@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,11 +64,7 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
   }
 
   @override
-  Future<bool> loadFavorite(NhentaiComic data) async =>
-      data.favorite ||
-      (await LocalFavoritesManager().findWithModel(
-        toLocalFavoriteItem(data),
-      )).isNotEmpty;
+  Future<bool> loadFavorite(NhentaiComic data) async => data.favorite;
 
   // -------- C. 元数据提取 --------
   @override
@@ -165,15 +162,9 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: appComicSourceServices.nhentai.logged,
       needLoadFolderData: false,
-      favoriteOnPlatform: data.favorite,
+      favoriteOnPlatform: bridge.favoriteOnPlatform ?? data.favorite,
       initialFolder: appComicSourceServices.nhentai.logged ? "0" : null,
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
       folders: const {"0": "Nhentai"},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
@@ -181,19 +172,11 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
             data.id,
             data.token,
           );
-          if (res.success) {
-            data = data.copyWith(favorite: true);
-            bridge.updateData(data);
-            bridge.updateState();
-          }
           return res;
         }
-        LocalFavoritesManager().addComic(
-          folder,
-          toLocalFavoriteItem(data),
-          null,
-          manager,
-        );
+        await favoriteActionsOf(
+          context,
+        ).addComic(folder, toLocalFavoriteItem(data), manager: manager);
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
@@ -201,11 +184,6 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
           data.id,
           data.token,
         );
-        if (res.success) {
-          data = data.copyWith(favorite: false);
-          bridge.updateData(data);
-          bridge.updateState();
-        }
         return res;
       },
     );

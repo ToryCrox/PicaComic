@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
@@ -15,7 +14,8 @@ import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/jm_network/jm_models.dart';
 import 'package:pica_comic/network/nhentai_network/models.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
-import 'package:pica_comic/pages/favorites/main_favorites_page.dart';
+import 'app_settings_repository.dart';
+import 'repository_change.dart';
 import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
@@ -24,7 +24,6 @@ import 'package:synchronized/synchronized.dart';
 import 'dart:io';
 import '../network/base_comic.dart';
 import '../network/webdav.dart';
-import 'package:pica_comic/network/comic_source_services.dart';
 
 /// 表名常量
 const String kTableFolderSync = 'folder_sync';
@@ -39,6 +38,28 @@ const String kFolderSyncData = 'sync_data';
 /// folder_order 表字段常量
 const String kFolderOrderName = 'folder_name';
 const String kFolderOrderValue = 'order_value';
+
+/// 每个漫画收藏夹表共用的字段名，持久化格式保持不变。
+const String kFavoriteTarget = 'target';
+const String kFavoriteName = 'name';
+const String kFavoriteAuthor = 'author';
+const String kFavoriteType = 'type';
+const String kFavoriteTags = 'tags';
+const String kFavoriteCoverPath = 'cover_path';
+const String kFavoriteTime = 'time';
+const String kFavoriteDisplayOrder = 'display_order';
+const String kFavoriteAggregate = 'value';
+
+/// SQLite 表结构查询使用的系统表及字段。
+const String kSqliteMasterTable = 'sqlite_master';
+const String kSqliteMasterName = 'name';
+const String kSqliteMasterType = 'type';
+
+/// PRAGMA 与聚合查询的字段别名。
+const String kSqlitePrimaryKey = 'pk';
+const String kFavoriteCount = 'c';
+const String kFavoriteMaximumOrder = 'max_value';
+const String kFavoriteMinimumOrder = 'min_value';
 
 String getCurTime() {
   return DateTime.now()
@@ -102,7 +123,12 @@ final class FavoriteType {
   int get hashCode => key.hashCode;
 }
 
+/// 收藏作品的稳定身份，与标题、标签等展示字段无关。
+typedef FavoriteIdentity = ({int type, String target});
+
+/// 不可变漫画收藏记录。
 class FavoriteItem {
+  FavoriteIdentity get identity => (type: type.key, target: target);
   final String name;
   final String author;
   final FavoriteType type;
@@ -129,14 +155,14 @@ class FavoriteItem {
     required this.type,
     required List<String> tags,
     String? time,
-  }) : tags = tags.toList(),
+  }) : tags = List.unmodifiable(tags),
        time = time ?? getCurTime();
 
   FavoriteItem.fromPicacg(ComicItemBrief comic)
     : name = comic.title,
       author = comic.author,
       type = FavoriteType.picacg,
-      tags = comic.tags.toList(),
+      tags = List.unmodifiable(comic.tags),
       target = comic.id,
       coverPath = comic.path,
       time = getCurTime();
@@ -145,7 +171,7 @@ class FavoriteItem {
     : name = comic.title,
       author = comic.uploader,
       type = FavoriteType.ehentai,
-      tags = comic.tags.toList(),
+      tags = List.unmodifiable(comic.tags),
       target = comic.link,
       coverPath = comic.coverPath,
       time = getCurTime();
@@ -163,9 +189,11 @@ class FavoriteItem {
     : name = comic.name,
       author = comic.artist,
       type = FavoriteType.hitomi,
-      tags = List.generate(
-        comic.tagList.length,
-        (index) => comic.tagList[index].name,
+      tags = List.unmodifiable(
+        List.generate(
+          comic.tagList.length,
+          (index) => comic.tagList[index].name,
+        ),
       ),
       target = comic.link,
       coverPath = comic.cover,
@@ -184,7 +212,7 @@ class FavoriteItem {
     : name = comic.title,
       author = "",
       type = FavoriteType.nhentai,
-      tags = comic.tags.toList(),
+      tags = List.unmodifiable(comic.tags),
       target = comic.id,
       coverPath = comic.cover,
       time = getCurTime();
@@ -193,7 +221,7 @@ class FavoriteItem {
     : name = comic.title,
       author = comic.subTitle,
       type = FavoriteType(comic.sourceKey.hashCode),
-      tags = comic.tags.toList(),
+      tags = List.unmodifiable(comic.tags),
       target = comic.id,
       coverPath = comic.cover,
       time = getCurTime();
@@ -218,35 +246,35 @@ class FavoriteItem {
   );
 
   Map<String, dynamic> toMap() => {
-    'name': name,
-    'author': author,
-    'type': type.key,
-    'tags': tags,
-    'target': target,
+    kFavoriteName: name,
+    kFavoriteAuthor: author,
+    kFavoriteType: type.key,
+    kFavoriteTags: tags,
+    kFavoriteTarget: target,
     'coverPath': coverPath,
-    'time': time,
+    kFavoriteTime: time,
   };
 
   Map<String, dynamic> toJson() => toMap();
 
   Map<String, dynamic> toRow() => {
-    'name': name,
-    'author': author,
-    'type': type.key,
-    'tags': tags.join(','),
-    'target': target,
-    'cover_path': coverPath,
-    'time': time,
+    kFavoriteName: name,
+    kFavoriteAuthor: author,
+    kFavoriteType: type.key,
+    kFavoriteTags: tags.join(','),
+    kFavoriteTarget: target,
+    kFavoriteCoverPath: coverPath,
+    kFavoriteTime: time,
   };
 
   factory FavoriteItem.fromMap(Map<String, dynamic> map) => FavoriteItem(
-    name: map.optString('name'),
-    author: map.optString('author'),
-    type: FavoriteType(map.optInt('type')),
-    tags: map.optStringList('tags'),
-    target: map.optString('target'),
+    name: map.optString(kFavoriteName),
+    author: map.optString(kFavoriteAuthor),
+    type: FavoriteType(map.optInt(kFavoriteType)),
+    tags: map.optStringList(kFavoriteTags),
+    target: map.optString(kFavoriteTarget),
     coverPath: map.optString('coverPath'),
-    time: map.optStringOrNull('time'),
+    time: map.optStringOrNull(kFavoriteTime),
   );
 
   factory FavoriteItem.fromJson(Map<String, dynamic> json) =>
@@ -254,16 +282,16 @@ class FavoriteItem {
 
   factory FavoriteItem.fromRow(Map row) {
     final tags = TypeUtil.parseString(
-      row['tags'],
+      row[kFavoriteTags],
     ).split(',').where((tag) => tag.isNotEmpty).toList();
     return FavoriteItem(
-      name: TypeUtil.parseString(row['name']),
-      author: TypeUtil.parseString(row['author']),
-      type: FavoriteType(TypeUtil.parseInt(row['type'])),
+      name: TypeUtil.parseString(row[kFavoriteName]),
+      author: TypeUtil.parseString(row[kFavoriteAuthor]),
+      type: FavoriteType(TypeUtil.parseInt(row[kFavoriteType])),
       tags: tags,
-      target: TypeUtil.parseString(row['target']),
-      coverPath: TypeUtil.parseString(row['cover_path']),
-      time: TypeUtil.parseStringOrNull(row['time']),
+      target: TypeUtil.parseString(row[kFavoriteTarget]),
+      coverPath: TypeUtil.parseString(row[kFavoriteCoverPath]),
+      time: TypeUtil.parseStringOrNull(row[kFavoriteTime]),
     );
   }
 
@@ -305,8 +333,8 @@ class FavoriteItem {
 }
 
 class FavoriteItemWithFolderInfo {
-  FavoriteItem comic;
-  String folder;
+  final FavoriteItem comic;
+  final String folder;
 
   FavoriteItemWithFolderInfo(this.comic, this.folder);
 
@@ -387,11 +415,52 @@ extension SQL on String {
   String get toParam => replaceAll('\'', "''").replaceAll('"', "\"\"");
 }
 
+/// 批任务只合并成功写入的通知和上传，不改变逐条提交的取消语义。
+class FavoriteChangeBatch {
+  FavoriteChangeBatch(this._publish);
+  final void Function(RepositoryChange<FavoriteIdentity>) _publish;
+  final _keys = <FavoriteIdentity>{};
+  final _folders = <String>{};
+  bool _closed = false;
+
+  /// 收集已成功提交的条目。
+  void add(RepositoryChange<FavoriteIdentity> change) {
+    if (_closed) throw StateError('批量通知已经结束');
+    _keys.addAll(change.keys ?? {});
+    _folders.addAll(change.folders);
+  }
+
+  /// 完成或取消后发布一次；没有写入时不发通知。
+  void finish() {
+    if (_closed) return;
+    _closed = true;
+    if (_keys.isNotEmpty)
+      _publish(RepositoryChange(keys: _keys, folders: _folders));
+  }
+}
+
+/// 漫画收藏数据库的兼容存储适配。
 class LocalFavoritesManager {
   factory LocalFavoritesManager() =>
       cache ?? (cache = LocalFavoritesManager._create());
 
-  LocalFavoritesManager._create();
+  LocalFavoritesManager._create()
+    : _settings = AppSettingsRepository(),
+      _saveCallback = null;
+
+  /// 测试使用独立数据库与保存回调，不访问全局应用状态。
+  LocalFavoritesManager.forTesting(
+    Database database, {
+    AppSettingsRepository? settings,
+    Future<void> Function()? save,
+  }) : _db = database,
+       _initialized = true,
+       _settings = settings ?? AppSettingsRepository(),
+       _saveCallback = save;
+
+  final AppSettingsRepository _settings;
+  final Future<void> Function()? _saveCallback;
+  final Lock _mutationLock = Lock();
 
   static LocalFavoritesManager? cache;
 
@@ -401,11 +470,12 @@ class LocalFavoritesManager {
   Future<void>? _initializationFuture;
   final Completer<Database> _initCompleter = Completer<Database>();
   final Lock _lock = Lock();
-  final StreamController<void> _changeController =
-      StreamController<void>.broadcast();
+  final _changeController =
+      StreamController<RepositoryChange<FavoriteIdentity>>.broadcast();
 
   /// 收藏夹或其中漫画发生变化时触发，供功能 Provider 刷新派生状态。
-  Stream<void> get changes => _changeController.stream;
+  Stream<RepositoryChange<FavoriteIdentity>> get changes =>
+      _changeController.stream;
 
   Future<void> init() {
     if (_initialized) return Future.value();
@@ -520,7 +590,7 @@ class LocalFavoritesManager {
     var columns = await db.rawQuery('PRAGMA table_info("$testTable")');
     bool shouldUpdate = false;
     for (var row in columns) {
-      if (row["name"] == "type" && row["pk"] == 0) {
+      if (row[kFavoriteName] == kFavoriteType && row[kSqlitePrimaryKey] == 0) {
         shouldUpdate = true;
         break;
       }
@@ -534,15 +604,15 @@ class LocalFavoritesManager {
           CREATE TABLE "$tempName" AS SELECT * FROM "$table";
           DROP TABLE "$table";
           CREATE TABLE "$table" (
-            target TEXT,
-            name TEXT,
-            author TEXT,
-            type INT,
-            tags TEXT,
-            cover_path TEXT,
-            time TEXT,
-            display_order INT,
-            PRIMARY KEY (target, type)
+            $kFavoriteTarget TEXT,
+            $kFavoriteName TEXT,
+            $kFavoriteAuthor TEXT,
+            $kFavoriteType INT,
+            $kFavoriteTags TEXT,
+            $kFavoriteCoverPath TEXT,
+            $kFavoriteTime TEXT,
+            $kFavoriteDisplayOrder INT,
+            PRIMARY KEY ($kFavoriteTarget, $kFavoriteType)
           );
           INSERT INTO "$table" SELECT * FROM "$tempName";
           DROP TABLE "$tempName";
@@ -551,12 +621,46 @@ class LocalFavoritesManager {
     }
   }
 
-  void updateUI() {
-    _changeController.add(null);
-    Future.microtask(
-      () => StateController.findOrNull<FavoritesPageController>()?.update(),
-    );
+  /// 存储提交后通知订阅者，存储层不持有页面或控制器。
+  void notifyChanged([RepositoryChange<FavoriteIdentity>? change]) {
+    _changeController.add(change ?? RepositoryChange(foldersChanged: true));
   }
+
+  /// 在事务内完成一次写入，成功后合并通知和远端上传。
+  Future<T> _commit<T>(
+    Future<T> Function(Transaction txn) action,
+    RepositoryChange<FavoriteIdentity> change, {
+    FavoriteChangeBatch? batch,
+  }) async {
+    final db = await _getDatabase();
+    return _mutationLock.synchronized(() async {
+      final result = await db.transaction(action);
+      if (batch == null) {
+        _publish(change);
+      } else {
+        batch.add(change);
+      }
+      return result;
+    });
+  }
+
+  /// 成功提交后统一发布并请求一次上传。
+  void _publish(RepositoryChange<FavoriteIdentity> change) {
+    notifyChanged(change);
+    unawaited(saveData());
+  }
+
+  /// 为逐条更新任务创建独立的变更收集器。
+  FavoriteChangeBatch beginChangeBatch() => FavoriteChangeBatch(_publish);
+
+  /// 对 SQL 标识符进行转义，保持旧收藏夹名称可用。
+  String _table(String name) => '"${name.replaceAll('"', '""')}"';
+
+  /// 创建与旧数据库格式一致的收藏夹表。
+  Future<void> _createTable(DatabaseExecutor db, String name) => db.execute(
+    'CREATE TABLE ${_table(name)} ($kFavoriteTarget TEXT, $kFavoriteName TEXT, $kFavoriteAuthor TEXT, $kFavoriteType INT, '
+    '$kFavoriteTags TEXT, $kFavoriteCoverPath TEXT, $kFavoriteTime TEXT, $kFavoriteDisplayOrder INT, PRIMARY KEY ($kFavoriteTarget, $kFavoriteType))',
+  );
 
   Future<List<String>> find(String target, FavoriteType type) async {
     final db = await _getDatabase();
@@ -565,7 +669,7 @@ class LocalFavoritesManager {
     for (var folder in folderNames) {
       var rows = await db.query(
         folder,
-        where: 'target = ? AND type = ?',
+        where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
         whereArgs: [target, type.key],
       );
       if (rows.isNotEmpty) {
@@ -582,7 +686,7 @@ class LocalFavoritesManager {
     for (var folder in folderNames) {
       var rows = await db.query(
         folder,
-        where: 'target = ? AND type = ?',
+        where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
         whereArgs: [item.target, item.type.key],
       );
       if (rows.isNotEmpty) {
@@ -593,128 +697,135 @@ class LocalFavoritesManager {
   }
 
   Future<void> saveData() async {
-    Webdav.uploadData();
-  }
-
-  /// read data from json file or temp db.
-  ///
-  /// This function will delete current database, then create a new one, finally
-  /// import data.
-  Future<void> readData() async {
-    var file = File("${App.dataPath}/localFavorite");
-    if (file.existsSync()) {
-      Map<String, List<FavoriteItem>> allComics = {};
-      try {
-        var data =
-            (const JsonDecoder().convert(await file.readAsString()))
-                as Map<String, dynamic>;
-
-        for (var key in data.keys.toList()) {
-          Set<FavoriteItem> comics = {};
-          for (var comic in data[key]!) {
-            comics.add(FavoriteItem.fromJson(comic));
-          }
-          if (allComics.containsKey(key)) {
-            comics.addAll(allComics[key]!);
-          }
-          allComics[key] = comics.toList();
-        }
-
-        await clearAll();
-
-        for (var folder in allComics.keys) {
-          await createFolder(folder, true);
-          var comics = allComics[folder]!;
-          for (int i = 0; i < comics.length; i++) {
-            await addComic(folder, comics[i]);
-          }
-        }
-      } catch (e, s) {
-        Log.e("IO $e\n$s");
-      } finally {
-        file.deleteSync();
+    try {
+      if (_saveCallback != null) {
+        await _saveCallback();
+      } else {
+        await Webdav.uploadData();
       }
-    } else if ((file = File(
-      "${App.dataPath}/local_favorite_temp.db",
-    )).existsSync()) {
-      var tmpDbFactory = databaseFactoryFfi;
-      final tmpDb = await tmpDbFactory.openDatabase(file.path);
-
-      final folders = await tmpDb.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table';",
-      );
-      final folderNames = folders
-          .map((element) => element["name"] as String)
-          .toList();
-
-      folderNames.remove(kTableFolderSync);
-      folderNames.remove(kTableFolderOrder);
-      Log.i(
-        "LocalFavoritesManager.readData read folders from local database $folderNames",
-      );
-      var folderToOrder = <String, int>{};
-      for (var folder in folderNames) {
-        var res = await tmpDb.query(
-          kTableFolderOrder,
-          where: '$kFolderOrderName = ?',
-          whereArgs: [folder],
-        );
-        if (res.isNotEmpty) {
-          folderToOrder[folder] = res.first[kFolderOrderValue] as int;
-        } else {
-          folderToOrder[folder] = 0;
-        }
-      }
-      folderNames.sort((a, b) {
-        return folderToOrder[a]! - folderToOrder[b]!;
-      });
-      var res = <FavoriteItemWithFolderInfo>[];
-      for (final folder in folderNames) {
-        var comics = await tmpDb.query(folder);
-        Log.i(
-          "LocalFavoritesManager.readData read $folder gets ${comics.length} comics",
-        );
-        res.addAll(
-          comics.map(
-            (element) => FavoriteItemWithFolderInfo(
-              FavoriteItem.fromRow(element),
-              folder,
-            ),
-          ),
-        );
-      }
-      var skips = 0;
-      for (var comic in res) {
-        if (!folderNames.contains(comic.folder)) {
-          await createFolder(comic.folder);
-        }
-        if (!(await comicExists(
-          comic.folder,
-          comic.comic.target,
-          comic.comic.type.key,
-        ))) {
-          await addComic(comic.folder, comic.comic);
-          Log.i(
-            "LocalFavoritesManager add comic ${comic.comic.target} to ${comic.folder}",
-          );
-        } else {
-          skips++;
-        }
-      }
-      Log.i("LocalFavoritesManager skipped $skips comics, total ${res.length}");
-      await tmpDb.close();
-      file.deleteSync();
-    } else {
-      Log.i("LocalFavoritesManager no local favorites db file found");
+    } catch (error, stack) {
+      Log.e('收藏远端同步失败', error: error, stackTrace: stack);
     }
   }
 
-  Future<List<String>> _getTablesWithDB(Database db) async {
+  /// 完整读取旧 JSON 或临时数据库，在单个事务内导入。
+  /// 导入失败保留输入文件，避免重试前丢失备份。
+  Future<void> readData({String? legacyPath, String? temporaryPath}) async {
+    final legacy = File(legacyPath ?? '${App.dataPath}/localFavorite');
+    final temporary = File(
+      temporaryPath ?? '${App.dataPath}/local_favorite_temp.db',
+    );
+    final replacing = await legacy.exists();
+    if (!replacing && !await temporary.exists()) return;
+    final incoming = <String, List<FavoriteItem>>{};
+    final folderOrder = <String, int>{};
+    final syncs = <FolderSync>[];
+    if (replacing) {
+      final data =
+          jsonDecode(await legacy.readAsString()) as Map<String, dynamic>;
+      for (final entry in data.entries) {
+        incoming[entry.key] = (entry.value as List)
+            .map(
+              (value) => FavoriteItem.fromJson(
+                Map<String, dynamic>.from(value as Map),
+              ),
+            )
+            .toList();
+      }
+    } else {
+      final source = await databaseFactoryFfi.openDatabase(temporary.path);
+      try {
+        final tables = await _getTablesWithDB(source);
+        for (final table in tables) {
+          if (table == kTableFolderOrder) {
+            for (final row in await source.query(table)) {
+              folderOrder[row[kFolderOrderName] as String] =
+                  row[kFolderOrderValue] as int;
+            }
+          } else if (table == kTableFolderSync) {
+            syncs.addAll((await source.query(table)).map(FolderSync.fromMap));
+          } else {
+            incoming[table] = (await source.query(
+              table,
+              orderBy: kFavoriteDisplayOrder,
+            )).map(FavoriteItem.fromRow).toList();
+          }
+        }
+      } finally {
+        await source.close();
+      }
+    }
+    for (final name in incoming.keys) {
+      if (name.isEmpty ||
+          name == kTableFolderOrder ||
+          name == kTableFolderSync ||
+          name.startsWith('sqlite_')) {
+        throw ArgumentError('备份中包含无效收藏夹名称');
+      }
+    }
+    await _commit((txn) async {
+      final tables = (await _getTablesWithDB(txn)).toSet();
+      final existing = tables.difference({kTableFolderOrder, kTableFolderSync});
+      if (replacing) {
+        for (final folder in existing) {
+          await txn.execute('DROP TABLE ${_table(folder)}');
+        }
+        await txn.delete(kTableFolderOrder);
+        await txn.delete(kTableFolderSync);
+        existing.clear();
+      }
+      for (final entry in incoming.entries) {
+        final folder = entry.key;
+        final isNew = existing.add(folder);
+        if (isNew) await _createTable(txn, folder);
+        final old = await txn.query(
+          folder,
+          columns: [kFavoriteTarget, kFavoriteType, kFavoriteDisplayOrder],
+        );
+        final identities = old
+            .map(
+              (row) => (
+                type: row[kFavoriteType] as int,
+                target: row[kFavoriteTarget] as String,
+              ),
+            )
+            .toSet();
+        var order = old.fold<int>(0, (value, row) {
+          final position = row[kFavoriteDisplayOrder] as int? ?? 0;
+          return value > position ? value : position;
+        });
+        for (final item in entry.value) {
+          if (!identities.add(item.identity)) continue;
+          await txn.insert(folder, {
+            ...item.toRow(),
+            kFavoriteDisplayOrder: ++order,
+          });
+        }
+        if (isNew && folderOrder.containsKey(folder)) {
+          await txn.insert(kTableFolderOrder, {
+            kFolderOrderName: folder,
+            kFolderOrderValue: folderOrder[folder],
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+      }
+      for (final sync in syncs) {
+        if (!existing.contains(sync.folderName)) continue;
+        await txn.insert(
+          kTableFolderSync,
+          sync.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }, RepositoryChange(foldersChanged: true));
+    await (replacing ? legacy : temporary).delete();
+  }
+
+  Future<List<String>> _getTablesWithDB(DatabaseExecutor db) async {
     final tablesResult = await db.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table';",
+      "SELECT $kSqliteMasterName FROM $kSqliteMasterTable WHERE $kSqliteMasterType='table' AND $kSqliteMasterName NOT LIKE 'sqlite_%';",
     );
     final tables = tablesResult
-        .map((element) => element["name"] as String)
+        .map((element) => element[kFavoriteName] as String)
         .toList();
     return tables;
   }
@@ -743,16 +854,15 @@ class LocalFavoritesManager {
     return folders;
   }
 
-  Future<void> updateOrder(Map<String, int> order) async {
-    final db = await _getDatabase();
-    for (var folder in order.keys) {
-      await db.insert(kTableFolderOrder, {
-        kFolderOrderName: folder,
-        kFolderOrderValue: order[folder],
+  /// 原子保存收藏夹顺序。
+  Future<void> updateOrder(Map<String, int> order) => _commit((txn) async {
+    for (final entry in order.entries) {
+      await txn.insert(kTableFolderOrder, {
+        kFolderOrderName: entry.key,
+        kFolderOrderValue: entry.value,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    updateUI();
-  }
+  }, RepositoryChange(foldersChanged: true));
 
   Future<List<FolderSync>> _getFolderSyncWithDB() async {
     final db = await _getDatabase();
@@ -760,31 +870,32 @@ class LocalFavoritesManager {
     return result.map((element) => FolderSync.fromMap(element)).toList();
   }
 
-  void updateFolderSyncTime(FolderSync folderSync) async {
-    final db = await _getDatabase();
-    await db.update(
+  /// 修改同步时间。
+  Future<void> updateFolderSyncTime(FolderSync sync) => _commit((txn) async {
+    await txn.update(
       kTableFolderSync,
-      {kFolderSyncTime: folderSync.time},
+      {kFolderSyncTime: sync.time},
       where: '$kFolderSyncName = ?',
-      whereArgs: [folderSync.folderName],
+      whereArgs: [sync.folderName],
     );
-  }
+  }, RepositoryChange(keys: {}, folders: {sync.folderName}));
 
-  void insertFolderSync(FolderSync folderSync) async {
-    final db = await _getDatabase();
-    await db.insert(kTableFolderSync, {
-      kFolderSyncName: folderSync.folderName,
-      kFolderSyncTime: folderSync.time,
-      kFolderSyncKey: folderSync.key,
-      kFolderSyncData: folderSync.syncData,
-    });
-  }
+  /// 保存收藏夹同步配置。
+  Future<void> insertFolderSync(FolderSync sync) => _commit((txn) async {
+    await txn.insert(
+      kTableFolderSync,
+      sync.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }, RepositoryChange(keys: {}, folders: {sync.folderName}));
 
   Future<int> count(String folderName) async {
     await init();
     final db = await _getDatabase();
-    final result = await db.rawQuery('SELECT COUNT(*) as c FROM "$folderName"');
-    return result.first["c"] as int;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as $kFavoriteCount FROM "$folderName"',
+    );
+    return result.first[kFavoriteCount] as int;
   }
 
   Future<List<String>> get folderNames async {
@@ -799,48 +910,37 @@ class LocalFavoritesManager {
   Future<int> maxValue(String folder) async {
     final db = await _getDatabase();
     final result = await db.rawQuery(
-      'SELECT MAX(display_order) AS max_value FROM "$folder"',
+      'SELECT MAX($kFavoriteDisplayOrder) AS $kFavoriteMaximumOrder FROM "$folder"',
     );
-    return result.firstOrNull?["max_value"] as int? ?? 0;
+    return result.firstOrNull?[kFavoriteMaximumOrder] as int? ?? 0;
   }
 
   Future<int> minValue(String folder) async {
     final db = await _getDatabase();
     final result = await db.rawQuery(
-      'SELECT MIN(display_order) AS min_value FROM "$folder"',
+      'SELECT MIN($kFavoriteDisplayOrder) AS $kFavoriteMinimumOrder FROM "$folder"',
     );
-    return result.firstOrNull?["min_value"] as int? ?? 0;
+    return result.firstOrNull?[kFavoriteMinimumOrder] as int? ?? 0;
   }
 
   Future<List<FavoriteItem>> getAllComics(String folder) async {
     await init();
     final db = await _getDatabase();
-    var rows = await db.query(folder, orderBy: 'display_order');
-    return rows.map((element) => FavoriteItem.fromRow(element)).toList();
+    var rows = await db.query(folder, orderBy: kFavoriteDisplayOrder);
+    return List.unmodifiable(rows.map(FavoriteItem.fromRow));
   }
 
-  void addTagTo(String folder, String target, String tag) async {
-    final db = await _getDatabase();
-    // 先获取现有标签
-    final result = await db.query(
-      folder,
-      columns: ['tags'],
-      where: 'target = ?',
-      whereArgs: [target],
-    );
-
-    if (result.isNotEmpty) {
-      final existingTags = result.first['tags'] as String;
-      final newTags = '$tag,$existingTags';
-
-      await db.update(
-        folder,
-        {'tags': newTags},
-        where: 'target = ?',
-        whereArgs: [target],
-      );
-      saveData();
-    }
+  /// 为指定作品添加标签，身份同时包含漫画源。
+  Future<void> addTagTo(
+    String folder,
+    String target,
+    String tag,
+    FavoriteType type, {
+    FavoriteChangeBatch? batch,
+  }) async {
+    final comic = await getComic(folder, target, type);
+    if (!comic.tags.contains(tag))
+      await editTags(target, folder, [tag, ...comic.tags], type, batch: batch);
   }
 
   Future<List<FavoriteItemWithFolderInfo>> allComics() async {
@@ -859,58 +959,40 @@ class LocalFavoritesManager {
   }
 
   /// create a folder
+  /// 创建收藏夹；导入时允许为冲突名称添加后缀。
   Future<String> createFolder(
     String name, [
     bool renameWhenInvalidName = false,
   ]) async {
-    if (name.isEmpty) {
-      if (renameWhenInvalidName) {
-        int i = 0;
-        while ((await folderNames).contains(i.toString())) {
-          i++;
-        }
-        name = i.toString();
-      } else {
-        throw "name is empty!";
-      }
+    if (name.isEmpty && !renameWhenInvalidName)
+      throw ArgumentError('收藏夹名称不能为空');
+    if (name == kTableFolderSync ||
+        name == kTableFolderOrder ||
+        name.startsWith('sqlite_')) {
+      throw ArgumentError('收藏夹名称不可用');
     }
-    if ((await folderNames).contains(name)) {
-      if (renameWhenInvalidName) {
-        var prevName = name;
-        int i = 0;
-        while ((await folderNames).contains(i.toString())) {
-          i++;
-        }
-        name = prevName + i.toString();
-      } else {
-        throw Exception("Folder is existing");
+    return _commit((txn) async {
+      var actual = name.isEmpty ? '0' : name;
+      var suffix = 0;
+      while ((await txn.query(
+        kSqliteMasterTable,
+        columns: [kFavoriteName],
+        where: '$kFavoriteName = ?',
+        whereArgs: [actual],
+      )).isNotEmpty) {
+        if (!renameWhenInvalidName) throw StateError('收藏夹已存在');
+        actual = '$name${suffix++}';
       }
-    }
-
-    final db = await _getDatabase();
-    await db.execute('''
-      CREATE TABLE "$name"(
-        target TEXT,
-        name TEXT,
-        author TEXT,
-        type INT,
-        tags TEXT,
-        cover_path TEXT,
-        time TEXT,
-        display_order INT,
-        PRIMARY KEY (target, type)
-      )
-    ''');
-    updateUI();
-    saveData();
-    return name;
+      await _createTable(txn, actual);
+      return actual;
+    }, RepositoryChange(foldersChanged: true));
   }
 
   Future<bool> comicExists(String folder, String target, int type) async {
     final db = await _getDatabase();
     var res = await db.query(
       folder,
-      where: 'target = ? AND type = ?',
+      where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
       whereArgs: [target, type],
     );
     return res.isNotEmpty;
@@ -924,7 +1006,7 @@ class LocalFavoritesManager {
     final db = await _getDatabase();
     var res = await db.query(
       folder,
-      where: 'target = ? AND type = ?',
+      where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
       whereArgs: [target, type.key],
     );
     if (res.isEmpty) {
@@ -936,67 +1018,42 @@ class LocalFavoritesManager {
   /// add comic to a folder
   ///
   /// This method will download cover to local, to avoid problems like changing url
+  /// 添加作品，保存成功后才更新订阅者。
   Future<void> addComic(
     String folder,
     FavoriteItem comic, [
     int? order,
     DownloadManager? manager,
   ]) async {
-    _modifiedAfterLastCache = true;
-    if (!(await folderNames).contains(folder)) {
-      throw Exception("Folder does not exists");
-    }
-
-    final db = await _getDatabase();
-    var res = await db.query(
-      folder,
-      where: 'target = ?',
-      whereArgs: [comic.target],
-    );
-    if (res.isNotEmpty) {
-      return;
-    }
-
-    int displayOrder;
-    if (order != null) {
-      displayOrder = order;
-    } else if (appdata.getSetting(AppSettingKeys.localFavoriteInsertPosition) ==
-        "0") {
-      displayOrder = (await maxValue(folder)) + 1;
-    } else {
-      displayOrder = (await minValue(folder)) - 1;
-    }
-
-    await db.insert(folder, {
-      'target': comic.target,
-      'name': comic.name,
-      'author': comic.author,
-      'type': comic.type.key,
-      'tags': comic.tags.join(','),
-      'cover_path': comic.coverPath,
-      'time': comic.time,
-      'display_order': displayOrder,
-    });
-
-    updateUI();
-    saveData();
-    if (manager == null) return;
-    try {
-      var file = (await (ImageManager(
-        manager,
-      ).getImage(comic.coverPath)).last).getFile();
-      var path =
-          "${(await getApplicationSupportDirectory()).path}${pathSep}favoritesCover";
-      var directory = Directory(path);
-      if (!directory.existsSync()) {
-        directory.createSync();
-      }
-      var hash = md5
-          .convert(const Utf8Encoder().convert(comic.coverPath))
-          .toString();
-      file.copySync("$path$pathSep$hash.jpg");
-    } catch (e) {
-      //忽略
+    await _commit((txn) async {
+      final atEnd =
+          _settings.snapshot().value(
+            AppSettingKeys.localFavoriteInsertPosition,
+          ) ==
+          '0';
+      final aggregate = atEnd ? 'MAX' : 'MIN';
+      final rows = await txn.rawQuery(
+        'SELECT $aggregate($kFavoriteDisplayOrder) AS $kFavoriteAggregate FROM ${_table(folder)}',
+      );
+      final edge = rows.first[kFavoriteAggregate] as int? ?? 0;
+      await txn.insert(folder, {
+        ...comic.toRow(),
+        kFavoriteDisplayOrder: order ?? edge + (atEnd ? 1 : -1),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }, RepositoryChange(keys: {comic.identity}, folders: {folder}));
+    if (manager != null) {
+      unawaited(
+        getCover(
+          comic,
+          manager: manager,
+          loadDownloadedCover: manager.getCover,
+        ).then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            Log.w('收藏封面准备失败', error: error, stackTrace: stack);
+          },
+        ),
+      );
     }
   }
 
@@ -1005,6 +1062,7 @@ class LocalFavoritesManager {
     FavoriteItem item, {
     required DownloadManager manager,
     required Future<File> Function(String id) loadDownloadedCover,
+    String ehCookie = '',
   }) async {
     var path = "${App.dataPath}/favoritesCover";
     var hash = md5
@@ -1023,12 +1081,8 @@ class LocalFavoritesManager {
       return file;
     }
     try {
-      if (appComicSourceServices.ehentai.cookiesStr == "") {
-        await appComicSourceServices.ehentai.getCookies(false);
-      }
       var res = await (ImageManager(manager).getImage(item.coverPath, {
-        if (item.type == FavoriteType.ehentai)
-          "cookie": appComicSourceServices.ehentai.cookiesStr,
+        if (item.type == FavoriteType.ehentai) "cookie": ehCookie,
         if (item.type == FavoriteType.hitomi) "Referer": "https://hitomi.la/",
       }).last);
       file.createSync(recursive: true);
@@ -1041,153 +1095,329 @@ class LocalFavoritesManager {
   }
 
   /// delete a folder
-  Future<void> deleteFolder(String name) async {
-    _modifiedAfterLastCache = true;
-    final db = await _getDatabase();
-    await db.delete(
-      kTableFolderSync,
-      where: '$kFolderSyncName = ?',
-      whereArgs: [name],
-    );
-    await db.execute('DROP TABLE "$name"');
-    updateUI();
+  /// 删除收藏夹及其排序、同步元数据。
+  Future<void> deleteFolder(String name) => _commit(
+    (txn) async {
+      await txn.delete(
+        kTableFolderSync,
+        where: '$kFolderSyncName = ?',
+        whereArgs: [name],
+      );
+      await txn.delete(
+        kTableFolderOrder,
+        where: '$kFolderOrderName = ?',
+        whereArgs: [name],
+      );
+      await txn.execute('DROP TABLE ${_table(name)}');
+    },
+    RepositoryChange(folders: {name}, foldersChanged: true, previousName: name),
+  );
+
+  /// 在没有引用后清理作品封面。
+  Future<void> checkAndDeleteCover(FavoriteItem item) async {
+    if ((await find(item.target, item.type)).isNotEmpty) return;
+    final hash = md5.convert(utf8.encode(item.coverPath)).toString();
+    final file = File('${App.dataPath}/favoritesCover/$hash.jpg');
+    if (await file.exists()) await file.delete();
   }
 
-  void checkAndDeleteCover(FavoriteItem item) async {
-    if ((await find(item.target, item.type)).isEmpty) {
-      final hash = md5
-          .convert(const Utf8Encoder().convert(item.coverPath))
-          .toString();
-      final file = File('${App.dataPath}/favoritesCover/$hash.jpg');
-      if (file.existsSync()) file.deleteSync();
+  /// 删除单个收藏，封面清理失败不撤销已提交的删除。
+  Future<void> deleteComic(String folder, FavoriteItem comic) async {
+    await deleteComicWithTarget(folder, comic.target, comic.type);
+    try {
+      await checkAndDeleteCover(comic);
+    } catch (error, stack) {
+      Log.w('收藏封面清理失败', error: error, stackTrace: stack);
     }
   }
 
-  void deleteComic(String folder, FavoriteItem comic) {
-    _modifiedAfterLastCache = true;
-    deleteComicWithTarget(folder, comic.target, comic.type);
-    checkAndDeleteCover(comic);
-  }
-
+  /// 按作品身份删除收藏。
   Future<void> deleteComicWithTarget(
     String folder,
     String target,
     FavoriteType type,
-  ) async {
-    _modifiedAfterLastCache = true;
-    final db = await _getDatabase();
-    await db.delete(
-      folder,
-      where: 'target = ? AND type = ?',
-      whereArgs: [target, type.key],
-    );
-    updateUI();
-    saveData();
-  }
-
-  Future<void> clearAll() async {
-    final db = await _getDatabase();
-    final tables = await _getTablesWithDB(db);
-    for (final table in tables) {
-      if (table == kTableFolderSync || table == kTableFolderOrder) {
-        continue;
-      }
-      await db.execute('DROP TABLE IF EXISTS "$table"');
-    }
-    await db.delete(kTableFolderSync);
-    await db.delete(kTableFolderOrder);
-    await _onCreate(db, 1);
-    _cachedFavoritedTargets.clear();
-    _modifiedAfterLastCache = true;
-    updateUI();
-    saveData();
-  }
-
-  Future<void> reorder(List<FavoriteItem> newFolder, String folder) async {
-    if (!(await folderNames).contains(folder)) {
-      throw Exception("Failed to reorder: folder not found");
-    }
-    await deleteFolder(folder);
-    await createFolder(folder);
-    for (int i = 0; i < newFolder.length; i++) {
-      await addComic(folder, newFolder[i], i);
-    }
-    updateUI();
-  }
-
-  Future<void> rename(String before, String after) async {
-    if ((await folderNames).contains(after)) {
-      throw "Name already exists!";
-    }
-    if (after.contains('"')) {
-      throw "Invalid name";
-    }
-
-    final db = await _getDatabase();
-    await db.execute('ALTER TABLE "$before" RENAME TO "$after"');
-
-    if ((await folderSync).isNotEmpty) {
-      await db.update(
-        kTableFolderSync,
-        {kFolderSyncName: after},
-        where: '$kFolderSyncName = ?',
-        whereArgs: [before],
-      );
-    }
-    updateUI();
-    saveData();
-  }
-
-  void onReadEnd(String target, FavoriteType type) async {
-    _modifiedAfterLastCache = true;
-    bool isModified = false;
-    final db = await _getDatabase();
-    for (final folder in await folderNames) {
-      var rows = await db.query(
+  ) => _commit(
+    (txn) async {
+      await txn.delete(
         folder,
-        where: 'target = ? AND type = ?',
+        where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
         whereArgs: [target, type.key],
       );
-      if (rows.isNotEmpty) {
-        isModified = true;
-        var newTime = DateTime.now()
-            .toIso8601String()
-            .replaceFirst("T", " ")
-            .substring(0, 19);
+    },
+    RepositoryChange(
+      keys: {(type: type.key, target: target)},
+      folders: {folder},
+      removed: true,
+    ),
+  );
 
-        Map<String, dynamic> updates = {'time': newTime};
-        if (appdata.getSetting(AppSettingKeys.localFavoriteMoveAfterReading) ==
-            "1") {
-          int maxValue = await this.maxValue(folder);
-          updates['display_order'] = maxValue + 1;
-        } else if (appdata.getSetting(
-              AppSettingKeys.localFavoriteMoveAfterReading,
-            ) ==
-            "2") {
-          int minValue = await this.minValue(folder);
-          updates['display_order'] = minValue - 1;
+  /// 原子批量删除选中的收藏。
+  Future<void> deleteComics(String folder, List<FavoriteItem> comics) =>
+      _commit(
+        (txn) async {
+          for (final comic in comics) {
+            await txn.delete(
+              folder,
+              where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+              whereArgs: [comic.target, comic.type.key],
+            );
+          }
+        },
+        RepositoryChange(
+          keys: comics.map((e) => e.identity).toSet(),
+          folders: {folder},
+          removed: true,
+        ),
+      );
+
+  /// 清空收藏及元数据，保留数据库结构版本。
+  Future<void> clearAll() async {
+    await _commit((txn) async {
+      final tables = await _getTablesWithDB(txn);
+      for (final table in tables) {
+        if (table != kTableFolderSync && table != kTableFolderOrder) {
+          await txn.execute('DROP TABLE IF EXISTS ${_table(table)}');
         }
-
-        await db.update(
-          folder,
-          updates,
-          where: 'target = ?',
-          whereArgs: [target],
-        );
       }
-    }
-    if (isModified) {
-      updateUI();
-    }
-    saveData();
+      await txn.delete(kTableFolderSync);
+      await txn.delete(kTableFolderOrder);
+    }, RepositoryChange(foldersChanged: true));
   }
+
+  /// 在现有表内调整排序，保留同步配置与并发新增的作品。
+  Future<void> reorder(List<FavoriteItem> requested, String folder) =>
+      _commit((txn) async {
+        final rows = await txn.query(folder, orderBy: kFavoriteDisplayOrder);
+        final current = rows.map(FavoriteItem.fromRow).toList();
+        final existing = current.map((e) => e.identity).toSet();
+        final seen = <FavoriteIdentity>{};
+        final merged = [
+          ...requested,
+          ...current,
+        ].where((e) => existing.contains(e.identity) && seen.add(e.identity));
+        var order = 0;
+        for (final item in merged) {
+          await txn.update(
+            folder,
+            {kFavoriteDisplayOrder: order++},
+            where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+            whereArgs: [item.target, item.type.key],
+          );
+        }
+      }, RepositoryChange(keys: {}, folders: {folder}));
+
+  /// 重命名收藏夹，并同时迁移排序和同步元数据。
+  Future<void> rename(String before, String after) async {
+    if (after.isEmpty ||
+        after == kTableFolderSync ||
+        after == kTableFolderOrder ||
+        after.startsWith('sqlite_')) {
+      throw ArgumentError('收藏夹名称不可用');
+    }
+    await _commit(
+      (txn) async {
+        await txn.execute(
+          'ALTER TABLE ${_table(before)} RENAME TO ${_table(after)}',
+        );
+        await txn.update(
+          kTableFolderSync,
+          {kFolderSyncName: after},
+          where: '$kFolderSyncName = ?',
+          whereArgs: [before],
+        );
+        await txn.update(
+          kTableFolderOrder,
+          {kFolderOrderName: after},
+          where: '$kFolderOrderName = ?',
+          whereArgs: [before],
+        );
+      },
+      RepositoryChange(
+        folders: {before, after},
+        foldersChanged: true,
+        previousName: before,
+        currentName: after,
+      ),
+    );
+  }
+
+  /// 阅读结束时更新时间和用户配置的排序位置。
+  Future<void> onReadEnd(String target, FavoriteType type) async {
+    final folders = await find(target, type);
+    if (folders.isEmpty) return;
+    final behavior = _settings.snapshot().value(
+      AppSettingKeys.localFavoriteMoveAfterReading,
+    );
+    await _commit(
+      (txn) async {
+        for (final folder in folders) {
+          final updates = <String, Object?>{kFavoriteTime: getCurTime()};
+          if (behavior == '1' || behavior == '2') {
+            final aggregate = behavior == '1' ? 'MAX' : 'MIN';
+            final rows = await txn.rawQuery(
+              'SELECT $aggregate($kFavoriteDisplayOrder) AS $kFavoriteAggregate FROM ${_table(folder)}',
+            );
+            updates[kFavoriteDisplayOrder] =
+                (rows.first[kFavoriteAggregate] as int? ?? 0) +
+                (behavior == '1' ? 1 : -1);
+          }
+          await txn.update(
+            folder,
+            updates,
+            where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+            whereArgs: [target, type.key],
+          );
+        }
+      },
+      RepositoryChange(
+        keys: {(type: type.key, target: target)},
+        folders: folders.toSet(),
+      ),
+    );
+  }
+
+  /// 完整抓取成功后一次性提交导入或同步，不产生部分写入。
+  Future<(String, int)> importFavorites(
+    String folder,
+    List<FavoriteItem> comics, {
+    bool create = false,
+    FolderSync? sync,
+  }) async {
+    var actual = folder;
+    final result = await _commit(
+      (txn) async {
+        if (create) {
+          if (actual.isEmpty) actual = '收藏';
+          if (actual == kTableFolderSync ||
+              actual == kTableFolderOrder ||
+              actual.startsWith('sqlite_')) {
+            throw ArgumentError('收藏夹名称不可用');
+          }
+          var suffix = 0;
+          while ((await txn.query(
+            kSqliteMasterTable,
+            columns: [kFavoriteName],
+            where: '$kFavoriteName = ?',
+            whereArgs: [actual],
+          )).isNotEmpty) {
+            actual = '$folder${suffix++}';
+          }
+          await _createTable(txn, actual);
+        }
+        final old = await txn.query(
+          actual,
+          columns: [kFavoriteTarget, kFavoriteType, kFavoriteDisplayOrder],
+        );
+        final identities = old
+            .map(
+              (e) => (
+                type: e[kFavoriteType] as int,
+                target: e[kFavoriteTarget] as String,
+              ),
+            )
+            .toSet();
+        final additions = comics
+            .where((e) => identities.add(e.identity))
+            .toList();
+        var minOrder = 0;
+        for (final row in old) {
+          final order = row[kFavoriteDisplayOrder] as int? ?? 0;
+          if (order < minOrder) minOrder = order;
+        }
+        var order = create ? 0 : minOrder - additions.length;
+        for (final item in additions) {
+          await txn.insert(actual, {
+            ...item.toRow(),
+            kFavoriteDisplayOrder: order++,
+          });
+        }
+        if (sync != null) {
+          await txn.insert(
+            kTableFolderSync,
+            sync.copyWith(folderName: actual, time: getCurTime()).toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        return (actual, additions.length);
+      },
+      RepositoryChange(foldersChanged: create, folders: create ? {} : {folder}),
+    );
+    return result;
+  }
+
+  /// 添加或取消同一作品的多个收藏夹归属，失败整体回滚。
+  Future<void> setMembership(
+    List<String> folders,
+    FavoriteItem item, {
+    required bool adding,
+  }) => _commit(
+    (txn) async {
+      final atEnd =
+          _settings.snapshot().value(
+            AppSettingKeys.localFavoriteInsertPosition,
+          ) ==
+          '0';
+      for (final folder in folders.toSet()) {
+        if (!adding) {
+          await txn.delete(
+            folder,
+            where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+            whereArgs: [item.target, item.type.key],
+          );
+        } else {
+          final aggregate = atEnd ? 'MAX' : 'MIN';
+          final rows = await txn.rawQuery(
+            'SELECT $aggregate($kFavoriteDisplayOrder) AS $kFavoriteAggregate FROM ${_table(folder)}',
+          );
+          final order =
+              (rows.first[kFavoriteAggregate] as int? ?? 0) + (atEnd ? 1 : -1);
+          await txn.insert(folder, {
+            ...item.toRow(),
+            kFavoriteDisplayOrder: order,
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+      }
+    },
+    RepositoryChange(
+      keys: {item.identity},
+      folders: folders.toSet(),
+      removed: !adding,
+    ),
+  );
+
+  /// 将作品按当前插入设置复制到目标收藏夹。
+  Future<void> copyComics(String folder, List<FavoriteItem> comics) => _commit(
+    (txn) async {
+      final atEnd =
+          _settings.snapshot().value(
+            AppSettingKeys.localFavoriteInsertPosition,
+          ) ==
+          '0';
+      final aggregate = atEnd ? 'MAX' : 'MIN';
+      final rows = await txn.rawQuery(
+        'SELECT $aggregate($kFavoriteDisplayOrder) AS $kFavoriteAggregate FROM ${_table(folder)}',
+      );
+      var order = rows.first[kFavoriteAggregate] as int? ?? 0;
+      for (final item in comics) {
+        order += atEnd ? 1 : -1;
+        await txn.insert(folder, {
+          ...item.toRow(),
+          kFavoriteDisplayOrder: order,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    },
+    RepositoryChange(
+      keys: comics.map((e) => e.identity).toSet(),
+      folders: {folder},
+    ),
+  );
 
   Future<String> folderToJsonString(String folderName) async {
     final db = await _getDatabase();
     var data = <String, dynamic>{};
     data["info"] = "Generated by PicaComic.";
     data["website"] = "https://github.com/Pacalini/PicaComic";
-    data["name"] = folderName;
+    data[kFavoriteName] = folderName;
     var comics = await db.query(folderName);
     data["comics"] = comics
         .map((e) => FavoriteItem.fromRow(e).toJson())
@@ -1195,25 +1425,24 @@ class LocalFavoritesManager {
     return const JsonEncoder().convert(data);
   }
 
+  /// 导入收藏夹 JSON，验证完整数据后才提交。
   Future<(bool, String)> loadFolderData(String dataString) async {
     try {
-      var data =
-          const JsonDecoder().convert(dataString) as Map<String, dynamic>;
-      final name_ = data["name"] as String;
-      var name = name_;
-      int i = 0;
-      while ((await folderNames).contains(name)) {
-        name = name_ + i.toString();
-        i++;
-      }
-      await createFolder(name);
-      for (var json in data["comics"]) {
-        addComic(name, FavoriteItem.fromJson(json));
-      }
-      return (false, "");
-    } catch (e, s) {
-      Log.e("IO Failed to load data.\n$e\n$s");
-      return (true, e.toString());
+      final data = jsonDecode(dataString) as Map<String, dynamic>;
+      final comics = (data['comics'] as List)
+          .map(
+            (e) => FavoriteItem.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList();
+      await importFavorites(
+        data[kFavoriteName] as String,
+        comics,
+        create: true,
+      );
+      return (false, '');
+    } catch (error, stack) {
+      Log.e('导入收藏夹失败', error: error, stackTrace: stack);
+      return (true, error.toString());
     }
   }
 
@@ -1226,7 +1455,8 @@ class LocalFavoritesManager {
       var searchTerm = '%$keyword%';
       var res = await db.query(
         table,
-        where: 'name LIKE ? OR author LIKE ? OR tags LIKE ?',
+        where:
+            '$kFavoriteName LIKE ? OR $kFavoriteAuthor LIKE ? OR $kFavoriteTags LIKE ?',
         whereArgs: [searchTerm, searchTerm, searchTerm],
       );
       for (var comic in res) {
@@ -1259,51 +1489,71 @@ class LocalFavoritesManager {
     return comics;
   }
 
-  void editTags(String target, String folder, List<String> tags) async {
+  /// 更新作品标签，完成后刷新所有相关视图。
+  Future<void> editTags(
+    String target,
+    String folder,
+    List<String> tags,
+    FavoriteType type, {
+    FavoriteChangeBatch? batch,
+  }) => _commit(
+    (txn) async {
+      await txn.update(
+        folder,
+        {kFavoriteTags: tags.join(',')},
+        where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+        whereArgs: [target, type.key],
+      );
+    },
+    RepositoryChange(
+      keys: {(type: type.key, target: target)},
+      folders: {folder},
+    ),
+    batch: batch,
+  );
+
+  /// 仅加载收藏身份，用于卡片徽标，不读取所有展示字段。
+  Future<Set<FavoriteIdentity>> identities() async {
+    await init();
     final db = await _getDatabase();
-    await db.update(
-      folder,
-      {'tags': tags.join(',')},
-      where: 'target = ?',
-      whereArgs: [target],
-    );
-  }
-
-  final _cachedFavoritedTargets = <String, bool>{};
-
-  bool isExist(String target) {
-    if (_modifiedAfterLastCache) {
-      _cacheFavoritedTargets();
+    final result = <FavoriteIdentity>{};
+    for (final folder in await folderNames) {
+      final rows = await db.query(
+        folder,
+        columns: [kFavoriteTarget, kFavoriteType],
+      );
+      result.addAll(
+        rows.map(
+          (e) => (
+            type: e[kFavoriteType] as int,
+            target: e[kFavoriteTarget] as String,
+          ),
+        ),
+      );
     }
-    return _cachedFavoritedTargets.containsKey(target);
+    return Set.unmodifiable(result);
   }
 
-  bool _modifiedAfterLastCache = true;
-
-  void _cacheFavoritedTargets() async {
-    _modifiedAfterLastCache = false;
-    _cachedFavoritedTargets.clear();
-    final db = await _getDatabase();
-    for (var folder in await folderNames) {
-      var res = await db.query(folder, columns: ['target']);
-      for (var row in res) {
-        _cachedFavoritedTargets[row["target"] as String] = true;
-      }
-    }
-  }
-
-  void updateInfo(String folder, FavoriteItem comic) async {
-    final db = await _getDatabase();
-    await db.update(
-      folder,
-      {
-        'name': comic.name,
-        'author': comic.author,
-        'cover_path': comic.coverPath,
-        'tags': comic.tags.join(','),
-      },
-      where: 'target = ? AND type = ?',
-      whereArgs: [comic.target, comic.type.key],
-    );
-  }
+  /// 保存作品的最新元数据。
+  Future<void> updateInfo(
+    String folder,
+    FavoriteItem comic, {
+    FavoriteChangeBatch? batch,
+  }) => _commit(
+    (txn) async {
+      await txn.update(
+        folder,
+        {
+          kFavoriteName: comic.name,
+          kFavoriteAuthor: comic.author,
+          kFavoriteCoverPath: comic.coverPath,
+          kFavoriteTags: comic.tags.join(','),
+        },
+        where: '$kFavoriteTarget = ? AND $kFavoriteType = ?',
+        whereArgs: [comic.target, comic.type.key],
+      );
+    },
+    RepositoryChange(keys: {comic.identity}, folders: {folder}),
+    batch: batch,
+  );
 }

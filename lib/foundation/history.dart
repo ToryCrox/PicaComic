@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/log.dart';
@@ -11,7 +10,8 @@ import 'package:pica_comic/tools/map_extension.dart';
 import 'package:pica_comic/tools/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:synchronized/synchronized.dart';
-import 'package:signals/signals.dart';
+import 'batch_lookup.dart';
+import 'repository_change.dart';
 
 // 表名常量
 const String kTableHistory = 'history';
@@ -113,7 +113,7 @@ final class HistoryRecord {
   final String? chapterId;
   final Set<String> readChapterIds;
 
-  const HistoryRecord({
+  HistoryRecord({
     required this.type,
     required this.time,
     required this.title,
@@ -122,11 +122,12 @@ final class HistoryRecord {
     required this.ep,
     required this.page,
     required this.target,
-    this.readEpisode = const {},
+    Set<int> readEpisode = const {},
     this.maxPage,
     this.chapterId,
-    this.readChapterIds = const {},
-  });
+    Set<String> readChapterIds = const {},
+  }) : readEpisode = Set.unmodifiable(readEpisode),
+       readChapterIds = Set.unmodifiable(readChapterIds);
 
   HistoryRecord copyWith({
     HistoryType? type,
@@ -396,7 +397,7 @@ base class History extends LinkedListEntry<History> {
       return history;
     }
     history = History.fromModel(model: model, ep: ep, page: page);
-    HistoryManager().addHistory(history);
+    await HistoryManager().addHistory(history);
     return history;
   }
 
@@ -408,7 +409,7 @@ base class History extends LinkedListEntry<History> {
       return history;
     }
     history = History.fromModel(model: model, ep: 0, page: 0);
-    HistoryManager().addHistory(history);
+    await HistoryManager().addHistory(history);
     return history;
   }
 }
@@ -425,13 +426,16 @@ class HistoryManager {
   Future<void>? _initializationFuture;
   final Lock _lock = Lock();
   final Completer<Database> _initCompleter = Completer<Database>();
-  final StreamController<void> _changeController =
-      StreamController<void>.broadcast();
+  final _changeController =
+      StreamController<RepositoryChange<String>>.broadcast();
+  final Lock _writeLock = Lock();
 
   /// 历史记录发生变化时通知功能 Provider 刷新派生数据。
-  Stream<void> get changes => _changeController.stream;
+  Stream<RepositoryChange<String>> get changes => _changeController.stream;
 
-  void _notifyChanged() => _changeController.add(null);
+  void _notifyChanged([String? target]) => _changeController.add(
+    RepositoryChange(keys: target == null ? null : {target}),
+  );
 
   Future<Database> get db async {
     final db = _db;
@@ -447,52 +451,50 @@ class HistoryManager {
   // 数据库版本号
   static const int _databaseVersion = 2;
 
-  /// 缓存已查明进度的历史详情
-  /// Key: target, Value: 单个被 Signal 包裹的历史信息
-  /// 这样可以确保当一个漫画的历史更新时，只有监听这个特定 target 的组件才会重建
-  final Map<String, Signal<History?>> historyCache = {};
+  late final _lookup = BatchLookup<String, HistoryRecord>(_loadRecords);
 
-  /// 待查询的 target 队列
-  final Set<String> _pendingTargets = {};
-  bool _isBatchQueryPending = false;
+  /// 清理查询缓存，适用于重新导入和测试隔离。
+  void clearCache() => _lookup.clear();
 
-  Future<void> tryUpdateDb() async {
-    var file = File("${App.dataPath}/history_temp.db");
-    if (!file.existsSync()) {
-      Log.i("HistoryManager.tryUpdateDb db file not exist");
-      return;
-    }
-
-    // 使用 sqflite_common_ffi 替代 sqlite3
-    var db = await databaseFactoryFfi.openDatabase(file.path);
-
-    // 查询历史记录
-    var newHistory0 = await db.query(
-      kTableHistory,
-      orderBy: '$kHistoryTime DESC',
-    );
-    var newHistory = newHistory0
-        .map((element) => History.fromRow(element))
-        .toList();
-
-    if (file.existsSync()) {
-      var skips = 0;
-      for (var history in newHistory) {
-        if (await findSync(history.target) == null) {
-          addHistory(history);
-          Log.i("HistoryManager merge history ${history.target}");
-        } else {
-          skips++;
-        }
-      }
-      Log.i(
-        "HistoryManager merge history, skipped $skips, added ${newHistory.length - skips}",
+  /// 批量加载不可变进度，超过 SQLite 参数限制时分块查询。
+  Future<Map<String, HistoryRecord>> _loadRecords(List<String> targets) async {
+    await _ensureInitialized();
+    final result = <String, HistoryRecord>{};
+    for (var offset = 0; offset < targets.length; offset += 400) {
+      final chunk = targets.skip(offset).take(400).toList();
+      final rows = await _db!.query(
+        kTableHistory,
+        where:
+            '$kHistoryTarget IN (${List.filled(chunk.length, '?').join(',')})',
+        whereArgs: chunk,
       );
+      for (final row in rows) {
+        final record = HistoryRecord.fromRow(row);
+        result[record.target] = record;
+      }
     }
+    return result;
+  }
 
-    // 关闭数据库连接
-    await db.close();
-    file.deleteSync();
+  /// 合并 WebDAV 临时数据库，成功后才移除输入文件。
+  Future<void> tryUpdateDb() async {
+    final file = File('${App.dataPath}/history_temp.db');
+    if (!await file.exists()) return;
+    final incoming = await databaseFactoryFfi.openDatabase(file.path);
+    try {
+      final rows = await incoming.query(
+        kTableHistory,
+        orderBy: '$kHistoryTime DESC',
+      );
+      final records = rows
+          .map(HistoryRecord.fromRow)
+          .map((record) => record.toMap())
+          .toList();
+      await readDataFromJson(records);
+    } finally {
+      await incoming.close();
+    }
+    await file.delete();
   }
 
   /// 确保数据库已初始化
@@ -522,17 +524,23 @@ class HistoryManager {
       ),
     );
 
-    _initialized = true;
-    _initCompleter.complete(_db);
-
-    // 不再启动时全量加载历史记录到内存，实现按需加载
-
     // 迁移早期版本的数据
     var file = File("${App.dataPath}/history.json");
     if (file.existsSync()) {
-      readDataFromJson(jsonDecode(await file.readAsString()));
+      final values = jsonDecode(await file.readAsString()) as List;
+      await _importRecords(
+        values
+            .map(
+              (value) => HistoryRecord.fromMap(
+                Map<String, dynamic>.from(value as Map),
+              ),
+            )
+            .toList(),
+      );
       file.deleteSync();
     }
+    _initialized = true;
+    if (!_initCompleter.isCompleted) _initCompleter.complete(_db);
   }
 
   /// 创建数据库表
@@ -594,212 +602,116 @@ class HistoryManager {
     }
   }
 
-  void readDataFromJson(List<dynamic> json) {
-    var history = LinkedList<History>();
-    for (var h in json) {
-      history.add(History.fromMap((h as Map<String, dynamic>)));
+  /// 兼容旧 JSON，在事务中合并并发布全量失效通知。
+  Future<void> readDataFromJson(List<dynamic> json) async {
+    final records = json
+        .map(
+          (value) =>
+              HistoryRecord.fromMap(Map<String, dynamic>.from(value as Map)),
+        )
+        .toList();
+    await _writeLock.synchronized(() async {
+      await _ensureInitialized();
+      await _importRecords(records);
+    });
+  }
+
+  /// 初始化和运行期导入共用事务，初始化期间不重复获取写锁。
+  Future<void> _importRecords(List<HistoryRecord> records) async {
+    await _db!.transaction((txn) async {
+      for (final record in records) {
+        await txn.insert(
+          kTableHistory,
+          record.toRow(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    });
+    _lookup.clear();
+    _notifyChanged();
+  }
+
+  /// 将已提交的数据交给现有 WebDAV 队列。
+  Future<void> saveData() async {
+    try {
+      await Webdav.uploadData();
+    } catch (error, stack) {
+      Log.e('历史远端同步失败', error: error, stackTrace: stack);
     }
-    vacuum();
   }
 
-  void saveData() async {
-    Webdav.uploadData();
-  }
-
-  /// add history. if exists, update time.
-  ///
-  /// This function would be called when user start reading.
-  Future<void> addHistory(History newItem) async {
-    _updateHistoryCache(newItem.target, newItem);
-
-    await _ensureInitialized();
-    final db = _db!;
-
-    final res = await db.query(
-      kTableHistory,
-      where: '$kHistoryTarget = ?',
-      whereArgs: [newItem.target],
-    );
-
-    if (res.isEmpty) {
-      await db.insert(
+  /// 开始阅读时添加记录；已有记录仅更新阅读时间。
+  Future<void> addHistory(History newItem) {
+    final snapshot = newItem.toRecord().copyWith(time: DateTime.now());
+    return _writeLock.synchronized(() async {
+      await _ensureInitialized();
+      final rows = await _db!.query(
         kTableHistory,
-        newItem.toRecord().toRow(),
+        where: '$kHistoryTarget = ?',
+        whereArgs: [snapshot.target],
+      );
+      final record = rows.isEmpty
+          ? snapshot
+          : HistoryRecord.fromRow(rows.first).copyWith(time: snapshot.time);
+      await _db!.insert(
+        kTableHistory,
+        record.toRow(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    } else {
-      newItem.time = DateTime.now();
-      await db.update(
+      _lookup.set(record.target, record);
+      _notifyChanged(record.target);
+      unawaited(saveData());
+    });
+  }
+
+  /// 立即捕获阅读快照，异步保存期间不再访问可变会话对象。
+  Future<void> saveReadHistory(History history) {
+    final snapshot = history.toRecord().copyWith(time: DateTime.now());
+    return _writeLock.synchronized(() async {
+      await _ensureInitialized();
+      await _db!.insert(
         kTableHistory,
-        {kHistoryTime: newItem.time.millisecondsSinceEpoch},
-        where: '$kHistoryTarget = ?',
-        whereArgs: [newItem.target],
+        snapshot.toRow(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    }
-    _notifyChanged();
-    saveData();
+      _lookup.set(snapshot.target, snapshot);
+      _notifyChanged(snapshot.target);
+    });
   }
 
-  ///退出阅读器时调用此函数, 修改阅读位置
-  Future<void> saveReadHistory(
-    History history, [
-    bool updateMePage = true,
-  ]) async {
+  /// 清空持久化记录并使全部在途查询失效。
+  Future<void> clearHistory() => _writeLock.synchronized(() async {
     await _ensureInitialized();
-    final db = _db!;
-
-    history.time = DateTime.now();
-    await db.update(
-      kTableHistory,
-      {
-        kHistoryTime: history.time.millisecondsSinceEpoch,
-        kHistoryEp: history.ep,
-        kHistoryPage: history.page,
-        kHistoryReadEpisode: history.readEpisode.join(','),
-        kHistoryMaxPage: history.maxPage,
-        kHistoryChapterId: history.chapterId,
-        kHistoryReadChapterIds: jsonEncode(history.readChapterIds.toList()),
-      },
-      where: '$kHistoryTarget = ?',
-      whereArgs: [history.target],
-    );
-
-    // 更新内存缓存
-    _updateHistoryCache(history.target, history);
+    await _db!.delete(kTableHistory);
+    _lookup.clear();
     _notifyChanged();
-  }
+    unawaited(saveData());
+  });
 
-  void clearHistory() async {
+  /// 删除记录并发布空快照。
+  Future<void> remove(String id) => _writeLock.synchronized(() async {
     await _ensureInitialized();
-    final db = _db!;
-    await db.delete(kTableHistory);
-    historyCache.clear();
-    _pendingTargets.clear();
-    _notifyChanged();
-  }
-
-  void remove(String id) async {
-    await _ensureInitialized();
-    final db = _db!;
-    await db.delete(
+    await _db!.delete(
       kTableHistory,
       where: '$kHistoryTarget = ?',
       whereArgs: [id],
     );
-    _updateHistoryCache(id, null);
-    _notifyChanged();
-  }
+    _lookup.set(id, null);
+    _notifyChanged(id);
+    unawaited(saveData());
+  });
 
-  /// 同步查找历史缓存。如果缓存没有，则抛入待查队列（微任务合并批量查找）
-  History? findInCache(String target) {
-    if (!historyCache.containsKey(target)) {
-      // 先塞一个空的壳子，避免重复进入队列
-      historyCache[target] = signal(null);
-      _enqueueQuery(target);
-    }
-    return historyCache[target]!.value;
-  }
+  /// 查询不可变快照，同一微任务内的请求合并为批量查询。
+  Future<HistoryRecord?> findRecord(String target) => _lookup.get(target);
 
-  /// 异步查找历史，支持立刻返回（因为要保证旧API的兼容性）。
-  /// 在使用信号系统的上层应用优先考虑直接读取 `historyCache[target]?.value` 或者 [findInCache]。
+  /// 为旧阅读器接口创建独立的可变对象。
   Future<History?> find(String target) async {
-    if (historyCache.containsKey(target) &&
-        historyCache[target]!.value != null) {
-      return historyCache[target]!.value;
-    }
-    await _ensureInitialized();
-    return findSync(target);
+    final record = await findRecord(target);
+    return record == null ? null : History.fromRecord(record);
   }
 
-  Future<void> updateCache() async {
-    // 按需加载不再需要主动拉取全量Cache。提供一个空实现或抛弃掉。
-  }
-
-  Future<History?> findSync(String target) async {
-    if (historyCache.containsKey(target) &&
-        historyCache[target]!.value != null) {
-      return SynchronousFuture(historyCache[target]!.value);
-    }
-
-    final e = await _findDirect(target);
-    _updateHistoryCache(target, e);
-    return e;
-  }
-
-  void _updateHistoryCache(String target, History? history) {
-    if (historyCache.containsKey(target)) {
-      historyCache[target]!.set(history, force: true);
-    } else {
-      historyCache[target] = signal(history);
-    }
-  }
-
-  void _enqueueQuery(String target) {
-    if (_pendingTargets.contains(target)) return;
-
-    _pendingTargets.add(target);
-
-    if (!_isBatchQueryPending) {
-      _isBatchQueryPending = true;
-      Future.microtask(_processBatchQuery);
-    }
-  }
-
-  Future<void> _processBatchQuery() async {
-    if (_pendingTargets.isEmpty) {
-      _isBatchQueryPending = false;
-      return;
-    }
-
-    final queryTargets = _pendingTargets.toList();
-    _pendingTargets.clear();
-    _isBatchQueryPending = false;
-
-    try {
-      await _ensureInitialized();
-      final db = _db!;
-
-      // sqlite 的 IN 查询构造
-      final placeholders = List.filled(queryTargets.length, '?').join(', ');
-      final res = await db.query(
-        kTableHistory,
-        where: '$kHistoryTarget IN ($placeholders)',
-        whereArgs: queryTargets,
-      );
-
-      // 先确保都有空的 Signal，防止有目标没有被查询到导致的错乱
-      for (var target in queryTargets) {
-        if (!historyCache.containsKey(target)) {
-          historyCache[target] = signal(null);
-        }
-      }
-
-      // 根据查询真实情况填充
-      for (var element in res) {
-        final target = element[kHistoryTarget] as String;
-        if (historyCache[target]!.value == null) {
-          historyCache[target]!.value = History.fromRow(element);
-        }
-      }
-    } catch (e) {
-      Log.e('Failed to process batch query: $e');
-    }
-  }
-
-  Future<History?> _findDirect(String target) async {
-    // 不等待初始化，因为我们已经在调用函数中确保了初始化
-    await _ensureInitialized();
-    final db = _db!;
-    final res = await db.query(
-      kTableHistory,
-      where: '$kHistoryTarget = ?',
-      whereArgs: [target],
-    );
-    if (res.isEmpty) {
-      return null;
-    }
-    return History.fromRow(res.first);
-  }
+  /// 兼容旧调用名称；查询始终异步且不会共享可变对象。
+  Future<History?> findSync(String target) => find(target);
 
   Future<List<History>> getAll() async {
     await _ensureInitialized();

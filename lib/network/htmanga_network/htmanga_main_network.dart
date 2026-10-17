@@ -30,7 +30,7 @@ class HtmangaNetwork extends _$HtmangaNetwork {
 
   late NetworkClientManager clientManager;
 
-  Future<bool> _reLogin() => htManga.reLogin(ref);
+  Future<bool> _reLogin() => htManga.reLogin(loginWithAccount);
 
   String get baseUrl =>
       ref.read(appSettingsProvider).value(AppSettingKeys.htmangaDomain);
@@ -127,6 +127,15 @@ class HtmangaNetwork extends _$HtmangaNetwork {
     }
   }
 
+  /// 共用当前客户端登录，保留来源名称与账号信息。
+  Future<Res<bool>> loginWithAccount(String account, String password) async {
+    final result = await login(account, password);
+    if (!result.error) htManga.data['name'] = account;
+    htManga.data['account'] = <String>[account, password];
+    return result;
+  }
+
+  /// 使用已保存的账号重新登录。
   Future<Res<bool>> loginFromAppdata() async {
     var res = await _reLogin();
     return res ? const Res(true) : const Res.error("error");

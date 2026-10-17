@@ -165,13 +165,13 @@ void main() {
       imported[AppSettingKeys.downloadDirectory] = 'X:/remote-downloads';
       imported[AppSettingKeys.requireAuthentication] = '1';
       expect(
-        appdata.readDataFromJson({
+        await appdata.readDataFromJson({
           'settings': imported,
           'firstUse': appdata.firstUse,
         }),
         isTrue,
       );
-      // 等待旧同步导入入口内部的异步持久化完成。
+      // 等待设置变更通知送达。
       await _waitForImportedData().timeout(const Duration(seconds: 5));
       await container.pump();
       expect(container.read(readerSettingsProvider).readingMode, 5);

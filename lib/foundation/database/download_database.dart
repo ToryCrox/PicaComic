@@ -580,6 +580,24 @@ class DownloadDatabase {
     );
   }
 
+  /// 清空全部本地阅读历史。
+  Future<void> clearLocalHistory() async {
+    await (await _getDatabase()).delete(kTableLocalHistory);
+  }
+
+  /// 按目录批量加载收藏，避免列表逐卡查询。
+  Future<List<Map<String, Object?>>> getLocalFavoritesByPaths(
+    List<String> paths,
+  ) async {
+    if (paths.isEmpty) return [];
+    return (await _getDatabase()).query(
+      kTableLocalFavorite,
+      where:
+          '$kLocalFavoritePath IN (${List.filled(paths.length, '?').join(',')})',
+      whereArgs: paths,
+    );
+  }
+
   // ==================== Local Favorite Management Methods ====================
 
   /// 添加或更新本地收藏

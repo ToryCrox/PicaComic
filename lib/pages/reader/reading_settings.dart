@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/base.dart';
+import '../../foundation/reader_layout_provider.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 
 import '../../components/components.dart';
@@ -183,12 +183,16 @@ class _ReadingSettingsState extends ConsumerState<ReadingSettings> {
           leading: const Icon(Icons.auto_awesome_motion),
           title: Text("首页显示单张图片".tl),
           trailing: Switch(
-            value: appdata.implicitData[1] == '1',
-            onChanged: (b) {
-              appdata.implicitData[1] = b ? '1' : '0';
-              appdata.writeData();
-              setState(() {});
-              logic.notifySettingsChanged();
+            value: ref.watch(readerLayoutProvider).firstPageSingle,
+            onChanged: (b) async {
+              try {
+                await ref
+                    .read(readerLayoutProvider.notifier)
+                    .setFirstPageSingle(b);
+                if (mounted) logic.notifySettingsChanged();
+              } catch (error) {
+                showToast(message: '保存布局失败: $error');
+              }
             },
           ),
           onTap: () {},

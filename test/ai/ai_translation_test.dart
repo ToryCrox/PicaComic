@@ -4,6 +4,10 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/foundation/app.dart';
+import 'package:pica_comic/network/network_telemetry.dart';
 import 'package:pica_comic/ai/ai_client.dart';
 import 'package:pica_comic/ai/ai_models.dart';
 import 'package:pica_comic/ai/ai_result_cache.dart';
@@ -12,6 +16,7 @@ import 'package:pica_comic/ai/ai_translation_service.dart';
 import 'package:pica_comic/ai/bracket_text_protector.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('方括号保护', () {
     test('半角方括号信息不发送原文并按顺序恢复', () {
       const title = '[しゃる] 一獲千女【片想いしていた同級生編】 [AI Generated]';
@@ -81,7 +86,8 @@ void main() {
       expect(result, '译文');
     });
 
-    test('临时网络错误按配置重试', () async {
+    testWidgets('临时网络错误按配置重试', (tester) async {
+      await _pumpTelemetryRoot(tester);
       final adapter = _RetryAdapter();
       final client = AiClient(adapters: [adapter], retryDelay: (_) async {});
 
@@ -106,7 +112,8 @@ void main() {
   });
 
   group('漫画翻译缓存与去重', () {
-    test('原文变化失效，并发相同请求只调用一次 AI', () async {
+    testWidgets('原文变化失效，并发相同请求只调用一次 AI', (tester) async {
+      await _pumpTelemetryRoot(tester);
       final cache = _MemoryResultCache();
       final clientAdapter = _TranslationAdapter();
       final service = AiTranslationService(
@@ -156,7 +163,8 @@ void main() {
       );
     });
 
-    test('缺失分段标记时不写入缓存', () async {
+    testWidgets('缺失分段标记时不写入缓存', (tester) async {
+      await _pumpTelemetryRoot(tester);
       final service = AiTranslationService(
         settings: _ReadySettings(),
         client: AiClient(adapters: [_MalformedAdapter()]),
@@ -183,6 +191,21 @@ void main() {
     });
   });
 }
+
+/// AI 客户端与应用相同，从根作用域读取网络监控桥接。
+Future<void> _pumpTelemetryRoot(WidgetTester tester) => tester.pumpWidget(
+  ProviderScope(
+    overrides: [
+      networkTelemetryBridgeProvider.overrideWithValue(
+        NetworkTelemetryBridge(),
+      ),
+    ],
+    child: MaterialApp(
+      navigatorKey: App.navigatorKey,
+      home: const SizedBox.shrink(),
+    ),
+  ),
+);
 
 class _JsonAdapter implements HttpClientAdapter {
   _JsonAdapter(this.body);

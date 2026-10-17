@@ -387,7 +387,7 @@ mixin _ContinuousReaderLogic on _$ComicReaderLogic {
       return;
     }
     unawaited(
-      (saveLocalHistoryOverride ?? LocalHistoryManager().saveReadHistory)(
+      (saveLocalHistoryOverride ?? _reader._saveLocalHistory)(
         LocalHistory(
           path: reading.directoryForEpisode(readingState.currentEpisode),
           isReversed: reading.isReversed ? 1 : 0,

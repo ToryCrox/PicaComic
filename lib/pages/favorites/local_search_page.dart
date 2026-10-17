@@ -1,156 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/ui_mode.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/components/components.dart';
-import '../../foundation/app.dart';
-import '../../foundation/local_favorites.dart';
+
 import 'local_favorites.dart';
-import 'main_favorites_page.dart';
+import 'local_favorites_providers.dart';
 
-class LocalSearchPage extends StatefulWidget {
-  /// Search page for local favorites
+/// 收藏搜索，输入草稿留在页面，防抖和结果由 Riverpod 管理。
+class LocalSearchPage extends ConsumerStatefulWidget {
   const LocalSearchPage({super.key});
-
   @override
-  State<LocalSearchPage> createState() => _LocalSearchPageState();
+  ConsumerState<LocalSearchPage> createState() => _LocalSearchPageState();
 }
 
-class _LocalSearchPageState extends StateWithController<LocalSearchPage> {
-  var comics = <FavoriteItemWithFolderInfo>[];
-
-  String keyword = "";
-
-  final controller = TextEditingController();
-
+class _LocalSearchPageState extends ConsumerState<LocalSearchPage> {
+  final _controller = TextEditingController();
   final _focusNode = FocusNode();
-
-  void search() async {
-    if (keyword.isEmpty) {
-      comics = [];
-    } else {
-      comics = await LocalFavoritesManager().search(keyword);
-    }
-  }
-
   @override
-  void initState() {
-    Future.delayed(const Duration(milliseconds: 200), _focusNode.requestFocus);
-    super.initState();
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    search();
+    final keyword = ref.watch(favoriteSearchInputProvider);
+    final results = ref.watch(favoriteSearchProvider(keyword));
     return Material(
       child: Column(
         children: [
           SizedBox(
-            height: UiMode.m1(context)
-                ? MediaQuery.of(context).padding.top
-                : null,
+            height: UiMode.m1(context) ? MediaQuery.paddingOf(context).top : 0,
           ),
-          Container(
+          SizedBox(
             height: 56,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 0.8,
-                ),
-              ),
-            ),
             child: Row(
               children: [
-                Tooltip(
-                  message: "Back",
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_sharp),
-                    onPressed: () {
-                      App.back(context);
-                    },
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.pop(context),
                 ),
                 Expanded(
                   child: TextField(
+                    controller: _controller,
                     focusNode: _focusNode,
-                    controller: controller,
-                    decoration: const InputDecoration(
+                    autofocus: true,
+                    decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: "Search",
+                      hintText: '搜索'.tl,
                     ),
-                    onSubmitted: (s) => search(),
-                    onChanged: (s) => setState(() {
-                      keyword = s;
-                    }),
+                    onChanged: ref
+                        .read(favoriteSearchInputProvider.notifier)
+                        .change,
+                    onSubmitted: ref
+                        .read(favoriteSearchInputProvider.notifier)
+                        .submit,
                   ),
                 ),
-                if (keyword.isNotEmpty)
-                  Tooltip(
-                    message: "clear",
-                    child: IconButton(
-                      icon: const Icon(Icons.clear_rounded),
-                      onPressed: () {
-                        controller.clear();
-                        setState(() {
-                          keyword = "";
-                        });
-                      },
-                    ),
-                  ),
-                if (comics.isNotEmpty)
-                  Tooltip(
-                    message: "create folder",
-                    child: IconButton(
-                      icon: const Icon(Icons.create_new_folder_outlined),
-                      onPressed: () {
-                        showConfirmDialog(
-                          App.globalContext!,
-                          "创建收藏夹".tl,
-                          "从当前的搜索结果创建新的收藏夹".tl,
-                          () async {
-                            var name = await LocalFavoritesManager()
-                                .createFolder("search result", true);
-                            for (var comic in comics) {
-                              LocalFavoritesManager().addComic(
-                                name,
-                                comic.comic,
-                              );
-                            }
-                            StateController.findOrNull<
-                                  FavoritesPageController
-                                >()
-                                ?.update();
-                          },
-                        );
-                      },
-                    ),
-                  ),
               ],
             ),
           ),
           Expanded(
-            child: GridView.builder(
-              primary: false,
-              gridDelegate: SliverGridDelegateWithComics(),
-              itemCount: comics.length,
-              padding: EdgeInsets.zero,
-              itemBuilder: (BuildContext context, int index) {
-                return LocalFavoriteTile(
-                  comics[index].comic,
-                  comics[index].folder,
-                  () => setState(() {}),
+            child: results.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: TextButton(
+                  onPressed: () =>
+                      ref.invalidate(favoriteSearchProvider(keyword)),
+                  child: Text('搜索失败，点击重试: $error'),
+                ),
+              ),
+              data: (items) => GridView.builder(
+                gridDelegate: SliverGridDelegateWithComics(),
+                itemCount: items.length,
+                itemBuilder: (context, index) => LocalFavoriteTile(
+                  items[index].comic,
+                  items[index].folder,
                   true,
                   showFolderInfo: true,
-                );
-              },
+                  key: ValueKey((
+                    items[index].folder,
+                    items[index].comic.identity,
+                  )),
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-
-  @override
-  Object? get tag => "local_search_page";
 }

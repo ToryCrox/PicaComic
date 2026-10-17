@@ -1,5 +1,7 @@
 library pica_settings;
 
+import '../favorites/local_favorites_providers.dart';
+
 import '../../foundation/image_favorites_providers.dart';
 
 import 'dart:async';
@@ -38,7 +40,6 @@ import 'package:pica_comic/tools/io_tools.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
-import '../../foundation/local_favorites.dart';
 import '../../network/cookie_jar.dart';
 import '../../network/http_proxy.dart';
 import '../../network/update.dart';

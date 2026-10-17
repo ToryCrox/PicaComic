@@ -15,6 +15,8 @@ import '../../foundation/app_settings_provider.dart';
 import '../../network/comic_source_services.dart';
 import '../../network/download/download_manager.dart';
 import '../../foundation/history.dart';
+import '../../foundation/history_providers.dart';
+import '../favorites/local_favorites_providers.dart';
 import '../../foundation/log.dart';
 import '../../foundation/image_loader/base_image_provider.dart';
 import '../../foundation/image_manager.dart';
@@ -80,6 +82,8 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
   // 卸载时不能访问 WidgetRef，提前保存清理所需的依赖和最新设置。
   late final ComicReaderLogic _readerLogic;
   late final DownloadManager _downloadManager;
+  late final HistoryManager _historyRepository;
+  late final LocalFavoritesManager _favoritesRepository;
   late ReaderPageState _readerState;
   late bool _useDarkBackground;
 
@@ -91,6 +95,8 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _downloadManager = ref.read(downloadManagerProvider.notifier);
+    _historyRepository = ref.read(historyRepositoryProvider);
+    _favoritesRepository = ref.read(localFavoritesRepositoryProvider);
     ref.listenManual(
       appSettingsProvider.select(
         (settings) => settings.enabled(AppSettingKeys.readerDarkBackground),
@@ -150,7 +156,7 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
   void dispose() {
     final logic = _readerLogic;
     WidgetsBinding.instance.removeObserver(this);
-    logic.saveLocalReadingHistory(snapshot: _readerState);
+    _updateHistory(logic, snapshot: _readerState);
 
     PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
     BaseImageProvider.clearCache();
@@ -170,12 +176,13 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     ComicImage.clear();
     TapController.detach();
 
-    LocalFavoritesManager().onReadEnd(
-      readingData.favoriteId,
-      readingData.favoriteType,
+    unawaited(
+      _favoritesRepository
+          .onReadEnd(readingData.favoriteId, readingData.favoriteType)
+          .catchError((Object error, StackTrace stack) {
+            Log.e('更新收藏阅读状态失败', error: error, stackTrace: stack);
+          }),
     );
-
-    _updateHistory(logic, true, snapshot: _readerState);
 
     // Exit fullscreen if active — only touch the window manager, not state.
     if (_readerState.isFullScreen) {
@@ -204,16 +211,12 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      _updateHistory(_readerLogic, false);
+      _updateHistory(_readerLogic);
     }
   }
 
   /// 使用退出前缓存的快照保存进度，避免卸载时触发 Provider 刷新。
-  void _updateHistory(
-    ComicReaderLogic logic,
-    bool updateMePage, {
-    ReaderPageState? snapshot,
-  }) {
+  void _updateHistory(ComicReaderLogic logic, {ReaderPageState? snapshot}) {
     final state = snapshot ?? logic.snapshot;
     if (readingData is LocalReadingData) {
       logic.saveLocalReadingHistory(snapshot: state);
@@ -247,7 +250,14 @@ class _ComicReaderPageState extends ConsumerState<ComicReaderPage>
     }
     readingData.saveChapterPosition(state.currentEpisode, state.currentPage);
     history.maxPage = state.urls.length;
-    HistoryManager().saveReadHistory(history, updateMePage);
+    unawaited(
+      _historyRepository.saveReadHistory(history).catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        Log.e('保存阅读进度失败', error: error, stackTrace: stack);
+      }),
+    );
   }
 
   @override

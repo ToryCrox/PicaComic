@@ -127,11 +127,11 @@ class _MePageState extends ConsumerState<MePage> {
 
   Widget buildHistory(
     BuildContext context,
-    AsyncValue<List<History>> recentHistory,
+    AsyncValue<List<HistoryRecord>> recentHistory,
     AsyncValue<HistorySummary> historySummary,
     WidgetRef ref,
   ) {
-    final history = recentHistory.asData?.value ?? const <History>[];
+    final history = recentHistory.asData?.value ?? const <HistoryRecord>[];
     final title = recentHistory.hasError
         ? Row(
             children: [

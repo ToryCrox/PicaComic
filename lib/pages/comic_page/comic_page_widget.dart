@@ -1,3 +1,6 @@
+import '../favorites/local_favorites_providers.dart';
+import '../favorites/favorite_action_widgets.dart';
+import '../../foundation/app_settings_provider.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
-import '../../base.dart';
+import '../../foundation/user_library_preferences.dart';
 import '../../components/components.dart';
 import '../../components/grouped_chapters.dart';
 import '../../comic_source/comic_source.dart';
@@ -15,7 +18,6 @@ import '../../foundation/app_page_route.dart';
 import '../../foundation/def.dart';
 import '../../foundation/file_utils.dart';
 import '../../foundation/history.dart';
-import '../../foundation/local_favorites.dart';
 import '../../foundation/ui_mode.dart';
 import '../../network/download/download_manager.dart';
 import '../../tools/tags_translation.dart';
@@ -551,21 +553,18 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                   ref.read(downloadManagerProvider.notifier),
                 ),
                 () async {
-                  // 长按直接收藏到默认本地文件夹
-                  var folder = appdata.getSetting(
-                    AppSettingKeys.defaultFavoriteFolder,
+                  final folder = ref.read(
+                    appSettingProvider(AppSettingKeys.defaultFavoriteFolder),
                   );
-                  if ((await LocalFavoritesManager().folderNames).contains(
-                    folder,
-                  )) {
-                    LocalFavoritesManager().addComic(
+                  final actions = ref.read(localFavoritesProvider.notifier);
+                  final manager = ref.read(downloadManagerProvider.notifier);
+                  await performFavoriteAction(
+                    () => actions.addComic(
                       folder,
                       adapter.toLocalFavoriteItem(data),
-                      null,
-                      ref.read(downloadManagerProvider.notifier),
-                    );
-                    showToast(message: "已收藏".tl);
-                  }
+                      manager: manager,
+                    ),
+                  );
                 },
               ),
               if (screenWidth >= 500)
@@ -1160,16 +1159,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         popupMenuItem<void>(
           text: "屏蔽".tl,
           icon: Icons.block,
-          onTap: () {
-            appdata.blockingKeyword.add(text);
-            appdata.writeData();
-          },
+          onTap: () => performFavoriteAction(
+            () => ref
+                .read(userLibraryPreferencesActionsProvider.notifier)
+                .addBlockedWords([text]),
+          ),
         ),
       if (!title)
         popupMenuItem<void>(
           text: "收藏".tl,
           icon: Icons.favorite_border,
-          onTap: () {
+          onTap: () async {
+            final actions = ref.read(
+              userLibraryPreferencesActionsProvider.notifier,
+            );
             var res = adapter.source;
             if (adapter.source == "EHentai") res += ":$key";
             if (adapter.source == "Nhentai" && key == "Artists") {
@@ -1180,8 +1183,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             } else {
               res += ":$text";
             }
-            appdata.favoriteTags.add(res);
-            appdata.writeHistory();
+            await performFavoriteAction(() => actions.addFavoriteTag(res));
           },
         ),
     ];

@@ -262,12 +262,18 @@ class ComicSource {
     _isSaving = false;
   }
 
-  Future<bool> reLogin(Ref ref) async {
-    if (data["account"] == null) {
+  /// 使用当前客户端的登录操作，避免网络 Provider 通过自身 Ref 再次读取自己。
+  Future<bool> reLogin(
+    Future<Res<bool>> Function(String account, String password) login,
+  ) async {
+    final accountData = data['account'];
+    if (accountData is! List ||
+        accountData.length < 2 ||
+        accountData[0] is! String ||
+        accountData[1] is! String) {
       return false;
     }
-    final List accountData = data["account"];
-    var res = await account!.login!(ref, accountData[0], accountData[1]);
+    final res = await login(accountData[0] as String, accountData[1] as String);
     if (res.error) {
       Log.e("Failed to re-login ${res.errorMessage ?? "Error"}");
     }

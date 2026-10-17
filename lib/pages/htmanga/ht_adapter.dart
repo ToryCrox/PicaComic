@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -167,16 +168,14 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
       needLoadFolderData: true,
       foldersLoader: () => appComicSourceServices.htmanga.getFolders(),
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {},
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           return appComicSourceServices.htmanga.addFavorite(data.id, folder);
         }
-        LocalFavoritesManager().addComic(
+        await favoriteActionsOf(context).addComic(
           folder,
           FavoriteItem.fromHtcomic(data.toBrief()),
-          null,
-          manager,
+          manager: manager,
         );
         return const Res(true);
       },

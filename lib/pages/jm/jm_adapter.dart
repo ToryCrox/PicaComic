@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -79,11 +80,7 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
   }
 
   @override
-  Future<bool> loadFavorite(JmComicInfo data) async =>
-      data.favorite ||
-      (await LocalFavoritesManager().findWithModel(
-        toLocalFavoriteItem(data),
-      )).isNotEmpty;
+  Future<bool> loadFavorite(JmComicInfo data) async => data.favorite;
 
   // -------- C. 元数据提取 --------
   @override
@@ -178,28 +175,15 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await appComicSourceServices.jm.favorite(data.id, folder);
-          if (res.success) {
-            data = data.copyWith(favorite: true);
-            bridge.updateData(data);
-            bridge.updateState();
-          }
           return res;
         }
-        LocalFavoritesManager().addComic(
-          folder,
-          toLocalFavoriteItem(data),
-          null,
-          manager,
-        );
+        await favoriteActionsOf(
+          context,
+        ).addComic(folder, toLocalFavoriteItem(data), manager: manager);
         return const Res(true);
       },
       cancelPlatformFavorite: () async {
         var res = await appComicSourceServices.jm.favorite(data.id, null);
-        if (res.success) {
-          data = data.copyWith(favorite: false);
-          bridge.updateData(data);
-          bridge.updateState();
-        }
         return res;
       },
       foldersLoader: () async {
@@ -357,15 +341,10 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
     final widget = FavoriteComicWidget(
       havePlatformFavorite: havePlatformFavorite,
       needLoadFolderData: needLoadFolderData,
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
       foldersLoader: foldersLoader,
       localFavoriteItem: toLocalFavoriteItem(data),
-      favoriteOnPlatform: favoriteOnPlatformFromData,
+      favoriteOnPlatform:
+          bridge.favoriteOnPlatform ?? favoriteOnPlatformFromData,
       selectFolderCallback: selectFolderCallback,
       cancelPlatformFavorite: cancelPlatformFavorite,
     );

@@ -15,7 +15,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:signals/signals_flutter.dart';
+import 'package:pica_comic/foundation/history_providers.dart';
+import 'package:pica_comic/pages/favorites/local_favorites_providers.dart';
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
@@ -43,6 +45,7 @@ import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/tools/translations.dart';
 
 import '../base.dart';
+import '../foundation/user_library_preferences.dart';
 import '../foundation/ui_mode.dart';
 import 'package:pica_comic/network/comic_source_services.dart';
 

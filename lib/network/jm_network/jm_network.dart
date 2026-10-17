@@ -143,7 +143,7 @@ class JmNetwork extends _$JmNetwork {
 
   late NetworkClientManager clientManager;
 
-  Future<bool> _reLogin() => jm.reLogin(ref);
+  Future<bool> _reLogin() => jm.reLogin(loginWithAccount);
 
   // 禁漫的cookie无需持久化储存, 因为有效期非常短
   final cookieJar = CookieJar(ignoreExpires: true);
@@ -840,6 +840,14 @@ class JmNetwork extends _$JmNetwork {
         }
       }
     }
+  }
+
+  /// 登录并保存来源账号信息，供手动登录与自动续期共用。
+  Future<Res<bool>> loginWithAccount(String account, String password) async {
+    final result = await login(account, password);
+    jm.data['account'] = <String>[account, password];
+    await jm.saveData();
+    return result;
   }
 
   /// 使用储存的数据进行登录

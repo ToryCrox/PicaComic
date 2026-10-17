@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:pica_comic/pages/favorites/network_favorites_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pica_comic/comic_source/comic_source.dart';
@@ -164,18 +165,36 @@ class ComicSourceCallbackRunner {
     return callback(_ref, name);
   }
 
-  Future<Res<bool>> login(ComicSource source, String account, String password) {
+  Future<Res<bool>> login(
+    ComicSource source,
+    String account,
+    String password,
+  ) async {
     final callback = source.account?.login;
     if (callback == null) return Future.value(const Res.error('不支持登录'));
-    return callback(_ref, account, password);
+    final result = await callback(_ref, account, password);
+    if (!result.error && result.data && _ref.mounted) {
+      _ref
+          .read(networkFavoriteRevisionProvider(source.key.name).notifier)
+          .sessionChanged();
+    }
+    return result;
   }
 
   Future<void> onLogin(ComicSource source, BuildContext context) async {
     await source.account?.onLogin?.call(_ref, context);
+    if (_ref.mounted)
+      _ref
+          .read(networkFavoriteRevisionProvider(source.key.name).notifier)
+          .sessionChanged();
   }
 
   Future<void> logout(ComicSource source) async {
     await source.account?.logout(_ref);
+    if (_ref.mounted)
+      _ref
+          .read(networkFavoriteRevisionProvider(source.key.name).notifier)
+          .sessionChanged();
   }
 
   ImageConfig? imageConfig(
@@ -194,11 +213,16 @@ final comicSourceCallbackRunnerProvider = Provider<ComicSourceCallbackRunner>(
 );
 
 /// 通过当前 ProviderScope 重新加载漫画源并同步注册表状态。
-Future<void> reloadComicSources(BuildContext context) {
-  return ProviderScope.containerOf(
-    context,
-    listen: false,
-  ).read(comicSourceRegistryProvider.notifier).reload();
+Future<void> reloadComicSources(BuildContext context) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final keys = ComicSource.sources.map((e) => e.key.name).toSet();
+  await container.read(comicSourceRegistryProvider.notifier).reload();
+  keys.addAll(ComicSource.sources.map((e) => e.key.name));
+  for (final key in keys) {
+    container
+        .read(networkFavoriteRevisionProvider(key).notifier)
+        .sessionChanged();
+  }
 }
 
 /// 网络请求错误在 Provider 边界转换为 AsyncError。

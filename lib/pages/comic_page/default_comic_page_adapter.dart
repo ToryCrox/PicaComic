@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -297,21 +298,12 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
                 .loadFavoriteFolders(source!.favoriteData!, data.comicId),
       initialFolder: (source?.favoriteData?.multiFolder ?? false) ? null : '0',
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
-      favoriteOnPlatform: data.isFavorite,
+      favoriteOnPlatform: bridge.favoriteOnPlatform ?? data.isFavorite,
       selectFolderCallback: (folder, type) async {
         if (type == 1) {
-          LocalFavoritesManager().addComic(
-            folder,
-            toLocalFavoriteItem(data),
-            null,
-            manager,
-          );
+          await favoriteActionsOf(
+            context,
+          ).addComic(folder, toLocalFavoriteItem(data), manager: manager);
           return const Res(true);
         }
         final res = source?.favoriteData == null

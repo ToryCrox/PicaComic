@@ -1,6 +1,6 @@
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'dart:async';
 
-import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/history.dart';
@@ -13,12 +13,12 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/tools/tags_translation.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
-import 'main_favorites_page.dart';
+import 'favorite_action_widgets.dart';
+import 'favorites_order_page.dart';
 import 'local_favorites_providers.dart';
 import 'network_to_local.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/components/components.dart';
-import 'dart:io';
 import '../../foundation/app.dart';
 import '../../network/comic_source_services.dart';
 import '../../tools/io_tools.dart';
@@ -37,157 +37,38 @@ extension LocalFavoritesExt on FavoriteItem {
       Log.e("Failed to add a download.\n Missing comic source config file.");
     }
   }
-
-  Future<bool> updateInfo(String folder) async {
-    FavoriteItem updated = this;
-    if (type == FavoriteType.picacg) {
-      var res = await appComicSourceServices.picacg.getComicInfo(target);
-      if (res.error) return false;
-      updated = copyWith(
-        name: res.data.title,
-        author: res.data.author,
-        tags: res.data.tags,
-        coverPath: res.data.cover,
-      );
-    } else if (type == FavoriteType.ehentai) {
-      var res = await appComicSourceServices.ehentai.getGalleryInfo(target);
-      if (res.error) return false;
-      updated = copyWith(name: res.data.title, coverPath: res.data.cover);
-    } else if (type == FavoriteType.jm) {
-      var res = await appComicSourceServices.jm.getComicInfo(target);
-      if (res.error) return false;
-      updated = copyWith(
-        name: res.data.title,
-        author: res.data.author.firstOrNull ?? '',
-        tags: res.data.tags,
-        coverPath: res.data.cover,
-      );
-    } else if (type == FavoriteType.nhentai) {
-      var res = await appComicSourceServices.nhentai.getComicInfo(target);
-      if (res.error) return false;
-      updated = copyWith(name: res.data.title, coverPath: res.data.cover);
-    } else if (type == FavoriteType.htmanga) {
-      var res = await appComicSourceServices.htmanga.getComicInfo(target);
-      if (res.error) return false;
-      updated = copyWith(
-        name: res.data.title,
-        author: res.data.uploader,
-        coverPath: res.data.cover,
-      );
-    } else if (type == FavoriteType.hitomi) {
-      var res = await appComicSourceServices.hitomi.getComicInfo(target);
-      if (res.error) return false;
-      updated = copyWith(
-        name: res.data.title,
-        author: res.data.subTitle,
-        coverPath: res.data.cover,
-      );
-    } else {
-      var comicSource = type.comicSource;
-      if (comicSource == null) return false;
-      var res = await loadComicInfoFromProvider(
-        ProviderScope.containerOf(App.globalContext!, listen: false),
-        ComicInfoQuery(comicSource.key.name, target),
-      );
-      if (res.error) return false;
-      updated = copyWith(
-        name: res.data.title,
-        author: res.data.subTitle ?? '',
-        coverPath: res.data.cover,
-      );
-    }
-    LocalFavoritesManager().updateInfo(folder, updated);
-    return true;
-  }
 }
 
-class UpdateFavoritesInfoDialog extends StatefulWidget {
-  const UpdateFavoritesInfoDialog({
-    super.key,
-    required this.comics,
-    required this.folder,
-  });
-
-  final List<FavoriteItem> comics;
-
-  final String folder;
-
-  static show(List<FavoriteItem> comics, String folder) {
-    showDialog(
-      context: App.globalContext!,
-      builder: (context) =>
-          UpdateFavoritesInfoDialog(comics: comics, folder: folder),
-    );
-  }
-
-  @override
-  State<UpdateFavoritesInfoDialog> createState() =>
-      _UpdateFavoritesInfoDialogState();
+/// 收藏信息更新的兼容界面入口，任务由 Riverpod 管理。
+abstract final class UpdateFavoritesInfoDialog {
+  /// 启动或复用目标收藏夹的更新任务。
+  static Future<void> show(List<FavoriteItem> comics, String folder) =>
+      showFavoriteJobDialog(
+        App.globalContext!,
+        folder: folder,
+        title: '更新漫画信息'.tl,
+        start: (job) => job.updateItems(comics),
+      );
 }
 
-class _UpdateFavoritesInfoDialogState extends State<UpdateFavoritesInfoDialog> {
-  int finished = 0;
-
-  int get total => widget.comics.length;
-
-  bool cancel = false;
-
-  void load() async {
-    for (var comic in widget.comics) {
-      if (cancel) return;
-      if (await comic.updateInfo(widget.folder)) {
-        finished++;
-      }
-      if (!cancel) {
-        setState(() {});
-      }
-    }
-    if (mounted) {
-      StateController.findOrNull<SimpleController>(
-        tag: "ComicsPageView ${widget.folder}",
-      )?.refresh();
-      context.pop();
-    }
-  }
+/// 创建收藏夹并在弹窗生命周期内管理输入草稿。
+class CreateFolderDialog extends ConsumerStatefulWidget {
+  const CreateFolderDialog({super.key});
 
   @override
-  void initState() {
-    load();
-    super.initState();
-  }
+  ConsumerState<CreateFolderDialog> createState() => _CreateFolderDialogState();
+}
+
+class _CreateFolderDialogState extends ConsumerState<CreateFolderDialog> {
+  final controller = TextEditingController();
+  final focusNode = FocusNode();
 
   @override
   void dispose() {
-    cancel = true;
+    controller.dispose();
+    focusNode.dispose();
     super.dispose();
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return ContentDialog(
-      title: "更新漫画信息".tl,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LinearProgressIndicator(value: finished / total),
-          const SizedBox(height: 8),
-          Text("$finished/$total").toAlign(Alignment.centerRight),
-        ],
-      ).paddingHorizontal(24).paddingVertical(12),
-      actions: [
-        Button.filled(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: Text("取消".tl),
-        ),
-      ],
-    );
-  }
-}
-
-class CreateFolderDialog extends ConsumerWidget {
-  const CreateFolderDialog({Key? key}) : super(key: key);
 
   Future<void> _submit(BuildContext context, WidgetRef ref, String name) async {
     try {
@@ -199,10 +80,7 @@ class CreateFolderDialog extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    final FocusNode focusNode = FocusNode();
-    focusNode.requestFocus();
+  Widget build(BuildContext context) {
     return SimpleDialog(
       title: Text("创建收藏夹".tl),
       children: [
@@ -210,6 +88,7 @@ class CreateFolderDialog extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
           child: TextField(
             focusNode: focusNode,
+            autofocus: true,
             controller: controller,
             onEditingComplete: () =>
                 unawaited(_submit(context, ref, controller.text)),
@@ -228,16 +107,13 @@ class CreateFolderDialog extends ConsumerWidget {
               TextButton(
                 child: Text("从文件导入".tl),
                 onPressed: () async {
+                  final actions = ref.read(localFavoritesProvider.notifier);
                   context.pop();
                   var data = await getDataFromUserSelectedFile(["json"]);
                   if (data == null) {
                     return;
                   }
-                  var (error, message) = await LocalFavoritesManager()
-                      .loadFolderData(data);
-                  if (error) {
-                    showToast(message: message);
-                  }
+                  await performFavoriteAction(() => actions.importFolder(data));
                 },
               ),
               const Spacer(),
@@ -269,16 +145,31 @@ class CreateFolderDialog extends ConsumerWidget {
   }
 }
 
-class RenameFolderDialog extends ConsumerWidget {
-  const RenameFolderDialog(this.before, {Key? key}) : super(key: key);
-
+/// 重命名收藏夹，输入控制器随弹窗释放。
+class RenameFolderDialog extends ConsumerStatefulWidget {
+  const RenameFolderDialog(this.before, {super.key});
   final String before;
+
+  @override
+  ConsumerState<RenameFolderDialog> createState() => _RenameFolderDialogState();
+}
+
+class _RenameFolderDialogState extends ConsumerState<RenameFolderDialog> {
+  late final controller = TextEditingController(text: widget.before);
+  final focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    focusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit(BuildContext context, WidgetRef ref, String name) async {
     try {
       await ref
           .read(localFavoritesProvider.notifier)
-          .renameFolder(before, name);
+          .renameFolder(widget.before, name);
       if (context.mounted) context.pop();
     } catch (e) {
       showToast(message: e.toString());
@@ -286,10 +177,7 @@ class RenameFolderDialog extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController(text: before);
-    final FocusNode focusNode = FocusNode();
-    focusNode.requestFocus();
+  Widget build(BuildContext context) {
     return SimpleDialog(
       title: Text("重命名".tl),
       children: [
@@ -298,6 +186,7 @@ class RenameFolderDialog extends ConsumerWidget {
           child: TextField(
             controller: controller,
             focusNode: focusNode,
+            autofocus: true,
             onEditingComplete: () =>
                 unawaited(_submit(context, ref, controller.text)),
             decoration: InputDecoration(
@@ -326,7 +215,6 @@ class LocalFavoriteTile extends ComicTile {
   const LocalFavoriteTile(
     this.comic,
     this.folderName,
-    this.onDelete,
     this._enableLongPressed, {
     this.showFolderInfo = false,
     this.onLongPressed,
@@ -338,8 +226,6 @@ class LocalFavoriteTile extends ComicTile {
 
   final String folderName;
 
-  final void Function() onDelete;
-
   /// return true to disable default action
   final bool Function()? onTap;
 
@@ -349,22 +235,12 @@ class LocalFavoriteTile extends ComicTile {
 
   final bool showFolderInfo;
 
-  static Map<String, File> cache = {};
-
   @override
   Widget? buildBadge(BuildContext context, WidgetRef ref) {
-    final manager = ref.read(downloadManagerProvider.notifier);
-    return FutureBuilder<bool>(
-      future: manager.isExists(comic.toDownloadId(manager)),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            snapshot.hasData &&
-            snapshot.data!) {
-          return Text("已下载".tl);
-        }
-        return const SizedBox.shrink();
-      },
-    );
+    final downloaded = ref.watch(favoriteDownloadedProvider(comic.identity));
+    return downloaded.asData?.value == true
+        ? Text('已下载'.tl)
+        : const SizedBox.shrink();
   }
 
   @override
@@ -378,79 +254,34 @@ class LocalFavoriteTile extends ComicTile {
 
   @override
   Widget buildImage(BuildContext context, WidgetRef ref) {
-    final manager = ref.read(downloadManagerProvider.notifier);
-    final downloadId = comic.toDownloadId(manager);
-    return FutureBuilder<bool>(
-      future: manager.isExists(downloadId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            snapshot.hasData &&
-            snapshot.data!) {
-          // 漫画已下载，显示下载的封面
-          return FutureBuilder<File>(
-            future: manager.getCover(downloadId),
-            builder: (context, coverSnapshot) {
-              if (coverSnapshot.hasData) {
-                return Image.file(
-                  coverSnapshot.data!,
-                  fit: BoxFit.cover,
-                  height: double.infinity,
-                  filterQuality: FilterQuality.medium,
-                );
-              } else if (coverSnapshot.hasError) {
-                return const Center(child: Icon(Icons.error));
-              } else {
-                // 加载中
-                return const Center(child: CircularProgressIndicator());
-              }
-            },
-          );
-        } else if (cache[comic.target] == null) {
-          // 漫画未下载且没有缓存，从网络获取封面
-          return FutureBuilder<File>(
-            future: LocalFavoritesManager().getCover(
-              comic,
-              manager: manager,
-              loadDownloadedCover: manager.getCover,
-            ),
-            builder: (context, file) {
-              Widget child;
-              if (file.hasError) {
-                Log.e("Network ${file.stackTrace}");
-                child = const Center(child: Icon(Icons.error));
-              } else if (file.data == null) {
-                child = ColoredBox(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  child: const SizedBox(
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                );
-              } else {
-                cache[comic.target] = file.data!;
-                child = Image.file(
-                  file.data!,
-                  fit: BoxFit.cover,
-                  height: double.infinity,
-                  filterQuality: FilterQuality.medium,
-                );
-              }
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: child,
-              );
-            },
-          );
-        } else {
-          // 使用缓存的封面
-          return Image.file(
-            cache[comic.target]!,
-            fit: BoxFit.cover,
-            height: double.infinity,
-            filterQuality: FilterQuality.medium,
-          );
-        }
-      },
+    final cover = ref.watch(
+      favoriteCoverProvider((
+        type: comic.type.key,
+        target: comic.target,
+        cover: comic.coverPath,
+      )),
+    );
+    return cover.when(
+      data: (file) => Image.file(
+        file,
+        fit: BoxFit.cover,
+        height: double.infinity,
+        filterQuality: FilterQuality.medium,
+      ),
+      loading: () =>
+          ColoredBox(color: Theme.of(context).colorScheme.secondaryContainer),
+      error: (_, __) => Center(
+        child: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: () => ref.invalidate(
+            favoriteCoverProvider((
+              type: comic.type.key,
+              target: comic.target,
+              cover: comic.coverPath,
+            )),
+          ),
+        ),
+      ),
     );
   }
 
@@ -540,8 +371,11 @@ class LocalFavoriteTile extends ComicTile {
           text: "取消收藏".tl,
           icon: Icons.favorite_border,
           onTap: () {
-            LocalFavoritesManager().deleteComic(folderName, comic);
-            onDelete();
+            unawaited(
+              performFavoriteAction(
+                () => favoriteActionsOf(context).deleteComic(folderName, comic),
+              ),
+            );
           },
         ),
         popupMenuItem(
@@ -613,8 +447,13 @@ class LocalFavoriteTile extends ComicTile {
                 title: Text("取消收藏".tl),
                 onTap: () {
                   App.globalBack();
-                  LocalFavoritesManager().deleteComic(folderName, comic);
-                  onDelete();
+                  unawaited(
+                    performFavoriteAction(
+                      () => favoriteActionsOf(
+                        context,
+                      ).deleteComic(folderName, comic),
+                    ),
+                  );
                 },
               ),
               ListTile(
@@ -848,55 +687,8 @@ class LocalFavoriteTile extends ComicTile {
   ActionFunc? readAction(WidgetRef ref) =>
       () => readComic(ref.read(downloadManagerProvider.notifier));
 
-  void copyTo() {
-    String? folder;
-    showDialog(
-      context: App.globalContext!,
-      builder: (context) {
-        return SimpleDialog(
-          title: Text("复制到".tl),
-          children: [
-            SizedBox(
-              width: 280,
-              height: 132,
-              child: Column(
-                children: [
-                  FutureBuilder<List<String>>(
-                    future: LocalFavoritesManager().folderNames,
-                    builder: (context, snapshot) {
-                      final folderNames = snapshot.data ?? [];
-                      if (folderNames.isEmpty) return const SizedBox();
-                      return ListTile(
-                        title: Text("收藏夹".tl),
-                        trailing: Select(
-                          outline: true,
-                          width: 156,
-                          values: folderNames,
-                          initialValue: null,
-                          onChange: (i) => folder = folderNames[i],
-                        ),
-                      );
-                    },
-                  ),
-                  const Spacer(),
-                  Center(
-                    child: FilledButton(
-                      child: Text("确认".tl),
-                      onPressed: () {
-                        LocalFavoritesManager().addComic(folder!, comic);
-                        App.globalBack();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  /// 复制当前快照，目标收藏夹由弹窗选择。
+  void copyTo() => copyAllTo(folderName, [comic]);
 
   @override
   void onTapWithRef(WidgetRef ref) {
@@ -908,7 +700,8 @@ class LocalFavoriteTile extends ComicTile {
       showToast(message: "无效的漫画".tl);
       return;
     }
-    if (appdata.getSetting(AppSettingKeys.localFavoriteTapAction) == "0") {
+    if (ref.read(appSettingProvider(AppSettingKeys.localFavoriteTapAction)) ==
+        "0") {
       showInfo();
     } else {
       readComic(ref.read(downloadManagerProvider.notifier));
@@ -918,412 +711,211 @@ class LocalFavoriteTile extends ComicTile {
   @override
   String get comicID => comic.target;
 
-  void editTags() {
-    showDialog(
-      context: App.globalContext!,
-      builder: (context) {
-        var tags = comic.tags;
-        var controller = TextEditingController();
-        return SimpleDialog(
-          elevation: 1,
-          title: Text("编辑标签".tl),
-          children: [
-            StatefulBuilder(
-              builder: (context, setState) => SizedBox(
-                width: 400,
-                child: Column(
-                  children: [
-                    Wrap(
-                      children: tags
-                          .map(
-                            (e) => Container(
-                              margin: const EdgeInsets.all(4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(e),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    mouseCursor: appClickableMouseCursor,
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: const Icon(Icons.close, size: 20),
-                                    onTap: () {
-                                      tags.remove(e);
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 56,
-                      child: TextField(
-                        controller: controller,
-                        decoration: InputDecoration(
-                          border: const UnderlineInputBorder(),
-                          suffix: IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () {
-                              var value = controller.text;
-                              if (value.isNotEmpty) {
-                                controller.clear();
-                                tags.add(value);
-                                setState(() {});
-                              }
-                            },
-                          ).paddingTop(8),
-                        ),
-                        onSubmitted: (value) {
-                          if (value.isNotEmpty) {
-                            tags.add(value);
-                            controller.clear();
-                            setState(() {});
-                          }
-                        },
-                      ),
-                    ).paddingHorizontal(36),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: FilledButton(
-                        onPressed: () {
-                          LocalFavoritesManager().editTags(
-                            comic.target,
-                            folderName,
-                            tags,
-                          );
-                          App.globalBack();
-                          StateController.findOrNull<FavoritesPageController>()
-                              ?.update();
-                          StateController.findOrNull(
-                            tag: "local_search_page",
-                          )?.update();
-                        },
-                        child: Text("提交".tl),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-void copyAllTo(String source, List<FavoriteItem> comics) {
-  String? folder;
-  showDialog(
-    context: App.globalContext!,
-    builder: (context) => SimpleDialog(
-      title: Text("复制到".tl),
-      children: [
-        FutureBuilder<List<String>>(
-          future: LocalFavoritesManager().folderNames,
-          builder: (context, snapshot) {
-            final folderNames = snapshot.data ?? [];
-            if (folderNames.isEmpty) {
-              return const SizedBox();
-            }
-            return SizedBox(
-              width: 280,
-              height: 132,
-              child: Column(
-                children: [
-                  ListTile(
-                    title: Text("收藏夹".tl),
-                    trailing: Select(
-                      outline: true,
-                      width: 156,
-                      values: folderNames,
-                      initialValue: null,
-                      onChange: (i) => folder = folderNames[i],
-                    ),
-                  ),
-                  const Spacer(),
-                  Center(
-                    child: FilledButton(
-                      child: Text("确认".tl),
-                      onPressed: () async {
-                        for (var comic in comics) {
-                          LocalFavoritesManager().addComic(
-                            folder!,
-                            await LocalFavoritesManager().getComic(
-                              source,
-                              comic.target,
-                              comic.type,
-                            ),
-                          );
-                        }
-                        App.globalBack();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-class LocalFavoritesFolder extends StatefulWidget {
-  const LocalFavoritesFolder(this.name, {super.key});
-
-  final String name;
-
-  @override
-  State<LocalFavoritesFolder> createState() => _LocalFavoritesFolderState();
-}
-
-class _LocalFavoritesFolderState extends State<LocalFavoritesFolder> {
-  final _key = GlobalKey();
-  var reorderWidgetKey = UniqueKey();
-  final _scrollController = ScrollController();
-  late List<FavoriteItem> comics = [];
-  double? width;
-  bool changed = false;
-
-  Color lightenColor(Color color, double lightenValue) {
-    int red = (color.red + ((255 - color.red) * lightenValue)).round();
-    int green = (color.green + ((255 - color.green) * lightenValue)).round();
-    int blue = (color.blue + ((255 - color.blue) * lightenValue)).round();
-
-    return Color.fromARGB(color.alpha, red, green, blue);
-  }
-
-  @override
-  void initState() {
-    width = MediaQuery.of(App.globalContext!).size.width;
-    super.initState();
-    _loadData();
-  }
-
-  @override
-  void dispose() {
-    if (changed) {
-      LocalFavoritesManager().reorder(comics, widget.name);
-    }
-    LocalFavoriteTile.cache.clear();
-    super.dispose();
-  }
-
-  Future<void> _loadData() async {
-    comics = await LocalFavoritesManager().getAllComics(widget.name);
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.name)),
-      body: Column(
-        children: [
-          Expanded(
-            child: ReorderableBuilder(
-              key: reorderWidgetKey,
-              scrollController: _scrollController,
-              longPressDelay: App.isDesktop
-                  ? const Duration(milliseconds: 100)
-                  : const Duration(milliseconds: 500),
-              onReorder: (reorderFunc) {
-                changed = true;
-                setState(() {
-                  comics = reorderFunc(comics) as List<FavoriteItem>;
-                });
-              },
-              dragChildBoxDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: lightenColor(
-                  Theme.of(context).splashColor.withOpacity(1),
-                  0.2,
-                ),
-              ),
-              builder: (children) {
-                return GridView(
-                  key: _key,
-                  controller: _scrollController,
-                  gridDelegate: SliverGridDelegateWithComics(),
-                  children: children,
-                );
-              },
-              children: [
-                for (var i = 0; i < comics.length; i++)
-                  LocalFavoriteTile(
-                    comics[i],
-                    widget.name,
-                    () async {
-                      changed = true;
-                      comics = await LocalFavoritesManager().getAllComics(
-                        widget.name,
-                      );
-                      setState(() {});
-                    },
-                    false,
-                    key: Key(comics[i].target),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Check the availability of comics in folder
-Future<void> checkFolder(String name) async {
-  var comics = await LocalFavoritesManager().getAllComics(name);
-  int unavailableNum = 0;
-  int networkError = 0;
-  int checked = 0;
-
-  Stream<(int current, int total)> check() async* {
-    for (var comic in comics) {
-      bool available = true;
-      switch (comic.type.comicType) {
-        case ComicType.picacg:
-          var res = await appComicSourceServices.picacg.getComicInfo(
-            comic.target,
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        case ComicType.ehentai:
-          var res = await appComicSourceServices.ehentai.getGalleryInfo(
-            comic.target,
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        case ComicType.jm:
-          var res = await appComicSourceServices.jm.getComicInfo(comic.target);
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        case ComicType.hitomi:
-          var res = await appComicSourceServices.hitomi.getComicInfo(
-            comic.target,
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        case ComicType.htmanga:
-          var res = await appComicSourceServices.htmanga.getComicInfo(
-            comic.target,
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        case ComicType.nhentai:
-          var res = await appComicSourceServices.nhentai.getComicInfo(
-            comic.target,
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-        default:
-          var source = comic.type.comicSource;
-          if (source == null) {
-            available = false;
-            break;
-          }
-          var res = await loadComicInfoFromProvider(
-            ProviderScope.containerOf(App.globalContext!, listen: false),
-            ComicInfoQuery(source.key.name, comic.target),
-          );
-          if (res.error && !res.errorMessageWithoutNull.contains("404")) {
-            networkError++;
-          } else if (res.error) {
-            available = false;
-          }
-      }
-      if (!available) {
-        unavailableNum++;
-        if (!comic.tags.contains("Unavailable")) {
-          LocalFavoritesManager().addTagTo(name, comic.target, "Unavailable");
-        }
-      }
-      checked++;
-      yield (checked, comics.length);
-    }
-  }
-
-  await showDialog(
-    context: App.globalContext!,
-    builder: (context) {
-      return Dialog(
-        child: StreamBuilder(
-          stream: check(),
-          builder: (context, snapshot) {
-            if (checked == comics.length) {
-              return SizedBox(
-                height: 200,
-                width: 200,
-                child: Center(
+  Future<void> editTags() async {
+    final tags = comic.tags.toList();
+    final controller = TextEditingController();
+    try {
+      await showDialog(
+        context: App.globalContext!,
+        builder: (context) {
+          return SimpleDialog(
+            elevation: 1,
+            title: Text("编辑标签".tl),
+            children: [
+              StatefulBuilder(
+                builder: (context, setState) => SizedBox(
+                  width: 400,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.check_circle,
-                        size: 54,
-                        color: Theme.of(context).colorScheme.primary,
+                      Wrap(
+                        children: tags
+                            .map(
+                              (e) => Container(
+                                margin: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(e),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      mouseCursor: appClickableMouseCursor,
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: const Icon(Icons.close, size: 20),
+                                      onTap: () {
+                                        tags.remove(e);
+                                        setState(() {});
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
-                      const SizedBox(height: 12),
-                      Text("Unavailable: $unavailableNum"),
-                      Text("Network Error: $networkError"),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 56,
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            border: const UnderlineInputBorder(),
+                            suffix: IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () {
+                                var value = controller.text;
+                                if (value.isNotEmpty) {
+                                  controller.clear();
+                                  tags.add(value);
+                                  setState(() {});
+                                }
+                              },
+                            ).paddingTop(8),
+                          ),
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              tags.add(value);
+                              controller.clear();
+                              setState(() {});
+                            }
+                          },
+                        ),
+                      ).paddingHorizontal(36),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: FilledButton(
+                          onPressed: () async {
+                            final actions = favoriteActionsOf(context);
+                            if (await performFavoriteAction(
+                                  () =>
+                                      actions.editTags(folderName, comic, tags),
+                                ) &&
+                                context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          child: Text("提交".tl),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              );
-            }
-            return SizedBox(
-              height: 200,
-              width: 200,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 12),
-                    Text("$checked/${comics.length}"),
-                  ],
-                ),
               ),
-            );
-          },
-        ),
+            ],
+          );
+        },
       );
-    },
+    } finally {
+      controller.dispose();
+    }
+  }
+}
+
+/// 复制收藏的选择弹窗。
+void copyAllTo(String source, List<FavoriteItem> comics) {
+  showDialog(
+    context: App.globalContext!,
+    builder: (_) => _CopyFavoritesDialog(comics),
   );
+}
+
+/// 未提交的目标选择留在界面内，列表和操作由 Provider 管理。
+class _CopyFavoritesDialog extends ConsumerStatefulWidget {
+  const _CopyFavoritesDialog(this.comics);
+  final List<FavoriteItem> comics;
+  @override
+  ConsumerState<_CopyFavoritesDialog> createState() =>
+      _CopyFavoritesDialogState();
+}
+
+class _CopyFavoritesDialogState extends ConsumerState<_CopyFavoritesDialog> {
+  String? _folder;
+  @override
+  Widget build(BuildContext context) {
+    final folders = ref.watch(localFavoritesProvider);
+    return SimpleDialog(
+      title: Text('复制到'.tl),
+      children: [
+        folders.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => TextButton(
+            onPressed: () => ref.invalidate(localFavoritesProvider),
+            child: Text('加载失败，点击重试: $error'),
+          ),
+          data: (data) => SizedBox(
+            width: 280,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('收藏夹'.tl),
+                  trailing: Select(
+                    outline: true,
+                    width: 156,
+                    values: data.folderNames,
+                    initialValue: null,
+                    onChange: (i) =>
+                        setState(() => _folder = data.folderNames[i]),
+                  ),
+                ),
+                FilledButton(
+                  onPressed:
+                      _folder == null || !data.folderNames.contains(_folder)
+                      ? null
+                      : () async {
+                          final actions = ref.read(
+                            localFavoritesProvider.notifier,
+                          );
+                          if (await performFavoriteAction(
+                                () =>
+                                    actions.copyComics(_folder!, widget.comics),
+                              ) &&
+                              context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  child: Text('确认'.tl),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 收藏夹作品排序入口。
+class LocalFavoritesFolder extends StatelessWidget {
+  const LocalFavoritesFolder(this.name, {super.key});
+  final String name;
+  @override
+  Widget build(BuildContext context) => FavoritesOrderPage(folder: name);
+}
+
+/// 检查任务保留已经完成的结果，普通网络错误不标记失效。
+Future<void> checkFolder(String name) async {
+  final context = App.globalContext!;
+  final container = ProviderScope.containerOf(context, listen: false);
+  try {
+    final items = await container.read(folderFavoritesProvider(name).future);
+    if (!context.mounted) return;
+    await showFavoriteJobDialog(
+      context,
+      folder: name,
+      title: '检查漫画存活'.tl,
+      start: (job) => job.updateItems(items, checkAvailability: true),
+    );
+  } catch (error) {
+    showToast(message: '检查失败: $error');
+  }
 }

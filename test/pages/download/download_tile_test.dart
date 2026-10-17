@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_model.dart';
@@ -96,17 +97,19 @@ Future<void> _pumpTile(
   VoidCallback? onTranslationResultTap,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      navigatorKey: App.navigatorKey,
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: width,
-            height: 164,
-            child: _buildTile(
-              translationResult: translationResult,
-              onTranslationResultTap: onTranslationResultTap,
+    ProviderScope(
+      child: MaterialApp(
+        navigatorKey: App.navigatorKey,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              height: 164,
+              child: _buildTile(
+                translationResult: translationResult,
+                onTranslationResultTap: onTranslationResultTap,
+              ),
             ),
           ),
         ),

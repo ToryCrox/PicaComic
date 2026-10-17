@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:pica_comic/network/comic_source_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,11 +82,7 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
   }
 
   @override
-  Future<bool> loadFavorite(ComicItem data) async =>
-      data.isFavourite ||
-      (await LocalFavoritesManager().findWithModel(
-        toLocalFavoriteItem(data),
-      )).isNotEmpty;
+  Future<bool> loadFavorite(ComicItem data) async => data.isFavourite;
 
   // -------- C. 元数据提取 --------
   @override
@@ -166,21 +163,12 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       needLoadFolderData: false,
       folders: const {"Picacg": "Picacg"},
       initialFolder: data.isFavourite ? null : "Picacg",
-      favoriteOnPlatform: data.isFavourite,
+      favoriteOnPlatform: bridge.favoriteOnPlatform ?? data.isFavourite,
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
       cancelPlatformFavorite: () async {
         var res = await appComicSourceServices.picacg
             .favouriteOrUnfavouriteComic(data.id);
         if (res) {
-          data = data.copyWith(isFavourite: false);
-          bridge.updateData(data);
-          bridge.updateState();
           return const Res(true);
         }
         return Res.error("网络错误".tl);
@@ -190,19 +178,13 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
           var res = await appComicSourceServices.picacg
               .favouriteOrUnfavouriteComic(data.id);
           if (res) {
-            data = data.copyWith(isFavourite: true);
-            bridge.updateData(data);
-            bridge.updateState();
             return const Res(true);
           }
           return Res.error("网络错误".tl);
         }
-        LocalFavoritesManager().addComic(
-          name,
-          toLocalFavoriteItem(data),
-          null,
-          manager,
-        );
+        await favoriteActionsOf(
+          context,
+        ).addComic(name, toLocalFavoriteItem(data), manager: manager);
         return const Res(true);
       },
     );

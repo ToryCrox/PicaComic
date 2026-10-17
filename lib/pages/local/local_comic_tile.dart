@@ -1,17 +1,15 @@
+import 'package:pica_comic/components/components.dart' show showToast;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
-import 'package:pica_comic/foundation/log.dart';
-import 'package:pica_comic/network/download/download_manager.dart';
-import 'package:pica_comic/foundation/local_history.dart';
-import 'package:signals/signals_flutter.dart';
+import 'package:pica_comic/foundation/directory_favorites_providers.dart';
+import 'package:pica_comic/foundation/history_providers.dart';
 import 'dart:io';
 import 'local_comic_page.dart';
 import '../reader/comic_reading_page.dart';
 
 import 'package:pica_comic/foundation/file_utils.dart';
-import '../../tools/image_utils.dart';
 import 'package:pica_comic/tools/time.dart';
 
 class LocalComicTile extends ConsumerStatefulWidget {
@@ -39,52 +37,7 @@ class LocalComicTile extends ConsumerStatefulWidget {
 }
 
 class _LocalComicTileState extends ConsumerState<LocalComicTile> {
-  // 封面路径
-  String? _coverPath;
-
   TapDownDetails? _tapDownDetails;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  @override
-  void didUpdateWidget(covariant LocalComicTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.model != widget.model) {
-      _loadData();
-    }
-  }
-
-  // 加载显示所需数据
-  Future<void> _loadData() async {
-    _coverPath = widget.model.cover;
-
-    // 如果没有预设封面，则尝试异步加载
-    String? coverPath = widget.model.cover;
-    if (coverPath.isEmpty) {
-      coverPath = await _getCoverImage(widget.model.path);
-      if (mounted) {
-        setState(() {
-          _coverPath = coverPath;
-        });
-      }
-    }
-  }
-
-  Future<String> _getCoverImage(String directory) async {
-    final dir = Directory(directory);
-    try {
-      if (!dir.existsSync()) return '';
-      final file = await dir.list(recursive: true).firstWhere(predictImageFile);
-      Log.d('cover path: ${file.path}');
-      return file.path;
-    } catch (e) {
-      return '';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,11 +50,18 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
       child: InkWell(
         mouseCursor: appClickableMouseCursor,
         onTap: () async {
-          final historyMap = LocalHistoryManager()
-              .findInCache(widget.model.path)
-              ?.toMap();
-          await widget.onTap(historyMap);
-          _loadData();
+          try {
+            final history = await ref.read(
+              localHistoryEntryProvider(widget.model.path).future,
+            );
+            if (!mounted) return;
+            await widget.onTap(history?.toMap());
+          } catch (error) {
+            if (mounted)
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('读取进度失败: $error')));
+          }
         },
         onSecondaryTapDown: (details) => _tapDownDetails = details,
         onSecondaryTap: () {
@@ -147,9 +107,15 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
 
   // 构建封面
   Widget _buildCover(ColorScheme colorScheme) {
-    if (_coverPath != null && _coverPath!.isNotEmpty) {
+    final coverPath = widget.model.cover.isNotEmpty
+        ? widget.model.cover
+        : ref
+              .watch(comicDirectoryCoverProvider(widget.model.path))
+              .asData
+              ?.value;
+    if (coverPath != null && coverPath.isNotEmpty) {
       return Image.file(
-        File(_coverPath!),
+        File(coverPath),
         fit: BoxFit.cover,
         cacheWidth: 300,
         errorBuilder: (context, error, stackTrace) =>
@@ -173,21 +139,32 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
       right: 4,
       child: Material(
         color: Colors.transparent,
-        child: Watch.builder(
-          builder: (context) {
-            final engine = ref.read(downloadManagerProvider.notifier);
-            final favorite = engine.findLocalFavoriteInCache(widget.model.path);
+        child: Consumer(
+          builder: (context, ref, _) {
+            final engine = ref.read(directoryFavoritesProvider.notifier);
+            final status = ref.watch(
+              directoryFavoriteProvider(widget.model.path),
+            );
+            final favorite = status.asData?.value;
             return InkWell(
               mouseCursor: appClickableMouseCursor,
               borderRadius: BorderRadius.circular(20),
-              onTap: () async {
-                if (favorite != null) {
-                  await engine.deleteLocalFavorite(widget.model.path);
-                } else {
-                  await engine.addLocalFavorite(widget.model.path);
-                }
-                widget.onReload();
-              },
+              onTap: status.isLoading
+                  ? null
+                  : () async {
+                      try {
+                        if (favorite != null) {
+                          await engine.remove(widget.model.path);
+                        } else {
+                          await engine.add(widget.model.path);
+                        }
+                      } catch (error) {
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('收藏操作失败: $error')),
+                          );
+                      }
+                    },
               onLongPress: () {
                 if (favorite != null) {
                   _showWeightDialog(favorite.sortOrder.toDouble());
@@ -217,9 +194,27 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
     return Positioned(
       right: 4,
       bottom: 4,
-      child: Watch.builder(
-        builder: (context) {
-          final history = LocalHistoryManager().findInCache(widget.model.path);
+      child: Consumer(
+        builder: (context, ref, _) {
+          final lookup = ref.watch(
+            localHistoryEntryProvider(widget.model.path),
+          );
+          if (lookup.hasError) {
+            return IconButton(
+              tooltip: '历史加载失败，点击重试',
+              onPressed: () =>
+                  ref.invalidate(localHistoryEntryProvider(widget.model.path)),
+              icon: const Icon(Icons.refresh, size: 18),
+            );
+          }
+          if (lookup.isLoading && !lookup.hasValue) {
+            return const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            );
+          }
+          final history = lookup.asData?.value;
 
           Widget child;
           if (history != null && history.time > 0) {
@@ -291,9 +286,12 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
 
   // 构建进度条
   Widget _buildProgressBar(ColorScheme colorScheme) {
-    return Watch.builder(
-      builder: (context) {
-        final history = LocalHistoryManager().findInCache(widget.model.path);
+    return Consumer(
+      builder: (context, ref, _) {
+        final history = ref
+            .watch(localHistoryEntryProvider(widget.model.path))
+            .asData
+            ?.value;
         if (history == null) return const SizedBox(height: 3);
 
         final pageIndex = history.pageIndex;
@@ -327,21 +325,28 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
   }
 
   // 开始阅读
-  void _read() {
-    final history = LocalHistoryManager().findInCache(widget.model.path);
-    final initIndex = history?.pageIndex ?? 1;
-    final isReversed = history?.isReversed == 1;
-    App.globalTo(
-      () => ComicReadingPage.localComic(
-        widget.model.path,
-        widget.model.title,
-        allDirPaths: widget.allDirPaths.isEmpty
-            ? [widget.model.path]
-            : widget.allDirPaths,
-        initialPage: initIndex,
-        isReversed: isReversed,
-      ),
-    ).then((v) => _loadData());
+  Future<void> _read() async {
+    try {
+      final history = await ref.read(
+        localHistoryEntryProvider(widget.model.path).future,
+      );
+      if (!mounted) return;
+      final initIndex = history?.pageIndex ?? 1;
+      final isReversed = history?.isReversed == 1;
+      await App.globalTo(
+        () => ComicReadingPage.localComic(
+          widget.model.path,
+          widget.model.title,
+          allDirPaths: widget.allDirPaths.isEmpty
+              ? [widget.model.path]
+              : widget.allDirPaths,
+          initialPage: initIndex,
+          isReversed: isReversed,
+        ),
+      );
+    } catch (error) {
+      showToast(message: '读取历史失败: $error');
+    }
   }
 
   void _showWeightDialog(double currentWeight) {
@@ -350,10 +355,13 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
       builder: (context) => _WeightDialog(
         initialValue: currentWeight,
         onChanged: (val) async {
-          await ref
-              .read(downloadManagerProvider.notifier)
-              .updateLocalFavoriteSortOrder(widget.model.path, val.toInt());
-          widget.onReload();
+          try {
+            await ref
+                .read(directoryFavoritesProvider.notifier)
+                .reorder(widget.model.path, val.toInt());
+          } catch (error) {
+            showToast(message: '保存权重失败: $error');
+          }
         },
       ),
     );

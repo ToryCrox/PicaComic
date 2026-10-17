@@ -1,195 +1,126 @@
 import 'dart:convert';
-import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
-import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
-import 'package:pica_comic/network/base_comic.dart';
-import 'package:pica_comic/network/res.dart';
+import 'package:pica_comic/foundation/log.dart';
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/network/comic_source_services.dart';
+import 'package:pica_comic/pages/favorites/local_favorites_providers.dart';
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
+import 'package:pica_comic/pages/favorites/network_favorites_providers.dart';
 import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/pages/favorites/network_to_local.dart';
 
-typedef GetFavoriteFunc<T extends Object> =
-    Future<Res<List<T>>> Function(int page);
+/// 导入网络收藏，完整抓取后创建本地收藏夹。
+Future<void> startConvert(
+  BuildContext context, {
+  required String sourceKey,
+  required String? folderId,
+  required String folderName,
+  bool agreeSync = false,
+}) => _runImport(
+  context,
+  sourceKey: sourceKey,
+  folderId: folderId,
+  folder: folderName,
+  create: true,
+  sync: agreeSync
+      ? FolderSync(
+          folderName: folderName,
+          key: sourceKey,
+          syncData: jsonEncode({'folderId': folderId}),
+        )
+      : null,
+);
 
-typedef ComicToLocalFavoriteFunc<T extends Object> = FavoriteItem Function(T);
-
-Future<List<T>> getFavorites<T extends Object>(
-  BuildContext context,
-  GetFavoriteFunc<T> getFavoriteFunc,
-  Duration? interval,
-  int? total,
-) async {
-  var comics = <T>[];
-
-  Stream<(int, int?)> load() async* {
-    yield (0, null);
-    int current = 0;
-    int? temTotal = total;
-    while (temTotal == null || current < temTotal) {
-      var res = await getFavoriteFunc(current + 1);
-      if (res.error) {
-        throw res.errorMessageWithoutNull;
-      }
-      if (res.data.isEmpty) {
-        yield (current, current);
-        return;
-      }
-      comics.addAll(res.data);
-      temTotal ??= res.subData;
-      if (interval != null) {
-        await Future.delayed(interval);
-      }
-      current++;
-      yield (current, temTotal);
-      if (current > 5) {
-        var random = Random().nextInt(500) + 500;
-        await Future.delayed(Duration(milliseconds: random));
-      }
-    }
-  }
-
-  await showDialog(
-    barrierDismissible: false,
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: const Text("Loading..."),
-      children: [
-        const SizedBox(width: 400),
-        const Center(child: CircularProgressIndicator()),
-        StreamBuilder<(int, int?)>(
-          stream: load(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              Future.microtask(() {
-                context.pop();
-                if (kDebugMode) {
-                  print(snapshot.error);
-                  print(snapshot.stackTrace);
-                }
-                showToast(message: snapshot.error.toString());
-              });
-            }
-            if (snapshot.hasData && snapshot.data?.$1 == snapshot.data?.$2) {
-              Future.delayed(const Duration(milliseconds: 200), context.pop);
-            }
-            return Center(
-              child: Text("${snapshot.data?.$1}/${snapshot.data?.$2 ?? "?"}"),
-            );
-          },
-        ),
-        Center(
-          child: TextButton(
-            child: Text("取消".tl),
-            onPressed: () {
-              App.back(context);
-            },
-          ),
-        ),
-      ],
-    ),
-  );
-  return comics;
-}
-
-Future startConvert<T extends Object>(
-  GetFavoriteFunc<T> getFavoriteFunc,
-  Duration? interval,
-  BuildContext context,
-  String folderName,
-  ComicToLocalFavoriteFunc<T> toLocalFavoriteFunc,
-  String key,
-  bool agreeSync,
-  Object syncData,
-) async {
-  List<T> comics = await getFavorites(context, getFavoriteFunc, interval, null);
-  var name = folderName;
-  int i = 0;
-  final folderNames = await LocalFavoritesManager().folderNames;
-  while (folderNames.contains(name)) {
-    name = folderName + i.toString();
-    i++;
-  }
-
-  LocalFavoritesManager().createFolder(name);
-  // 是否同步网络收藏
-  if (agreeSync) {
-    LocalFavoritesManager().insertFolderSync(
-      FolderSync(folderName: name, key: key, syncData: jsonEncode(syncData)),
-    );
-  }
-  int order = 0;
-  for (var comic in comics) {
-    LocalFavoritesManager().addComic(name, toLocalFavoriteFunc(comic), order);
-    order++;
-  }
-}
-
-void startFolderSync<T extends Object>(
-  BuildContext context,
-  FolderSync? folderSync,
-) async {
-  if (folderSync == null) return;
-  final key = folderSync.key;
-  final folderName = folderSync.folderName;
-  final syncDataObj = folderSync.syncDataObj;
-
-  final curAllComics = await LocalFavoritesManager().getAllComics(folderName);
-  final minValue = await LocalFavoritesManager().minValue(folderName);
-  final maxValue = await LocalFavoritesManager().maxValue(folderName);
-  int addValue = 0;
-  final loadComicObj = LoadComicClass();
-  final fData = getFavoriteData(key);
+/// 同步已有收藏夹；页数沿用用户设置。
+Future<void> startFolderSync(BuildContext context, FolderSync? sync) async {
+  if (sync == null) return;
   final container = ProviderScope.containerOf(context, listen: false);
-  final total = container
+  final pages = container
       .read(appSettingsProvider)
       .integer(AppSettingKeys.favoriteSyncPages, 1);
-  List<BaseComic> comics = await getFavorites(
+  await _runImport(
     context,
-    (page) =>
-        loadComicObj.loadComic(fData, page, syncDataObj["folderId"], container),
-    null,
-    total,
+    sourceKey: sync.key,
+    folderId: sync.syncDataObj['folderId'] as String?,
+    folder: sync.folderName,
+    create: false,
+    sync: sync,
+    pageLimit: pages,
   );
-  final range = comics.length;
-  String direction =
-      '1'; // 顺序是放到最前还是最后, 为了保证顺序和网络收藏一致, 默认最前从新到旧, 不过有些网络收藏(绅士漫画)是从旧到新
-  final comicsWithRange = comics
-      .getRange(0, range)
-      .toList()
-      .reversed
-      .toList(); // 翻转一下, 保证插入顺序最终和网络收藏一致
-  for (var comic in comicsWithRange) {
-    final temComic = FavoriteItem.fromBaseComic(comic);
-    final index = curAllComics.indexWhere(
-      (element) => element.target == temComic.target,
-    );
-    if (index == -1) {
-      if (direction == "0") {
-        addValue += 1;
-      } else {
-        addValue -= 1;
+}
+
+/// 临时持有独立分页会话，弹窗关闭后释放，任务自行完成取消检查。
+Future<void> _runImport(
+  BuildContext context, {
+  required String sourceKey,
+  required String? folderId,
+  required String folder,
+  required bool create,
+  FolderSync? sync,
+  int? pageLimit,
+}) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final query = (
+    sourceKey: sourceKey,
+    folderId: folderId,
+    sessionId: UniqueKey().toString(),
+  );
+  final provider = networkFavoriteLoaderProvider(query);
+  final subscription = container.listen(provider, (_, __) {});
+  final generation = container
+      .read(networkFavoriteRevisionProvider(sourceKey))
+      .session;
+  try {
+    final loader = subscription.read();
+    final repository = container.read(localFavoritesRepositoryProvider);
+    final manager = container.read(downloadManagerProvider.notifier);
+    final ehNetwork = sourceKey == 'ehentai'
+        ? container.read(ehNetworkProvider)
+        : null;
+    // 服务闭包只持有持久化和网络依赖，不持有页面 Ref。
+    Future<void> prepareCovers(List<FavoriteItem> items) async {
+      await manager.init();
+      final cookie = ehNetwork == null ? '' : await ehNetwork.getCookies(false);
+      for (final item in items) {
+        try {
+          await repository.getCover(
+            item,
+            manager: manager,
+            loadDownloadedCover: manager.getCover,
+            ehCookie: cookie,
+          );
+        } catch (error, stack) {
+          Log.w('收藏封面准备失败', error: error, stackTrace: stack);
+        }
       }
-      LocalFavoritesManager().addComic(
-        folderName,
-        temComic,
-        direction == "0" ? maxValue + addValue : minValue + addValue,
-      );
     }
+
+    await showFavoriteJobDialog(
+      context,
+      folder: folder,
+      title: create ? '导入收藏'.tl : '同步收藏'.tl,
+      start: (job) => job.importNetwork(
+        loadPage: loader.load,
+        convert: FavoriteItem.fromBaseComic,
+        targetFolder: folder,
+        create: create,
+        sync: sync,
+        pageLimit: pageLimit,
+        prepareCovers: prepareCovers,
+        isSessionCurrent: () =>
+            container
+                .read(networkFavoriteRevisionProvider(sourceKey))
+                .session ==
+            generation,
+      ),
+    );
+  } catch (error) {
+    showToast(message: '收藏导入失败: $error');
+  } finally {
+    subscription.close();
   }
-  showToast(
-    message:
-        "本次更新数: ".tl +
-        addValue.abs().toString() +
-        ", 上次更新时间: ".tl +
-        folderSync.time,
-  );
-  LocalFavoritesManager().updateFolderSyncTime(
-    folderSync.copyWith(time: getCurTime()),
-  );
 }

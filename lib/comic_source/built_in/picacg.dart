@@ -60,25 +60,8 @@ final picacg = ComicSource.named(
     ],
   ),
   account: AccountConfig.named(
-    login: (ref, account, pwd) async {
-      var picacg = ComicSource.find(ComicType.picacg.name)!;
-      final network = ref.read(picacgNetworkProvider);
-      var res = await network.login(account, pwd);
-      if (res.error) {
-        return Res.fromErrorRes(res);
-      }
-      picacg.data['token'] = res.data;
-      var profile = await network.getProfile();
-      if (profile.error) {
-        picacg.data['token'] = null;
-        return Res.fromErrorRes(res);
-      }
-      network.user = profile.data;
-      picacg.data['user'] = profile.data.toJson();
-      var a = <String>[account, pwd];
-      picacg.data['account'] = a;
-      return const Res(true);
-    },
+    login: (ref, account, pwd) =>
+        ref.read(picacgNetworkProvider).loginWithAccount(account, pwd),
     logout: (ref) {
       var picacg = ComicSource.find(ComicType.picacg.name)!;
       picacg.data['user'] = null;

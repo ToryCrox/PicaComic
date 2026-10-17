@@ -20,10 +20,11 @@ class _LocalFavoritesSettingsState
     );
     return Column(
       children: [
-        FutureBuilder<List<String>>(
-          future: LocalFavoritesManager().folderNames,
-          builder: (context, snapshot) {
-            final folderNames = snapshot.data ?? [];
+        Builder(
+          builder: (context) {
+            final folderNames =
+                ref.watch(localFavoritesProvider).asData?.value.folderNames ??
+                const <String>[];
             return ListTile(
               leading: const Icon(Icons.book),
               title: Text("快速收藏".tl),

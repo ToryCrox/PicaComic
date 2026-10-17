@@ -1,60 +1,51 @@
+import 'package:pica_comic/foundation/def.dart';
 import 'package:flutter/material.dart';
 import 'package:pica_comic/network/jm_network/jm_image.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
 import 'package:pica_comic/pages/comic_page.dart';
 import 'package:pica_comic/tools/time.dart';
 import 'package:pica_comic/foundation/history.dart';
-import '../base.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../foundation/history_providers.dart';
 import '../foundation/app.dart';
 import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/network/comic_source_services.dart';
 
-class HistoryPage extends StatefulWidget {
+class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({Key? key}) : super(key: key);
 
   @override
-  State<HistoryPage> createState() => _HistoryPageState();
+  ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
-  final List<History> comics = [];
-  bool searchInit = false;
+class _HistoryPageState extends ConsumerState<HistoryPage> {
   bool searchMode = false;
-  String keyword = "";
-  var results = <History>[];
-  bool isModified = false;
+  String keyword = '';
+  final _focusNode = FocusNode();
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchData();
-  }
-
+  /// 释放搜索焦点，业务数据由 Provider 持有。
   @override
   void dispose() {
-    if (isModified) {
-      appdata.history.saveData();
-    }
+    _focusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchData() async {
-    final list = await HistoryManager().getAll();
-    setState(() {
-      comics.clear();
-      comics.addAll(list);
-    });
+  /// 持久化失败时保留当前列表。
+  Future<void> _perform(Future<void> Function() operation) async {
+    try {
+      await operation();
+      if (mounted) App.back(context);
+    } catch (error) {
+      showToast(message: '操作失败: $error');
+    }
   }
 
-  Widget buildTitle() {
+  Widget buildTitle(int count) {
     if (searchMode) {
-      final FocusNode focusNode = FocusNode();
-      focusNode.requestFocus();
-      bool focus = searchInit;
-      searchInit = false;
       return TextField(
-        focusNode: focus ? focusNode : null,
+        focusNode: _focusNode,
+        autofocus: true,
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: "搜索".tl,
@@ -66,34 +57,27 @@ class _HistoryPageState extends State<HistoryPage> {
         },
       );
     } else {
-      return Text("${"历史记录".tl}(${comics.length})");
+      return Text("${"历史记录".tl}(${count})");
     }
   }
 
-  void find() {
-    results.clear();
-    if (keyword == "") {
-      results.addAll(comics);
-    } else {
-      for (var element in comics) {
-        if (element.title.toLowerCase().contains(keyword) ||
-            element.subtitle.toLowerCase().contains(keyword)) {
-          results.add(element);
-        }
-      }
-    }
-  }
-
+  /// 观察持久化快照，搜索只派生当前列表。
   @override
   Widget build(BuildContext context) {
-    if (searchMode) {
-      find();
-    }
+    final history = ref.watch(allHistoryProvider);
+    final comics = history.asData?.value ?? const <HistoryRecord>[];
+    final results = comics
+        .where(
+          (e) =>
+              e.title.toLowerCase().contains(keyword) ||
+              e.subtitle.toLowerCase().contains(keyword),
+        )
+        .toList();
     return Scaffold(
       body: SmoothCustomScrollView(
         slivers: [
           SliverAppBar(
-            title: buildTitle(),
+            title: buildTitle(comics.length),
             actions: [
               Tooltip(
                 message: "清除".tl,
@@ -110,12 +94,9 @@ class _HistoryPageState extends State<HistoryPage> {
                           child: Text("取消".tl),
                         ),
                         TextButton(
-                          onPressed: () {
-                            appdata.history.clearHistory();
-                            setState(() => comics.clear());
-                            isModified = true;
-                            App.globalBack();
-                          },
+                          onPressed: () => _perform(
+                            ref.read(historyActionsProvider.notifier).clear,
+                          ),
                           child: Text("清除".tl),
                         ),
                       ],
@@ -130,7 +111,6 @@ class _HistoryPageState extends State<HistoryPage> {
                   onPressed: () {
                     setState(() {
                       searchMode = !searchMode;
-                      searchInit = true;
                       if (!searchMode) {
                         keyword = "";
                       }
@@ -140,7 +120,19 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ],
           ),
-          if (!searchMode) buildComics(comics) else buildComics(results),
+          if (history.isLoading && !history.hasValue)
+            const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (history.hasError)
+            SliverToBoxAdapter(
+              child: TextButton(
+                onPressed: () => ref.invalidate(allHistoryProvider),
+                child: Text('历史记录加载失败，点击重试'.tl),
+              ),
+            )
+          else
+            buildComics(searchMode ? results : comics),
           SliverPadding(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.bottom,
@@ -151,7 +143,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget buildComics(List<History> comics_) {
+  Widget buildComics(List<HistoryRecord> comics_) {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(childCount: comics_.length, (
         context,
@@ -182,16 +174,11 @@ class _HistoryPageState extends State<HistoryPage> {
                       child: Text("取消".tl),
                     ),
                     TextButton(
-                      onPressed: () {
-                        appdata.history.remove(comics_[i].target);
-                        setState(() {
-                          isModified = true;
-                          comics.removeWhere(
-                            (element) => element.target == comics_[i].target,
-                          );
-                        });
-                        App.globalBack();
-                      },
+                      onPressed: () => _perform(
+                        () => ref
+                            .read(historyActionsProvider.notifier)
+                            .remove(comics_[i].target),
+                      ),
                       child: Text("删除".tl),
                     ),
                   ],
@@ -223,7 +210,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-void toComicPageWithHistory(BuildContext context, History history) {
+void toComicPageWithHistory(BuildContext context, HistoryRecord history) {
   var source = history.type.comicSource;
   if (source == null) {
     showToast(message: "Comic Source Not Found");

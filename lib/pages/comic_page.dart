@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'favorites/favorite_panel_providers.dart';
+import 'favorites/local_favorites_providers.dart';
+import 'favorites/network_favorites_providers.dart';
 
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/comic_source/comic_chapter_group.dart';
@@ -184,7 +188,7 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
   }
 }
 
-class FavoriteComicWidget extends StatefulWidget {
+class FavoriteComicWidget extends ConsumerStatefulWidget {
   const FavoriteComicWidget({
     required this.havePlatformFavorite,
     required this.needLoadFolderData,
@@ -196,7 +200,7 @@ class FavoriteComicWidget extends StatefulWidget {
     this.favoriteOnPlatform = false,
     this.cancelPlatformFavorite,
     this.cancelPlatformFavoriteWithFolder,
-    required this.setFavorite,
+    this.setFavorite,
     super.key,
   });
 
@@ -234,292 +238,259 @@ class FavoriteComicWidget extends StatefulWidget {
   final Future<Res<bool>> Function(String folder)?
   cancelPlatformFavoriteWithFolder;
 
-  final void Function(bool favorite) setFavorite;
+  final void Function(bool favorite)? setFavorite;
 
   @override
-  State<FavoriteComicWidget> createState() => _FavoriteComicWidgetState();
+  ConsumerState<FavoriteComicWidget> createState() =>
+      _FavoriteComicWidgetState();
 }
 
-class _FavoriteComicWidgetState extends State<FavoriteComicWidget> {
-  late List<String> selected;
-  late int page = 0;
+/// 收藏面板只保存当前页签和未提交勾选。
+class _FavoriteComicWidgetState extends ConsumerState<FavoriteComicWidget> {
+  final _sessionId = UniqueKey().toString();
+  late List<String> _selected;
+  late int _page;
 
-  /// network folders
-  late Map<String, String> folders;
-
-  /// network folders that have been added to favorite
-  var favoritedFolders = <String>[];
-  bool loadedData = false;
-  List<String> addedFolders = [];
-  bool isAdding = false;
+  FavoritePanelConfig get _config => FavoritePanelConfig(
+    sessionId: _sessionId,
+    item: widget.localFavoriteItem,
+    loadFolders: widget.needLoadFolderData,
+    initialFolders: widget.folders,
+    foldersLoader: widget.foldersLoader,
+    selectFolder: widget.selectFolderCallback,
+    cancelPlatform: widget.cancelPlatformFavorite,
+    cancelFolder: widget.cancelPlatformFavoriteWithFolder,
+  );
 
   @override
   void initState() {
-    LocalFavoritesManager()
-        .find(widget.localFavoriteItem.target, widget.localFavoriteItem.type)
-        .then((folder) {
-          Future.microtask(() => setState(() => addedFolders = folder));
-        });
-    selected = widget.initialFolder != null ? [widget.initialFolder!] : [];
-    if (!widget.havePlatformFavorite) {
-      page = 1;
-    }
-    folders = widget.folders;
     super.initState();
+    _selected = widget.initialFolder == null ? [] : [widget.initialFolder!];
+    _page = widget.havePlatformFavorite ? 0 : 1;
+  }
+
+  /// 只有操作成功才关闭面板，详情状态由同一份收藏数据同步。
+  Future<void> _submit({
+    required bool removing,
+    String? networkFolder,
+    required bool remainingFavorite,
+  }) async {
+    final config = _config;
+    final actions = ref.read(favoritePanelActionsProvider(config).notifier);
+    Res<bool> result;
+    if (_page == 1) {
+      result = removing
+          ? await actions.removeLocal(_selected.toList())
+          : await actions.add(_selected.toList(), 1);
+    } else {
+      result = removing
+          ? await actions.removePlatform(networkFolder)
+          : await actions.add(_selected.toList(), 0);
+    }
+    if (!mounted) return;
+    if (result.error) {
+      showToast(message: result.errorMessageWithoutNull);
+      return;
+    }
+    widget.setFavorite?.call(removing ? remainingFavorite : true);
+    showToast(message: removing ? '取消收藏成功'.tl : '添加收藏成功'.tl);
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    assert(widget.havePlatformFavorite || page != 0);
-
-    Widget buildFolder(String name, String id, int p) {
-      bool isSelected = selected.contains(id);
-      return InkWell(
-        mouseCursor: appClickableMouseCursor,
-        onTap: () => setState(() {
-          page = p;
-          if (isSelected) {
-            selected.remove(id);
-            return;
-          }
-          if (p == 0) {
-            selected.clear();
-            selected.add(id);
-          } else {
-            selected.add(id);
-          }
-        }),
-        child: SizedBox(
-          height: App.isDesktop ? 42 : 48,
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Icon(
-                  isSelected ? Icons.folder : Icons.folder_outlined,
-                  size: App.isDesktop ? 24 : 28,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-                const SizedBox(width: 12),
-                Text(name),
-                if ((addedFolders.contains(name) && p == 1) ||
-                    (favoritedFolders.contains(id) && p == 0))
-                  const SizedBox(width: 12),
-                if ((addedFolders.contains(name) && p == 1) ||
-                    (favoritedFolders.contains(id) && p == 0))
-                  Container(
-                    height: 30,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.tertiaryContainer,
-                      borderRadius: const BorderRadius.all(Radius.circular(16)),
-                    ),
-                    child: Center(child: Text("已收藏".tl)),
-                  ),
-                const Spacer(),
-                if (isSelected) const AnimatedCheckIcon(),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    Widget button = Button.filled(
-      isLoading: isAdding,
-      child: Text("收藏".tl),
-      onPressed: () async {
-        if (selected.isNotEmpty) {
-          setState(() {
-            isAdding = true;
-          });
-          Res<bool> res = const Res(true);
-          for (var id in selected) {
-            if (addedFolders.contains(id)) {
-              continue;
-            }
-            res = await widget.selectFolderCallback!.call(id, page);
-          }
-          if (res.success) {
-            widget.setFavorite(true);
-            if (context.mounted) {
-              context.pop();
-            }
-            showToast(message: "添加收藏成功".tl);
-          } else {
-            setState(() {
-              isAdding = false;
-            });
-            showToast(message: res.errorMessage!);
-          }
-        }
-      },
+    final config = _config;
+    final membership = ref.watch(
+      favoriteMembershipProvider(widget.localFavoriteItem.identity),
     );
-
-    Widget platform = SingleChildScrollView(
-      child: Column(
-        children: List.generate(
-          folders.length,
-          (index) => buildFolder(
-            folders.values.elementAt(index),
-            folders.keys.elementAt(index),
-            0,
-          ),
-        ),
-      ),
-    );
-
-    if (widget.favoriteOnPlatform == true) {
-      platform = Center(child: Text("已收藏".tl));
-      if (page == 0) {
-        button = Button.filled(
-          isLoading: isAdding,
-          onPressed: () async {
-            setState(() {
-              isAdding = true;
-            });
-            var res = await widget.cancelPlatformFavorite!.call();
-            if (res.success) {
-              if (addedFolders.isEmpty) {
-                widget.setFavorite(false);
-              }
-              showToast(message: "取消收藏成功".tl);
-              if (context.mounted) {
-                context.pop();
-              }
-            } else {
-              setState(() {
-                isAdding = false;
-              });
-              showToast(message: res.errorMessage!);
-            }
-          },
-          child: Text("取消收藏".tl),
-        );
-      }
+    final localAdded = membership.asData?.value.toSet() ?? <String>{};
+    final network = ref.watch(favoritePanelFoldersProvider(config));
+    final networkValue = network.asData?.value;
+    final remoteStatus = ref
+        .watch(networkFavoriteRevisionProvider(config.sourceKey))
+        .statuses[widget.localFavoriteItem.target];
+    final favoriteOnPlatform = remoteStatus ?? widget.favoriteOnPlatform;
+    final remoteAdded = networkValue?.selected ?? <String>{};
+    final pending = ref.watch(favoritePanelActionsProvider(config)).isLoading;
+    final localFolders = ref.watch(localFavoritesProvider);
+    final removeLocal =
+        _page == 1 &&
+        _selected.isNotEmpty &&
+        _selected.every(localAdded.contains);
+    final removeFolder =
+        _page == 0 &&
+        _selected.length == 1 &&
+        remoteAdded.contains(_selected.first);
+    final removeAll = _page == 0 && favoriteOnPlatform == true;
+    final removing = removeLocal || removeFolder || removeAll;
+    bool hasRemoteAfter;
+    if (removeAll) {
+      hasRemoteAfter = false;
+    } else if (removeFolder) {
+      hasRemoteAfter = remoteAdded.any((id) => id != _selected.first);
+    } else {
+      hasRemoteAfter = favoriteOnPlatform == true || remoteAdded.isNotEmpty;
     }
-
-    if (page == 1 &&
-        selected.isNotEmpty &&
-        selected.every((e) => addedFolders.contains(e))) {
-      button = Button.filled(
-        onPressed: () {
-          context.hideMessages();
-          App.globalBack();
-          if (addedFolders.length == 1 &&
-              widget.favoriteOnPlatform == false &&
-              favoritedFolders.isEmpty) {
-            widget.setFavorite(false);
-          }
-          for (var id in selected) {
-            LocalFavoritesManager().deleteComic(id, widget.localFavoriteItem);
-          }
-          showToast(message: "取消收藏成功".tl);
-        },
-        child: Text("取消收藏".tl),
-      );
-    } else if (widget.havePlatformFavorite &&
-        widget.needLoadFolderData &&
-        !loadedData) {
-      widget.foldersLoader!.call().then((res) {
-        if (res.error) {
-          showToast(message: res.errorMessage ?? "Error");
-        } else {
-          setState(() {
-            loadedData = true;
-            folders = res.data;
-            favoritedFolders = res.subData ?? [];
-          });
-        }
-      });
-      platform = const Center(child: CircularProgressIndicator());
-    } else if (page == 0 &&
-        selected.length == 1 &&
-        favoritedFolders.contains(selected[0])) {
-      button = Button.filled(
-        onPressed: () async {
-          var res = await widget.cancelPlatformFavoriteWithFolder!(selected[0]);
-          if (res.success) {
-            showToast(message: "取消收藏成功".tl);
-            if (context.mounted) {
-              context.pop();
-            }
-          } else {
-            showToast(message: res.errorMessage!);
-          }
-        },
-        child: Text("取消收藏".tl),
-      );
-    }
-
-    Widget local;
-
-    local = SingleChildScrollView(
-      child: FutureBuilder<List<String>>(
-        future: LocalFavoritesManager().folderNames,
-        builder: (context, snapshot) {
-          final localFolders = snapshot.data ?? [];
-          return Column(
-            children: [
-              for (var index = 0; index < localFolders.length; index++)
-                buildFolder(localFolders[index], localFolders[index], 1),
-              SizedBox(
-                height: 56,
-                width: double.infinity,
-                child: Center(
-                  child: TextButton(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("新建".tl),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.add),
-                      ],
-                    ),
-                    onPressed: () => showDialog(
-                      context: App.globalContext!,
-                      builder: (_) => const CreateFolderDialog(),
-                    ).then((value) => setState(() {})),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
+    final hasLocalAfter = removeLocal
+        ? localAdded.any((id) => !_selected.contains(id))
+        : localAdded.isNotEmpty;
+    final ready = _page == 1
+        ? membership.hasValue && localFolders.hasValue
+        : network.hasValue;
     return DefaultTabController(
       length: widget.havePlatformFavorite ? 2 : 1,
       child: Column(
         children: [
           TabBar(
-            onTap: (i) {
-              setState(() {
-                selected.clear();
-                if (i == 0 && widget.initialFolder != null) {
-                  selected.add(widget.initialFolder!);
-                }
-                page = i;
-                if (!widget.havePlatformFavorite) {
-                  page = 1;
-                }
-              });
-            },
+            onTap: (index) => setState(() {
+              _page = widget.havePlatformFavorite ? index : 1;
+              _selected = _page == 0 && widget.initialFolder != null
+                  ? [widget.initialFolder!]
+                  : [];
+            }),
             tabs: [
-              if (widget.havePlatformFavorite) Tab(text: "网络".tl),
-              Tab(text: "本地".tl),
+              if (widget.havePlatformFavorite) Tab(text: '网络'.tl),
+              Tab(text: '本地'.tl),
             ],
           ),
           Expanded(
             child: TabBarView(
-              children: [if (widget.havePlatformFavorite) platform, local],
+              children: [
+                if (widget.havePlatformFavorite)
+                  network.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => _retry(
+                      error,
+                      () =>
+                          ref.invalidate(favoritePanelFoldersProvider(config)),
+                    ),
+                    data: (data) => favoriteOnPlatform == true
+                        ? Center(child: Text('已收藏'.tl))
+                        : SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                for (final entry in data.folders.entries)
+                                  _folder(
+                                    entry.value,
+                                    entry.key,
+                                    0,
+                                    remoteAdded.contains(entry.key),
+                                  ),
+                              ],
+                            ),
+                          ),
+                  ),
+                localFolders.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => _retry(
+                    error,
+                    () => ref.invalidate(localFavoritesProvider),
+                  ),
+                  data: (data) => SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final folder in data.folderNames)
+                          _folder(
+                            folder,
+                            folder,
+                            1,
+                            localAdded.contains(folder),
+                          ),
+                        SizedBox(
+                          height: 56,
+                          child: Center(
+                            child: TextButton.icon(
+                              onPressed: () => showDialog(
+                                context: context,
+                                builder: (_) => const CreateFolderDialog(),
+                              ),
+                              icon: const Icon(Icons.add),
+                              label: Text('新建'.tl),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 60, child: Center(child: button)),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
+          SizedBox(
+            height: 60,
+            child: Center(
+              child: Button.filled(
+                isLoading: pending,
+                disabled: pending || !ready || (!removing && _selected.isEmpty),
+                onPressed: () => _submit(
+                  removing: removing,
+                  networkFolder: removeFolder && !removeAll
+                      ? _selected.first
+                      : null,
+                  remainingFavorite: hasLocalAfter || hasRemoteAfter,
+                ),
+                child: Text(removing ? '取消收藏'.tl : '收藏'.tl),
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.paddingOf(context).bottom),
         ],
+      ),
+    );
+  }
+
+  /// 读取错误允许重试，不在构建期间发起额外请求。
+  Widget _retry(Object error, VoidCallback retry) => Center(
+    child: TextButton(onPressed: retry, child: Text('加载失败，点击重试: $error')),
+  );
+
+  /// 文件夹勾选属于当前未提交草稿。
+  Widget _folder(String title, String id, int page, bool added) {
+    final selected = _selected.contains(id) && _page == page;
+    return InkWell(
+      mouseCursor: appClickableMouseCursor,
+      onTap: () => setState(() {
+        if (_page != page) _selected.clear();
+        _page = page;
+        if (selected) {
+          _selected.remove(id);
+        } else {
+          if (page == 0) _selected.clear();
+          _selected.add(id);
+        }
+      }),
+      child: SizedBox(
+        height: App.isDesktop ? 42 : 48,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                selected ? Icons.folder : Icons.folder_outlined,
+                size: App.isDesktop ? 24 : 28,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(width: 12),
+              Text(title),
+              if (added)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text('已收藏'.tl),
+                  ),
+                ),
+              const Spacer(),
+              if (selected) const AnimatedCheckIcon(),
+            ],
+          ),
+        ),
       ),
     );
   }

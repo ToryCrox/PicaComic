@@ -129,16 +129,8 @@ final htManga = ComicSource.named(
   ),
   account: AccountConfig.named(
     registerWebsite: "https://www.wnacg.com/albums.html",
-    login: (ref, account, pwd) async {
-      var htManga = ComicSource.find(ComicType.htmanga.name)!;
-      var res = await ref.read(htMangaNetworkProvider).login(account, pwd);
-      if (!res.error) {
-        htManga.data['name'] = account;
-      }
-      var a = <String>[account, pwd];
-      htManga.data['account'] = a;
-      return res;
-    },
+    login: (ref, account, pwd) =>
+        ref.read(htMangaNetworkProvider).loginWithAccount(account, pwd),
     logout: (ref) {
       ComicSource.find(ComicType.htmanga.name)!.data['name'] = null;
       ref.read(htMangaNetworkProvider).logout();

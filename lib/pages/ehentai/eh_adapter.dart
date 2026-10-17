@@ -1,9 +1,10 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../base.dart';
+import '../../foundation/app_settings_repository.dart';
 import '../../components/components.dart';
 import '../../comic_source/built_in/ehentai.dart';
 import '../../foundation/app.dart';
@@ -111,6 +112,9 @@ class _RatingDialogState extends State<_RatingDialog> {
 }
 
 class EhAdapter extends ComicPageAdapter<Gallery> {
+  EhAdapter({AppSettingsRepository? settings})
+    : _settings = settings ?? AppSettingsRepository();
+  final AppSettingsRepository _settings;
   @override
   String get source => "EHentai";
   @override
@@ -130,7 +134,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   Future<Res<Gallery>> loadData(String id) async {
     var res = await appComicSourceServices.ehentai.getGalleryInfo(
       id,
-      appdata.getSetting(AppSettingKeys.ehIgnoreWarnings) == "1",
+      _settings.snapshot().enabled(AppSettingKeys.ehIgnoreWarnings),
     );
     if (res.error && res.errorMessage == "Content Warning") {
       bool shouldIgnore = false;
@@ -179,11 +183,7 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
   }
 
   @override
-  Future<bool> loadFavorite(Gallery data) async =>
-      data.favorite ||
-      (await LocalFavoritesManager().findWithModel(
-        toLocalFavoriteItem(data),
-      )).isNotEmpty;
+  Future<bool> loadFavorite(Gallery data) async => data.favorite;
 
   // -------- C. 元数据提取 --------
   @override
@@ -309,14 +309,8 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       folders: Map<String, String>.fromIterable(
         appComicSourceServices.ehentai.folderNames,
       ),
-      favoriteOnPlatform: data.favorite,
+      favoriteOnPlatform: bridge.favoriteOnPlatform ?? data.favorite,
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
       selectFolderCallback: (folder, page) async {
         if (page == 0) {
           var res = await appComicSourceServices.ehentai.favorite(
@@ -327,18 +321,14 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
                 .toString(),
           );
           if (res) {
-            data = data.copyWith(favorite: true);
-            bridge.updateData(data);
-            bridge.updateState();
             return const Res(true);
           }
           return Res.error("网络错误".tl);
         }
-        LocalFavoritesManager().addComic(
+        await favoriteActionsOf(context).addComic(
           folder,
           FavoriteItem.fromEhentai(data.toBrief()),
-          null,
-          manager,
+          manager: manager,
         );
         return const Res(true);
       },
@@ -348,9 +338,6 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
           data.auth["token"]!,
         );
         if (res) {
-          data = data.copyWith(favorite: false);
-          bridge.updateData(data);
-          bridge.updateState();
           return const Res(true);
         }
         return Res.error("网络错误".tl);

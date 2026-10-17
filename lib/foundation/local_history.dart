@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:signals/signals.dart';
+import 'package:synchronized/synchronized.dart';
+import 'batch_lookup.dart';
+import 'repository_change.dart';
 import 'package:pica_comic/foundation/database/download_database.dart';
-import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/tools/map_extension.dart';
 
 class LocalHistory {
@@ -106,127 +107,89 @@ class LocalHistoryManager {
 
   factory LocalHistoryManager() => instance;
 
-  final Map<String, Signal<LocalHistory?>> historyCache = {};
-  final Set<String> _pendingTargets = {};
-  bool _isBatchQueryPending = false;
+  Future<void> Function()? _ensureReady;
+
+  /// 由应用作用域注入共享下载数据库的就绪回调。
+  void bindDatabaseReady(Future<void> Function() ensureReady) =>
+      _ensureReady = ensureReady;
 
   final DownloadDatabase _db = DownloadDatabase();
+  final Lock _writeLock = Lock();
+  final _changes = StreamController<RepositoryChange<String>>.broadcast();
+  late final _lookup = BatchLookup<String, LocalHistory>(_loadRecords);
 
-  /// 同步查找缓存，用于实时构建UI
-  LocalHistory? findInCache(String path) {
-    return historyCache.putIfAbsent(path, () {
-      _enqueueQuery(path);
-      return signal(null);
-    }).value;
-  }
+  /// 本地历史提交后的变更通知。
+  Stream<RepositoryChange<String>> get changes => _changes.stream;
 
-  Future<LocalHistory?> find(String path) async {
-    final cached = historyCache[path]?.value;
-    if (cached != null) return cached;
-    return _findSync(path);
-  }
-
-  Future<LocalHistory?> _findSync(String path) async {
-    final res = await _db.getLocalHistory(path);
-    if (res == null) {
-      _updateHistoryCache(path, null);
-      return null;
-    }
-
-    final e = LocalHistory.fromMap(res);
-    _updateHistoryCache(path, e);
-    return e;
-  }
-
-  Future<void> updateLocalHistoryPageCount(String path, int count) async {
-    await _db.updateLocalHistoryPageCount(path, count);
-    final currentSig = historyCache[path];
-    if (currentSig?.value != null) {
-      currentSig!.set(
-        currentSig.value!.copyWith(totalPages: count),
-        force: true,
+  /// 按目录批量加载历史。
+  Future<Map<String, LocalHistory>> _loadRecords(List<String> paths) async {
+    await _ensureReady?.call();
+    final result = <String, LocalHistory>{};
+    for (var offset = 0; offset < paths.length; offset += 400) {
+      final rows = await _db.getLocalHistoryByPaths(
+        paths.skip(offset).take(400).toList(),
       );
-    }
-  }
-
-  void _updateHistoryCache(String path, LocalHistory? history) {
-    if (historyCache.containsKey(path)) {
-      historyCache[path]!.set(history, force: true);
-    } else {
-      historyCache[path] = signal(history);
-    }
-  }
-
-  void _enqueueQuery(String path) {
-    if (_pendingTargets.contains(path)) return;
-
-    _pendingTargets.add(path);
-
-    if (!_isBatchQueryPending) {
-      _isBatchQueryPending = true;
-      Future.microtask(_processBatchQuery);
-    }
-  }
-
-  Future<void> _processBatchQuery() async {
-    if (_pendingTargets.isEmpty) {
-      _isBatchQueryPending = false;
-      return;
-    }
-
-    final queryTargets = _pendingTargets.toList();
-    _pendingTargets.clear();
-    _isBatchQueryPending = false;
-
-    try {
-      final res = await _db.getLocalHistoryByPaths(queryTargets);
-
-      for (var target in queryTargets) {
-        if (!historyCache.containsKey(target)) {
-          historyCache[target] = signal(null);
-        }
+      for (final row in rows) {
+        final record = LocalHistory.fromMap(row);
+        result[record.path] = record;
       }
-
-      for (var element in res) {
-        final path = element[kLocalHistoryPath] as String;
-        if (historyCache[path]!.value == null) {
-          historyCache[path]!.value = LocalHistory.fromMap(element);
-        }
-      }
-    } catch (e) {
-      Log.e('Failed to process batch query: $e');
     }
+    return result;
   }
 
-  /// 退出阅读器时调用
-  Future<void> saveReadHistory(LocalHistory history) async {
-    final updatedHistory = history.copyWith(
+  /// 查询历史，失败不缓存，允许下次重试。
+  Future<LocalHistory?> find(String path) => _lookup.get(path);
+
+  /// 更新总页数并发布最新记录。
+  Future<void> updateLocalHistoryPageCount(String path, int count) =>
+      _writeLock.synchronized(() async {
+        await _ensureReady?.call();
+        await _db.updateLocalHistoryPageCount(path, count);
+        _lookup.clear();
+        _changes.add(RepositoryChange(keys: {path}));
+      });
+
+  /// 保存退出前已捕获的本地阅读进度。
+  Future<void> saveReadHistory(LocalHistory history) {
+    final record = history.copyWith(
       time: DateTime.now().millisecondsSinceEpoch,
     );
-    await _db.addOrUpdateLocalHistory(
-      path: updatedHistory.path,
-      isReversed: updatedHistory.isReversed,
-      pageIndex: updatedHistory.pageIndex,
-      time: updatedHistory.time,
-      json: updatedHistory.json,
-      totalPages: updatedHistory.totalPages,
-    );
-    _updateHistoryCache(updatedHistory.path, updatedHistory);
+    return _writeLock.synchronized(() async {
+      await _ensureReady?.call();
+      await _db.addOrUpdateLocalHistory(
+        path: record.path,
+        isReversed: record.isReversed,
+        pageIndex: record.pageIndex,
+        time: record.time,
+        json: record.json,
+        totalPages: record.totalPages,
+      );
+      _lookup.set(record.path, record);
+      _changes.add(RepositoryChange(keys: {record.path}));
+    });
   }
 
-  Future<void> remove(String path) async {
+  /// 删除目录的阅读进度。
+  Future<void> remove(String path) => _writeLock.synchronized(() async {
+    await _ensureReady?.call();
     await _db.deleteLocalHistory(path);
-    _updateHistoryCache(path, null);
-  }
+    _lookup.set(path, null);
+    _changes.add(RepositoryChange(keys: {path}));
+  });
 
-  void clearHistory() {
-    // Requires a clear all method in download_database
-    historyCache.clear();
-    _pendingTargets.clear();
-  }
+  /// 清空数据库记录并通知所有消费者。
+  Future<void> clearHistory() => _writeLock.synchronized(() async {
+    await _ensureReady?.call();
+    await _db.clearLocalHistory();
+    _lookup.clear();
+    _changes.add(RepositoryChange());
+  });
 
+  /// 按最近阅读顺序加载列表。
   Future<List<LocalHistory>> getAll() async {
-    final res = await _db.getAllLocalHistory();
-    return res.map((element) => LocalHistory.fromMap(element)).toList();
+    await _ensureReady?.call();
+    return List.unmodifiable(
+      (await _db.getAllLocalHistory()).map(LocalHistory.fromMap),
+    );
   }
 }

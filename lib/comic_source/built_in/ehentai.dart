@@ -33,28 +33,25 @@ final ehentai = ComicSource.named(
     key: "ehentai",
     title: "ehentai",
     multiFolder: true,
-    loadComic: (ref, i, [folderId]) {
-      if (i == 1) {
-        _EhentaiGalleriesLoader.instances['favorite'] = _EhentaiGalleriesLoader(
-          firstPageLoader: (ref) async {
-            final network = ref.read(ehNetworkProvider);
-            Res<Galleries> res;
-            if (folderId == '-1') {
-              res = await network.getGalleries(
-                "${network.ehBaseUrl}/favorites.php",
-                favoritePage: true,
-              );
-            } else {
-              res = await network.getGalleries(
-                "${network.ehBaseUrl}/favorites.php?favcat=$folderId",
-                favoritePage: true,
-              );
-            }
-            return res;
-          },
+    loadComic: (ref, page, [folderId]) async {
+      final network = ref.read(ehNetworkProvider);
+      final url =
+          '${network.ehBaseUrl}/favorites.php'
+          '${folderId == null || folderId == '-1' ? '' : '?favcat=$folderId'}';
+      var result = await network.getGalleries(url, favoritePage: true);
+      if (result.error) return Res.fromErrorRes(result);
+      for (var current = 1; current < page; current++) {
+        if (result.data.next == null) return Res(const [], subData: current);
+        result = await network.getGalleries(
+          result.data.next!,
+          favoritePage: true,
         );
+        if (result.error) return Res.fromErrorRes(result);
       }
-      return _EhentaiGalleriesLoader.instances['favorite']!(ref, i);
+      return Res(
+        result.data.galleries,
+        subData: result.data.next == null ? page : null,
+      );
     },
     loadFolders: (ref, [cid]) async {
       final network = ref.read(ehNetworkProvider);

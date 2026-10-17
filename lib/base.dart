@@ -132,7 +132,7 @@ class Appdata {
     await s.setStringList("firstUse", firstUse);
   }
 
-  void writeHistory() async {
+  Future<void> writeHistory() async {
     var s = await SharedPreferences.getInstance();
     await s.setStringList("search", searchHistory);
     await s.setStringList("favoriteTags", favoriteTags.toList());
@@ -175,7 +175,7 @@ class Appdata {
     "favoriteTags": favoriteTags.toList(),
   };
 
-  bool readDataFromJson(Map<String, dynamic> json) {
+  Future<bool> readDataFromJson(Map<String, dynamic> json) async {
     try {
       final newSettings = Map<String, String>.from(json['settings'] as Map);
       final downloadPath = getSetting(AppSettingKeys.downloadDirectory);
@@ -190,7 +190,7 @@ class Appdata {
         firstUse[i] = newFirstUse[i];
       }
       if (json["history"] != null) {
-        history.readDataFromJson(json["history"]);
+        await history.readDataFromJson(json["history"]);
       }
       // merge data
       blockingKeyword = Set<String>.from(
@@ -199,11 +199,11 @@ class Appdata {
       favoriteTags = Set.from(
         (json["favoriteTags"] ?? []) + List.from(favoriteTags),
       );
-      writeData(false);
+      await writeData(false);
       return true;
     } catch (e, s) {
       Log.e("Appdata.readDataFromJson error reading appdata$e\n$s");
-      readData();
+      await readData();
       return false;
     }
   }

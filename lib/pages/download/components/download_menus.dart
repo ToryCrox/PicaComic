@@ -1,10 +1,11 @@
+import 'package:pica_comic/network/download/download_manager.dart';
+import 'package:pica_comic/pages/favorites/local_favorites.dart' show copyAllTo;
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/foundation/file_utils.dart';
-import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
@@ -566,8 +567,10 @@ Future<void> showTileContextMenu({
   List<DownloadedItem> selectedComics = const <DownloadedItem>[],
   VoidCallback? onBatchComplete,
 }) async {
-  final translationResultRootDirectory =
-      appdata.appSettings.translationResultDirectory;
+  final translationResultRootDirectory = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appSettingProvider(AppSettingKeys.translationResultDirectory));
   final isBatch = selectedComics.isNotEmpty;
   final targetComics = resolveDownloadMenuTargets(comic, selectedComics);
   String buildBatchMenuText(String text) {
@@ -774,112 +777,64 @@ void addToLocalFavoriteFolder({
   required List<DownloadedItem> comics,
   required DownloadManager manager,
 }) {
-  String? folder;
-  showDialog(
-    context: App.globalContext!,
-    builder: (context) => SimpleDialog(
-      title: const Text("复制到..."),
-      children: [
-        SizedBox(
-          width: 400,
-          height: 132,
-          child: Column(
-            children: [
-              FutureBuilder<List<String>>(
-                future: LocalFavoritesManager().folderNames,
-                builder: (context, snapshot) {
-                  final folderNames = snapshot.data;
-                  if (folderNames == null) {
-                    return const SizedBox();
-                  }
-                  return ListTile(
-                    title: Text("收藏夹".tl),
-                    trailing: Select(
-                      width: 156,
-                      values: folderNames,
-                      initialValue: null,
-                      onChange: (i) => folder = folderNames[i],
-                    ),
-                  );
-                },
+  try {
+    final items = comics
+        .map(
+          (comic) => switch (comic.type) {
+            DownloadType.picacg => FavoriteItem.fromPicacg(
+              (comic as DownloadedComic).comicItem.toBrief(),
+            ),
+            DownloadType.ehentai => FavoriteItem.fromEhentai(
+              (comic as DownloadedGallery).gallery.toBrief(),
+            ),
+            DownloadType.jm => FavoriteItem.fromJmComic(
+              (comic as DownloadedJmComic).comic.toBrief(),
+            ),
+            DownloadType.nhentai => FavoriteItem.fromNhentai(
+              NhentaiComicBrief(
+                title: comic.name,
+                cover: (comic as NhentaiDownloadedComic).cover,
+                id: comic.id,
+                lang: "",
+                tags: const [],
               ),
-              const Spacer(),
-              Center(
-                child: FilledButton(
-                  child: Text("确认".tl),
-                  onPressed: () {
-                    if (folder == null) {
-                      return;
-                    }
-                    for (final comic in comics) {
-                      LocalFavoritesManager().addComic(
-                        folder!,
-                        switch (comic.type) {
-                          DownloadType.picacg => FavoriteItem.fromPicacg(
-                            (comic as DownloadedComic).comicItem.toBrief(),
-                          ),
-                          DownloadType.ehentai => FavoriteItem.fromEhentai(
-                            (comic as DownloadedGallery).gallery.toBrief(),
-                          ),
-                          DownloadType.jm => FavoriteItem.fromJmComic(
-                            (comic as DownloadedJmComic).comic.toBrief(),
-                          ),
-                          DownloadType.nhentai => FavoriteItem.fromNhentai(
-                            NhentaiComicBrief(
-                              title: comic.name,
-                              cover: (comic as NhentaiDownloadedComic).cover,
-                              id: comic.id,
-                              lang: "",
-                              tags: const [],
-                            ),
-                          ),
-                          DownloadType.hitomi => FavoriteItem.fromHitomi(
-                            (comic as DownloadedHitomiComic).comic.toBrief(
-                              comic.link,
-                              comic.cover,
-                            ),
-                          ),
-                          DownloadType.htmanga => FavoriteItem.fromHtcomic(
-                            (comic as DownloadedHtComic).comic.toBrief(),
-                          ),
-                          DownloadType.manhuagui =>
-                            (comic as ManhuaguiDownloadedItem).toFavoriteItem(),
-                          DownloadType.hiperdex =>
-                            (comic as HiperdexDownloadedItem).toFavoriteItem(),
-                          DownloadType.other => () {
-                            var c = (comic as CustomDownloadedItem);
-                            return FavoriteItem.custom(
-                              CustomComic(
-                                c.name,
-                                c.subTitle,
-                                c.cover,
-                                c.comicId,
-                                c.tags,
-                                "",
-                                c.sourceKey,
-                              ),
-                            );
-                          }(),
-                          DownloadType.favorite => throw UnimplementedError(),
-                          DownloadType.local => throw UnimplementedError(
-                            '本地漫画不支持添加到收藏',
-                          ),
-                        },
-                        null,
-                        manager,
-                      );
-                    }
-                    App.globalBack();
-                  },
+            ),
+            DownloadType.hitomi => FavoriteItem.fromHitomi(
+              (comic as DownloadedHitomiComic).comic.toBrief(
+                comic.link,
+                comic.cover,
+              ),
+            ),
+            DownloadType.htmanga => FavoriteItem.fromHtcomic(
+              (comic as DownloadedHtComic).comic.toBrief(),
+            ),
+            DownloadType.manhuagui =>
+              (comic as ManhuaguiDownloadedItem).toFavoriteItem(),
+            DownloadType.hiperdex =>
+              (comic as HiperdexDownloadedItem).toFavoriteItem(),
+            DownloadType.other => () {
+              var c = (comic as CustomDownloadedItem);
+              return FavoriteItem.custom(
+                CustomComic(
+                  c.name,
+                  c.subTitle,
+                  c.cover,
+                  c.comicId,
+                  c.tags,
+                  "",
+                  c.sourceKey,
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
+              );
+            }(),
+            DownloadType.favorite => throw UnimplementedError(),
+            DownloadType.local => throw UnimplementedError('本地漫画不支持添加到收藏'),
+          },
+        )
+        .toList();
+    copyAllTo('', items);
+  } catch (error) {
+    showToast(message: '添加收藏失败: $error');
+  }
 }
 
 /// 构建 AppBar 操作按钮

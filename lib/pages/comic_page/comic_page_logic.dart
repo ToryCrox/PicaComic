@@ -9,6 +9,10 @@ import '../../base.dart';
 import '../../foundation/app.dart';
 import '../../foundation/log.dart';
 import '../../foundation/history.dart';
+import '../../foundation/history_providers.dart';
+import '../../foundation/local_favorites.dart';
+import '../favorites/local_favorites_providers.dart';
+import '../favorites/network_favorites_providers.dart';
 import '../../network/download/download_model.dart';
 import '../../network/download/models/download_tag.dart';
 import '../../network/comic_source_services.dart';
@@ -242,12 +246,10 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
     _controller.addListener(_scrollListener);
     ref.onDispose(() => _controller.dispose());
 
-    // 历史保存完成后主动同步，避免依赖阅读器退出时的一次性通知。
-    final historySubscription = HistoryManager().changes.listen((_) {
-      unawaited(_loadHistory(id));
+    ref.listen(historyEntryProvider(id), (_, next) {
+      if (!next.isLoading && next.asData != null)
+        _applyHistory(next.asData!.value);
     });
-    ref.onDispose(() => historySubscription.cancel());
-
     _load(id);
     return const ComicPageState();
   }
@@ -382,9 +384,19 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   // 历史记录
   // ========================================================================
 
+  /// 按当前详情数据映射阅读章节，不修改仓库快照。
   Future<void> _loadHistory(String id) async {
-    final h = await HistoryManager().find(id);
-    if (!ref.mounted) return;
+    try {
+      final record = await ref.read(historyEntryProvider(id).future);
+      if (ref.mounted) _applyHistory(record);
+    } catch (error, stack) {
+      Log.w('详情阅读进度加载失败', error: error, stackTrace: stack);
+    }
+  }
+
+  /// 发布独立的可变适配副本，兼容现有章节组件。
+  void _applyHistory(HistoryRecord? record) {
+    final h = record == null ? null : History.fromRecord(record);
     if (h != null && _data is ComicInfoData && _key.$1 == ComicType.manhuagui) {
       final info = _data as ComicInfoData;
       h.ep = info.episodeForHistory(h);
@@ -395,20 +407,70 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
           .map((index) => index + 1)
           .toSet();
     }
-    state = state.copyWith(
-      history: h == null ? null : History.fromRecord(h.toRecord()),
-      clearHistory: h == null,
-    );
+    state = state.copyWith(history: h, clearHistory: h == null);
   }
 
   // ========================================================================
   // 收藏状态
   // ========================================================================
 
+  FavoriteIdentity? _favoriteIdentity;
+  bool _platformFavorite = false;
+  int _favoriteGeneration = 0;
+
+  /// 本地归属与网络收藏共享变更，不重新加载详情数据。
   Future<void> _loadFavorite(Object data) async {
-    final fav = await _adapter.loadFavorite(data);
-    if (!ref.mounted) return;
-    state = state.copyWith(favorite: fav);
+    final generation = ++_favoriteGeneration;
+    final item = _adapter.toLocalFavoriteItem(data);
+    final sourceKey = item.type.comicSource?.key.name ?? _key.$1.name;
+    if (_favoriteIdentity != item.identity) {
+      _favoriteIdentity = item.identity;
+      ref.listen(favoriteMembershipProvider(item.identity), (_, next) {
+        if (next.isLoading || next.hasError) return;
+        final folders = next.asData?.value;
+        if (folders != null) _syncFavorite(folders.isNotEmpty);
+      });
+      ref.listen(networkFavoriteRevisionProvider(sourceKey), (previous, next) {
+        if (previous != null && previous.session != next.session)
+          _platformFavorite = false;
+        final remote = next.statuses[item.target];
+        if (remote != null) _platformFavorite = remote;
+        _syncFavorite();
+      });
+    }
+    try {
+      final session = ref
+          .read(networkFavoriteRevisionProvider(sourceKey))
+          .session;
+      final platform = await _adapter.loadFavorite(data);
+      if (!ref.mounted || generation != _favoriteGeneration) return;
+      final current = ref.read(networkFavoriteRevisionProvider(sourceKey));
+      if (current.session == session)
+        _platformFavorite = current.statuses[item.target] ?? platform;
+      final folders = await ref.read(
+        favoriteMembershipProvider(item.identity).future,
+      );
+      if (ref.mounted && generation == _favoriteGeneration)
+        _syncFavorite(folders.isNotEmpty);
+    } catch (error, stack) {
+      Log.w('详情收藏状态加载失败', error: error, stackTrace: stack);
+    }
+  }
+
+  /// 将当前本地和平台状态合并成详情按钮状态。
+  void _syncFavorite([bool? local]) {
+    if (!ref.mounted || _favoriteIdentity == null) return;
+    local ??=
+        ref
+            .read(favoriteMembershipProvider(_favoriteIdentity!))
+            .asData
+            ?.value
+            .isNotEmpty ??
+        false;
+    state = state.copyWith(
+      favorite: local || _platformFavorite,
+      favoriteOnPlatform: _platformFavorite,
+    );
   }
 
   // ========================================================================

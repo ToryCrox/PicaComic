@@ -119,7 +119,6 @@ dependencies:
   log_viewer_shared:
     path: packages/log_viewer_shared
   worker_manager: ^7.2.7
-  signals: 6.3.0
   silky_scroll: ^2.6.2
 
 dev_dependencies:

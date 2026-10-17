@@ -36,7 +36,7 @@ class PicacgNetwork extends _$PicacgNetwork {
 
   late NetworkClientManager clientManager;
 
-  Future<bool> _reLogin() => picacg.reLogin(ref);
+  Future<bool> _reLogin() => picacg.reLogin(loginWithAccount);
 
   final String apiUrl = "https://picaapi.picacomic.com";
 
@@ -204,6 +204,23 @@ class PicacgNetwork extends _$PicacgNetwork {
     }
   }
 
+  /// 登录并更新令牌和资料，自动重新登录沿用当前客户端。
+  Future<Res<bool>> loginWithAccount(String account, String password) async {
+    final result = await login(account, password);
+    if (result.error) return Res.fromErrorRes(result);
+    picacg.data['token'] = result.data;
+    final profile = await getProfile();
+    if (profile.error) {
+      picacg.data['token'] = null;
+      return Res.fromErrorRes(profile);
+    }
+    user = profile.data;
+    picacg.data['user'] = profile.data.toJson();
+    picacg.data['account'] = <String>[account, password];
+    return const Res(true);
+  }
+
+  /// 使用已保存的账号重新登录。
   Future<Res<bool>> loginFromAppdata() async {
     var res = await _reLogin();
     if (res) {

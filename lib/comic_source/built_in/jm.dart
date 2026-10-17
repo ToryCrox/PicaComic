@@ -171,14 +171,8 @@ final jm = ComicSource.named(
   ),
   account: AccountConfig.named(
     registerWebsite: "https://18comic.vip/signup",
-    login: (ref, account, pwd) async {
-      var res = await ref.read(jmNetworkProvider).login(account, pwd);
-      var a = <String>[account, pwd];
-      var source = ComicSource.find(ComicType.jm)!;
-      source.data['account'] = a;
-      source.saveData();
-      return res;
-    },
+    login: (ref, account, pwd) =>
+        ref.read(jmNetworkProvider).loginWithAccount(account, pwd),
     logout: (ref) {
       ref.read(jmNetworkProvider).logout();
     },

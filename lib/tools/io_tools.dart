@@ -21,6 +21,7 @@ import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 
 import '../foundation/app.dart';
+import '../foundation/app_settings_repository.dart';
 
 /// 判断文件是否位于名为 `back` 的漫画备份目录中。
 bool isInsideComicBackupDirectory(String filePath, String rootPath) {
@@ -355,12 +356,13 @@ Future<void> moveDirectory(Directory source, Directory destination) async {
 
 ///检查下载目录是否可用, 不可用则重置
 Future<void> checkDownloadPath() async {
-  var path = appdata.getSetting(AppSettingKeys.downloadDirectory);
+  final settings = AppSettingsRepository();
+  var path = settings.snapshot().value(AppSettingKeys.downloadDirectory);
   if (path != "") {
     var directory = Directory(path);
     if (!directory.existsSync()) {
-      appdata.setSetting(AppSettingKeys.downloadDirectory, "");
-      appdata.updateSettings();
+      settings.setValue(AppSettingKeys.downloadDirectory, "");
+      await settings.save();
     }
   }
 }
@@ -583,7 +585,7 @@ Future<bool> importData({
         path,
         filePath,
         manager.path!,
-        appdata.getSetting(AppSettingKeys.webdavVersion),
+        AppSettingsRepository().snapshot().value(AppSettingKeys.webdavVersion),
         (enableCheck ? "1" : "0"),
       ],
     );
@@ -605,20 +607,21 @@ Future<bool> importData({
   int fileVersion = int.parse(
     json["settings"][AppSettingKeys.webdavVersion] ?? "1",
   );
-  int appVersion = int.parse(appdata.getSetting(AppSettingKeys.webdavVersion));
+  int appVersion = int.parse(
+    AppSettingsRepository().snapshot().value(AppSettingKeys.webdavVersion),
+  );
   if (fileVersion <= appVersion && enableCheck) {
     Log.i(
       "Appdata The data file version is $fileVersion, while the app data version is "
       "$appVersion\nStop importing data",
     );
   }
-  var dataReadRes = appdata.readDataFromJson(json);
+  var dataReadRes = await appdata.readDataFromJson(json);
   if (!dataReadRes) {
     Log.e("Appdata appdata.readDataFromJson(json) failed");
     return false;
   }
   await LocalFavoritesManager().readData();
-  LocalFavoritesManager().updateUI();
   await HistoryManager().tryUpdateDb();
   return true;
 }

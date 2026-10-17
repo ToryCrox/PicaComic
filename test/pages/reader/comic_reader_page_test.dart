@@ -253,7 +253,9 @@ class _ReaderFavorites extends Fake implements LocalFavoritesManager {
   final finishedIds = <String>[];
 
   @override
-  void onReadEnd(String target, FavoriteType type) => finishedIds.add(target);
+  Future<void> onReadEnd(String target, FavoriteType type) async {
+    finishedIds.add(target);
+  }
 }
 
 /// 记录退出后的窗口主题恢复。

@@ -235,52 +235,9 @@ abstract class ComicTile extends ConsumerWidget {
     BuildContext context,
     String defaultFavoriteFolder,
   ) {
-    return FutureBuilder<List<String>>(
-      future: LocalFavoritesManager().folderNames,
-      builder: (context, snapshot) {
-        String? folder = defaultFavoriteFolder;
-        int? initialFolderIndex;
-        List<String> folderNames = [];
-        if (snapshot.hasData) {
-          folderNames = snapshot.data!;
-          initialFolderIndex = folderNames.indexOf(defaultFavoriteFolder);
-          if (initialFolderIndex == -1) {
-            folder = null;
-            initialFolderIndex = null;
-          }
-        }
-        return SimpleDialog(
-          title: Text("添加收藏".tl),
-          children: [
-            if (folderNames.isNotEmpty)
-              ListTile(
-                title: Text("收藏夹".tl),
-                trailing: Select(
-                  outline: true,
-                  width: 156,
-                  values: folderNames,
-                  initialValue: initialFolderIndex,
-                  onChange: (i) => folder = folderNames[i],
-                ),
-              ),
-            const SizedBox(height: 16),
-            Center(
-              child: FilledButton(
-                child: const Text("确认"),
-                onPressed: () {
-                  if (folder == null) {
-                    showToast(message: '请选择一个文件夹');
-                    return;
-                  }
-                  LocalFavoritesManager().addComic(folder!, favoriteItem!);
-                  context.pop();
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
+    return FavoriteAddDialog(
+      item: favoriteItem!,
+      initialFolder: defaultFavoriteFolder,
     );
   }
 
@@ -619,8 +576,21 @@ abstract class ComicTile extends ConsumerWidget {
     }
     final id = comicID;
     if (id != null) {
+      final identity =
+          favoriteItem?.identity ??
+          (
+            type: (comicType?.index ?? -1) <= 6
+                ? comicType?.index ?? -1
+                : ComicSource.find(comicType?.name ?? '')?.intKey ?? -1,
+            target: id,
+          );
       final isFavorite =
-          showFavoriteStatus && LocalFavoritesManager().isExist(id);
+          showFavoriteStatus &&
+          ref.watch(
+            favoriteIdentitiesProvider.select(
+              (value) => value.asData?.value.contains(identity) ?? false,
+            ),
+          );
       child = Stack(
         children: [
           Positioned.fill(child: child),
@@ -647,9 +617,13 @@ abstract class ComicTile extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return Watch.builder(
-      builder: (context) {
-        final history = HistoryManager().findInCache(comicID!);
+    return Consumer(
+      builder: (context, ref, _) {
+        final lookup = ref.watch(historyEntryProvider(comicID!));
+        if (lookup.hasError) return _historyLookupStatus(ref, loading: false);
+        if (lookup.isLoading && !lookup.hasValue)
+          return _historyLookupStatus(ref, loading: true);
+        final history = lookup.asData?.value;
         if (history == null) return const SizedBox.shrink();
 
         if (history.ep == 0 && history.page == 0) {
@@ -696,6 +670,30 @@ abstract class ComicTile extends ConsumerWidget {
     );
   }
 
+  /// 单条历史区分查询中和失败，失败点击可重试。
+  Widget _historyLookupStatus(WidgetRef ref, {required bool loading}) =>
+      Positioned(
+        left: 4,
+        bottom: 4,
+        child: loading
+            ? const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Tooltip(
+                message: '历史加载失败，点击重试'.tl,
+                child: InkWell(
+                  onTap: () => ref.invalidate(historyEntryProvider(comicID!)),
+                  child: const Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+      );
+
   Widget _buildHistoryProgressBar(
     BuildContext context,
     bool showReadingProgress,
@@ -704,9 +702,9 @@ abstract class ComicTile extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return Watch.builder(
-      builder: (context) {
-        final history = HistoryManager().findInCache(comicID!);
+    return Consumer(
+      builder: (context, ref, _) {
+        final history = ref.watch(historyEntryProvider(comicID!)).asData?.value;
         if (history == null) return const SizedBox.shrink();
 
         if (history.ep == 0 && history.page == 0) {
@@ -1460,7 +1458,7 @@ Widget buildComicTile(
 
 /// return the first blocked keyword, or null if not blocked
 String? isBlocked(BaseComic item) {
-  for (var word in appdata.blockingKeyword) {
+  for (var word in UserLibraryPreferencesRepository().blockingKeywords) {
     if (item.title.contains(word)) {
       return word;
     }
@@ -1600,15 +1598,15 @@ class _BlockingPaneState extends ConsumerState<_BlockingPane> {
     setState(() {});
   }
 
-  void onSubmit() {
-    for (var word in controller.text.split(';')) {
-      if (word.isNotEmpty && !appdata.blockingKeyword.contains(word)) {
-        appdata.blockingKeyword.add(word);
-      }
+  Future<void> onSubmit() async {
+    try {
+      await ref
+          .read(userLibraryPreferencesActionsProvider.notifier)
+          .addBlockedWords(controller.text.split(';'));
+      if (mounted) context.pop();
+    } catch (error) {
+      showToast(message: '保存屏蔽词失败: $error');
     }
-    appdata.writeData();
-    ref.read(blockingKeywordRevisionProvider.notifier).bump();
-    context.pop();
   }
 }
 

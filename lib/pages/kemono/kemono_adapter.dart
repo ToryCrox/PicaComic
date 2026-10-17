@@ -1,3 +1,4 @@
+import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -61,10 +62,7 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
   Future<KemonoPost?> loadCachedData(String id) => SynchronousFuture(null);
 
   @override
-  Future<bool> loadFavorite(KemonoPost data) async =>
-      (await LocalFavoritesManager().findWithModel(
-        toLocalFavoriteItem(data),
-      )).isNotEmpty;
+  Future<bool> loadFavorite(KemonoPost data) async => false;
 
   // -------- C. 元数据提取 --------
   @override
@@ -187,19 +185,10 @@ class KemonoAdapter extends ComicPageAdapter<KemonoPost> {
       havePlatformFavorite: false,
       needLoadFolderData: false,
       localFavoriteItem: toLocalFavoriteItem(data),
-      setFavorite: (b) {
-        if (bridge.favorite != b) {
-          bridge.favorite = b;
-          bridge.updateState();
-        }
-      },
-      selectFolderCallback: (folder, _) {
-        LocalFavoritesManager().addComic(
-          folder,
-          toLocalFavoriteItem(data),
-          null,
-          manager,
-        );
+      selectFolderCallback: (folder, _) async {
+        await favoriteActionsOf(
+          context,
+        ).addComic(folder, toLocalFavoriteItem(data), manager: manager);
         return Future.value(const Res(true));
       },
     );
