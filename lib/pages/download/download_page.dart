@@ -927,10 +927,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           ),
         );
       },
-      loading: () => const SizedBox(
-        height: 48,
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      // 加载动画由列表统一显示，标签栏保留高度以避免布局跳动。
+      loading: () => const SizedBox(height: 48),
       error: (e, s) => const SizedBox(height: 48),
     );
   }

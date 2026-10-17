@@ -78,20 +78,23 @@ class DownloadList extends ConsumerWidget {
                   translationResults,
                 );
               },
-              loading: () => const SliverToBoxAdapter(
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (e, s) =>
                   SliverToBoxAdapter(child: Center(child: Text("$e"))),
             );
           },
-          loading: () => const SliverToBoxAdapter(
+          loading: () => const SliverFillRemaining(
+            hasScrollBody: false,
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
         );
       },
-      loading: () => const SliverToBoxAdapter(
+      loading: () => const SliverFillRemaining(
+        hasScrollBody: false,
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) =>
