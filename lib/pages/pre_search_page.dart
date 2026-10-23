@@ -170,6 +170,15 @@ class _PreSearchPageState extends ConsumerState<PreSearchPage> {
     }
   }
 
+  /// 将搜索历史按当前来源加入搜索页收藏栏。
+  Future<void> addSearchFavorite(String history, PreSearchState logic) async {
+    try {
+      await libraryActions.addFavoriteTag('${logic.target.name}:$history');
+    } catch (_) {
+      if (mounted) showToast(message: '保存失败，请重试'.tl);
+    }
+  }
+
   final comicSources = ComicSource.sources.where(
     (element) => element.searchPageData != null,
   );
@@ -647,44 +656,74 @@ class _PreSearchPageState extends ConsumerState<PreSearchPage> {
   }
 
   Widget buildHistoryItem(String history, PreSearchState logic) {
-    return Flyout(
-      enableLongPress: true,
-      enableSecondaryTap: true,
-      navigator: App.navigatorKey.currentState,
-      flyoutBuilder: (context) {
-        return FlyoutContent(
-          title: "要删除此项目吗?".tl,
-          actions: [
-            FilledButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(
-                  Theme.of(context).colorScheme.error,
-                ),
-              ),
-              onPressed: () {
-                saveLibraryChange(
-                  () => libraryActions.removeSearchHistory(history),
-                );
-              },
-              child: Text("确认".tl),
-            ),
-          ],
+    return Consumer(
+      builder: (context, ref, _) {
+        final favoriteTag = '${logic.target.name}:$history';
+        final isFavorite = ref.watch(
+          userLibraryProvider.select(
+            (value) => value.favoriteTags.contains(favoriteTag),
+          ),
         );
-      },
-      child: InkWell(
-        mouseCursor: appClickableMouseCursor,
-        onTap: () => search(history),
-        child: SizedBox(
-          width: double.infinity,
+        return Flyout(
+          enableLongPress: true,
+          enableSecondaryTap: true,
+          navigator: App.navigatorKey.currentState,
+          flyoutBuilder: (context) {
+            return FlyoutContent(
+              title: "要删除此项目吗?".tl,
+              actions: [
+                FilledButton(
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all(
+                      Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  onPressed: () {
+                    saveLibraryChange(
+                      () => libraryActions.removeSearchHistory(history),
+                    );
+                  },
+                  child: Text("确认".tl),
+                ),
+              ],
+            );
+          },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(history, style: const TextStyle(fontSize: 16)),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    mouseCursor: appClickableMouseCursor,
+                    onTap: () => search(history),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        history,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: isFavorite
+                      ? null
+                      : () => addSearchFavorite(history, logic),
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                  ),
+                  label: Text(isFavorite ? '已收藏'.tl : '收藏'.tl),
+                ),
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
