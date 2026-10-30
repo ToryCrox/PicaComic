@@ -241,6 +241,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('对比分界位置在切换上一张和下一张时保持不变', (tester) async {
+    final directory = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('viewer_split_'),
+    ))!;
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/image.png');
+    await tester.runAsync(
+      () => file.writeAsBytes(
+        image.encodePng(image.Image(width: 400, height: 400)),
+      ),
+    );
+    final comparison = LocalImageViewerComparison(
+      leftImagePath: file.path,
+      rightImagePath: file.path,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalImageViewerPage(
+          imagePath: file.path,
+          gallery: [
+            LocalImageViewerItem(
+              imagePath: file.path,
+              title: '第一张',
+              comparison: comparison,
+            ),
+            LocalImageViewerItem(
+              imagePath: file.path,
+              title: '第二张',
+              comparison: comparison,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.runAsync(() async {
+      await precacheImage(
+        FileImage(file),
+        tester.element(find.byType(LocalImageViewerPage)),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    if (find.byTooltip('开启左右对比').evaluate().isNotEmpty) {
+      await tester.tap(find.byTooltip('开启左右对比'));
+      await tester.pump();
+    }
+    final divider = find.byKey(
+      const ValueKey('local-image-comparison-divider'),
+    );
+    final initialPosition = tester.getCenter(divider).dx;
+    await tester.drag(divider, const Offset(80, 0));
+    await tester.pump();
+    final position = tester.getCenter(divider).dx;
+    expect(position, greaterThan(initialPosition));
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    expect(find.text('第二张'), findsOneWidget);
+    expect(tester.getCenter(divider).dx, closeTo(position, 0.1));
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    expect(find.text('第一张'), findsOneWidget);
+    expect(tester.getCenter(divider).dx, closeTo(position, 0.1));
+    await tester.tap(find.byTooltip('退出左右对比'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('本地图片查看器支持原图译图切换和左右对比', (tester) async {
     final missingPrefix = File(
       '${Directory.systemTemp.path}/pica-comic-viewer-comparison-${DateTime.now().microsecondsSinceEpoch}',

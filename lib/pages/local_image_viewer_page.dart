@@ -380,7 +380,6 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _showRightImage = _isRightImage(_items[index]);
       _comparisonMode =
           _items[index].comparison != null && _readSavedComparisonMode();
-      _comparisonSplit = 0.5;
       _file = File(_activeImagePath);
       _imagePixelSize = null;
       _leftImagePixelSize = null;
