@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/components/windows_glass_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:pica_comic/foundation/app.dart';
@@ -18,7 +19,7 @@ class LocalFavoritesPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(directoryFavoritesProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('本地收藏'.tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text('本地收藏'.tl))),
       body: favorites.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(

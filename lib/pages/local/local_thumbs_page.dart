@@ -293,67 +293,69 @@ class _LocalThumbsPageState extends State<LocalThumbsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _title +
-              (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") +
-              (_fileSize != "" ? " | $_fileSize" : ""),
-        ),
-        actions: [
-          if (_isSelectedMode)
-            TextButton(
-              onPressed: () {
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text(
+            _title +
+                (_imageFiles.isEmpty ? "" : " (${_imageFiles.length})") +
+                (_fileSize != "" ? " | $_fileSize" : ""),
+          ),
+          actions: [
+            if (_isSelectedMode)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isSelectedMode = false;
+                    _selectedImages.clear();
+                  });
+                },
+                child: Text("取消".tl),
+              ),
+            if (_isSelectedMode)
+              TextButton(
+                onPressed: () {
+                  _deleteImageFileList(_selectedImages);
+                },
+                child: Text("删除".tl),
+              ),
+            IconButton(
+              onPressed: () async {
                 setState(() {
-                  _isSelectedMode = false;
-                  _selectedImages.clear();
+                  _fileSort = _fileSort == ComicFileSort.asc
+                      ? ComicFileSort.desc
+                      : ComicFileSort.asc;
+                  PrefsHelper.setString('local_comic_sort', _fileSort.name);
+                  final newImages = List.of(_imageFiles.reversed);
+                  _imageFiles.clear();
+                  _imageFiles.addAll(newImages);
+                });
+                await Future.delayed(const Duration(milliseconds: 50));
+                SchedulerBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _observerController.dispatchOnceObserve();
+                  }
                 });
               },
-              child: Text("取消".tl),
+              icon: _fileSort == ComicFileSort.asc
+                  ? const Icon(Icons.arrow_upward)
+                  : const Icon(Icons.arrow_downward),
             ),
-          if (_isSelectedMode)
-            TextButton(
-              onPressed: () {
-                _deleteImageFileList(_selectedImages);
-              },
-              child: Text("删除".tl),
+            WindowsGlassPopupMenuButton<String>(
+              tooltip: "更多".tl,
+              position: PopupMenuPosition.under,
+              icon: const Icon(Icons.more_horiz),
+              itemBuilder: (_) => [
+                popupMenuItem<String>(
+                  value: "pixiv_sort1",
+                  text: "整理Pixv图片".tl,
+                  icon: Icons.auto_awesome,
+                  onTap: _pixivSortTap,
+                ),
+              ],
             ),
-          IconButton(
-            onPressed: () async {
-              setState(() {
-                _fileSort = _fileSort == ComicFileSort.asc
-                    ? ComicFileSort.desc
-                    : ComicFileSort.asc;
-                PrefsHelper.setString('local_comic_sort', _fileSort.name);
-                final newImages = List.of(_imageFiles.reversed);
-                _imageFiles.clear();
-                _imageFiles.addAll(newImages);
-              });
-              await Future.delayed(const Duration(milliseconds: 50));
-              SchedulerBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _observerController.dispatchOnceObserve();
-                }
-              });
-            },
-            icon: _fileSort == ComicFileSort.asc
-                ? const Icon(Icons.arrow_upward)
-                : const Icon(Icons.arrow_downward),
-          ),
-          PopupMenuButton<String>(
-            tooltip: "更多".tl,
-            position: PopupMenuPosition.under,
-            icon: const Icon(Icons.more_horiz),
-            itemBuilder: (_) => [
-              popupMenuItem<String>(
-                value: "pixiv_sort1",
-                text: "整理Pixv图片".tl,
-                icon: Icons.auto_awesome,
-                onTap: _pixivSortTap,
-              ),
-            ],
-          ),
-          const SizedBox(width: 10),
-        ],
+            const SizedBox(width: 10),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {

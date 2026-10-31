@@ -152,7 +152,7 @@ class _ManhuaguiCatalogPageState extends ConsumerState<ManhuaguiCatalogPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('漫画柜'.tl)),
+    appBar: WindowsGlassAppBar(child: AppBar(title: Text('漫画柜'.tl))),
     body: Column(
       children: [
         _controls(),

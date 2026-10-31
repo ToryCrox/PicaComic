@@ -106,7 +106,7 @@ class _RecommendationSelector extends StatelessWidget {
     if (renderObject is! RenderBox) return;
     var offset = renderObject.localToGlobal(Offset.zero);
     offset = Offset(offset.dx + 246, offset.dy + 53);
-    showMenu(
+    showWindowsGlassMenu(
       constraints: BoxConstraints(
         maxHeight: 300,
         minWidth:

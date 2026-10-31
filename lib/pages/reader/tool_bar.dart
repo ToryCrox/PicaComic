@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../components/components.dart';
 import '../../components/custom_slider.dart';
+import '../../components/windows_glass_panel.dart';
 import '../../foundation/app.dart';
 import '../../foundation/widget_utils.dart';
 import '../../tools/iterable_extension.dart';
@@ -170,14 +171,20 @@ Widget buildBottomToolBar(
           ),
         );
 
-        child = Material(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
+        final toolbar = child;
+        child = WindowsGlassPanel(
+          radius: 16,
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          fallback: Material(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+            surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+            elevation: 3,
+            child: toolbar,
           ),
-          surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-          elevation: 3,
-          child: child,
+          child: toolbar,
         );
 
         return AnimatedSwitcher(

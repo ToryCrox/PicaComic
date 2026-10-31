@@ -264,15 +264,17 @@ class _LocalRepositoryManagementPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("存储库管理".tl),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addRepository,
-            tooltip: "添加存储库".tl,
-          ),
-        ],
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text("存储库管理".tl),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _addRepository,
+              tooltip: "添加存储库".tl,
+            ),
+          ],
+        ),
       ),
       body: loading && repositories.isEmpty
           ? const Center(child: CircularProgressIndicator())

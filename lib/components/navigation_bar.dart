@@ -202,23 +202,25 @@ class _NaviPaneState extends State<NaviPane>
             withPadding: targetFormContext(context) == _kPaneModeTopBar,
             child: Stack(
               children: [
-                Positioned(
-                  left:
-                      _kFoldedSideBarWidth *
-                      ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
-                  top: 0,
-                  bottom: 0,
-                  child: buildLeft(),
-                ),
+                if (!App.isWindows)
+                  Positioned(
+                    left:
+                        _kFoldedSideBarWidth *
+                        ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
+                    top: 0,
+                    bottom: 0,
+                    child: buildLeft(),
+                  ),
                 Positioned(
                   // Windows 的标题栏是覆盖层，页面背景从窗口顶部开始绘制；
                   // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
                   top: App.isWindows ? 0 : pageTop,
-                  left:
-                      _kFoldedSideBarWidth *
-                          ((value - _kPaneModeTopBar).clamp(0, 1)) +
-                      (_kSideBarWidth - _kFoldedSideBarWidth) *
-                          ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
+                  left: App.isWindows
+                      ? 0
+                      : _kFoldedSideBarWidth *
+                                ((value - _kPaneModeTopBar).clamp(0, 1)) +
+                            (_kSideBarWidth - _kFoldedSideBarWidth) *
+                                ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
                   right: 0,
                   bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
                   child: App.isWindows
@@ -226,7 +228,20 @@ class _NaviPaneState extends State<NaviPane>
                           data: pageMediaQuery,
                           child: Material(
                             color: Theme.of(context).scaffoldBackgroundColor,
-                            child: widget.pageBuilder(currentPage),
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                left:
+                                    _kFoldedSideBarWidth *
+                                        ((value - _kPaneModeTopBar).clamp(
+                                          0,
+                                          1,
+                                        )) +
+                                    (_kSideBarWidth - _kFoldedSideBarWidth) *
+                                        ((value - _kPaneModeFoldedSidebar)
+                                            .clamp(0, 1)),
+                              ),
+                              child: widget.pageBuilder(currentPage),
+                            ),
                           ),
                         )
                       : MediaQuery.removePadding(
@@ -238,6 +253,15 @@ class _NaviPaneState extends State<NaviPane>
                           ),
                         ),
                 ),
+                if (App.isWindows)
+                  Positioned(
+                    left:
+                        _kFoldedSideBarWidth *
+                        ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
+                    top: 0,
+                    bottom: 0,
+                    child: buildLeft(),
+                  ),
                 // 导航栏覆盖在页面背景之上，避免页面背景遮住窄屏导航栏内容。
                 if (value <= _kPaneModeTopBar)
                   Positioned(
@@ -335,56 +359,61 @@ class _NaviPaneState extends State<NaviPane>
   Widget buildLeft() {
     final value = controller.value;
     const paddingHorizontal = 12.0;
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: Container(
-        width:
-            _kFoldedSideBarWidth +
-            (_kSideBarWidth - _kFoldedSideBarWidth) *
-                ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
-        height: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
-        child: Row(
-          children: [
-            SizedBox(
-              width: value == _kPaneModeExpandedSidebar
-                  ? (_kSideBarWidth - paddingHorizontal * 2)
-                  : (_kFoldedSideBarWidth - paddingHorizontal * 2),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  SizedBox(height: MediaQuery.paddingOf(context).top),
-                  ...List<Widget>.generate(
-                    widget.paneItems.length,
-                    (index) => _SideNaviWidget(
-                      enabled: currentPage == index,
-                      entry: widget.paneItems[index],
-                      showTitle: value == _kPaneModeExpandedSidebar,
-                      onTap: () {
-                        setState(() {
-                          currentPage = index;
-                        });
-                      },
-                      key: ValueKey(index),
-                    ),
+    final content = Container(
+      width:
+          _kFoldedSideBarWidth +
+          (_kSideBarWidth - _kFoldedSideBarWidth) *
+              ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
+      height: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
+      child: Row(
+        children: [
+          SizedBox(
+            width: value == _kPaneModeExpandedSidebar
+                ? (_kSideBarWidth - paddingHorizontal * 2)
+                : (_kFoldedSideBarWidth - paddingHorizontal * 2),
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                SizedBox(height: MediaQuery.paddingOf(context).top),
+                ...List<Widget>.generate(
+                  widget.paneItems.length,
+                  (index) => _SideNaviWidget(
+                    enabled: currentPage == index,
+                    entry: widget.paneItems[index],
+                    showTitle: value == _kPaneModeExpandedSidebar,
+                    onTap: () {
+                      setState(() {
+                        currentPage = index;
+                      });
+                    },
+                    key: ValueKey(index),
                   ),
-                  const Spacer(),
-                  ...List<Widget>.generate(
-                    widget.paneActions.length,
-                    (index) => _PaneActionWidget(
-                      entry: widget.paneActions[index],
-                      showTitle: value == _kPaneModeExpandedSidebar,
-                      key: ValueKey(index + widget.paneItems.length),
-                    ),
+                ),
+                const Spacer(),
+                ...List<Widget>.generate(
+                  widget.paneActions.length,
+                  (index) => _PaneActionWidget(
+                    entry: widget.paneActions[index],
+                    showTitle: value == _kPaneModeExpandedSidebar,
+                    key: ValueKey(index + widget.paneItems.length),
                   ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
-            const Spacer(),
-          ],
-        ),
+          ),
+          const Spacer(),
+        ],
       ),
+    );
+    return WindowsGlassPanel(
+      radius: 12,
+      fallback: Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: content,
+      ),
+      child: content,
     );
   }
 }

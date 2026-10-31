@@ -18,7 +18,7 @@ Future<T?> showContextMenu<T>({
   final localPosition = renderObject.globalToLocal(globalPosition);
   final overlaySize = renderObject.size;
 
-  return showMenu<T>(
+  return showWindowsGlassMenu<T>(
     context: context,
     position: RelativeRect.fromLTRB(
       localPosition.dx,

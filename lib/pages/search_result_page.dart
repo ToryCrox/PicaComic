@@ -198,7 +198,7 @@ class _SearchResultPageState extends State<_SearchResultPage> {
   Widget build(BuildContext context) {
     Widget trailing;
     if (context.width < 400) {
-      trailing = PopupMenuButton<int>(
+      trailing = WindowsGlassPopupMenuButton<int>(
         tooltip: "更多".tl,
         position: PopupMenuPosition.under,
         icon: const Icon(Icons.more_horiz),

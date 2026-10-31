@@ -119,11 +119,13 @@ class _ComicSourceListState extends ConsumerState<_ComicSourceList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("漫画源".tl),
-        actions: const [
-          IconButton(onPressed: App.globalBack, icon: Icon(Icons.close)),
-        ],
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text("漫画源".tl),
+          actions: const [
+            IconButton(onPressed: App.globalBack, icon: Icon(Icons.close)),
+          ],
+        ),
       ),
       body: buildBody(),
     );

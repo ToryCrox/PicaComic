@@ -1,5 +1,11 @@
 /// 应用设置的稳定命名 key，集中说明用途和取值含义。
 abstract final class AppSettingKeys {
+  /// Windows 液态玻璃开关，1 表示启用。
+  static const liquidGlassEnabled = 'liquidGlassEnabled';
+
+  /// 液态玻璃强度：0 轻柔、1 标准、2 明显。
+  static const liquidGlassStrength = 'liquidGlassStrength';
+
   /// 应用界面的自定义字体；空字符串使用平台默认字体。
   static const font = 'font';
 
@@ -234,6 +240,8 @@ abstract final class AppSettingKeys {
 
 /// 设置默认值。字符串编码保留现有业务取值语义，持久化为 JSON 对象。
 const defaultAppSettings = <String, String>{
+  AppSettingKeys.liquidGlassEnabled: '1',
+  AppSettingKeys.liquidGlassStrength: '1',
   AppSettingKeys.font: '',
   AppSettingKeys.readerTapToTurnPage: "1",
   AppSettingKeys.checkUpdatesOnStartup: "1",

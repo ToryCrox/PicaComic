@@ -365,7 +365,9 @@ class _KemonoCreatorPageState extends State<_KemonoCreatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.creator.title)),
+      appBar: WindowsGlassAppBar(
+        child: AppBar(title: Text(widget.creator.title)),
+      ),
       body: _KemonoCreatorList(creator: widget.creator),
     );
   }

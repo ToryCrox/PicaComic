@@ -71,36 +71,40 @@ class SideBarRoute<T> extends PopupRoute<T> {
 
     final sideBarWidth = math.min(width, MediaQuery.of(context).size.width);
 
+    final sidebarContent = ClipRect(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          0,
+          0,
+          MediaQuery.of(context).padding.right,
+          addBottomPadding
+              ? MediaQuery.of(context).padding.bottom +
+                    MediaQuery.of(context).viewInsets.bottom
+              : 0,
+        ),
+        color: useSurfaceTintColor
+            ? Theme.of(context).colorScheme.surfaceTint.withAlpha(20)
+            : null,
+        child: body,
+      ),
+    );
     body = Container(
       decoration: BoxDecoration(
         borderRadius: showSideBar
             ? const BorderRadius.horizontal(left: Radius.circular(16))
             : null,
-        color: Theme.of(context).colorScheme.surfaceTint,
+        color: App.isWindows
+            ? Colors.transparent
+            : Theme.of(context).colorScheme.surfaceTint,
       ),
       clipBehavior: Clip.antiAlias,
       constraints: BoxConstraints(maxWidth: sideBarWidth),
       height: MediaQuery.of(context).size.height,
       child: GestureDetector(
-        child: Material(
-          child: ClipRect(
-            clipBehavior: Clip.antiAlias,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(
-                0,
-                0,
-                MediaQuery.of(context).padding.right,
-                addBottomPadding
-                    ? MediaQuery.of(context).padding.bottom +
-                          MediaQuery.of(context).viewInsets.bottom
-                    : 0,
-              ),
-              color: useSurfaceTintColor
-                  ? Theme.of(context).colorScheme.surfaceTint.withAlpha(20)
-                  : null,
-              child: body,
-            ),
-          ),
+        child: WindowsGlassPanel(
+          fallback: Material(child: sidebarContent),
+          child: sidebarContent,
         ),
       ),
     );

@@ -46,7 +46,7 @@ class _EhLoginPageState extends State<EhLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("登录".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("登录".tl))),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,

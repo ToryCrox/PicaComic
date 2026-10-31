@@ -771,16 +771,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         child: CustomScrollView(
           primary: false,
           slivers: [
-            SliverAppBar(
-              title: Text(categories[currentPage].tl),
-              automaticallyImplyLeading: false,
-              scrolledUnderElevation: enableTwoViews ? 0 : null,
-              leading: enableTwoViews
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => setState(() => currentPage = -1),
-                    ),
+            WindowsGlassSliverAppBar(
+              child: SliverAppBar(
+                title: Text(categories[currentPage].tl),
+                automaticallyImplyLeading: false,
+                scrolledUnderElevation: enableTwoViews ? 0 : null,
+                leading: enableTwoViews
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => setState(() => currentPage = -1),
+                      ),
+              ),
             ),
             SliverToBoxAdapter(child: body),
           ],

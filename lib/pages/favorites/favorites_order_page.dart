@@ -46,7 +46,7 @@ class _FavoritesOrderPageState extends ConsumerState<FavoritesOrderPage> {
   Widget build(BuildContext context) {
     final folder = widget.folder;
     return Scaffold(
-      appBar: AppBar(title: Text(folder ?? '排序'.tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text(folder ?? '排序'.tl))),
       body: folder == null
           ? ref
                 .watch(localFavoritesProvider)

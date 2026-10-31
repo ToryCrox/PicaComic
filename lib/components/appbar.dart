@@ -104,12 +104,14 @@ class _AppbarState extends State<Appbar> {
       ),
     ).paddingTop(context.padding.top);
     if (widget.backgroundColor != Colors.transparent) {
-      return Material(
+      final original = Material(
         elevation: (_scrolledUnder && UiMode.m1(context)) ? 1 : 0,
         surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
         color: widget.backgroundColor ?? Theme.of(context).colorScheme.surface,
         child: content,
       );
+      if (widget.backgroundColor != null) return original;
+      return WindowsGlassHeader(child: content, fallback: original);
     }
     return content;
   }
@@ -198,11 +200,23 @@ class _FloatingSearchBarState extends State<FloatingSearchBar> {
 }
 
 class FilledTabBar extends StatefulWidget {
-  const FilledTabBar({super.key, this.controller, required this.tabs});
+  const FilledTabBar({
+    super.key,
+    this.controller,
+    required this.tabs,
+    this.showBottomBorder = true,
+    this.glassSelected = false,
+  });
 
   final TabController? controller;
 
   final List<Tab> tabs;
+
+  /// 是否显示标签栏底部的分隔线。
+  final bool showBottomBorder;
+
+  /// 使用玻璃材质突出当前选中的标签。
+  final bool glassSelected;
 
   @override
   State<FilledTabBar> createState() => _FilledTabBarState();
@@ -210,6 +224,7 @@ class FilledTabBar extends StatefulWidget {
 
 class _FilledTabBarState extends State<FilledTabBar> {
   late TabController _controller;
+  TabController? _attachedController;
 
   late List<GlobalKey> keys;
 
@@ -235,25 +250,35 @@ class _FilledTabBarState extends State<FilledTabBar> {
 
   @override
   void dispose() {
+    _attachedController?.animation?.removeListener(onTabChanged);
+    scrollController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeDependencies() {
-    _controller = widget.controller ?? DefaultTabController.of(context);
-    _controller.animation!.addListener(onTabChanged);
-    initPainter();
+    _bindController();
     super.didChangeDependencies();
   }
 
   @override
   void didUpdateWidget(covariant FilledTabBar oldWidget) {
     if (widget.controller != oldWidget.controller) {
-      _controller = widget.controller ?? DefaultTabController.of(context);
-      _controller.animation!.addListener(onTabChanged);
-      initPainter();
+      _bindController();
     }
     super.didUpdateWidget(oldWidget);
+  }
+
+  /// 切换控制器时解绑旧监听，避免标题栏重建后重复监听。
+  void _bindController() {
+    final next = widget.controller ?? DefaultTabController.of(context);
+    if (!identical(next, _attachedController)) {
+      _attachedController?.animation?.removeListener(onTabChanged);
+      _attachedController = next;
+      next.animation?.addListener(onTabChanged);
+    }
+    _controller = next;
+    initPainter();
   }
 
   void initPainter() {
@@ -264,8 +289,8 @@ class _FilledTabBarState extends State<FilledTabBar> {
       padding: tabPadding,
       radius: tabRadius,
     );
-    if (old != null) {
-      painter!.update(old.offsets!, old.itemHeight!);
+    if (old?.offsets != null && old?.itemHeight != null) {
+      painter!.update(old!.offsets!, old.itemHeight!);
     }
   }
 
@@ -302,14 +327,16 @@ class _FilledTabBarState extends State<FilledTabBar> {
       key: tabBarKey,
       height: _kTabHeight,
       width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-        ),
-      ),
+      decoration: widget.showBottomBorder
+          ? BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: context.colorScheme.outlineVariant,
+                  width: 0.6,
+                ),
+              ),
+            )
+          : null,
       child: widget.tabs.isEmpty ? const SizedBox() : child,
     );
   }
@@ -326,6 +353,12 @@ class _FilledTabBarState extends State<FilledTabBar> {
   }
 
   void updateScrollOffset(int i) {
+    if (!scrollController.hasClients ||
+        tabBarKey.currentContext == null ||
+        i < 0 ||
+        i + 1 >= offsets.length) {
+      return;
+    }
     // try to scroll to center the tab
     final RenderBox tabBarBox =
         tabBarKey.currentContext!.findRenderObject() as RenderBox;
@@ -350,25 +383,37 @@ class _FilledTabBarState extends State<FilledTabBar> {
   }
 
   Widget buildTab(int i) {
+    final tab = KeyedSubtree(
+      key: keys[i],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: DefaultTextStyle(
+          style: DefaultTextStyle.of(context).style.copyWith(
+            color: i == _controller.index
+                ? context.colorScheme.primary
+                : context.colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+          child: widget.tabs[i],
+        ),
+      ),
+    );
+    final selected = widget.glassSelected && i == _controller.index;
     return InkWell(
       mouseCursor: appClickableMouseCursor,
       onTap: () => onTabClicked(i),
       borderRadius: BorderRadius.circular(tabRadius),
-      child: KeyedSubtree(
-        key: keys[i],
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: DefaultTextStyle(
-            style: DefaultTextStyle.of(context).style.copyWith(
-              color: i == _controller.index
-                  ? context.colorScheme.primary
-                  : context.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-            child: widget.tabs[i],
-          ),
-        ),
-      ),
+      child: selected
+          ? WindowsGlassPanel(
+              radius: tabRadius,
+              tintColor: Color.alphaBlend(
+                context.colorScheme.primary.withValues(alpha: 0.16),
+                context.colorScheme.surface,
+              ),
+              fallback: tab,
+              child: tab,
+            )
+          : tab,
     ).padding(tabPadding);
   }
 }

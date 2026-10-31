@@ -63,7 +63,7 @@ class _SelectState extends State<Select> {
           final renderBox = context.findRenderObject() as RenderBox;
           var offset = renderBox.localToGlobal(Offset.zero);
           var size = MediaQuery.of(context).size;
-          showMenu<int>(
+          showWindowsGlassMenu<int>(
             context: App.globalContext!,
             initialValue: value,
             position: RelativeRect.fromLTRB(

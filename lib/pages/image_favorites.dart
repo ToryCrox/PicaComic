@@ -60,7 +60,9 @@ class _ImageFavoritesPageState extends ConsumerState<ImageFavoritesPage> {
     ];
     return Scaffold(
       appBar: UiMode.m1(context)
-          ? AppBar(title: title, actions: actions)
+          ? WindowsGlassAppBar(
+              child: AppBar(title: title, actions: actions),
+            )
           : Appbar(title: title, actions: actions),
       body: _body(),
     );

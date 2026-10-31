@@ -402,43 +402,45 @@ class _TagManagementPageState extends ConsumerState<TagManagementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          decoration: InputDecoration(
-            hintText: "搜索标签".tl,
-            border: InputBorder.none,
-          ),
-          onChanged: (value) {
-            _keyword = value;
-            _updateFilteredTags();
-          },
-        ),
-        actions: [
-          PopupMenuButton<int>(
-            position: PopupMenuPosition.under,
-            initialValue: _selectedCategory,
-            icon: const Icon(Icons.filter_list),
-            tooltip: "筛选分类".tl,
-            onSelected: (value) {
-              _selectedCategory = value;
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: TextField(
+            decoration: InputDecoration(
+              hintText: "搜索标签".tl,
+              border: InputBorder.none,
+            ),
+            onChanged: (value) {
+              _keyword = value;
               _updateFilteredTags();
             },
-            itemBuilder: (context) => [
-              PopupMenuItem(value: 0, child: Text("全部".tl)),
-              for (var category in TagCategory.values)
-                if (category != TagCategory.none)
-                  PopupMenuItem(
-                    value: category.value,
-                    child: Text(category.label),
-                  ),
-            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _createTag,
-            tooltip: "创建标签".tl,
-          ),
-        ],
+          actions: [
+            WindowsGlassPopupMenuButton<int>(
+              position: PopupMenuPosition.under,
+              initialValue: _selectedCategory,
+              icon: const Icon(Icons.filter_list),
+              tooltip: "筛选分类".tl,
+              onSelected: (value) {
+                _selectedCategory = value;
+                _updateFilteredTags();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 0, child: Text("全部".tl)),
+                for (var category in TagCategory.values)
+                  if (category != TagCategory.none)
+                    PopupMenuItem(
+                      value: category.value,
+                      child: Text(category.label),
+                    ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _createTag,
+              tooltip: "创建标签".tl,
+            ),
+          ],
+        ),
       ),
       body: loading && tags.isEmpty
           ? const Center(child: CircularProgressIndicator())
@@ -589,7 +591,7 @@ class _TagManagementPageState extends ConsumerState<TagManagementPage> {
                       ],
                     ),
                   ),
-                  PopupMenuButton<String>(
+                  WindowsGlassPopupMenuButton<String>(
                     position: PopupMenuPosition.under,
                     onSelected: (value) => _handleMenuSelection(value, tag),
                     itemBuilder: (context) => _buildMenuItems(tag),

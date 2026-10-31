@@ -30,31 +30,33 @@ class LocalHistoryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(allLocalHistoryProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: Text('历史记录'.tl),
-        actions: [
-          IconButton(
-            tooltip: '清理失效记录'.tl,
-            icon: const Icon(Icons.cleaning_services),
-            onPressed: () => _perform(() async {
-              final count = await ref
-                  .read(historyActionsProvider.notifier)
-                  .clearInvalidLocal();
-              showToast(message: '已清理 $count 条失效记录'.tl);
-            }),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_sweep),
-            onPressed: () => showConfirmDialog(
-              context,
-              '清除历史记录'.tl,
-              '确认清除所有历史记录?'.tl,
-              () => _perform(
-                ref.read(historyActionsProvider.notifier).clearLocal,
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text('历史记录'.tl),
+          actions: [
+            IconButton(
+              tooltip: '清理失效记录'.tl,
+              icon: const Icon(Icons.cleaning_services),
+              onPressed: () => _perform(() async {
+                final count = await ref
+                    .read(historyActionsProvider.notifier)
+                    .clearInvalidLocal();
+                showToast(message: '已清理 $count 条失效记录'.tl);
+              }),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep),
+              onPressed: () => showConfirmDialog(
+                context,
+                '清除历史记录'.tl,
+                '确认清除所有历史记录?'.tl,
+                () => _perform(
+                  ref.read(historyActionsProvider.notifier).clearLocal,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       body: history.when(
         loading: () => const Center(child: CircularProgressIndicator()),

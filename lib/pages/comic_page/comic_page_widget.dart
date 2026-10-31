@@ -12,6 +12,7 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 import '../../foundation/user_library_preferences.dart';
 import '../../components/components.dart';
 import '../../components/grouped_chapters.dart';
+import '../../components/windows_glass_panel.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_page_route.dart';
@@ -255,54 +256,59 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     Object data,
   ) {
     final titleText = adapter.title(data) ?? '';
-    return SliverAppBar(
-      pinned: true,
-      title: AnimatedOpacity(
-        opacity: state.showAppbarTitle ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
-        child: Text(titleText),
-      ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      actions: [
-        PopupMenuButton<void>(
-          tooltip: "更多".tl,
-          position: PopupMenuPosition.under,
-          icon: const Icon(Icons.more_horiz),
-          itemBuilder: (_) {
-            final url = adapter.url(data);
-            return [
-              popupMenuItem<void>(
-                text: "复制标题".tl,
-                icon: Icons.title,
-                onTap: () {
-                  var text = titleText;
-                  if (url != null) text += ":$url";
-                  Clipboard.setData(ClipboardData(text: text));
-                  showToast(message: "已复制".tl, icon: const Icon(Icons.check));
-                },
-              ),
-              if (url != null)
+    return WindowsGlassSliverAppBar(
+      child: SliverAppBar(
+        pinned: true,
+        title: AnimatedOpacity(
+          opacity: state.showAppbarTitle ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: Text(titleText),
+        ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        actions: [
+          WindowsGlassPopupMenuButton<void>(
+            tooltip: "更多".tl,
+            position: PopupMenuPosition.under,
+            icon: const Icon(Icons.more_horiz),
+            itemBuilder: (_) {
+              final url = adapter.url(data);
+              return [
                 popupMenuItem<void>(
-                  text: "复制链接".tl,
-                  icon: Icons.link,
+                  text: "复制标题".tl,
+                  icon: Icons.title,
                   onTap: () {
-                    Clipboard.setData(ClipboardData(text: url));
+                    var text = titleText;
+                    if (url != null) text += ":$url";
+                    Clipboard.setData(ClipboardData(text: text));
                     showToast(message: "已复制".tl, icon: const Icon(Icons.check));
                   },
                 ),
-              popupMenuItem<void>(
-                text: "分享".tl,
-                icon: Icons.share_outlined,
-                onTap: () {
-                  var text = titleText;
-                  if (url != null) text += ":$url";
-                  Share.share(text);
-                },
-              ),
-            ];
-          },
-        ),
-      ],
+                if (url != null)
+                  popupMenuItem<void>(
+                    text: "复制链接".tl,
+                    icon: Icons.link,
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: url));
+                      showToast(
+                        message: "已复制".tl,
+                        icon: const Icon(Icons.check),
+                      );
+                    },
+                  ),
+                popupMenuItem<void>(
+                  text: "分享".tl,
+                  icon: Icons.share_outlined,
+                  onTap: () {
+                    var text = titleText;
+                    if (url != null) text += ":$url";
+                    Share.share(text);
+                  },
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -405,8 +411,23 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       },
     );
 
-    if (!sliver) return body;
-    return SliverToBoxAdapter(child: body);
+    final displayCover = state?.coverPath != null
+        ? Uri.file(state!.coverPath!).toString()
+        : coverUrl;
+    final panel = data != null && displayCover != null
+        ? WindowsGlassPanel(
+            fallback: body,
+            background: PicaImage(
+              url: displayCover,
+              fit: BoxFit.cover,
+              sourceKey: adapter.comicType.name,
+              isThumbnail: true,
+            ),
+            child: body,
+          )
+        : body;
+    if (!sliver) return panel;
+    return SliverToBoxAdapter(child: panel);
   }
 
   // ========================================================================

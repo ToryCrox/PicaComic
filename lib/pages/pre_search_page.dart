@@ -273,7 +273,7 @@ class _PreSearchPageState extends ConsumerState<PreSearchPage> {
   Widget build(BuildContext context) {
     if (comicSources.isEmpty) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: WindowsGlassAppBar(child: AppBar()),
         body: Center(child: Text('没有可搜索的漫画源'.tl)),
       );
     }

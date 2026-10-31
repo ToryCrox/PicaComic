@@ -19,6 +19,7 @@ import 'package:window_manager/window_manager.dart';
 import '../pages/local/local_comic_page.dart';
 import '../tools/prefs_helper.dart';
 import 'components.dart';
+import 'windows_glass_panel.dart';
 
 const _kTitleBarHeight = 32.0;
 
@@ -241,13 +242,22 @@ class __SideBarState extends State<_SideBar>
               right: App.isMacOS ? (_controller.value - 1) * 250 : null,
               top: 0,
               bottom: 0,
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-                elevation: 2,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(8),
-                  bottomRight: Radius.circular(8),
+              child: WindowsGlassPanel(
+                fallback: Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+                  elevation: 2,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                  child: SizedBox(
+                    width: 250,
+                    height: double.infinity,
+                    child: SingleChildScrollView(
+                      child: _SideBarBody(onClose: run),
+                    ).paddingTop(_kTitleBarHeight),
+                  ),
                 ),
                 child: SizedBox(
                   width: 250,

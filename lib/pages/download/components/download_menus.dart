@@ -421,7 +421,7 @@ Widget _buildComicSortMenuAnchor(WidgetRef ref, VoidCallback onChanged) {
     }
   }
 
-  return MenuAnchor(
+  return WindowsGlassMenuAnchor(
     menuChildren: [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -902,7 +902,7 @@ List<Widget> buildAppBarActions({
         ),
       ),
     if (!isSelecting)
-      PopupMenuButton<DownloadType?>(
+      WindowsGlassPopupMenuButton<DownloadType?>(
         tooltip: "类型筛选".tl,
         position: PopupMenuPosition.under,
         icon: const Icon(Icons.filter_list),
@@ -910,7 +910,7 @@ List<Widget> buildAppBarActions({
             buildDownloadTypeFilterMenuItems(ref: ref, pageId: pageId),
       )
     else if (isSelecting)
-      PopupMenuButton<void>(
+      WindowsGlassPopupMenuButton<void>(
         tooltip: "更多".tl,
         position: PopupMenuPosition.under,
         icon: const Icon(Icons.more_horiz),

@@ -56,7 +56,7 @@ class CollectionsPage extends ConsumerWidget {
     final logic = ref.read(collectionPageLogicProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: Text("推荐".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("推荐".tl))),
       body: pageState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => NetworkError(

@@ -1,6 +1,10 @@
 # 应用设置
 
-设置定义集中在 `lib/foundation/app_setting_keys.dart`，每个 key 都有中文用途说明，默认值集中在 `defaultAppSettings`。原有 97 个槽位保留 75 个有效设置，另将字体纳入统一仓库，共 77 项。
+## Windows 液态玻璃
+
+`liquidGlassEnabled` 默认为 `"1"`，仅在 Windows 且着色器初始化成功时生效；关闭后恢复普通面板。`liquidGlassStrength` 默认为 `"1"`，可选 `"0"`（轻柔）、`"1"`（标准）和 `"2"`（明显）。设置由主题页面通过统一设置仓库保存并即时应用。高对比度模式使用普通面板。
+
+设置定义集中在 `lib/foundation/app_setting_keys.dart`，每个 key 都有中文用途说明，默认值集中在 `defaultAppSettings`。
 
 ## 存储格式
 

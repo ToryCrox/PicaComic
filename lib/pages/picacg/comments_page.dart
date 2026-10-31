@@ -63,7 +63,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       return body;
     }
     return Scaffold(
-      appBar: AppBar(title: Text("评论".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("评论".tl))),
       body: body,
     );
   }
@@ -255,7 +255,7 @@ class _ReplyPageState extends ConsumerState<ReplyPage> {
       return body;
     }
     return Scaffold(
-      appBar: AppBar(title: Text("回复".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("回复".tl))),
       body: body,
     );
   }

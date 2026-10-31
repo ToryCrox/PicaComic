@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/windows_glass_app_bar.dart';
 import '../foundation/theme/app_mouse_cursor.dart';
 import '../network/network_artifact_preview.dart';
 import '../network/network_log.dart';
@@ -177,14 +178,16 @@ class NetworkLogDetailPage extends ConsumerWidget {
 
     return Column(
       children: [
-        AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('请求详情', style: TextStyle(fontSize: 16)),
-          leading: IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down),
-            onPressed: () => Navigator.pop(context),
+        WindowsGlassAppBar(
+          child: AppBar(
+            automaticallyImplyLeading: false,
+            title: const Text('请求详情', style: TextStyle(fontSize: 16)),
+            leading: IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down),
+              onPressed: () => Navigator.pop(context),
+            ),
+            elevation: 0,
           ),
-          elevation: 0,
         ),
         Expanded(child: detail),
       ],

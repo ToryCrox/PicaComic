@@ -36,14 +36,16 @@ class _AiSettingsPageState extends State<AiSettingsPage>
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       return Scaffold(
-        appBar: AppBar(
-          title: Text('AI设置'.tl),
-          bottom: TabBar(
-            controller: _tabs,
-            tabs: [
-              Tab(text: '服务配置'.tl),
-              Tab(text: '提示词'.tl),
-            ],
+        appBar: WindowsGlassAppBar(
+          child: AppBar(
+            title: Text('AI设置'.tl),
+            bottom: TabBar(
+              controller: _tabs,
+              tabs: [
+                Tab(text: '服务配置'.tl),
+                Tab(text: '提示词'.tl),
+              ],
+            ),
           ),
         ),
         floatingActionButton: AnimatedBuilder(
@@ -90,7 +92,7 @@ class _AiSettingsPageState extends State<AiSettingsPage>
                 '${provider.protocol.label}\n${provider.model} · ${provider.baseUrl}',
               ),
               isThreeLine: true,
-              trailing: PopupMenuButton<String>(
+              trailing: WindowsGlassPopupMenuButton<String>(
                 position: PopupMenuPosition.under,
                 onSelected: (value) => _handleProviderAction(value, provider),
                 itemBuilder: (_) => [
@@ -151,7 +153,7 @@ class _AiSettingsPageState extends State<AiSettingsPage>
               '${AiPromptScenes.labels[prompt.sceneId] ?? prompt.sceneId} · '
               '${aiSettings.providerById(prompt.providerId)?.name ?? '未绑定服务'.tl}',
             ),
-            trailing: PopupMenuButton<String>(
+            trailing: WindowsGlassPopupMenuButton<String>(
               position: PopupMenuPosition.under,
               onSelected: (value) => _handlePromptAction(value, prompt),
               itemBuilder: (_) => [

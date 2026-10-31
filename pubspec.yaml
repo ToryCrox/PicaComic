@@ -33,6 +33,7 @@ dependencies:
   rhttp: ^0.18.0
   shared_preferences: ^2.0.16
   dynamic_color: ^1.6.9
+  liquid_glass_widgets: 1.16.1
   crypto: any
   pointycastle: ^3.7.3
   uuid: ^4.5.1

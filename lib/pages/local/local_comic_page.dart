@@ -146,47 +146,54 @@ class _LocalComicPageState extends ConsumerState<LocalComicPage> {
       titleText += ' | $_fileSize';
     }
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titleText),
-        actions: [
-          if (parentPath != null)
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text(titleText),
+          actions: [
+            if (parentPath != null)
+              IconButton(
+                onPressed: () => _loadAllFileSize(parentPath),
+                icon: const Icon(Icons.refresh),
+              ),
             IconButton(
-              onPressed: () => _loadAllFileSize(parentPath),
-              icon: const Icon(Icons.refresh),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (context) => const PickOutNyakoDialog(),
+              ),
+              icon: const Icon(Icons.auto_fix_high),
+              tooltip: "漫画整理工具".tl,
             ),
-          IconButton(
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => const PickOutNyakoDialog(),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _fileSort = isReversed
+                      ? ComicFileSort.asc
+                      : ComicFileSort.desc;
+                  PrefsHelper.setString(
+                    'local_comic_folder_sort',
+                    _fileSort.name,
+                  );
+                  _localComics.setAll(0, _localComics.reversed.toList());
+                });
+              },
+              icon: Icon(
+                isReversed ? Icons.arrow_downward : Icons.arrow_upward,
+              ),
             ),
-            icon: const Icon(Icons.auto_fix_high),
-            tooltip: "漫画整理工具".tl,
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _fileSort = isReversed ? ComicFileSort.asc : ComicFileSort.desc;
-                PrefsHelper.setString(
-                  'local_comic_folder_sort',
-                  _fileSort.name,
-                );
-                _localComics.setAll(0, _localComics.reversed.toList());
-              });
-            },
-            icon: Icon(isReversed ? Icons.arrow_downward : Icons.arrow_upward),
-          ),
-          IconButton(
-            onPressed: () => App.to(context, () => const LocalHistoryPage()),
-            icon: const Icon(Icons.history),
-            tooltip: "历史记录".tl,
-          ),
-          IconButton(
-            onPressed: () => App.to(context, () => const LocalFavoritesPage()),
-            icon: const Icon(Icons.collections_bookmark),
-            tooltip: "本地收藏".tl,
-          ),
-          const SizedBox(width: 10),
-        ],
+            IconButton(
+              onPressed: () => App.to(context, () => const LocalHistoryPage()),
+              icon: const Icon(Icons.history),
+              tooltip: "历史记录".tl,
+            ),
+            IconButton(
+              onPressed: () =>
+                  App.to(context, () => const LocalFavoritesPage()),
+              icon: const Icon(Icons.collections_bookmark),
+              tooltip: "本地收藏".tl,
+            ),
+            const SizedBox(width: 10),
+          ],
+        ),
       ),
       body: DropRegion(
         formats: Formats.standardFormats,

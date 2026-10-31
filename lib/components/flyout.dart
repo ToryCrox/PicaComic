@@ -190,40 +190,48 @@ class FlyoutContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IntrinsicWidth(
-      child: Material(
-        borderRadius: BorderRadius.circular(16),
-        type: MaterialType.card,
-        elevation: 1,
-        surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-        child: Container(
-          constraints: const BoxConstraints(minWidth: minFlyoutWidth),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              if (content != null)
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(content!, style: const TextStyle(fontSize: 12)),
-                ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [const Spacer(), ...actions],
-              ),
-            ],
-          ),
-        ),
+      child: WindowsGlassPanel(
+        fallback: _buildMaterial(context),
+        child: _buildContent(context),
       ).paddingAll(4),
+    );
+  }
+
+  Widget _buildMaterial(BuildContext context) {
+    return Material(
+      borderRadius: BorderRadius.circular(16),
+      type: MaterialType.card,
+      elevation: 1,
+      surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: minFlyoutWidth),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          if (content != null)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(content!, style: const TextStyle(fontSize: 12)),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [const Spacer(), ...actions],
+          ),
+        ],
+      ),
     );
   }
 }

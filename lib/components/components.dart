@@ -1,6 +1,8 @@
 library components;
 
 export 'comic_list_page_logic.dart';
+export 'windows_glass_menu.dart';
+export 'windows_glass_app_bar.dart';
 export 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 
 import 'dart:async';
@@ -21,6 +23,9 @@ import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
+import 'package:pica_comic/components/windows_glass_panel.dart';
+import 'package:pica_comic/components/windows_glass_menu.dart';
+import 'package:pica_comic/components/windows_glass_app_bar.dart';
 import 'package:pica_comic/components/comic_list_page_logic.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';

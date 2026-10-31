@@ -8,6 +8,7 @@ import 'package:pica_comic/foundation/def.dart';
 import 'package:pica_comic/network/base_comic.dart';
 
 import 'hiperdex_browse_page.dart';
+import '../explore_content_inset.dart';
 import 'package:pica_comic/network/comic_source_services.dart';
 
 /// 单一 HiperDEX 探索入口，展示最新和热门两部分。
@@ -136,6 +137,9 @@ class _HiperdexExplorePageState extends State<HiperdexExplorePage> {
   @override
   Widget build(BuildContext context) => SmoothCustomScrollView(
     slivers: [
+      SliverToBoxAdapter(
+        child: SizedBox(height: ExploreContentInset.of(context)),
+      ),
       _header('最新更新', false),
       _section(_latest, _latestError, () => unawaited(_loadLatest())),
       _header('热门', true),

@@ -116,7 +116,7 @@ class FavoritesPage extends ConsumerWidget {
               ).showMenu(ref.read(downloadManagerProvider.notifier)),
             )
           else
-            PopupMenuButton<void>(
+            WindowsGlassPopupMenuButton<void>(
               tooltip: '菜单'.tl,
               icon: const Icon(Icons.more_horiz),
               itemBuilder: (_) =>

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/windows_glass_app_bar.dart';
 import '../foundation/app.dart';
 import '../foundation/theme/app_mouse_cursor.dart';
 import '../network/network_artifact_preview.dart';
@@ -99,60 +100,62 @@ class _NetworkLogPageState extends ConsumerState<NetworkLogPage> {
     bool isCollecting,
     bool isDesktop,
   ) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      titleSpacing: 0,
-      leading: IconButton(
-        icon: Icon(isDesktop ? Icons.close : Icons.keyboard_arrow_down),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: '搜索请求、Host 或类型...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(
-              color: Colors.grey.withValues(alpha: 0.7),
-              fontSize: 13,
-            ),
-            isDense: true,
-          ),
-          style: const TextStyle(fontSize: 13),
-          onChanged: (value) => ref
-              .read(networkLogControllerProvider.notifier)
-              .setSearchQuery(value),
+    return WindowsGlassAppBar(
+      child: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: Icon(isDesktop ? Icons.close : Icons.keyboard_arrow_down),
+          onPressed: () => Navigator.pop(context),
         ),
-      ),
-      actions: [
-        Row(
-          children: [
-            const Text(
-              '采集',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-            Transform.scale(
-              scale: 0.7,
-              child: Switch(
-                value: isCollecting,
-                activeThumbColor: Theme.of(context).primaryColor,
-                onChanged: (value) => ref
-                    .read(networkLogControllerProvider.notifier)
-                    .setCollecting(value),
+        title: Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: '搜索请求、Host 或类型...',
+              border: InputBorder.none,
+              hintStyle: TextStyle(
+                color: Colors.grey.withValues(alpha: 0.7),
+                fontSize: 13,
               ),
+              isDense: true,
             ),
-          ],
+            style: const TextStyle(fontSize: 13),
+            onChanged: (value) => ref
+                .read(networkLogControllerProvider.notifier)
+                .setSearchQuery(value),
+          ),
         ),
-        IconButton(
-          icon: const Icon(Icons.delete_outline, size: 20),
-          tooltip: '清空日志',
-          onPressed: () {
-            ref.read(networkLogControllerProvider.notifier).clear();
-            setState(() => _selectedEntryId = null);
-          },
-        ),
-      ],
+        actions: [
+          Row(
+            children: [
+              const Text(
+                '采集',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              Transform.scale(
+                scale: 0.7,
+                child: Switch(
+                  value: isCollecting,
+                  activeThumbColor: Theme.of(context).primaryColor,
+                  onChanged: (value) => ref
+                      .read(networkLogControllerProvider.notifier)
+                      .setCollecting(value),
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            tooltip: '清空日志',
+            onPressed: () {
+              ref.read(networkLogControllerProvider.notifier).clear();
+              setState(() => _selectedEntryId = null);
+            },
+          ),
+        ],
+      ),
     );
   }
 

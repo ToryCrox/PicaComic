@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pica_comic/components/windows_glass_app_bar.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pica_comic/foundation/pica_image_manager.dart';
@@ -13,7 +14,7 @@ class ShowImagePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("图片".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("图片".tl))),
       body: PhotoView(
         minScale: PhotoViewComputedScale.contained * 0.9,
         imageProvider: CachedNetworkImageProvider(
@@ -41,22 +42,24 @@ class ShowImagePageWithHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("图片".tl),
-        actions: [
-          Tooltip(
-            message: "保存".tl,
-            child: IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () async {
-                var file = await picaImageManager.getFileFromCache(url);
-                if (file != null) {
-                  saveImage(file.file);
-                }
-              },
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: Text("图片".tl),
+          actions: [
+            Tooltip(
+              message: "保存".tl,
+              child: IconButton(
+                icon: const Icon(Icons.download),
+                onPressed: () async {
+                  var file = await picaImageManager.getFileFromCache(url);
+                  if (file != null) {
+                    saveImage(file.file);
+                  }
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       body: Hero(
         tag: tag,

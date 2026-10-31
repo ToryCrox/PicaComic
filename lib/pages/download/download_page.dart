@@ -137,18 +137,20 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     final selectedCount = ref.watch(selectedCountProvider(_pageId));
     final slivers = [
       // 使用原生 SliverAppBar 处理 Windows 标题栏和内容的顶部安全区。
-      SliverAppBar(
-        pinned: true,
-        automaticallyImplyLeading: false,
-        leading: _buildLeading(context, pageState),
-        title: _buildTitle(context, pageState),
-        actions: isSelecting
-            ? _buildSelectionActions(context, selectedCount)
-            : _buildActions(context, pageState),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+      WindowsGlassSliverAppBar(
+        child: SliverAppBar(
+          pinned: true,
+          automaticallyImplyLeading: false,
+          leading: _buildLeading(context, pageState),
+          title: _buildTitle(context, pageState),
+          actions: isSelecting
+              ? _buildSelectionActions(context, selectedCount)
+              : _buildActions(context, pageState),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
       ),
       // Tag Filter
       SliverPersistentHeader(
@@ -495,7 +497,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         },
       ),
       // 类型筛选
-      PopupMenuButton<DownloadType?>(
+      WindowsGlassPopupMenuButton<DownloadType?>(
         tooltip: "类型筛选".tl,
         position: PopupMenuPosition.under,
         icon: const Icon(Icons.filter_list),
@@ -508,7 +510,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       buildComicSortMenuAnchor(onChanged: () => triggerSortUpdate(ref)),
       // 更多菜单
       Builder(
-        builder: (buttonContext) => PopupMenuButton<void>(
+        builder: (buttonContext) => WindowsGlassPopupMenuButton<void>(
           tooltip: "更多".tl,
           position: PopupMenuPosition.under,
           icon: const Icon(Icons.more_vert),
@@ -551,7 +553,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   }
 
   Widget _buildTagCategoryFilterAction(DownloadPageState pageState) {
-    return MenuAnchor(
+    return WindowsGlassMenuAnchor(
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.category_outlined),
@@ -595,7 +597,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   List<Widget> _buildSelectionActions(BuildContext context, int count) {
     return [
-      PopupMenuButton<void>(
+      WindowsGlassPopupMenuButton<void>(
         tooltip: "更多".tl,
         position: PopupMenuPosition.under,
         icon: const Icon(Icons.more_horiz),

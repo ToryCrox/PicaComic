@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:pica_comic/components/windows_glass_panel.dart';
 import 'package:pica_comic/base.dart';
 import 'package:pica_comic/components/network_speed_floating_ball.dart';
 import 'package:pica_comic/components/window_frame.dart';
@@ -51,12 +53,31 @@ void main(List<String> args) {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      if (App.isWindows) {
+        try {
+          await FragmentProgram.fromAsset(
+            'packages/liquid_glass_widgets/shaders/lightweight_glass.frag',
+          );
+          await LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
+          windowsGlassAvailable = true;
+        } catch (error, stack) {
+          _logStartupError(error, stack);
+        }
+      }
       startupMetrics.mark('Dart entry');
       registerAllComicPageAdapters();
       FlutterError.onError = (details) {
         _logStartupError(details.exception, details.stack);
       };
-      runApp(const ProviderScope(child: AppBootstrap()));
+      const app = ProviderScope(child: AppBootstrap());
+      runApp(
+        windowsGlassAvailable
+            ? LiquidGlassWidgets.wrap(
+                brightnessResolver: Theme.maybeBrightnessOf,
+                child: app,
+              )
+            : app,
+      );
       listenAppLinks();
       if (App.isDesktop) {
         unawaited(_initializeDesktopWindow());

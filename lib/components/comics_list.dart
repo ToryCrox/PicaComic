@@ -33,6 +33,9 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
 
   bool get showPageIndicator => true;
 
+  /// 可滚动内容顶部预留的空间，可供覆盖式标题栏使用。
+  double get contentTopInset => 0;
+
   /// 构建漫画卡片的附加菜单。
   List<ComicTileMenuOption>? buildAddonMenuOptions(
     ComicListPageLogic logic,
@@ -102,25 +105,31 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
 
     Widget body;
     if (pageState.loading || (isPaged && currentPageComics == null)) {
-      body = Column(
-        children: [
-          if (title != null) const Appbar(title: Text("")),
-          removeSliver(header) ?? const SizedBox(),
-          const Expanded(child: Center(child: CircularProgressIndicator())),
-        ],
+      body = Padding(
+        padding: EdgeInsets.only(top: contentTopInset),
+        child: Column(
+          children: [
+            if (title != null) const Appbar(title: Text("")),
+            removeSliver(header) ?? const SizedBox(),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
       );
     } else if (pageState.message != null) {
-      body = Column(
-        children: [
-          removeSliver(header) ?? const SizedBox(),
-          Expanded(
-            child: NetworkError(
-              message: pageState.message ?? "Network Error",
-              retry: logic.refresh,
-              withAppbar: title != null,
+      body = Padding(
+        padding: EdgeInsets.only(top: contentTopInset),
+        child: Column(
+          children: [
+            removeSliver(header) ?? const SizedBox(),
+            Expanded(
+              child: NetworkError(
+                message: pageState.message ?? "Network Error",
+                retry: logic.refresh,
+                withAppbar: title != null,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     } else if (!isPaged) {
       final loadedComics = pageState.comics ?? const <BaseComic>[];
@@ -130,6 +139,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
       } else {
         body = SmoothCustomScrollView(
           slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: contentTopInset)),
             if (title != null) _buildAppbar(),
             if (header != null) header!,
             SliverGrid(
@@ -159,6 +169,7 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
       } else {
         body = SmoothCustomScrollView(
           slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: contentTopInset)),
             if (title != null) _buildAppbar(),
             if (header != null) header!,
             if (showPageIndicator &&
@@ -259,16 +270,19 @@ abstract class ComicsPage<T extends BaseComic> extends ConsumerWidget {
     });
   }
 
-  SliverAppBar _buildAppbar() {
-    return SliverAppBar(
-      title: Text(title!),
-      actions: tailing != null ? [tailing!] : null,
+  Widget _buildAppbar() {
+    return WindowsGlassSliverAppBar(
+      child: SliverAppBar(
+        title: Text(title!),
+        actions: tailing != null ? [tailing!] : null,
+      ),
     );
   }
 
   Widget _buildEmptyPage(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
+        SliverToBoxAdapter(child: SizedBox(height: contentTopInset)),
         if (title != null) _buildAppbar(),
         if (header != null) header!,
         SliverFillRemaining(

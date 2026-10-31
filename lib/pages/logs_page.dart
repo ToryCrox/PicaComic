@@ -19,35 +19,37 @@ class _LogsPageState extends State<LogsPage> {
     final logs = logMemoryOut.buffer.toList();
     final colorSchema = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Logs"),
-        actions: [
-          PopupMenuButton<void>(
-            tooltip: "更多".tl,
-            position: PopupMenuPosition.under,
-            itemBuilder: (_) => [
-              popupMenuItem<void>(
-                text: "清空".tl,
-                icon: Icons.delete_sweep_outlined,
-                onTap: () => setState(LogManager.clear),
-              ),
-              popupMenuItem<void>(
-                text: "禁用长度限制".tl,
-                icon: Icons.all_inclusive,
-                onTap: () {
-                  LogManager.ignoreLimitation = true;
-                  showToast(message: "仅在本次运行时有效".tl);
-                },
-              ),
-              popupMenuItem<void>(
-                text: "导出".tl,
-                icon: Icons.file_download_outlined,
-                onTap: () => saveLog(LogManager().toString()),
-              ),
-            ],
-            icon: const Icon(Icons.more_horiz),
-          ),
-        ],
+      appBar: WindowsGlassAppBar(
+        child: AppBar(
+          title: const Text("Logs"),
+          actions: [
+            WindowsGlassPopupMenuButton<void>(
+              tooltip: "更多".tl,
+              position: PopupMenuPosition.under,
+              itemBuilder: (_) => [
+                popupMenuItem<void>(
+                  text: "清空".tl,
+                  icon: Icons.delete_sweep_outlined,
+                  onTap: () => setState(LogManager.clear),
+                ),
+                popupMenuItem<void>(
+                  text: "禁用长度限制".tl,
+                  icon: Icons.all_inclusive,
+                  onTap: () {
+                    LogManager.ignoreLimitation = true;
+                    showToast(message: "仅在本次运行时有效".tl);
+                  },
+                ),
+                popupMenuItem<void>(
+                  text: "导出".tl,
+                  icon: Icons.file_download_outlined,
+                  onTap: () => saveLog(LogManager().toString()),
+                ),
+              ],
+              icon: const Icon(Icons.more_horiz),
+            ),
+          ],
+        ),
       ),
       body: ListView.builder(
         reverse: true,

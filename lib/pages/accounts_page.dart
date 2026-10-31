@@ -67,7 +67,7 @@ class AccountsPage extends ConsumerWidget {
       return PopUpWidgetScaffold(title: "账号管理".tl, body: body);
     } else {
       return Scaffold(
-        appBar: AppBar(title: Text("账号管理".tl)),
+        appBar: WindowsGlassAppBar(child: AppBar(title: Text("账号管理".tl))),
         body: body,
       );
     }

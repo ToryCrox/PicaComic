@@ -76,49 +76,51 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return Scaffold(
       body: SmoothCustomScrollView(
         slivers: [
-          SliverAppBar(
-            title: buildTitle(comics.length),
-            actions: [
-              Tooltip(
-                message: "清除".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.delete_forever),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: Text("清除记录".tl),
-                      content: Text("要清除历史记录吗?".tl),
-                      actions: [
-                        TextButton(
-                          onPressed: () => App.globalBack(),
-                          child: Text("取消".tl),
-                        ),
-                        TextButton(
-                          onPressed: () => _perform(
-                            ref.read(historyActionsProvider.notifier).clear,
+          WindowsGlassSliverAppBar(
+            child: SliverAppBar(
+              title: buildTitle(comics.length),
+              actions: [
+                Tooltip(
+                  message: "清除".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_forever),
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: Text("清除记录".tl),
+                        content: Text("要清除历史记录吗?".tl),
+                        actions: [
+                          TextButton(
+                            onPressed: () => App.globalBack(),
+                            child: Text("取消".tl),
                           ),
-                          child: Text("清除".tl),
-                        ),
-                      ],
+                          TextButton(
+                            onPressed: () => _perform(
+                              ref.read(historyActionsProvider.notifier).clear,
+                            ),
+                            child: Text("清除".tl),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Tooltip(
-                message: "搜索".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      searchMode = !searchMode;
-                      if (!searchMode) {
-                        keyword = "";
-                      }
-                    });
-                  },
+                Tooltip(
+                  message: "搜索".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () {
+                      setState(() {
+                        searchMode = !searchMode;
+                        if (!searchMode) {
+                          keyword = "";
+                        }
+                      });
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (history.isLoading && !history.hasValue)
             const SliverToBoxAdapter(

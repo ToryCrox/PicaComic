@@ -64,7 +64,7 @@ class _JmCommentsPageState extends ConsumerState<JmCommentsPage> {
       return body;
     }
     return Scaffold(
-      appBar: AppBar(title: Text("评论".tl)),
+      appBar: WindowsGlassAppBar(child: AppBar(title: Text("评论".tl))),
       body: body,
     );
   }

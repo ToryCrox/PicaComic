@@ -150,7 +150,7 @@ class _EhProfileSelectPageState extends ConsumerState<EhProfileSelectPage> {
       loadData();
     }
     return Scaffold(
-      appBar: AppBar(title: const Text("Profile")),
+      appBar: WindowsGlassAppBar(child: AppBar(title: const Text("Profile"))),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null

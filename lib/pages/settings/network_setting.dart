@@ -221,7 +221,7 @@ class _EditRuleViewState extends ConsumerState<EditRuleView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("rule.json")),
+      appBar: WindowsGlassAppBar(child: AppBar(title: const Text("rule.json"))),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.fromLTRB(
