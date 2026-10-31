@@ -12,7 +12,6 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 import '../../foundation/user_library_preferences.dart';
 import '../../components/components.dart';
 import '../../components/grouped_chapters.dart';
-import '../../components/windows_glass_panel.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
 import '../../foundation/app_page_route.dart';
@@ -411,23 +410,8 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       },
     );
 
-    final displayCover = state?.coverPath != null
-        ? Uri.file(state!.coverPath!).toString()
-        : coverUrl;
-    final panel = data != null && displayCover != null
-        ? WindowsGlassPanel(
-            fallback: body,
-            background: PicaImage(
-              url: displayCover,
-              fit: BoxFit.cover,
-              sourceKey: adapter.comicType.name,
-              isThumbnail: true,
-            ),
-            child: body,
-          )
-        : body;
-    if (!sliver) return panel;
-    return SliverToBoxAdapter(child: panel);
+    if (!sliver) return body;
+    return SliverToBoxAdapter(child: body);
   }
 
   // ========================================================================
