@@ -18,9 +18,8 @@ abstract class ComicTile extends ConsumerWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
 
-  static final ValueNotifier<ComicTile?> _activeCoverHeroOwner = ValueNotifier(
-    null,
-  );
+  static final ValueNotifier<BuildContext?> _activeCoverHeroOwner =
+      ValueNotifier(null);
 
   Widget get image => const SizedBox.shrink();
 
@@ -251,8 +250,12 @@ abstract class ComicTile extends ConsumerWidget {
       onTapWithRef(ref);
       return;
     }
-    _activeCoverHeroOwner.value = this;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onTapWithRef(ref));
+    final owner = ref.context;
+    _activeCoverHeroOwner.value = owner;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (owner.mounted) onTapWithRef(ref);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   /// 构建收藏图标 Widget
@@ -526,13 +529,18 @@ abstract class ComicTile extends ConsumerWidget {
       return buildImage(context, ref);
     }
     final coverImage = buildImage(context, ref);
-    return ValueListenableBuilder<ComicTile?>(
+    return ValueListenableBuilder<BuildContext?>(
       valueListenable: _activeCoverHeroOwner,
-      builder: (context, activeOwner, child) {
-        if (!identical(activeOwner, this)) {
-          return child!;
-        }
-        return Hero(tag: tag, child: child!);
+      builder: (builderContext, activeOwner, child) {
+        if (!identical(activeOwner, context)) return child!;
+        return Hero(
+          tag: tag,
+          flightShuttleBuilder: comicCoverFlightShuttle,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: child!,
+          ),
+        );
       },
       child: coverImage,
     );
@@ -605,7 +613,7 @@ abstract class ComicTile extends ConsumerWidget {
 
     return HoverScaleCard(
       enabled: App.isDesktop,
-      scale: detailedMode ? 1.012 : 1.02,
+      scale: detailedMode ? 1.02 : 1.03,
       margin: EdgeInsets.all(App.isDesktop ? 4 : 1),
       borderRadius: BorderRadius.circular(detailedMode ? 12 : 10),
       child: child,
@@ -751,7 +759,7 @@ abstract class ComicTile extends ConsumerWidget {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 24, 10),
+            padding: const EdgeInsets.fromLTRB(8, 8, 20, 8),
             child: Row(
               children: [
                 AspectRatio(
@@ -773,7 +781,7 @@ abstract class ComicTile extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _ComicDescription(
                     // 标题中不应出现换行符，爬虫可能多爬取换行符。
@@ -1114,6 +1122,7 @@ class NormalComicTile extends ComicTile {
     this.headers,
     this.tags,
     ComicType? comicType,
+    this.comicId,
     super.key,
   }) : _comicType = comicType;
 
@@ -1126,6 +1135,10 @@ class NormalComicTile extends ComicTile {
   final String? badgeName;
   final Map<String, String>? headers;
   final ComicType? _comicType;
+  final String? comicId;
+
+  @override
+  String? get comicID => comicId;
 
   @override
   final List<String>? tags;
@@ -1353,7 +1366,7 @@ class CustomComicTile extends ComicTile {
   String? get comicID => comic.id;
 
   @override
-  ComicType? get comicType => ComicType.other;
+  ComicType? get comicType => ComicType.fromString(comic.sourceKey);
 
   @override
   ActionFunc? readAction(WidgetRef ref) => () async {

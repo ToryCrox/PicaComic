@@ -6,7 +6,6 @@ import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/history_providers.dart';
-import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 import 'package:pica_comic/pages/download/download_providers.dart';
 import 'package:pica_comic/pages/account_providers.dart';
 import 'package:pica_comic/network/picacg_network/models.dart';
@@ -65,58 +64,64 @@ class _MePageState extends ConsumerState<MePage> {
             bottom: false,
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  buildHistory(context, recentHistory, historySummary, ref),
-                  if (shouldShowTwoPanel)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 12),
-                              buildAccount(width, accountSession, ref),
-                              const SizedBox(height: 12),
-                              buildDownload(
-                                context,
-                                width,
-                                downloadSummary,
-                                ref,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      buildHistory(context, recentHistory, historySummary, ref),
+                      if (shouldShowTwoPanel)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 12),
+                                  buildAccount(width, accountSession, ref),
+                                  const SizedBox(height: 12),
+                                  buildDownload(
+                                    context,
+                                    width,
+                                    downloadSummary,
+                                    ref,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 12),
-                              buildImageFavorite(
-                                context,
-                                width,
-                                historySummary,
-                                ref,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 12),
+                                  buildImageFavorite(
+                                    context,
+                                    width,
+                                    historySummary,
+                                    ref,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  buildTools(width),
+                                ],
                               ),
-                              const SizedBox(height: 12),
-                              buildTools(width),
-                            ],
-                          ),
-                        ),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        const SizedBox(height: 12),
+                        buildAccount(width, accountSession, ref),
+                        const SizedBox(height: 12),
+                        buildDownload(context, width, downloadSummary, ref),
+                        const SizedBox(height: 12),
+                        buildImageFavorite(context, width, historySummary, ref),
+                        const SizedBox(height: 12),
+                        buildTools(width),
                       ],
-                    )
-                  else ...[
-                    const SizedBox(height: 12),
-                    buildAccount(width, accountSession, ref),
-                    const SizedBox(height: 12),
-                    buildDownload(context, width, downloadSummary, ref),
-                    const SizedBox(height: 12),
-                    buildImageFavorite(context, width, historySummary, ref),
-                    const SizedBox(height: 12),
-                    buildTools(width),
-                  ],
-                ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -179,42 +184,44 @@ class _MePageState extends ConsumerState<MePage> {
                 trailing: const Icon(Icons.chevron_right),
                 mouseCursor: appClickableMouseCursor,
               ),
-              SizedBox(
-                height: 128,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: history.length,
-                  itemBuilder: (context, index) {
-                    return InkWell(
-                      mouseCursor: appClickableMouseCursor,
-                      onTap: () =>
-                          toComicPageWithHistory(context, history[index]),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 96,
-                        height: 128,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.secondaryContainer,
+              if (history.isNotEmpty)
+                SizedBox(
+                  height: 112,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: history.length,
+                    itemBuilder: (context, index) {
+                      return InkWell(
+                        mouseCursor: appClickableMouseCursor,
+                        onTap: () =>
+                            toComicPageWithHistory(context, history[index]),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 84,
+                          height: 112,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.secondaryContainer,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: PicaImage(
+                            url: history[index].cover,
+                            sourceKey:
+                                history[index].type.comicSource?.key.name,
+                            isThumbnail: true,
+                            width: 84,
+                            height: 112,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: PicaImage(
-                          url: history[index].cover,
-                          sourceKey: history[index].type.comicSource?.key.name,
-                          isThumbnail: true,
-                          width: 96,
-                          height: 128,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ).paddingHorizontal(8),
-              const SizedBox(height: 12),
+                      );
+                    },
+                  ),
+                ).paddingHorizontal(8),
+              if (history.isNotEmpty) const SizedBox(height: 12),
             ],
           ),
         ),
@@ -409,14 +416,10 @@ class _MePageCard extends StatelessWidget {
             ListTile(
               leading: icon,
               title: Text(title),
+              subtitle: description,
               trailing: const Icon(Icons.chevron_right),
               mouseCursor: appClickableMouseCursor,
             ),
-            DefaultTextStyle(
-              style:
-                  Theme.of(context).textTheme.bodyMedium ?? const TextStyle(),
-              child: description,
-            ).paddingHorizontal(16).paddingBottom(16).paddingTop(8),
             if (child != null) child!,
           ],
         ),

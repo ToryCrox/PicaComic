@@ -711,6 +711,9 @@ class LocalFavoriteTile extends ComicTile {
   @override
   String get comicID => comic.target;
 
+  @override
+  ComicType? get comicType => comic.type.comicSource?.key;
+
   Future<void> editTags() async {
     final tags = comic.tags.toList();
     final controller = TextEditingController();

@@ -3,7 +3,6 @@ import 'package:pica_comic/components/windows_glass_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/components/theme_color_picker.dart';
 import 'package:pica_comic/foundation/app.dart';
-import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/foundation/theme/theme_provider.dart';
 import 'package:pica_comic/tools/translations.dart';
 
@@ -80,55 +79,6 @@ class _ThemeOptions extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        if (App.isWindows) ...[
-          Card(
-            child: SwitchListTile(
-              secondary: const Icon(Icons.auto_awesome),
-              title: Text('液态玻璃'.tl),
-              value:
-                  ref.watch(
-                    appSettingProvider(AppSettingKeys.liquidGlassEnabled),
-                  ) ==
-                  '1',
-              onChanged: (value) => ref
-                  .read(appSettingsProvider.notifier)
-                  .setValue(
-                    AppSettingKeys.liquidGlassEnabled,
-                    value ? '1' : '0',
-                  ),
-            ),
-          ),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.blur_on),
-              title: Text('玻璃效果强度'.tl),
-              trailing: DropdownButton<int>(
-                value:
-                    (int.tryParse(
-                              ref.watch(
-                                appSettingProvider(
-                                  AppSettingKeys.liquidGlassStrength,
-                                ),
-                              ),
-                            ) ??
-                            1)
-                        .clamp(0, 2),
-                items: [
-                  DropdownMenuItem(value: 0, child: Text('轻柔'.tl)),
-                  DropdownMenuItem(value: 1, child: Text('标准'.tl)),
-                  DropdownMenuItem(value: 2, child: Text('明显'.tl)),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    ref
-                        .read(appSettingsProvider.notifier)
-                        .setValue(AppSettingKeys.liquidGlassStrength, '$value');
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
         Card(
           clipBehavior: Clip.antiAlias,
           child: SwitchListTile(

@@ -359,66 +359,90 @@ class _NaviPaneState extends State<NaviPane>
   Widget buildLeft() {
     final value = controller.value;
     const paddingHorizontal = 12.0;
-    final content = Container(
-      width:
-          _kFoldedSideBarWidth +
-          (_kSideBarWidth - _kFoldedSideBarWidth) *
-              ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
-      height: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
-      child: Row(
-        children: [
-          SizedBox(
-            width: value == _kPaneModeExpandedSidebar
-                ? (_kSideBarWidth - paddingHorizontal * 2)
-                : (_kFoldedSideBarWidth - paddingHorizontal * 2),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                SizedBox(height: MediaQuery.paddingOf(context).top),
-                ...List<Widget>.generate(
-                  widget.paneItems.length,
-                  (index) => _SideNaviWidget(
-                    enabled: currentPage == index,
-                    entry: widget.paneItems[index],
-                    showTitle: value == _kPaneModeExpandedSidebar,
-                    onTap: () {
-                      setState(() {
-                        currentPage = index;
-                      });
-                    },
-                    key: ValueKey(index),
+    final expanded = value == _kPaneModeExpandedSidebar;
+    final width =
+        _kFoldedSideBarWidth +
+        (_kSideBarWidth - _kFoldedSideBarWidth) *
+            ((value - _kPaneModeFoldedSidebar).clamp(0, 1));
+    final itemWidth =
+        (expanded ? _kSideBarWidth : _kFoldedSideBarWidth) -
+        paddingHorizontal * 2;
+    final colors = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colors.surfaceContainerLow,
+      child: SizedBox(
+        width: width,
+        height: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: itemWidth,
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.paddingOf(context).top + 12,
+                          ),
+                          ...List<Widget>.generate(
+                            widget.paneItems.length,
+                            (index) => _SideNaviWidget(
+                              enabled: currentPage == index,
+                              entry: widget.paneItems[index],
+                              showTitle: expanded,
+                              onTap: () => setState(() => currentPage = index),
+                              key: ValueKey(index),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (widget.paneActions.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              child: Divider(
+                                height: 1,
+                                color: colors.outlineVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            ...List<Widget>.generate(
+                              widget.paneActions.length,
+                              (index) => _PaneActionWidget(
+                                entry: widget.paneActions[index],
+                                showTitle: expanded,
+                                key: ValueKey(index + widget.paneItems.length),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                ...List<Widget>.generate(
-                  widget.paneActions.length,
-                  (index) => _PaneActionWidget(
-                    entry: widget.paneActions[index],
-                    showTitle: value == _kPaneModeExpandedSidebar,
-                    key: ValueKey(index + widget.paneItems.length),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
-          const Spacer(),
-        ],
+        ),
       ),
-    );
-    return WindowsGlassPanel(
-      radius: 12,
-      fallback: Material(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: content,
-      ),
-      child: content,
     );
   }
 }
 
-class _SideNaviWidget extends StatefulWidget {
+/// 侧栏中的主导航入口。
+class _SideNaviWidget extends StatelessWidget {
   const _SideNaviWidget({
     required this.enabled,
     required this.entry,
@@ -428,63 +452,22 @@ class _SideNaviWidget extends StatefulWidget {
   });
 
   final bool enabled;
-
   final PaneItemEntry entry;
-
   final VoidCallback onTap;
-
   final bool showTitle;
 
   @override
-  State<_SideNaviWidget> createState() => _SideNaviWidgetState();
+  Widget build(BuildContext context) => _SidePaneItem(
+    label: entry.label,
+    icon: enabled ? entry.activeIcon : entry.icon,
+    selected: enabled,
+    showTitle: showTitle,
+    onTap: onTap,
+  );
 }
 
-class _SideNaviWidgetState extends State<_SideNaviWidget> {
-  bool isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(
-      widget.enabled ? widget.entry.activeIcon : widget.entry.icon,
-    );
-    return MouseRegion(
-      cursor: appClickableMouseCursor,
-      onEnter: (details) => setState(() => isHovering = true),
-      onExit: (details) => setState(() => isHovering = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          width: double.infinity,
-          height: widget.showTitle ? 42 : 34,
-          decoration: BoxDecoration(
-            color: widget.enabled
-                ? colorScheme.primaryContainer
-                : isHovering
-                ? colorScheme.surfaceContainerHigh
-                : null,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: widget.showTitle
-              ? Row(
-                  children: [
-                    icon,
-                    const SizedBox(width: 12),
-                    Text(widget.entry.label),
-                  ],
-                )
-              : Center(child: icon),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaneActionWidget extends StatefulWidget {
+/// 侧栏底部的工具入口。
+class _PaneActionWidget extends StatelessWidget {
   const _PaneActionWidget({
     required this.entry,
     required this.showTitle,
@@ -492,48 +475,88 @@ class _PaneActionWidget extends StatefulWidget {
   });
 
   final PaneActionEntry entry;
-
   final bool showTitle;
 
   @override
-  State<_PaneActionWidget> createState() => _PaneActionWidgetState();
+  Widget build(BuildContext context) => _SidePaneItem(
+    label: entry.label,
+    icon: entry.icon,
+    showTitle: showTitle,
+    onTap: entry.onTap,
+  );
 }
 
-class _PaneActionWidgetState extends State<_PaneActionWidget> {
-  bool isHovering = false;
+/// 使用 Material 选中态和交互反馈，折叠时提供文字提示。
+class _SidePaneItem extends StatelessWidget {
+  const _SidePaneItem({
+    required this.label,
+    required this.icon,
+    required this.showTitle,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool showTitle;
+  final VoidCallback onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(widget.entry.icon);
-    return MouseRegion(
-      cursor: appClickableMouseCursor,
-      onEnter: (details) => setState(() => isHovering = true),
-      onExit: (details) => setState(() => isHovering = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: widget.entry.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          width: double.infinity,
-          height: widget.showTitle ? 42 : 34,
-          decoration: BoxDecoration(
-            color: isHovering ? colorScheme.surfaceContainerHigh : null,
-            borderRadius: BorderRadius.circular(16),
+    final colors = Theme.of(context).colorScheme;
+    final foreground = selected
+        ? colors.onSecondaryContainer
+        : colors.onSurfaceVariant;
+    final item = Semantics(
+      selected: selected,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Material(
+          color: selected ? colors.secondaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            mouseCursor: appClickableMouseCursor,
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: showTitle ? 12 : 0,
+                  vertical: 8,
+                ),
+                child: showTitle
+                    ? Row(
+                        children: [
+                          Icon(icon, size: 22, color: foreground),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: foreground,
+                                    fontWeight: selected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Center(child: Icon(icon, size: 22, color: foreground)),
+              ),
+            ),
           ),
-          child: widget.showTitle
-              ? Row(
-                  children: [
-                    icon,
-                    const SizedBox(width: 12),
-                    Text(widget.entry.label),
-                  ],
-                )
-              : Center(child: icon),
         ),
       ),
+    );
+    return MouseRegion(
+      cursor: appClickableMouseCursor,
+      child: showTitle ? item : Tooltip(message: label, child: item),
     );
   }
 }
@@ -613,30 +636,50 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
   Widget buildContent() {
     final value = controller.value;
     final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(
-      widget.enabled ? widget.entry.activeIcon : widget.entry.icon,
-    );
-    return Center(
-      child: Container(
-        width: 64,
-        height: 28,
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(32)),
-          color: isHovering ? colorScheme.surfaceContainer : Colors.transparent,
-        ),
-        child: Center(
-          child: Container(
-            width: 32 + value * 32,
+    final foreground = widget.enabled
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: widget.enabled,
+      label: widget.entry.label,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
             height: 28,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(32)),
-              color: value != 0
-                  ? colorScheme.secondaryContainer
-                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              color: Color.lerp(
+                isHovering ? colorScheme.surfaceContainer : Colors.transparent,
+                colorScheme.secondaryContainer,
+                value,
+              ),
             ),
-            child: Center(child: icon),
+            child: Icon(
+              widget.enabled ? widget.entry.activeIcon : widget.entry.icon,
+              size: 21,
+              color: foreground,
+            ),
           ),
-        ),
+          const SizedBox(height: 2),
+          ExcludeSemantics(
+            child: Text(
+              widget.entry.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.1,
+                fontWeight: widget.enabled ? FontWeight.w600 : FontWeight.w400,
+                color: widget.enabled
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

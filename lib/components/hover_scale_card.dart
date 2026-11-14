@@ -4,17 +4,17 @@ import 'package:pica_comic/foundation/theme/app_mouse_cursor.dart';
 /// 为桌面端提供轻量悬浮反馈的卡片表面。
 ///
 /// 组件仅在 [enabled] 为 `true` 时响应鼠标悬浮，并在系统要求减少动画时
-/// 自动禁用缩放，保留颜色和描边反馈。
+/// 自动禁用缩放，保留颜色和高程反馈。
 class HoverScaleCard extends StatefulWidget {
   const HoverScaleCard({
     required this.child,
     super.key,
     this.enabled = true,
-    this.scale = 1.015,
+    this.scale = 1.03,
     this.margin = EdgeInsets.zero,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.clipBehavior = Clip.antiAlias,
-    this.duration = const Duration(milliseconds: 160),
+    this.duration = const Duration(milliseconds: 300),
   });
 
   /// 卡片内容。
@@ -71,19 +71,9 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
         ? Color.lerp(
             colorScheme.surfaceContainerLow,
             colorScheme.primary,
-            0.055,
+            0.08,
           )!
         : colorScheme.surfaceContainerLow;
-    final borderColor = isHovered
-        ? colorScheme.primary.withValues(alpha: 0.34)
-        : colorScheme.outlineVariant.withValues(alpha: 0.28);
-    final shadows = <BoxShadow>[
-      BoxShadow(
-        color: colorScheme.shadow.withValues(alpha: isHovered ? 0.18 : 0.05),
-        blurRadius: isHovered ? 14 : 3,
-        offset: Offset(0, isHovered ? 4 : 1),
-      ),
-    ];
 
     return Padding(
       padding: widget.margin,
@@ -96,21 +86,15 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
         child: AnimatedScale(
           scale: scale,
           duration: widget.duration,
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: widget.duration,
-            curve: Curves.easeOutCubic,
+          curve: Curves.easeOutBack,
+          child: Card(
+            margin: EdgeInsets.zero,
+            color: backgroundColor,
+            elevation: isHovered ? 12 : 1,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: widget.borderRadius),
             clipBehavior: widget.clipBehavior,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: widget.borderRadius,
-              border: Border.all(color: borderColor),
-              boxShadow: shadows,
-            ),
-            child: Material(
-              type: MaterialType.transparency,
-              child: widget.child,
-            ),
+            child: widget.child,
           ),
         ),
       ),

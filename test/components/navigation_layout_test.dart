@@ -64,4 +64,136 @@ void main() {
     expect(padding(), EdgeInsets.zero);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('窄屏导航显示标签并可切换页面，放大文字时不溢出', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final observer = NaviObserver();
+    var selected = 0;
+    final labels = ['我的', '收藏', '探索', '分类', '下载', '本地'];
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.4)),
+          child: child!,
+        ),
+        home: NaviPane(
+          paneItems: [
+            for (final label in labels)
+              PaneItemEntry(
+                label: label,
+                icon: Icons.book_outlined,
+                activeIcon: Icons.book,
+              ),
+          ],
+          paneActions: const [],
+          observer: observer,
+          onPageChange: (index) => selected = index,
+          pageBuilder: (_) => const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final label in labels) {
+      expect(find.text(label), findsWidgets);
+    }
+    await tester.tap(find.text('下载').last);
+    await tester.pumpAndSettle();
+    expect(selected, 4);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('侧栏适应短窗口和放大字体，仍可滚动使用工具入口', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1400, 320);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var actionCalled = false;
+    var selected = 0;
+    final observer = NaviObserver();
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.5)),
+          child: child!,
+        ),
+        home: NaviPane(
+          paneItems: [
+            for (final label in ['我的', '收藏', '探索', '分类', '下载', '本地'])
+              PaneItemEntry(
+                label: label,
+                icon: Icons.book_outlined,
+                activeIcon: Icons.book,
+              ),
+          ],
+          paneActions: [
+            PaneActionEntry(label: '搜索', icon: Icons.search, onTap: () {}),
+            PaneActionEntry(label: '主题设置', icon: Icons.palette, onTap: () {}),
+            PaneActionEntry(
+              label: '设置',
+              icon: Icons.settings,
+              onTap: () => actionCalled = true,
+            ),
+          ],
+          observer: observer,
+          onPageChange: (index) => selected = index,
+          pageBuilder: (_) => const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('探索'));
+    await tester.pumpAndSettle();
+    expect(selected, 2);
+    await tester.ensureVisible(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设置'));
+    expect(actionCalled, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('折叠侧栏显示提示并能切换导航项', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 700);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NaviPane(
+          paneItems: [
+            PaneItemEntry(
+              label: '首页',
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home,
+            ),
+            PaneItemEntry(
+              label: '收藏',
+              icon: Icons.bookmark_outline,
+              activeIcon: Icons.bookmark,
+            ),
+          ],
+          paneActions: [
+            PaneActionEntry(label: '设置', icon: Icons.settings, onTap: () {}),
+          ],
+          observer: NaviObserver(),
+          onPageChange: (index) => selected = index,
+          pageBuilder: (_) => const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('收藏'), findsOneWidget);
+    expect(find.byTooltip('设置'), findsOneWidget);
+    await tester.tap(find.byTooltip('收藏'));
+    await tester.pumpAndSettle();
+    expect(selected, 1);
+    expect(tester.takeException(), isNull);
+  });
 }

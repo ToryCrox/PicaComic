@@ -45,7 +45,7 @@ void main() {
     final container = await pumpPage(tester);
     expect(find.text('种子颜色'), findsNothing);
 
-    await tester.tap(find.byType(SwitchListTile).at(1));
+    await tester.tap(find.widgetWithText(SwitchListTile, '动态颜色'));
     await tester.pump();
     expect(container.read(themeSettingsProvider).useDynamicColor, isFalse);
     expect(find.text('种子颜色'), findsOneWidget);

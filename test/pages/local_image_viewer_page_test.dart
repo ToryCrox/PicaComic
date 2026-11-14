@@ -292,7 +292,8 @@ void main() {
     );
     final initialPosition = tester.getCenter(divider).dx;
     await tester.drag(divider, const Offset(80, 0));
-    await tester.pump();
+    // 等待双击识别器的定时器结束，避免测试销毁时留下待处理任务。
+    await tester.pump(const Duration(milliseconds: 100));
     final position = tester.getCenter(divider).dx;
     expect(position, greaterThan(initialPosition));
     await tester.tap(find.byIcon(Icons.chevron_right));

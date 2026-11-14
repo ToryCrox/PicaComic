@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/components.dart';
-import 'package:pica_comic/components/windows_glass_panel.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/base_comic.dart';
 import 'package:pica_comic/network/res.dart';
@@ -88,21 +87,16 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
 
   @override
   Widget build(BuildContext context) {
-    final glassEnabled =
-        App.isWindows &&
-        windowsGlassAvailable &&
-        !MediaQuery.highContrastOf(context) &&
-        ref.watch(appSettingProvider(AppSettingKeys.liquidGlassEnabled)) == '1';
     final headerHeight = MediaQuery.paddingOf(context).top + 48;
-    final contentInset = glassEnabled ? headerHeight : 0.0;
+    const contentInset = 0.0;
     final tabContent = SafeArea(
       top: true,
       bottom: false,
       child: FilledTabBar(
         tabs: pages.map((e) => buildTab(e)).toList(),
         controller: controller,
-        showBottomBorder: !glassEnabled,
-        glassSelected: glassEnabled,
+        showBottomBorder: true,
+        glassSelected: false,
       ),
     );
     final tabBar = WindowsGlassHeader(
@@ -118,7 +112,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       body: Stack(
         children: [
           Positioned(
-            top: glassEnabled ? 0 : headerHeight,
+            top: headerHeight,
             left: 0,
             right: 0,
             bottom: 0,
@@ -447,16 +441,16 @@ Iterable<Widget> _buildExplorePagePart(
   Widget buildTitle(ExplorePagePart part) {
     return SliverToBoxAdapter(
       child: SizedBox(
-        height: 60,
+        height: 52,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+          padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
           child: Row(
             children: [
               Text(
                 part.title,
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),

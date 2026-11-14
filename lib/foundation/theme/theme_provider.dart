@@ -199,6 +199,27 @@ ThemeData _buildTheme(
         : colorScheme.surface,
     cardColor: surfaceContainer,
     canvasColor: surfaceContainer,
+    appBarTheme: AppBarTheme(
+      backgroundColor: isDark && isAmoled ? Colors.black : colorScheme.surface,
+      foregroundColor: colorScheme.onSurface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+    ),
+    dividerTheme: DividerThemeData(
+      color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+      thickness: 1,
+      space: 16,
+    ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       mouseCursor: appClickableMouseCursor,
     ),
@@ -233,6 +254,8 @@ ThemeData _buildTheme(
     ),
     listTileTheme: const ListTileThemeData(
       mouseCursor: appClickableMouseCursor,
+      minLeadingWidth: 24,
+      horizontalTitleGap: 12,
     ),
     menuButtonTheme: const MenuButtonThemeData(
       style: ButtonStyle(mouseCursor: appClickableMouseCursor),

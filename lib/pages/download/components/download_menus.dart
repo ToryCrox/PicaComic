@@ -587,7 +587,8 @@ Future<void> showTileContextMenu({
           translationResultRootDirectory: translationResultRootDirectory,
           scanLegacyResultDirectories: true,
         );
-  showContextMenu(
+  if (!context.mounted) return;
+  await showContextMenu<void>(
     context: App.globalContext!,
     globalPosition: details.globalPosition,
     items: [

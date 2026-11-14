@@ -23,6 +23,7 @@ import 'package:pica_comic/pages/favorites/favorite_action_widgets.dart';
 
 import 'package:pica_comic/comic_source/comic_source.dart';
 import 'package:pica_comic/components/hover_scale_card.dart';
+import 'package:pica_comic/components/comic_cover_hero.dart';
 import 'package:pica_comic/components/windows_glass_panel.dart';
 import 'package:pica_comic/components/windows_glass_menu.dart';
 import 'package:pica_comic/components/windows_glass_app_bar.dart';

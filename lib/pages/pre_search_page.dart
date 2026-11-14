@@ -64,8 +64,8 @@ class _FloatingSearchBarState extends State<_FloatingSearchBar> {
       width: double.infinity,
       height: 48,
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(32),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [

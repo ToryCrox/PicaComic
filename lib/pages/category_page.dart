@@ -128,7 +128,7 @@ class CategoryPage extends StatelessWidget {
       children.add(buildTitle(data.title));
       children.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           child: Wrap(
             children: [
               if (data.enableRankingPage)
@@ -198,22 +198,22 @@ class CategoryPage extends StatelessWidget {
 
   Widget buildTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
       child: Text(
         title.tl,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
     );
   }
 
   Widget buildTitleWithRefresh(String title, void Function() onRefresh) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
       child: Row(
         children: [
           Text(
             title.tl,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh)),
@@ -229,7 +229,7 @@ class CategoryPage extends StatelessWidget {
     ClickTagCallback onClick,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       child: Wrap(
         children: List<Widget>.generate(
           tags.length,
@@ -262,19 +262,23 @@ class CategoryPage extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      padding: const EdgeInsets.all(4),
       child: InkWell(
         mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(16)),
         onTap: () => onClick(tag, param),
         child: Builder(
           builder: (context) {
-            return Material(
-              elevation: 1,
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
-              color: context.colorScheme.surfaceContainerLow,
+            return Ink(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                color: context.colorScheme.surfaceContainerHigh,
+              ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Text(translateTag(tag)),
               ),
             );

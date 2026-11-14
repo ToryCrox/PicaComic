@@ -73,10 +73,10 @@ class _LocalComicTileState extends ConsumerState<LocalComicTile> {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            color: colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: colorScheme.outlineVariant.withOpacity(0.5),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
               width: 0.5,
             ),
           ),

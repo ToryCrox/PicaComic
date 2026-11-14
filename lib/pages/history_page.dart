@@ -162,7 +162,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         );
         return NormalComicTile(
           key: Key(comics_[i].target),
-          comicType: ComicType.fromString(comics_[i].type.name),
+          comicType: comics_[i].type.comicSource?.key,
+          comicId: comics_[i].target,
           onLongTap: () {
             showDialog(
               context: context,

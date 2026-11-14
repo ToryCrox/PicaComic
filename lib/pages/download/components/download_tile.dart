@@ -162,12 +162,21 @@ class DownloadedComicTile extends ComicTile {
   int get descriptionMaxLines => 1;
 
   @override
-  String? get comicID => downloadedItem is DownloadedGallery
-      ? (downloadedItem as DownloadedGallery).gallery.link
-      : sourceComicId;
+  String? get comicID {
+    final item = downloadedItem;
+    if (item is DownloadedGallery) return item.gallery.link;
+    if (item is DownloadedHitomiComic) return item.link;
+    if (item is CustomDownloadedItem) return item.comicId;
+    return sourceComicId;
+  }
 
   @override
-  ComicType? get comicType => downloadedItem.type.toComicType();
+  ComicType? get comicType {
+    final item = downloadedItem;
+    return item is CustomDownloadedItem
+        ? ComicType.fromString(item.sourceKey)
+        : item.type.toComicType();
+  }
 
   @override
   bool get showDownload => false;
@@ -577,36 +586,33 @@ class _RefCountingSnapshot extends TargetedWidgetSnapshot {
 
 /// 导航到漫画详情页
 void toComicInfoPage(DownloadedItem comic) {
-  var context = App.mainNavigatorKey!.currentContext!;
+  final context = App.mainNavigatorKey!.currentContext!;
+  final coverPath = comic.coverPath;
+  final cover = coverPath == null ? null : Uri.file(coverPath).toString();
+
+  void open(ComicType type, String id) {
+    context.to(() => ComicPage(comicType: type, id: id, cover: cover));
+  }
+
   if (comic is DownloadedComic) {
-    context.to(() => PicacgComicPage((comic).comicItem.id, null));
+    open(ComicType.picacg, comic.comicItem.id);
   } else if (comic is DownloadedGallery) {
-    context.to(() => EhGalleryPage((comic).gallery.toBrief()));
+    open(ComicType.ehentai, comic.gallery.link);
   } else if (comic is DownloadedJmComic) {
-    context.to(() => JmComicPage((comic).comic.id));
+    open(ComicType.jm, comic.comic.id);
   } else if (comic is DownloadedHitomiComic) {
-    context.to(() => HitomiComicPage(comic.toBrief()));
+    open(ComicType.hitomi, comic.link);
   } else if (comic is DownloadedHtComic) {
-    context.to(() => HtComicPage(comic.id.replaceFirst('Ht', '')));
+    open(ComicType.htmanga, comic.id.replaceFirst('Ht', ''));
   } else if (comic is NhentaiDownloadedComic) {
-    context.to(() => NhentaiComicPage(comic.id.replaceFirst("nhentai", "")));
+    open(ComicType.nhentai, comic.id.replaceFirst('nhentai', ''));
   } else if (comic is ManhuaguiDownloadedItem) {
-    context.to(
-      () => ComicPage(comicType: ComicType.manhuagui, id: comic.comicId),
-    );
+    open(ComicType.manhuagui, comic.comicId);
   } else if (comic is HiperdexDownloadedItem) {
-    context.to(
-      () => ComicPage(comicType: ComicType.hiperdex, id: comic.comicId),
-    );
+    open(ComicType.hiperdex, comic.comicId);
   } else if (comic is CustomDownloadedItem) {
-    context.to(
-      () => ComicPage(
-        comicType: ComicType.fromString(comic.sourceKey),
-        id: comic.comicId,
-      ),
-    );
+    open(ComicType.fromString(comic.sourceKey), comic.comicId);
   } else if (comic.type == DownloadType.local) {
-    // 本地漫画不支持查看详情页面，可以显示提示
     showToast(message: "本地漫画不支持查看详情".tl);
   }
 }

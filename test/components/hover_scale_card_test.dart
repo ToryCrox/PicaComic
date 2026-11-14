@@ -40,12 +40,31 @@ void main() {
     }
 
     expect(animatedScale().scale, 1.02);
-    expect(animatedScale().duration, const Duration(milliseconds: 160));
+    final card = tester.widget<Card>(
+      find.descendant(
+        of: find.byKey(const Key('card')),
+        matching: find.byType(Card),
+      ),
+    );
+    expect((card.shape! as RoundedRectangleBorder).side, BorderSide.none);
+    expect(card.elevation, 12);
+    expect(animatedScale().duration, const Duration(milliseconds: 300));
 
     await mouse.moveTo(const Offset(10, 10));
     await tester.pumpAndSettle();
 
     expect(animatedScale().scale, 1);
+    final restingCard = tester.widget<Card>(
+      find.descendant(
+        of: find.byKey(const Key('card')),
+        matching: find.byType(Card),
+      ),
+    );
+    expect(restingCard.elevation, 1);
+    expect(
+      (restingCard.shape! as RoundedRectangleBorder).side,
+      BorderSide.none,
+    );
     await mouse.removePointer();
   });
 

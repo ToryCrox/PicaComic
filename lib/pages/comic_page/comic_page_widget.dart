@@ -11,6 +11,7 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 
 import '../../foundation/user_library_preferences.dart';
 import '../../components/components.dart';
+import '../../components/comic_cover_hero.dart';
 import '../../components/grouped_chapters.dart';
 import '../../comic_source/comic_source.dart';
 import '../../foundation/app.dart';
@@ -372,15 +373,22 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                             style: const TextStyle(fontSize: 14),
                           ),
                         ],
-                        const SizedBox(height: 8),
-                        Text(sourceText, style: const TextStyle(fontSize: 12)),
-                        if (pagesCount != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            "${pagesCount}P",
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              sourceText,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            if (pagesCount != null)
+                              Text(
+                                "${pagesCount}P",
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                          ],
+                        ),
                         if (width >= 500)
                           _buildActions(
                             context,
@@ -389,13 +397,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                             adapter,
                             data,
                             center: false,
-                          ).paddingTop(12),
+                            availableWidth: width,
+                          ).paddingTop(6),
                       ],
                     ),
                   ),
                 ],
               ),
-            ).paddingHorizontal(10).paddingBottom(12),
+            ).paddingHorizontal(10).paddingBottom(8),
             if (width < 500)
               _buildActions(
                 context,
@@ -404,6 +413,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                 adapter,
                 data,
                 center: true,
+                availableWidth: width,
               ).paddingHorizontal(12),
           ],
         );
@@ -431,44 +441,28 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         ? Uri.file(localCoverPath).toString()
         : coverUrl;
     final tag = comicCoverHeroTag(adapter.comicType, widget.id);
-    if (displayUrl == null) {
-      // 详情页初始骨架也保留 Hero，避免本地标签等异步数据延迟时，
-      // 目标页缺少匹配 Hero 而导致列表封面动画被取消。
-      return Hero(
-        tag: tag,
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-
+    final image = displayUrl == null
+        ? ColoredBox(color: Theme.of(context).colorScheme.primaryContainer)
+        : PicaImage(
+            url: displayUrl,
+            fit: BoxFit.cover,
+            sourceKey: adapter.comicType.name,
+            isThumbnail: true,
+          );
+    final cover = Hero(
+      tag: tag,
+      flightShuttleBuilder: comicCoverFlightShuttle,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(width: width, height: height, child: image),
+      ),
+    );
+    if (displayUrl == null) return cover;
     return MouseRegion(
       cursor: appClickableMouseCursor,
       child: GestureDetector(
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Hero(
-            tag: tag,
-            child: PicaImage(
-              url: displayUrl,
-              fit: BoxFit.cover,
-              sourceKey: adapter.comicType.name,
-              isThumbnail: true,
-            ),
-          ),
-        ),
         onTap: () => App.globalTo(() => ShowImagePageWithHero(displayUrl, tag)),
+        child: cover,
       ),
     );
   }
@@ -484,6 +478,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     ComicPageAdapter adapter,
     Object? data, {
     required bool center,
+    required double availableWidth,
   }) {
     if (state == null || notifier == null || data == null) {
       return Container(
@@ -493,12 +488,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
           ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
           borderRadius: BorderRadius.circular(12),
         ),
-        height: 72,
+        height: 64,
         width: double.infinity,
       );
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = availableWidth;
 
     return SizedBox(
       width: double.infinity,
@@ -809,19 +804,29 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             ),
           ],
         ),
-        child: SizedBox(
-          height: 72,
-          width: 64,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 64,
+            minWidth: 64,
+            maxWidth: 64,
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Icon(
                 Icons.delete_outline,
                 size: 24,
                 color: Theme.of(context).colorScheme.primary,
               ),
+              const SizedBox(height: 4),
+              Text(
+                "删除下载".tl,
+                style: const TextStyle(fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: 8),
-              Text("删除下载".tl, style: const TextStyle(fontSize: 12)),
             ],
           ),
         ),
@@ -882,20 +887,25 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: const BorderRadius.all(Radius.circular(8)),
-      child: SizedBox(
-        height: 72,
-        width: 64,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 64,
+          minWidth: 64,
+          maxWidth: 64,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 12),
-            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
+            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 4),
             Text(
               title,
               style: const TextStyle(fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -919,7 +929,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         children: [
           const Divider(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.only(right: 16),
             child: Row(
               children: [
                 _buildSectionHeader(context, "信息"),
@@ -951,7 +961,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           ..._buildInfoCards(context, state, adapter, data),
         ],
       ),
@@ -1081,7 +1091,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        margin: const EdgeInsets.all(3),
         child: InkWell(
           mouseCursor: appClickableMouseCursor,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -1113,21 +1123,21 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               ),
             );
           },
-          child: Card(
-            margin: EdgeInsets.zero,
-            color: title
-                ? colors[colorIndex % colors.length].shade100.withOpacity(0.6)
-                : ElevationOverlay.applySurfaceTint(
-                    colorScheme.surface,
-                    colorScheme.surfaceTint,
-                    3,
-                  ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            decoration: ShapeDecoration(
+              color: title
+                  ? colors[colorIndex % colors.length].shade100.withOpacity(0.6)
+                  : ElevationOverlay.applySurfaceTint(
+                      colorScheme.surface,
+                      colorScheme.surfaceTint,
+                      3,
+                    ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            elevation: 0,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               child: Text(labelText, style: const TextStyle(fontSize: 13)),
             ),
           ),
@@ -1217,7 +1227,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        margin: const EdgeInsets.all(3),
         child: InkWell(
           mouseCursor: appClickableMouseCursor,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -1230,19 +1240,19 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               notifier.adapter.onTagTapped(text, "本地标签", data, context);
             }
           },
-          child: Card(
-            margin: EdgeInsets.zero,
-            color: ElevationOverlay.applySurfaceTint(
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceTint,
-              3,
+          child: Ink(
+            decoration: ShapeDecoration(
+              color: ElevationOverlay.applySurfaceTint(
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceTint,
+                3,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               child: Text(text, style: const TextStyle(fontSize: 13)),
             ),
           ),
@@ -1257,7 +1267,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
   Widget _buildOpenFolderButton(BuildContext context, String downloadId) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      margin: const EdgeInsets.all(3),
       child: InkWell(
         mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -1271,15 +1281,15 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             showToast(message: "无法获取文件夹路径".tl);
           }
         },
-        child: Card(
-          margin: EdgeInsets.zero,
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: ShapeDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-          elevation: 0,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1306,20 +1316,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
   Widget _buildAddTagButton(BuildContext context, ComicPageAdapter adapter) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      margin: const EdgeInsets.all(3),
       child: InkWell(
         mouseCursor: appClickableMouseCursor,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         onTap: () => _openTagAssignmentDialog(context, adapter),
-        child: Card(
-          margin: EdgeInsets.zero,
-          color: Theme.of(context).colorScheme.primaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: ShapeDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-          elevation: 0,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1410,6 +1420,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       );
       return;
     }
+    if (eps.eps.isEmpty) return;
     final hasCurrentEpisode =
         state.history != null &&
         state.history!.ep > 0 &&
@@ -1464,8 +1475,6 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       ),
     );
 
-    yield const SliverPadding(padding: EdgeInsets.all(6));
-
     int length = eps.eps.length;
     if (!state.showFullEps) length = math.min(length, 20);
 
@@ -1483,19 +1492,16 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
               isLastRead;
           final hasMultipleEps = eps.eps.length > 1;
           return Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            child: InkWell(
-              mouseCursor: appClickableMouseCursor,
-              borderRadius: const BorderRadius.all(Radius.circular(16)),
-              onTap: () => eps.onTap(index),
-              child: Material(
-                elevation: 5,
-                color: isLastRead && hasMultipleEps
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.surface,
-                surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                shadowColor: Colors.transparent,
+            padding: const EdgeInsets.fromLTRB(4, 3, 4, 3),
+            child: Material(
+              color: isLastRead && hasMultipleEps
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                mouseCursor: appClickableMouseCursor,
+                onTap: () => eps.onTap(index),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1571,7 +1577,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     yield SliverToBoxAdapter(child: _buildSectionHeader(context, "简介"));
     yield SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+        padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1732,16 +1738,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // ========================================================================
 
   static Widget _buildSectionHeader(BuildContext context, String text) {
-    return SizedBox(
-      width: 100,
-      child: Row(
-        children: [
-          const SizedBox(width: 18),
-          Text(
-            text.tl,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(left: 18),
+      child: Text(
+        text.tl,
+        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
       ),
     );
   }

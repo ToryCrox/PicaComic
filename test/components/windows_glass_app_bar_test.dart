@@ -1,15 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:pica_comic/components/windows_glass_app_bar.dart';
-import 'package:pica_comic/components/windows_glass_panel.dart';
 import 'package:pica_comic/foundation/app_settings_provider.dart';
 
 void main() {
-  testWidgets('普通标题栏覆盖顶部安全区并响应开关', (tester) async {
+  testWidgets('普通标题栏保留顶部安全区与操作', (tester) async {
     final values = Map<String, String>.from(defaultAppSettings);
     final repository = AppSettingsRepository(
       readValues: () => values,
@@ -19,8 +15,6 @@ void main() {
       overrides: [appSettingsRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
-    windowsGlassAvailable = true;
-    addTearDown(() => windowsGlassAvailable = false);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -46,27 +40,21 @@ void main() {
       ),
     );
     final appBar = tester.getRect(find.byType(WindowsGlassAppBar));
-    final glass = tester.getRect(find.byType(GlassContainer));
     expect(appBar.top, 0);
-    expect(glass.top, lessThanOrEqualTo(appBar.top));
-    expect(glass.bottom, greaterThanOrEqualTo(appBar.bottom));
     expect(find.text('标题'), findsOneWidget);
     expect(find.byIcon(Icons.search), findsOneWidget);
     await container
         .read(appSettingsProvider.notifier)
         .setValue(AppSettingKeys.liquidGlassEnabled, '0');
     await tester.pumpAndSettle();
-    expect(find.byType(GlassContainer), findsNothing);
     expect(find.text('标题'), findsOneWidget);
     expect(tester.takeException(), isNull);
-  }, skip: !Platform.isWindows);
+  });
 
   testWidgets('固定标题栏滚动后保留标题和背景', (tester) async {
     final repository = AppSettingsRepository(
       readValues: () => <String, String>{},
     );
-    windowsGlassAvailable = true;
-    addTearDown(() => windowsGlassAvailable = false);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -103,16 +91,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('滚动标题'), findsOneWidget);
     expect(find.byIcon(Icons.search), findsOneWidget);
-    expect(find.byType(GlassContainer), findsOneWidget);
     expect(tester.takeException(), isNull);
-  }, skip: !Platform.isWindows);
+  });
 
   testWidgets('纵向布局中的标题栏可正常布局', (tester) async {
     final repository = AppSettingsRepository(
       readValues: () => <String, String>{},
     );
-    windowsGlassAvailable = true;
-    addTearDown(() => windowsGlassAvailable = false);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -132,7 +117,6 @@ void main() {
     );
     expect(find.text('详情标题'), findsOneWidget);
     expect(find.text('详情正文'), findsOneWidget);
-    expect(find.byType(GlassContainer), findsOneWidget);
     expect(tester.takeException(), isNull);
-  }, skip: !Platform.isWindows);
+  });
 }

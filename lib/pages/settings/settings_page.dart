@@ -229,7 +229,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     if (enableTwoViews) {
       return Row(
         children: [
-          SizedBox(width: 160, height: double.infinity, child: buildLeft()),
+          SizedBox(width: 200, height: double.infinity, child: buildLeft()),
           Container(
             height: double.infinity,
             decoration: BoxDecoration(
@@ -305,7 +305,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     onPressed: () => App.globalBack(),
                   ),
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: 8),
                 Text("设置".tl, style: Theme.of(context).textTheme.headlineSmall),
               ],
             ),
@@ -335,8 +335,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           children: [
             Icon(icons[id]),
             const SizedBox(width: 16),
-            Text(name, style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
             if (selected) const Icon(Icons.arrow_right),
           ],
         ),
@@ -344,8 +350,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
       return Padding(
         padding: enableTwoViews
-            ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
-            : EdgeInsets.zero,
+            ? const EdgeInsets.symmetric(horizontal: 8)
+            : const EdgeInsets.symmetric(horizontal: 12),
         child: InkWell(
           mouseCursor: appClickableMouseCursor,
           onTap: () => setState(() => currentPage = id),
@@ -784,7 +790,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ),
               ),
             ),
-            SliverToBoxAdapter(child: body),
+            SliverToBoxAdapter(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: body,
+                ),
+              ),
+            ),
           ],
         ),
       );
