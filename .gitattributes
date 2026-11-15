@@ -1,0 +1,43 @@
+# 换行符统一规范
+#
+# 背景：本仓库同时在 Windows 和 Linux/macOS 上开发。此前没有 .gitattributes，
+# 换行符完全依赖各人本机的 core.autocrlf 配置，导致工作区里 CRLF / LF 混用
+# （同一份代码在 git 里只改了十几行，按原始字节比较却是整文件重写）。
+
+# 默认：自动识别文本文件，统一以 LF 存入仓库、以 LF 检出到工作区。
+# 这样无论本机 core.autocrlf 是什么，git diff / git status / PR 都只显示真实改动。
+* text=auto eol=lf
+
+# Windows 脚本必须保持 CRLF。
+# cmd.exe 对仅 LF 的 .bat 解析不稳定（尤其是 goto / 标签 / 多行 if），
+# 这类文件一旦被转成 LF 会出现难以定位的诡异行为。
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+
+# Unix 侧脚本显式固定 LF，避免在 Windows 上被检出成 CRLF 后进容器执行报
+# "bad interpreter: /bin/sh^M"。
+*.sh   text eol=lf
+gradlew text eol=lf
+
+# 二进制资源不做任何换行转换（text=auto 本就能识别，这里显式声明更稳妥）。
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+*.jar  binary
+*.exe  binary
+*.dll  binary
+*.so   binary
+*.wasm binary
+*.zip  binary
+*.pdf  binary
+*.db   binary
+*.sqlite binary

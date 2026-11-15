@@ -13,13 +13,13 @@ list(APPEND FLUTTER_PLUGIN_LIST
   local_auth_windows
   screen_retriever_windows
   share_plus
-  sqlite3_flutter_libs
   super_native_extensions
   url_launcher_windows
   window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
   rhttp
   zip_flutter
 )
