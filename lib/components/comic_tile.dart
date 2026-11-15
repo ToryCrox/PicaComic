@@ -653,126 +653,22 @@ abstract class ComicTile extends ConsumerWidget {
     );
   }
 
-  Widget _buildHistoryTime(BuildContext context, bool showReadingProgress) {
-    if (comicID == null || !showReadingProgress) {
+  Widget _buildHistoryTime(bool showReadingProgress) {
+    final id = comicID;
+    if (id == null || !showReadingProgress) {
       return const SizedBox.shrink();
     }
 
-    return Consumer(
-      builder: (context, ref, _) {
-        final lookup = ref.watch(historyEntryProvider(comicID!));
-        if (lookup.hasError) return _historyLookupStatus(ref, loading: false);
-        if (lookup.isLoading && !lookup.hasValue)
-          return _historyLookupStatus(ref, loading: true);
-        final history = lookup.asData?.value;
-        if (history == null) return const SizedBox.shrink();
-
-        if (history.ep == 0 && history.page == 0) {
-          return const SizedBox.shrink();
-        }
-
-        final now = DateTime.now();
-        final diff = now.difference(history.time);
-        String timeStr;
-        if (diff.inMinutes < 1) {
-          timeStr = "刚刚".tl;
-        } else if (diff.inHours < 1) {
-          timeStr = "${diff.inMinutes}分钟以前".tl;
-        } else if (diff.inDays < 1) {
-          timeStr = "${diff.inHours}小时以前".tl;
-        } else if (diff.inDays < 30) {
-          timeStr = "${diff.inDays}天以前".tl;
-        } else {
-          timeStr =
-              "${history.time.year}-${history.time.month.toString().padLeft(2, '0')}-${history.time.day.toString().padLeft(2, '0')}";
-        }
-
-        return Positioned(
-          left: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            margin: const EdgeInsets.only(left: 4, bottom: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              timeStr,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    return _HistoryTimeLabel(comicId: id);
   }
 
-  /// 单条历史区分查询中和失败，失败点击可重试。
-  Widget _historyLookupStatus(WidgetRef ref, {required bool loading}) =>
-      Positioned(
-        left: 4,
-        bottom: 4,
-        child: loading
-            ? const SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Tooltip(
-                message: '历史加载失败，点击重试'.tl,
-                child: InkWell(
-                  onTap: () => ref.invalidate(historyEntryProvider(comicID!)),
-                  child: const Icon(
-                    Icons.refresh,
-                    size: 18,
-                    color: Colors.orange,
-                  ),
-                ),
-              ),
-      );
-
-  Widget _buildHistoryProgressBar(
-    BuildContext context,
-    bool showReadingProgress,
-  ) {
-    if (comicID == null || !showReadingProgress) {
+  Widget _buildHistoryProgressBar(bool showReadingProgress) {
+    final id = comicID;
+    if (id == null || !showReadingProgress) {
       return const SizedBox.shrink();
     }
 
-    return Consumer(
-      builder: (context, ref, _) {
-        final history = ref.watch(historyEntryProvider(comicID!)).asData?.value;
-        if (history == null) return const SizedBox.shrink();
-
-        if (history.ep == 0 && history.page == 0) {
-          return const SizedBox.shrink();
-        }
-
-        final currentPage = math.max(1, history.page);
-        final maxPage = history.maxPage ?? currentPage;
-        if (maxPage == 0) return const SizedBox.shrink();
-
-        final progress = (currentPage / maxPage).clamp(0.0, 1.0);
-
-        return Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SizedBox(
-            height: 3,
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.transparent,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        );
-      },
-    );
+    return _HistoryProgressBar(comicId: id);
   }
 
   /// 底部描述行需要额外避让的宽度，用于让出右下角悬浮按钮的位置。
@@ -829,7 +725,7 @@ abstract class ComicTile extends ConsumerWidget {
                         clipBehavior: Clip.antiAlias,
                         child: _buildHeroImage(context, ref),
                       ),
-                      _buildHistoryTime(context, showReadingProgress),
+                      _buildHistoryTime(showReadingProgress),
                     ],
                   ),
                 ),
@@ -861,7 +757,7 @@ abstract class ComicTile extends ConsumerWidget {
               ],
             ),
           ),
-          _buildHistoryProgressBar(context, showReadingProgress),
+          _buildHistoryProgressBar(showReadingProgress),
         ],
       ),
     );
@@ -880,7 +776,7 @@ abstract class ComicTile extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               _buildHeroImage(context, ref),
-              _buildHistoryTime(context, showReadingProgress),
+              _buildHistoryTime(showReadingProgress),
             ],
           ),
         ),
@@ -941,8 +837,117 @@ abstract class ComicTile extends ConsumerWidget {
             ),
           ),
         ),
-        _buildHistoryProgressBar(context, showReadingProgress),
+        _buildHistoryProgressBar(showReadingProgress),
       ],
+    );
+  }
+}
+
+/// 封面左下角的阅读时间角标。
+///
+/// 阅读时每翻一页都会写历史，`historyEntryProvider` 随之失效重查。封装成独立
+/// 控件是为了把这次重建限制在这块小角标上，而不是整张卡片。
+class _HistoryTimeLabel extends ConsumerWidget {
+  const _HistoryTimeLabel({required this.comicId});
+
+  final String comicId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lookup = ref.watch(historyEntryProvider(comicId));
+    if (lookup.hasError) return _lookupStatus(ref, loading: false);
+    if (lookup.isLoading && !lookup.hasValue) {
+      return _lookupStatus(ref, loading: true);
+    }
+    final history = lookup.asData?.value;
+    if (history == null) return const SizedBox.shrink();
+    if (history.ep == 0 && history.page == 0) return const SizedBox.shrink();
+
+    final diff = DateTime.now().difference(history.time);
+    String timeStr;
+    if (diff.inMinutes < 1) {
+      timeStr = "刚刚".tl;
+    } else if (diff.inHours < 1) {
+      timeStr = "${diff.inMinutes}分钟以前".tl;
+    } else if (diff.inDays < 1) {
+      timeStr = "${diff.inHours}小时以前".tl;
+    } else if (diff.inDays < 30) {
+      timeStr = "${diff.inDays}天以前".tl;
+    } else {
+      timeStr =
+          "${history.time.year}-${history.time.month.toString().padLeft(2, '0')}-${history.time.day.toString().padLeft(2, '0')}";
+    }
+
+    return Positioned(
+      left: 0,
+      bottom: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        margin: const EdgeInsets.only(left: 4, bottom: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          timeStr,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 单条历史区分查询中和失败，失败点击可重试。
+  Widget _lookupStatus(WidgetRef ref, {required bool loading}) => Positioned(
+    left: 4,
+    bottom: 4,
+    child: loading
+        ? const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Tooltip(
+            message: '历史加载失败，点击重试'.tl,
+            child: InkWell(
+              onTap: () => ref.invalidate(historyEntryProvider(comicId)),
+              child: const Icon(Icons.refresh, size: 18, color: Colors.orange),
+            ),
+          ),
+  );
+}
+
+/// 封面底部的阅读进度条，订阅同一份历史记录但自建重建作用域。
+class _HistoryProgressBar extends ConsumerWidget {
+  const _HistoryProgressBar({required this.comicId});
+
+  final String comicId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(historyEntryProvider(comicId)).asData?.value;
+    if (history == null) return const SizedBox.shrink();
+    if (history.ep == 0 && history.page == 0) return const SizedBox.shrink();
+
+    final currentPage = math.max(1, history.page);
+    final maxPage = history.maxPage ?? currentPage;
+    if (maxPage == 0) return const SizedBox.shrink();
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: SizedBox(
+        height: 3,
+        child: LinearProgressIndicator(
+          value: (currentPage / maxPage).clamp(0.0, 1.0),
+          backgroundColor: Colors.transparent,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
     );
   }
 }
@@ -1491,56 +1496,68 @@ Widget buildComicTile(
   ComicType comicType, {
   List<ComicTileMenuOption>? addonMenuOptions,
 }) {
-  return Consumer(
-    builder: (context, ref, child) {
-      final source = ComicSource.find(comicType.name);
-      if (source == null) {
-        throw "Comic Source $comicType Not Found";
-      }
-      ref.watch(blockingKeywordRevisionProvider);
-      final fullyHideBlocked =
-          ref.watch(
-            appSettingProvider(AppSettingKeys.fullyHideBlockedComics),
-          ) ==
-          '1';
-      if (!fullyHideBlocked || comicType == ComicType.hitomi) {
-        final blockWord = isBlocked(item);
-        if (blockWord != null) {
-          return Stack(
-            children: [
-              const Positioned.fill(child: ComicTilePlaceholder(type: '')),
-              Positioned.fill(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text("${"屏蔽".tl}: $blockWord"),
+  return _ComicTileGate(
+    item: item,
+    comicType: comicType,
+    addonMenuOptions: addonMenuOptions,
+  );
+}
+
+/// 卡片入口的过滤层：屏蔽词命中时替换为占位卡片，否则按来源选择具体卡片实现。
+class _ComicTileGate extends ConsumerWidget {
+  const _ComicTileGate({
+    required this.item,
+    required this.comicType,
+    this.addonMenuOptions,
+  });
+
+  final BaseComic item;
+  final ComicType comicType;
+  final List<ComicTileMenuOption>? addonMenuOptions;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final source = ComicSource.find(comicType.name);
+    if (source == null) {
+      throw "Comic Source $comicType Not Found";
+    }
+    ref.watch(blockingKeywordRevisionProvider);
+    final fullyHideBlocked =
+        ref.watch(appSettingProvider(AppSettingKeys.fullyHideBlockedComics)) ==
+        '1';
+    if (!fullyHideBlocked || comicType == ComicType.hitomi) {
+      final blockWord = isBlocked(item);
+      if (blockWord != null) {
+        return Stack(
+          children: [
+            const Positioned.fill(child: ComicTilePlaceholder(type: '')),
+            Positioned.fill(
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text("${"屏蔽".tl}: $blockWord"),
                 ),
               ),
-            ],
-          );
-        }
-      }
-      if (source.comicTileBuilderOverride != null) {
-        return source.comicTileBuilderOverride!(
-          context,
-          item,
-          addonMenuOptions,
+            ),
+          ],
         );
       }
-      return CustomComicTile(
-        item as CustomComic,
-        addonMenuOptions: addonMenuOptions,
-      );
-    },
-  );
+    }
+    if (source.comicTileBuilderOverride != null) {
+      return source.comicTileBuilderOverride!(context, item, addonMenuOptions);
+    }
+    return CustomComicTile(
+      item as CustomComic,
+      addonMenuOptions: addonMenuOptions,
+    );
+  }
 }
 
 /// return the first blocked keyword, or null if not blocked
