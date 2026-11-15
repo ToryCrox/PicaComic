@@ -60,15 +60,17 @@
 业务状态统一使用 **flutter_riverpod**。历史、漫画收藏、目录收藏、网络收藏及图片收藏的分层与生命周期见 `docs/history_and_favorites.md`。
 
 1. **flutter_riverpod** — 复杂状态管理，适用于下载页面等数据密集型场景
-   - 使用 @riverpod 注解 + 代码生成（riverpod_generator + build_runner）
+   - 使用 @riverpod 注解 + 代码生成（riverpod_generator + build_runner）；除极少数一次性只读值外，不再手写 `NotifierProvider`
    - Notifier 管理可变状态，函数式注解处理简单计算/异步场景
    - `@Riverpod(keepAlive: false)` 实现 autoDispose 行为（3.x 默认 autoDispose）
+   - 派生状态优先用函数式 `@riverpod` 的 family 派生（如 `downloadButtonIsLoadingProvider(comicId)`），不要在每个 Widget 里对集合/对象做 `select`；`select` 仅用于单个不可变对象内的少量字段裁剪
    - 数据分层：全局持久层（Global Persistent State）→ 实例状态层（Instance State）→ 衍生计算层（Computed State）
    
    使用场景：`lib/pages/download/download_providers.dart`（注解式定义）、`lib/pages/download/**`（ConsumerStatefulWidget、ConsumerWidget）
 
-2. **ChangeNotifier** — 用于需要通知 UI 变化的 Manager 类
-   - `DownloadManager`、`DownloadStateManager` 使用 ChangeNotifier 模式
+2. **ChangeNotifier** — 遗留场景，新增状态一律优先 Riverpod
+   - 目前仅 `lib/ai/` 的 `AiSettingsStore`、`AiTranslationService` 仍使用该模式
+   - 下载队列及任务状态统一由 `DownloadManager`（Riverpod Notifier）发布；下载按钮的加载态由 `downloadButtonLoadingProvider` 按漫画 ID 提供
 
 #### 组件开发
 1. **Widget 设计**:
@@ -94,7 +96,7 @@
 2. **Cookie 管理**: 使用自定义 `SingleInstanceCookieJar` + SQLite 持久化（`lib/network/cookie_jar.dart`）
 3. **HTTP/2 支持**: 使用 `dio_http2_adapter`
 4. **代理**: `lib/network/http_proxy.dart`
-5. **下载功能**: `lib/network/download/` 包含 download_manager、download_state_manager、download_queue_manager、image_download_queue、file_downloader
+5. **下载功能**: `lib/network/download/` 包含 download_manager、download_queue_manager、image_download_queue、file_downloader
 
 #### 平台特定代码
 1. **平台检测**: 使用 `App.isAndroid`, `App.isDesktop`, `App.isMobile`, `App.isWindows`, `App.isLinux`, `App.isMacOS`, `App.isIOS`

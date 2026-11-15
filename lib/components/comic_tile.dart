@@ -448,11 +448,12 @@ abstract class ComicTile extends ConsumerWidget {
       );
     }
 
-    if (onDownloadTap != null) {
+    final downloadComicId = comicID;
+    if (onDownloadTap != null && downloadComicId != null) {
       return _DownloadButton(
         onTap: () => onDownloadTap!(ref),
         detailedMode: detailedMode,
-        id: comicID,
+        comicId: downloadComicId,
       );
     }
 
@@ -1696,83 +1697,44 @@ class _BlockingPaneState extends ConsumerState<_BlockingPane> {
   }
 }
 
-class _DownloadButton extends StatefulWidget {
+/// 卡片上的下载按钮。
+///
+/// 加载态按漫画 ID 收敛在 Provider 中，因此同一部漫画出现在多个列表里会同步
+/// 显示加载态，按钮自身不持有任何状态。
+class _DownloadButton extends ConsumerWidget {
   final Future<void> Function() onTap;
   final bool detailedMode;
-  final String? id;
+  final String comicId;
 
   const _DownloadButton({
     required this.onTap,
     required this.detailedMode,
-    this.id,
+    required this.comicId,
   });
 
   @override
-  State<_DownloadButton> createState() => _DownloadButtonState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLoading = ref.watch(downloadButtonIsLoadingProvider(comicId));
 
-class _DownloadButtonState extends State<_DownloadButton> {
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.id != null) {
-      _isLoading = _loadingIds.contains(widget.id);
-      _loadingIds.addListener(_onLoadingChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    if (widget.id != null) {
-      _loadingIds.removeListener(_onLoadingChanged);
-    }
-    super.dispose();
-  }
-
-  void _onLoadingChanged() {
-    if (widget.id == null) return;
-    final isLoading = _loadingIds.contains(widget.id);
-    if (isLoading != _isLoading) {
-      if (mounted) {
-        setState(() {
-          _isLoading = isLoading;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Positioned(
-      right: widget.detailedMode ? 16 : 6,
+      right: detailedMode ? 16 : 6,
       bottom: 8,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           mouseCursor: appClickableMouseCursor,
-          onTap: _isLoading
+          onTap: isLoading
               ? null
               : () async {
-                  if (widget.id != null) {
-                    _loadingIds.add(widget.id!);
-                  } else {
-                    setState(() {
-                      _isLoading = true;
-                    });
-                  }
-
+                  // 按钮可能在回调期间卸载，先取得应用级 Notifier 再等待。
+                  final notifier = ref.read(
+                    downloadButtonLoadingProvider.notifier,
+                  );
+                  notifier.add(comicId);
                   try {
-                    await widget.onTap();
+                    await onTap();
                   } finally {
-                    if (widget.id != null) {
-                      _loadingIds.remove(widget.id!);
-                    } else if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    }
+                    notifier.remove(comicId);
                   }
                 },
           borderRadius: BorderRadius.circular(20),
@@ -1783,7 +1745,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
               color: Colors.black.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
-            child: _isLoading
+            child: isLoading
                 ? Container(
                     padding: const EdgeInsets.all(6),
                     child: const CircularProgressIndicator(
@@ -1802,22 +1764,3 @@ class _DownloadButtonState extends State<_DownloadButton> {
     );
   }
 }
-
-// Global loading state for download buttons
-class _LoadingIds extends ChangeNotifier {
-  final Set<String> _ids = {};
-
-  bool contains(String? id) => id != null && _ids.contains(id);
-
-  void add(String id) {
-    _ids.add(id);
-    notifyListeners();
-  }
-
-  void remove(String id) {
-    _ids.remove(id);
-    notifyListeners();
-  }
-}
-
-final _LoadingIds _loadingIds = _LoadingIds();
