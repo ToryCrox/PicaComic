@@ -31,6 +31,7 @@ import '../settings/ai_settings_page.dart';
 import '../show_image_page.dart';
 import 'comic_page_adapter.dart';
 import 'comic_page_logic.dart';
+import 'comic_page_seed.dart';
 
 // ============================================================================
 // ComicPageWidget — 漫画详情页UI
@@ -44,23 +45,18 @@ class ComicPageWidget extends ConsumerStatefulWidget {
   const ComicPageWidget({
     required this.comicType,
     required this.id,
-    this.cover,
-    this.heroTag,
-    this.title,
+    this.seed,
     super.key,
   });
 
   final ComicType comicType;
   final String id;
 
-  /// 列表页传入的封面地址，保证详情页首帧与列表使用同一份图片缓存。
-  final String? cover;
-
-  /// 列表页传入的封面 Hero 标签，两个页面共用同一标签才能产生飞行。
-  final String? heroTag;
-
-  /// 列表页传入的标题，详情数据返回前先用它占位。
-  final String? title;
+  /// 调用方已经掌握的首帧信息。
+  ///
+  /// 列表卡片可带标题、封面、Hero 标签；下载卡片还可带下载记录，让首帧
+  /// 直接渲染完整内容。为空时退回“只按 id 加载”的原有流程。
+  final ComicPageSeed? seed;
 
   /// 阅读器页面关闭后，更新对应漫画详情页的历史记录。
   static void updateActivePageHistory(History? history) {
@@ -72,19 +68,11 @@ class ComicPageWidget extends ConsumerStatefulWidget {
     BuildContext context, {
     required ComicType comicType,
     required String id,
-    String? cover,
-    String? heroTag,
-    String? title,
+    ComicPageSeed? seed,
   }) {
     return App.to<T>(
       context,
-      () => ComicPageWidget(
-        comicType: comicType,
-        id: id,
-        cover: cover,
-        heroTag: heroTag,
-        title: title,
-      ),
+      () => ComicPageWidget(comicType: comicType, id: id, seed: seed),
     );
   }
 
@@ -96,6 +84,14 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   static final List<ComicPageLogic> _activePages = [];
   ComicPageLogic? _notifier;
 
+  /// 路由转场是否已经结束。
+  ///
+  /// 缓存命中时详情数据往往在 push 后的几毫秒内就到达，如果此时立刻把骨架屏
+  /// 换成完整内容，转场动画中间会插入一次整页重建：Hero 的目标节点被销毁重建，
+  /// 飞行随即中断；同时章节、缩略图、推荐等区块首次构建，容易掉帧。表现出来
+  /// 就是"有缓存时反而更闪"。因此加载态至少维持到转场结束。
+  bool _routeSettled = false;
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +99,34 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       comicPageLogicProvider((widget.comicType, widget.id)).notifier,
     );
     _activePages.add(_notifier!);
+    // 种子在首帧前注入：下载卡片可借此直接渲染完整内容。
+    _notifier!.applySeed(widget.seed);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _settleRouteAnimation());
+  }
+
+  /// 等当前路由的转场动画结束（非动画进入则立即结束）。
+  void _settleRouteAnimation() {
+    if (!mounted) return;
+    void settle() {
+      if (mounted && !_routeSettled) {
+        setState(() => _routeSettled = true);
+      }
+    }
+
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      settle();
+      return;
+    }
+    void onStatusChanged(AnimationStatus status) {
+      if (status != AnimationStatus.completed) return;
+      animation.removeStatusListener(onStatusChanged);
+      settle();
+    }
+
+    animation.addStatusListener(onStatusChanged);
+    // 兜底：动画被打断或状态未回到 completed 时不再无限等待。
+    Future.delayed(const Duration(milliseconds: 600), settle);
   }
 
   @override
@@ -129,7 +153,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     final adapter = notifier.adapter;
     final data = notifier.data;
     final coverUrl =
-        widget.cover ?? (data != null ? adapter.cover(data) : null);
+        widget.seed?.cover ?? (data != null ? adapter.cover(data) : null);
 
     // 数据首次到达后初始化缩略图
     if (data != null && notifier.thumbnailsData == null) {
@@ -157,7 +181,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     Object? data,
     String? coverUrl,
   ) {
-    if (state.loading) {
+    // 种子已经带来完整数据：首帧直接渲染内容，无需骨架屏，也不必等转场结束。
+    if (data != null && notifier.seedRendered) {
+      return _buildContent(context, state, notifier, adapter, data, coverUrl);
+    }
+
+    if (state.loading || !_routeSettled) {
       return _buildLoadingShimmer(context, state, notifier, adapter, coverUrl);
     }
 
@@ -179,61 +208,112 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     ComicPageAdapter adapter,
     String? coverUrl,
   ) {
-    return SingleChildScrollView(
-      child: Shimmer(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        colorOpacity: 0.5,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 56,
-              child: const BackButton().toAlign(Alignment.centerLeft),
-            ).paddingLeft(8),
-            SizedBox(
-              width: double.infinity,
-              child: _buildComicInfo(
-                context,
-                state,
-                notifier,
-                adapter,
-                null,
-                coverUrl,
-                sliver: false,
-              ),
-            ),
-            const Divider(),
-            _buildSectionHeader(context, "信息"),
-            Column(
+    final placeholderColor = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest;
+    // 与内容页保持同构：同样的 SliverAppBar + 信息区，数据到达时这两块
+    // Element 可以直接复用，Hero 不会被销毁重建，转场不会被打断。
+    return SmoothCustomScrollView(
+      slivers: [
+        _buildSliverAppBar(context, state, adapter, null),
+        _buildComicInfo(context, state, notifier, adapter, null, coverUrl),
+        ..._buildSeedExtras(context),
+        SliverToBoxAdapter(
+          child: Shimmer(
+            color: placeholderColor,
+            colorOpacity: 0.5,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(
-                8,
-                (index) => Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                  child: Container(
-                    width: double.infinity,
-                    height: 32,
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(12),
+              children: [
+                const Divider(),
+                _buildSectionHeader(context, "信息"),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(
+                    8,
+                    (index) => Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                      child: Container(
+                        width: double.infinity,
+                        height: 32,
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: placeholderColor.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ).paddingTop(MediaQuery.of(context).padding.top),
+      ],
     );
   }
 
   // ========================================================================
   // 完整内容
   // ========================================================================
+
+  /// 骨架屏期间先用种子里的标签与简介填充，避免信息区以下全是占位块。
+  ///
+  /// 数据到达后由真实区块替换；这里只做展示，不绑定任何点击行为。
+  List<Widget> _buildSeedExtras(BuildContext context) {
+    final seed = widget.seed;
+    if (seed == null) return const [];
+    final tags = seed.tags ?? const <String>[];
+    final introduction = seed.introduction?.trim() ?? '';
+    if (tags.isEmpty && introduction.isEmpty) return const [];
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (tags.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final tag in tags.take(12))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          tag,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                  ],
+                ),
+              if (introduction.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(top: tags.isEmpty ? 0 : 8),
+                  child: Text(
+                    introduction,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, height: 1.4),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
 
   Widget _buildContent(
     BuildContext context,
@@ -270,9 +350,12 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     BuildContext context,
     ComicPageState state,
     ComicPageAdapter adapter,
-    Object data,
+    Object? data,
   ) {
-    final titleText = adapter.title(data) ?? '';
+    // 骨架屏与内容页共用同一个 SliverAppBar，数据到达时它可以原地复用。
+    final titleText = data != null
+        ? (adapter.title(data) ?? '')
+        : (widget.seed?.title ?? '');
     return WindowsGlassSliverAppBar(
       child: SliverAppBar(
         pinned: true,
@@ -288,7 +371,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
             position: PopupMenuPosition.under,
             icon: const Icon(Icons.more_horiz),
             itemBuilder: (_) {
-              final url = adapter.url(data);
+              final url = data == null ? null : adapter.url(data);
               return [
                 popupMenuItem<void>(
                   text: "复制标题".tl,
@@ -345,13 +428,20 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     final body = LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final sourceText = adapter.source;
-        // 数据未到达时先用列表页传入的标题占位，避免 Hero 飞到一个空盒子。
+        final seed = widget.seed;
+        // 数据未到达时先用种子里的信息占位，避免 Hero 飞到一个空盒子，
+        // 也让下载卡片这类信息齐全的入口首帧就有完整的头部。
+        final sourceText = data != null
+            ? adapter.source
+            : (seed?.sourceLabel ?? adapter.source);
         final titleText = data != null
             ? adapter.title(data)
-            : (widget.title ?? '');
-        final subTitleText = data != null ? adapter.subTitle(data) : null;
-        final pagesCount = data != null ? adapter.pages(data) : null;
+            : (seed?.title ?? '');
+        final subTitleText = data != null
+            ? adapter.subTitle(data)
+            : seed?.subTitle;
+        final pagesCount = data != null ? adapter.pages(data) : seed?.pagesCount;
+        final epsCount = data != null ? null : seed?.eps?.length;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -404,6 +494,11 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                                 "${pagesCount}P",
                                 style: const TextStyle(fontSize: 12),
                               ),
+                            if (epsCount != null && epsCount > 0)
+                              Text(
+                                "$epsCount 话",
+                                style: const TextStyle(fontSize: 12),
+                              ),
                           ],
                         ),
                         if (width >= 500)
@@ -447,7 +542,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
 
   /// 封面 Hero 标签：优先用列表页传入的标签，保证两端完全一致。
   String _effectiveCoverHeroTag() {
-    return widget.heroTag ?? comicCoverHeroTag(widget.comicType, widget.id);
+    return widget.seed?.heroTag ?? comicCoverHeroTag(widget.comicType, widget.id);
   }
 
   /// 标题 Hero：空标题不参与飞行，避免飞到一半标题消失。

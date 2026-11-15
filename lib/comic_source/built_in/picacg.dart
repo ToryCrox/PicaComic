@@ -280,9 +280,7 @@ class _PicComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.picacg,
         id: comic.id,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }

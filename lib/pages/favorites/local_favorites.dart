@@ -296,7 +296,11 @@ class LocalFavoriteTile extends ComicTile {
       () => ComicPage(
         comicType: comic.type.comicSource!.key,
         id: comic.target,
-        cover: comic.coverPath,
+        seed: ComicPageSeed(
+          title: comic.name,
+          subTitle: comic.author,
+          cover: comic.coverPath,
+        ),
       ),
     );
   }

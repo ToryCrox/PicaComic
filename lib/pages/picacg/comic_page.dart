@@ -12,6 +12,10 @@ class PicacgComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.picacg, id: id, cover: cover);
+    return ComicPage(
+      comicType: ComicType.picacg,
+      id: id,
+      seed: ComicPageSeed(cover: cover),
+    );
   }
 }

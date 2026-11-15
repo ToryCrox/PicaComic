@@ -28,18 +28,12 @@ import 'package:pica_comic/tools/type_util.dart';
 /// [heroTag] 由下载页卡片算出并传入，保证封面 Hero 两端标签一致。
 void toComicInfoPage(DownloadedItem comic, {String? heroTag}) {
   final context = App.mainNavigatorKey!.currentContext!;
-  final coverPath = comic.coverPath;
-  final cover = coverPath == null ? null : Uri.file(coverPath).toString();
+  // 下载记录里已有标题、作者、章节、标签和封面；来源保存了完整详情对象时，
+  // 详情页还能直接用它渲染首帧，不必再等读库与磁盘缓存。
+  final seed = ComicPageSeed.fromDownloadedItem(comic, heroTag: heroTag);
 
   void open(ComicType type, String id) {
-    context.to(
-      () => ComicPage(
-        comicType: type,
-        id: id,
-        cover: cover,
-        heroTag: heroTag,
-      ),
-    );
+    context.to(() => ComicPage(comicType: type, id: id, seed: seed));
   }
 
   if (comic is DownloadedComic) {

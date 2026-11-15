@@ -59,6 +59,9 @@ class HtAdapter extends ComicPageAdapter<HtComicInfo> {
       item is DownloadedHtComic ? item.comic : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is HtComicInfo ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, HtComicInfo data) {
     if (item is! DownloadedHtComic) return null;
     return DownloadedHtComic(data, item.comicSize, color: item.color);

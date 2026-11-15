@@ -307,9 +307,7 @@ class _JmComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.jm,
         id: comic.id,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }

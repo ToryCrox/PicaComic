@@ -58,6 +58,9 @@ class NhentaiAdapter extends ComicPageAdapter<NhentaiComic> {
       item is NhentaiDownloadedComic ? item.comic : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is NhentaiComic ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, NhentaiComic data) {
     if (item is! NhentaiDownloadedComic) return null;
     return NhentaiDownloadedComic(data, item.comicSize, color: item.color);

@@ -12,6 +12,10 @@ class NhentaiComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.nhentai, id: _id, cover: comicCover);
+    return ComicPage(
+      comicType: ComicType.nhentai,
+      id: _id,
+      seed: ComicPageSeed(cover: comicCover),
+    );
   }
 }

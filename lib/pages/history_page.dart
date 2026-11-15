@@ -233,9 +233,12 @@ void toComicPageWithHistory(
     () => ComicPage(
       comicType: source.key,
       id: history.target,
-      cover: history.cover,
-      heroTag: heroTag,
-      title: title,
+      seed: ComicPageSeed(
+        title: title,
+        subTitle: history.subtitle,
+        cover: history.cover,
+        heroTag: heroTag,
+      ),
     ),
   );
 }

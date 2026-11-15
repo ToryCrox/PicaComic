@@ -70,6 +70,9 @@ class PicacgAdapter extends ComicPageAdapter<ComicItem> {
       item is DownloadedComic ? item.comicItem : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is ComicItem ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, ComicItem data) {
     if (item is! DownloadedComic) return null;
     return DownloadedComic(

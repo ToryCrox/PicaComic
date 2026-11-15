@@ -219,9 +219,7 @@ class _HtComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.htmanga,
         id: comic.id,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }

@@ -12,6 +12,10 @@ class HtComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.htmanga, id: id, cover: comicCover);
+    return ComicPage(
+      comicType: ComicType.htmanga,
+      id: id,
+      seed: ComicPageSeed(cover: comicCover),
+    );
   }
 }

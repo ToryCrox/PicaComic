@@ -26,7 +26,11 @@ class EhGalleryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.ehentai, id: link, cover: comicCover);
+    return ComicPage(
+      comicType: ComicType.ehentai,
+      id: link,
+      seed: ComicPageSeed(cover: comicCover),
+    );
   }
 }
 

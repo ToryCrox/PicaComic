@@ -69,6 +69,9 @@ class JmAdapter extends ComicPageAdapter<JmComicInfo> {
       item is DownloadedJmComic ? item.comic : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is JmComicInfo ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, JmComicInfo data) {
     if (item is! DownloadedJmComic) return null;
     return DownloadedJmComic(

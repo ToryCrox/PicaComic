@@ -193,9 +193,7 @@ class _NhentaiComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.nhentai,
         id: comic.id,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }

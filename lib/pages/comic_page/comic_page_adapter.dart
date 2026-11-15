@@ -58,7 +58,16 @@ abstract class ComicPageAdapter<T extends Object> {
   Future<T?> loadCachedData(String id);
 
   /// 从已下载记录中提取可用于详情页的数据。
+  ///
+  /// 多数来源的下载记录保存了完整详情对象，实现后从下载页进入详情页时
+  /// 首帧即可渲染，无需再查磁盘缓存。
   T? dataFromDownloadedItem(DownloadedItem item) => null;
+
+  /// 校验首帧种子携带的详情对象。
+  ///
+  /// 种子由页面调用方构造，类型可能与当前来源不匹配；返回 null 表示丢弃，
+  /// 页面退回用种子里的展示字段渲染。
+  Object? acceptSeedData(Object? data) => null;
 
   /// 将最新网络详情合并到原下载记录，返回 null 表示该类型不支持同步。
   ///

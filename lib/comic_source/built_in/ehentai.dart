@@ -375,9 +375,7 @@ class _EhGalleryTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.ehentai,
         id: gallery.link,
-        cover: gallery.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: gallery.cover, heroTag: coverTag),
       ),
     );
   }

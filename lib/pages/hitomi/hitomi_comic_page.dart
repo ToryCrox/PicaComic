@@ -18,6 +18,10 @@ class HitomiComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.hitomi, id: link, cover: comicCover);
+    return ComicPage(
+      comicType: ComicType.hitomi,
+      id: link,
+      seed: ComicPageSeed(cover: comicCover),
+    );
   }
 }

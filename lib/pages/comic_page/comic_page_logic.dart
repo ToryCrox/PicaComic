@@ -19,6 +19,7 @@ import '../../network/comic_source_services.dart';
 import '../../network/res.dart';
 import '../comic_page.dart' show ThumbnailsData;
 import 'comic_page_adapter.dart';
+import 'comic_page_seed.dart';
 import 'default_comic_page_adapter.dart';
 
 part 'comic_page_logic.g.dart';
@@ -144,6 +145,12 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
   late final ComicPageAdapter _adapter;
   Object? _data;
   ThumbnailsData? _thumbnailsData;
+  ComicPageSeed? _seed;
+
+  /// 首帧种子是否直接提供了可渲染的详情数据。
+  ///
+  /// 为 true 时页面跳过骨架屏与转场等待，首帧即渲染内容页。
+  bool _seedRendered = false;
 
   // 保存key以便 refresh_() 使用
   (ComicType, String) _key = (ComicType.picacg, '');
@@ -180,6 +187,39 @@ class ComicPageLogic extends _$ComicPageLogic implements ComicPageBridge {
 
   /// 漫画数据（调用方负责类型转换）
   Object? get data => _data;
+
+  /// 首帧种子是否已经直接渲染出完整内容。
+  bool get seedRendered => _seedRendered;
+
+  /// 注入调用方已掌握的信息，供首帧渲染。
+  ///
+  /// 页面在 `initState` 中调用，早于第一次 build，因此种子内容可以出现在
+  /// 首帧而不是骨架屏。种子只应用一次，刷新仍走正常加载流程。
+  void applySeed(ComicPageSeed? seed) {
+    if (seed == null || _seed != null) return;
+    _seed = seed;
+
+    if (seed.isDownloaded != null || seed.coverPath != null) {
+      state = state.copyWith(
+        isDownloaded: seed.isDownloaded,
+        coverPath: seed.coverPath,
+      );
+    }
+
+    // 下载记录通常保存了完整详情对象，优先用它铺满首帧。
+    final download = seed.download;
+    final fromDownload = download == null
+        ? null
+        : _adapter.dataFromDownloadedItem(download);
+    final accepted = _adapter.acceptSeedData(fromDownload ?? seed.data);
+    if (accepted == null) return;
+
+    _data = accepted;
+    _seedRendered = true;
+    state = state.copyWith(loading: false);
+    _loadHistory(_key.$2);
+    _loadFavorite(accepted);
+  }
   ScrollController get controller => _controller;
   ComicPageAdapter get adapter => _adapter;
   ThumbnailsData? get thumbnailsData => _thumbnailsData;

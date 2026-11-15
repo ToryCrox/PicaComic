@@ -15,9 +15,12 @@ import 'package:pica_comic/foundation/history.dart';
 import 'package:pica_comic/foundation/local_favorites.dart';
 import 'package:pica_comic/foundation/log.dart';
 import 'package:pica_comic/network/res.dart';
+import 'package:pica_comic/pages/comic_page/comic_page_seed.dart';
 import 'package:pica_comic/pages/comic_page/comic_page_widget.dart';
 import 'package:pica_comic/pages/favorites/local_favorites.dart';
 import 'package:pica_comic/tools/translations.dart';
+
+export 'package:pica_comic/pages/comic_page/comic_page_seed.dart';
 
 /// 漫画详情页入口。
 ///
@@ -27,30 +30,18 @@ class ComicPage extends StatelessWidget {
     super.key,
     required this.comicType,
     required this.id,
-    this.cover,
-    this.heroTag,
-    this.title,
+    this.seed,
   });
 
   final ComicType comicType;
   final String id;
-  final String? cover;
 
-  /// 由列表页传入的封面 Hero 标签；为空时按 [comicType] + [id] 推导。
-  final String? heroTag;
-
-  /// 由列表页传入的标题，详情数据到达前先用它占位。
-  final String? title;
+  /// 调用方已经掌握的首帧信息（标题、封面、Hero 标签、下载记录等）。
+  final ComicPageSeed? seed;
 
   @override
   Widget build(BuildContext context) {
-    return ComicPageWidget(
-      comicType: comicType,
-      id: id,
-      cover: cover,
-      heroTag: heroTag,
-      title: title,
-    );
+    return ComicPageWidget(comicType: comicType, id: id, seed: seed);
   }
 }
 
@@ -198,7 +189,11 @@ abstract class BaseComicPage<T extends Object> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPageWidget(comicType: comicType, id: id, cover: cover);
+    return ComicPageWidget(
+      comicType: comicType,
+      id: id,
+      seed: cover == null ? null : ComicPageSeed(cover: cover),
+    );
   }
 }
 

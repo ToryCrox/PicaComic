@@ -12,6 +12,10 @@ class KemonoComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicPage(comicType: ComicType.kemono, id: id, cover: cover);
+    return ComicPage(
+      comicType: ComicType.kemono,
+      id: id,
+      seed: ComicPageSeed(cover: cover),
+    );
   }
 }

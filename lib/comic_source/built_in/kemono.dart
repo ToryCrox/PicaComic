@@ -277,9 +277,7 @@ class _KemonoPostTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.kemono,
         id: id,
-        cover: post.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: post.cover, heroTag: coverTag),
       ),
     );
   }

@@ -64,6 +64,9 @@ class HitomiAdapter extends ComicPageAdapter<HitomiComic> {
       item is DownloadedHitomiComic ? item.comic : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is HitomiComic ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, HitomiComic data) {
     if (item is! DownloadedHitomiComic) return null;
     return DownloadedHitomiComic(

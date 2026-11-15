@@ -177,6 +177,9 @@ class EhAdapter extends ComicPageAdapter<Gallery> {
       item is DownloadedGallery ? item.gallery : null;
 
   @override
+  Object? acceptSeedData(Object? data) => data is Gallery ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, Gallery data) {
     if (item is! DownloadedGallery) return null;
     return DownloadedGallery(data, item.comicSize, color: item.color);

@@ -81,6 +81,10 @@ class DefaultComicPageAdapter extends ComicPageAdapter<ComicInfoData> {
       : null;
 
   @override
+  Object? acceptSeedData(Object? data) =>
+      data is ComicInfoData ? data : null;
+
+  @override
   DownloadedItem? mergeDownloadedItem(DownloadedItem item, ComicInfoData data) {
     if (item is! CustomDownloadedItem) return null;
     return CustomDownloadedItem(

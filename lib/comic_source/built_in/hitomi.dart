@@ -122,9 +122,7 @@ class _HiComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.hitomi,
         id: comic.link,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }

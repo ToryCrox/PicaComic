@@ -266,6 +266,22 @@ abstract class ComicTile extends ConsumerWidget {
     onTap_(coverTag: coverHeroTagFor(ref.context));
   }
 
+  /// 用卡片当前展示的信息构造详情页首帧种子。
+  ///
+  /// 卡片本来就知道标题、作者、页数、简介和标签，把它们带过去可以让详情页
+  /// 首帧直接显示这些内容，而不是先铺一层骨架再被替换。
+  ComicPageSeed buildSeed({String? cover, String? heroTag}) {
+    return ComicPageSeed(
+      title: title,
+      subTitle: subTitle,
+      cover: cover,
+      heroTag: heroTag,
+      pagesCount: pages,
+      introduction: description,
+      tags: tags,
+    );
+  }
+
   /// 构建参与 Hero 飞行的标题；标签缺失时退化为普通文本。
   Widget buildTitleHero(
     BuildContext context, {
@@ -1366,9 +1382,7 @@ class CustomComicTile extends ComicTile {
       () => ComicPage(
         comicType: ComicType.fromString(comic.sourceKey),
         id: comic.id,
-        cover: comic.cover,
-        heroTag: coverTag,
-        title: title,
+        seed: buildSeed(cover: comic.cover, heroTag: coverTag),
       ),
     );
   }
