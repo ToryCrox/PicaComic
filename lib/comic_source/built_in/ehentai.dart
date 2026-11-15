@@ -370,12 +370,14 @@ class _EhGalleryTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
         comicType: ComicType.ehentai,
         id: gallery.link,
         cover: gallery.cover,
+        heroTag: coverTag,
+        title: title,
       ),
     );
   }

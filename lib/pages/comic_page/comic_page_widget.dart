@@ -1,6 +1,7 @@
 import '../favorites/local_favorites_providers.dart';
 import '../favorites/favorite_action_widgets.dart';
 import '../../foundation/app_settings_provider.dart';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -44,12 +45,22 @@ class ComicPageWidget extends ConsumerStatefulWidget {
     required this.comicType,
     required this.id,
     this.cover,
+    this.heroTag,
+    this.title,
     super.key,
   });
 
   final ComicType comicType;
   final String id;
+
+  /// 列表页传入的封面地址，保证详情页首帧与列表使用同一份图片缓存。
   final String? cover;
+
+  /// 列表页传入的封面 Hero 标签，两个页面共用同一标签才能产生飞行。
+  final String? heroTag;
+
+  /// 列表页传入的标题，详情数据返回前先用它占位。
+  final String? title;
 
   /// 阅读器页面关闭后，更新对应漫画详情页的历史记录。
   static void updateActivePageHistory(History? history) {
@@ -62,11 +73,17 @@ class ComicPageWidget extends ConsumerStatefulWidget {
     required ComicType comicType,
     required String id,
     String? cover,
+    String? heroTag,
+    String? title,
   }) {
-    return Navigator.of(context).push<T>(
-      AppPageRoute<T>(
-        builder: (context) =>
-            ComicPageWidget(comicType: comicType, id: id, cover: cover),
+    return App.to<T>(
+      context,
+      () => ComicPageWidget(
+        comicType: comicType,
+        id: id,
+        cover: cover,
+        heroTag: heroTag,
+        title: title,
       ),
     );
   }
@@ -329,7 +346,10 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final sourceText = adapter.source;
-        final titleText = data != null ? adapter.title(data) : '';
+        // 数据未到达时先用列表页传入的标题占位，避免 Hero 飞到一个空盒子。
+        final titleText = data != null
+            ? adapter.title(data)
+            : (widget.title ?? '');
         final subTitleText = data != null ? adapter.subTitle(data) : null;
         final pagesCount = data != null ? adapter.pages(data) : null;
 
@@ -348,10 +368,7 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SelectableText(
-                          titleText?.trim() ?? "",
-                          style: const TextStyle(fontSize: 18),
-                        ),
+                        _buildTitleHero(context, titleText?.trim() ?? ""),
                         if (state?.translationVisible == true &&
                             state!.translation.title.isNotEmpty)
                           Padding(
@@ -428,6 +445,25 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
   // 封面
   // ========================================================================
 
+  /// 封面 Hero 标签：优先用列表页传入的标签，保证两端完全一致。
+  String _effectiveCoverHeroTag() {
+    return widget.heroTag ?? comicCoverHeroTag(widget.comicType, widget.id);
+  }
+
+  /// 标题 Hero：空标题不参与飞行，避免飞到一半标题消失。
+  Widget _buildTitleHero(BuildContext context, String text) {
+    return buildComicTitleHero(
+      tag: text.isEmpty ? null : comicTitleHeroTag(_effectiveCoverHeroTag()),
+      text: text,
+      style: TextStyle(
+        fontSize: 18,
+        height: 1.25,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+      maxLines: 3,
+    );
+  }
+
   Widget _buildCover(
     BuildContext context,
     ComicPageLogic? notifier,
@@ -440,21 +476,21 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
     final displayUrl = localCoverPath != null
         ? Uri.file(localCoverPath).toString()
         : coverUrl;
-    final tag = comicCoverHeroTag(adapter.comicType, widget.id);
-    final image = displayUrl == null
-        ? ColoredBox(color: Theme.of(context).colorScheme.primaryContainer)
-        : PicaImage(
-            url: displayUrl,
-            fit: BoxFit.cover,
-            sourceKey: adapter.comicType.name,
-            isThumbnail: true,
-          );
+    final tag = _effectiveCoverHeroTag();
     final cover = Hero(
       tag: tag,
       flightShuttleBuilder: comicCoverFlightShuttle,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: SizedBox(width: width, height: height, child: image),
+        // 兜底色：图片尚未解码完成时不会露出纯白或纯黑，落地瞬间不闪白。
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: ColoredBox(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: _buildCoverImage(context, adapter, displayUrl),
+          ),
+        ),
       ),
     );
     if (displayUrl == null) return cover;
@@ -464,6 +500,39 @@ class _ComicPageWidgetState extends ConsumerState<ComicPageWidget> {
         onTap: () => App.globalTo(() => ShowImagePageWithHero(displayUrl, tag)),
         child: cover,
       ),
+    );
+  }
+
+  /// 封面图片：本地封面走 `FileImage`，与下载页卡片保持同样的 provider
+  /// 与解码宽度，Hero 落地时可以直接复用已解码的图片。
+  Widget _buildCoverImage(
+    BuildContext context,
+    ComicPageAdapter adapter,
+    String? displayUrl,
+  ) {
+    if (displayUrl == null) {
+      return const SizedBox.shrink();
+    }
+    if (displayUrl.startsWith("file://")) {
+      final filePath = Uri.tryParse(displayUrl)?.toFilePath();
+      if (filePath != null) {
+        return Image.file(
+          File(filePath),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: PicaImage.thumbnailCacheWidth,
+          errorBuilder: (context, error, stackTrace) =>
+              const SizedBox.shrink(),
+        );
+      }
+    }
+    return PicaImage(
+      url: displayUrl,
+      fit: BoxFit.cover,
+      sourceKey: adapter.comicType.name,
+      isThumbnail: true,
+      // 与列表页共用同一份缓存，落地时不需要再做淡入。
+      fade: false,
     );
   }
 

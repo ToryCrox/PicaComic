@@ -117,12 +117,14 @@ class _HiComicTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
         comicType: ComicType.hitomi,
         id: comic.link,
         cover: comic.cover,
+        heroTag: coverTag,
+        title: title,
       ),
     );
   }

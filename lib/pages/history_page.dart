@@ -203,8 +203,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             if (comics_[i].type == HistoryType.hitomi)
               "Referer": "https://hitomi.la/",
           },
-          onTap: () {
-            toComicPageWithHistory(context, comics_[i]);
+          onTap: (coverTag) {
+            toComicPageWithHistory(
+              context,
+              comics_[i],
+              heroTag: coverTag,
+              title: comics_[i].title,
+            );
           },
         );
       }),
@@ -213,7 +218,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 }
 
-void toComicPageWithHistory(BuildContext context, HistoryRecord history) {
+void toComicPageWithHistory(
+  BuildContext context,
+  HistoryRecord history, {
+  String? heroTag,
+  String? title,
+}) {
   var source = history.type.comicSource;
   if (source == null) {
     showToast(message: "Comic Source Not Found");
@@ -224,6 +234,8 @@ void toComicPageWithHistory(BuildContext context, HistoryRecord history) {
       comicType: source.key,
       id: history.target,
       cover: history.cover,
+      heroTag: heroTag,
+      title: title,
     ),
   );
 }

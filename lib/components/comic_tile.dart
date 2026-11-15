@@ -18,9 +18,6 @@ abstract class ComicTile extends ConsumerWidget {
   /// Show a comic brief information. Usually displayed in comic list page.
   const ComicTile({Key? key}) : super(key: key);
 
-  static final ValueNotifier<BuildContext?> _activeCoverHeroOwner =
-      ValueNotifier(null);
-
   Widget get image => const SizedBox.shrink();
 
   /// 使用当前 WidgetRef 构建封面。
@@ -96,6 +93,25 @@ abstract class ComicTile extends ConsumerWidget {
     return comicCoverHeroTag(type, id);
   }
 
+  /// 按卡片实例区分的封面 Hero 标签。
+  ///
+  /// 同一部漫画可能同时出现在首页多个区块或推荐列表里，只按漫画 ID 生成的
+  /// 标签会在同一路由内重复，触发 Hero 的 duplicate tag 断言；叠加实例标识
+  /// 后每一张卡都拥有独立标签，点击哪张就从哪张起飞。
+  String? coverHeroTagFor(BuildContext context) {
+    final base = coverHeroTag;
+    if (base == null) {
+      return null;
+    }
+    return "$base#${identityHashCode(context)}";
+  }
+
+  /// 标题的 Hero 标签，由封面标签派生；封面不参与飞行时标题也不参与。
+  String? titleHeroTagFor(BuildContext context) {
+    final tag = coverHeroTagFor(context);
+    return tag == null ? null : comicTitleHeroTag(tag);
+  }
+
   bool get showFavorite => true;
   bool get showDownload => true;
   bool get showRead => true;
@@ -139,7 +155,7 @@ abstract class ComicTile extends ConsumerWidget {
                         title: Text("查看详情".tl),
                         onTap: () {
                           context.pop();
-                          _openDetailWithHero(ref);
+                          Future.microtask(() => onTapWithRef(ref));
                         },
                       ),
                       if (favoriteItem != null)
@@ -240,22 +256,29 @@ abstract class ComicTile extends ConsumerWidget {
     );
   }
 
-  void onTap_() {}
+  void onTap_({String? coverTag}) {}
 
   /// 允许需要 Riverpod 依赖的卡片点击操作直接使用当前 Ref。
-  void onTapWithRef(WidgetRef ref) => onTap_();
+  ///
+  /// 顺带把本次点击所属卡片的 Hero 标签算好传下去，详情页直接用这个标签，
+  /// 不再自己按漫画 ID 推导，避免两端不一致。
+  void onTapWithRef(WidgetRef ref) {
+    onTap_(coverTag: coverHeroTagFor(ref.context));
+  }
 
-  void _openDetailWithHero(WidgetRef ref) {
-    if (coverHeroTag == null) {
-      onTapWithRef(ref);
-      return;
-    }
-    final owner = ref.context;
-    _activeCoverHeroOwner.value = owner;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (owner.mounted) onTapWithRef(ref);
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
+  /// 构建参与 Hero 飞行的标题；标签缺失时退化为普通文本。
+  Widget buildTitleHero(
+    BuildContext context, {
+    required String text,
+    required TextStyle style,
+    required int maxLines,
+  }) {
+    return buildComicTitleHero(
+      tag: titleHeroTagFor(context),
+      text: text,
+      style: style,
+      maxLines: maxLines,
+    );
   }
 
   /// 构建收藏图标 Widget
@@ -454,7 +477,7 @@ abstract class ComicTile extends ConsumerWidget {
         popupMenuItem(
           text: "查看".tl,
           icon: Icons.info_outline,
-          onTap: () => Future.microtask(() => _openDetailWithHero(ref)),
+          onTap: () => Future.microtask(() => onTapWithRef(ref)),
         ),
         if (readAction != null)
           popupMenuItem(
@@ -524,25 +547,18 @@ abstract class ComicTile extends ConsumerWidget {
   }
 
   Widget _buildHeroImage(BuildContext context, WidgetRef ref) {
-    final tag = coverHeroTag;
+    final tag = coverHeroTagFor(context);
+    final cover = ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: buildImage(context, ref),
+    );
     if (tag == null) {
-      return buildImage(context, ref);
+      return cover;
     }
-    final coverImage = buildImage(context, ref);
-    return ValueListenableBuilder<BuildContext?>(
-      valueListenable: _activeCoverHeroOwner,
-      builder: (builderContext, activeOwner, child) {
-        if (!identical(activeOwner, context)) return child!;
-        return Hero(
-          tag: tag,
-          flightShuttleBuilder: comicCoverFlightShuttle,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: child!,
-          ),
-        );
-      },
-      child: coverImage,
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: comicCoverFlightShuttle,
+      child: cover,
     );
   }
 
@@ -749,7 +765,7 @@ abstract class ComicTile extends ConsumerWidget {
     String defaultFavoriteFolder,
   ) {
     return _ComicTileInkWell(
-      onTap: () => _openDetailWithHero(ref),
+      onTap: () => onTapWithRef(ref),
       onLongPress: enableLongPressed
           ? () => onLongTap_(ref, defaultFavoriteFolder)
           : null,
@@ -789,6 +805,7 @@ abstract class ComicTile extends ConsumerWidget {
                         ? title.replaceAll("\n", "")
                         : "[${pages}P]${title.replaceAll("\n", "")}",
                     translatedTitle: translatedTitle,
+                    heroTag: titleHeroTagFor(context),
                     user: subTitle,
                     description: description,
                     descriptionMaxLines: descriptionMaxLines,
@@ -855,8 +872,9 @@ abstract class ComicTile extends ConsumerWidget {
                 children: [
                   _withTranslationTooltip(
                     translatedTitle,
-                    Text(
-                      title.replaceAll("\n", ""),
+                    buildTitleHero(
+                      context,
+                      text: title.replaceAll("\n", ""),
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14.0,
@@ -864,7 +882,6 @@ abstract class ComicTile extends ConsumerWidget {
                         color: Colors.white,
                       ),
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -876,7 +893,7 @@ abstract class ComicTile extends ConsumerWidget {
           child: Material(
             color: Colors.transparent,
             child: _ComicTileInkWell(
-              onTap: () => _openDetailWithHero(ref),
+              onTap: () => onTapWithRef(ref),
               onLongPress: enableLongPressed
                   ? () => onLongTap_(ref, defaultFavoriteFolder)
                   : null,
@@ -897,6 +914,7 @@ class _ComicDescription extends StatefulWidget {
   const _ComicDescription({
     required this.title,
     this.translatedTitle,
+    this.heroTag,
     required this.user,
     required this.description,
     required this.descriptionMaxLines,
@@ -914,6 +932,10 @@ class _ComicDescription extends StatefulWidget {
 
   final String title;
   final String? translatedTitle;
+
+  /// 标题参与 Hero 飞行时使用的标签。
+  final String? heroTag;
+
   final String user;
   final String description;
   final int descriptionMaxLines;
@@ -950,15 +972,15 @@ class _ComicDescriptionState extends State<_ComicDescription> {
       children: <Widget>[
         _withTranslationTooltip(
           widget.translatedTitle,
-          Text(
-            widget.title,
+          buildComicTitleHero(
+            tag: widget.heroTag,
+            text: widget.title,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 15,
               height: 1.2,
             ),
             maxLines: widget.maxLines,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (widget.user != "")
@@ -1128,7 +1150,9 @@ class NormalComicTile extends ComicTile {
 
   final String description_;
   final String coverPath;
-  final void Function() onTap;
+
+  /// 点击回调；透传本次点击所属卡片的 Hero 标签，供详情页复用。
+  final void Function(String? coverTag) onTap;
   final String subTitle_;
   final String name;
   final void Function()? onLongTap;
@@ -1165,7 +1189,7 @@ class NormalComicTile extends ComicTile {
   );
 
   @override
-  void onTap_() => onTap();
+  void onTap_({String? coverTag}) => onTap(coverTag);
 
   @override
   String get subTitle => subTitle_;
@@ -1337,12 +1361,14 @@ class CustomComicTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
         comicType: ComicType.fromString(comic.sourceKey),
         id: comic.id,
         cover: comic.cover,
+        heroTag: coverTag,
+        title: title,
       ),
     );
   }

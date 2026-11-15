@@ -188,12 +188,14 @@ class _NhentaiComicTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
         comicType: ComicType.nhentai,
         id: comic.id,
         cover: comic.cover,
+        heroTag: coverTag,
+        title: title,
       ),
     );
   }

@@ -127,7 +127,10 @@ class DownloadList extends ConsumerWidget {
             if (item.type == DownloadType.local) {
               item.read();
             } else {
-              toComicInfoPage(item);
+              toComicInfoPage(
+                item,
+                heroTag: downloadComicHeroTag(ref, item),
+              );
             }
           }
         },

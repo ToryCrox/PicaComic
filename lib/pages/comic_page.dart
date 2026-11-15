@@ -28,15 +28,29 @@ class ComicPage extends StatelessWidget {
     required this.comicType,
     required this.id,
     this.cover,
+    this.heroTag,
+    this.title,
   });
 
   final ComicType comicType;
   final String id;
   final String? cover;
 
+  /// 由列表页传入的封面 Hero 标签；为空时按 [comicType] + [id] 推导。
+  final String? heroTag;
+
+  /// 由列表页传入的标题，详情数据到达前先用它占位。
+  final String? title;
+
   @override
   Widget build(BuildContext context) {
-    return ComicPageWidget(comicType: comicType, id: id, cover: cover);
+    return ComicPageWidget(
+      comicType: comicType,
+      id: id,
+      cover: cover,
+      heroTag: heroTag,
+      title: title,
+    );
   }
 }
 

@@ -275,12 +275,14 @@ class _PicComicTile extends ComicTile {
   };
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
       () => ComicPage(
         comicType: ComicType.picacg,
         id: comic.id,
         cover: comic.cover,
+        heroTag: coverTag,
+        title: title,
       ),
     );
   }

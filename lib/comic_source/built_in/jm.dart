@@ -302,10 +302,15 @@ class _JmComicTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     App.mainNavigatorKey!.currentContext!.to(
-      () =>
-          ComicPage(comicType: ComicType.jm, id: comic.id, cover: comic.cover),
+      () => ComicPage(
+        comicType: ComicType.jm,
+        id: comic.id,
+        cover: comic.cover,
+        heroTag: coverTag,
+        title: title,
+      ),
     );
   }
 

@@ -34,6 +34,34 @@ import '../translation_result_replace_dialog.dart';
 import '../translation_result_replacer.dart';
 import 'download_tile.dart';
 
+/// 下载项对应的漫画来源；无法识别时返回 null。
+ComicType? downloadComicType(DownloadedItem item) => item is CustomDownloadedItem
+    ? ComicType.fromString(item.sourceKey)
+    : item.type.toComicType();
+
+/// 在线漫画在详情页使用的 ID / 历史记录键；本地漫画为 null。
+String? downloadComicHistoryTarget(WidgetRef ref, DownloadedItem item) {
+  if (item.type == DownloadType.local) return null;
+  // EH 的历史以画廊链接为键，其他源与漫画详情页共用漫画 ID。
+  if (item is DownloadedGallery) return item.gallery.link;
+  final target = ref
+      .read(downloadManagerProvider.notifier)
+      .getComicIdFromDownloadId(item.type.toComicType(), item.id);
+  return target.isEmpty ? null : target;
+}
+
+/// 下载页卡片与详情页共用的封面 Hero 标签。
+///
+/// 卡片和跳转必须使用同一个 tag，否则 Hero 不会起飞；直接复用卡片的计算
+/// 逻辑可以避免两处推导出不同的 id。
+String? downloadComicHeroTag(WidgetRef ref, DownloadedItem item) {
+  final type = downloadComicType(item);
+  if (type == null || type == ComicType.local) return null;
+  final target = downloadComicHistoryTarget(ref, item);
+  if (target == null || target.isEmpty) return null;
+  return comicCoverHeroTag(type, target);
+}
+
 /// 下载页专用的已下载漫画卡片。
 ///
 /// 独立实现，不继承公用 `ComicTile`：封面在上、信息区三行；操作入口以图标
@@ -119,21 +147,11 @@ class DownloadComicCard extends ConsumerWidget {
     return pageCount == null ? _sizeText : '$pageCount · $_sizeText';
   }
 
-  ComicType? get _comicType => item is CustomDownloadedItem
-      ? ComicType.fromString((item as CustomDownloadedItem).sourceKey)
-      : item.type.toComicType();
+  ComicType? get _comicType => downloadComicType(item);
 
   /// 在线漫画的历史记录键；本地漫画为 null。
-  String? _historyTarget(WidgetRef ref) {
-    if (item.type == DownloadType.local) return null;
-    // EH 的历史以画廊链接为键，其他源与漫画详情页共用漫画 ID。
-    final comic = item;
-    if (comic is DownloadedGallery) return comic.gallery.link;
-    final target = ref
-        .read(downloadManagerProvider.notifier)
-        .getComicIdFromDownloadId(item.type.toComicType(), item.id);
-    return target.isEmpty ? null : target;
-  }
+  String? _historyTarget(WidgetRef ref) =>
+      downloadComicHistoryTarget(ref, item);
 
   /// 漫画目录绝对路径，本地历史与翻译结果都以它为键。
   String? get _directoryKey {
@@ -211,23 +229,23 @@ class DownloadComicCard extends ConsumerWidget {
     String? historyTarget,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
     final cover = item.coverPath;
 
     Widget image;
     if (cover == null || cover.isEmpty) {
       image = ColoredBox(color: colorScheme.surfaceContainerHighest);
     } else {
-      image = LayoutBuilder(
-        builder: (context, constraints) => Image.file(
-          File(cover),
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          cacheWidth: (constraints.maxWidth * dpr).round().clamp(1, 4096),
-          errorBuilder: (context, error, stackTrace) =>
-              ColoredBox(color: colorScheme.surfaceContainerHighest),
-        ),
+      // 固定解码宽度，与详情页封面共用同一份图片缓存：Hero 飞行途中不会因
+      // 约束变化而重建 ImageProvider，落地时也不需要重新解码。
+      image = Image.file(
+        File(cover),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+        cacheWidth: PicaImage.thumbnailCacheWidth,
+        errorBuilder: (context, error, stackTrace) =>
+            ColoredBox(color: colorScheme.surfaceContainerHighest),
       );
     }
 

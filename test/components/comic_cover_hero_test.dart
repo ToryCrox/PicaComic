@@ -37,7 +37,7 @@ class _TestTile extends ComicTile {
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
-              tag: comicCoverHeroTag(ComicType.jm, 'same'),
+              tag: coverHeroTagFor(ref.context)!,
               flightShuttleBuilder: comicCoverFlightShuttle,
               child: const SizedBox(
                 width: 100,

@@ -271,10 +271,16 @@ class _KemonoPostTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     final id = '${post.service}/${post.userId}/${post.id}';
     App.mainNavigatorKey!.currentContext!.to(
-      () => ComicPage(comicType: ComicType.kemono, id: id, cover: post.cover),
+      () => ComicPage(
+        comicType: ComicType.kemono,
+        id: id,
+        cover: post.cover,
+        heroTag: coverTag,
+        title: title,
+      ),
     );
   }
 
@@ -336,7 +342,7 @@ class _KemonoCreatorTile extends ComicTile {
   );
 
   @override
-  void onTap_() {
+  void onTap_({String? coverTag}) {
     // 进入作者页面,显示该作者的所有图集
     App.mainNavigatorKey!.currentContext!.to(() => _KemonoCreatorPage(creator));
   }

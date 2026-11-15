@@ -24,13 +24,22 @@ import 'package:pica_comic/tools/translations.dart';
 import 'package:pica_comic/tools/type_util.dart';
 
 /// 导航到漫画详情页
-void toComicInfoPage(DownloadedItem comic) {
+///
+/// [heroTag] 由下载页卡片算出并传入，保证封面 Hero 两端标签一致。
+void toComicInfoPage(DownloadedItem comic, {String? heroTag}) {
   final context = App.mainNavigatorKey!.currentContext!;
   final coverPath = comic.coverPath;
   final cover = coverPath == null ? null : Uri.file(coverPath).toString();
 
   void open(ComicType type, String id) {
-    context.to(() => ComicPage(comicType: type, id: id, cover: cover));
+    context.to(
+      () => ComicPage(
+        comicType: type,
+        id: id,
+        cover: cover,
+        heroTag: heroTag,
+      ),
+    );
   }
 
   if (comic is DownloadedComic) {
