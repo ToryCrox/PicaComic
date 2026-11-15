@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -115,6 +116,9 @@ abstract class ReadingData {
 
   bool _isDownloaded = false;
 
+  /// 本次阅读会话是否已触发文件大小校验（每个会话只统计一次磁盘）
+  bool _sizeCheckStarted = false;
+
   /// Whether the comic is downloaded locally.
   bool get isDownloaded => _isDownloaded;
 
@@ -147,6 +151,16 @@ abstract class ReadingData {
     return !hasEp || downloadedEps.contains(localEpisode(ep) - 1);
   }
 
+  /// 进入阅读后异步校验一次下载体积
+  ///
+  /// 只在每个阅读会话首次加载章节时触发，统计磁盘实际大小，
+  /// 有变化时由 [DownloadManager.updateComicSize] 回写数据库。
+  void _verifyDownloadedSize(DownloadedItem item) {
+    if (_sizeCheckStarted) return;
+    _sizeCheckStarted = true;
+    unawaited(_downloadManager.updateComicSize(item, notify: true));
+  }
+
   /// 加载指定章节；预加载传入 markRead: false，不提前标记已读。
   Stream<Res<List<String>>> loadEp(int ep, {bool markRead = true}) async* {
     history ??= await HistoryManager().findSync(id);
@@ -157,6 +171,7 @@ abstract class ReadingData {
     if (item != null) {
       downloadedEps = item.downloadedEps;
       onDownloadedItemLoaded(item);
+      _verifyDownloadedSize(item);
     }
     final episodeDirectory = directoryForEpisode(ep);
     if (episodeDirectory.isNotEmpty) {

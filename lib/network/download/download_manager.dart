@@ -877,10 +877,14 @@ class DownloadManager extends _$DownloadManager {
   ///
   /// 参数：
   /// - comic: 待更新的漫画对象
+  /// - notify: 写库后是否通知已下载列表刷新，供阅读时的静默校验使用
   ///
   /// 返回：
   /// - 更新后的文件大小（MB），如果出错则返回 0
-  Future<double> updateComicSize(DownloadedItem comic) async {
+  Future<double> updateComicSize(
+    DownloadedItem comic, {
+    bool notify = false,
+  }) async {
     try {
       // 获取漫画目录的完整路径
       // 使用 comic.directoryPath 以支持本地漫画（其路径基于存储库，而非下载目录）
@@ -901,6 +905,9 @@ class DownloadManager extends _$DownloadManager {
               'DownloadManager: 漫画大小变化 comicId=${comic.id}, oldSize=$oldSize MB, newSize=$size MB',
         );
         await updateSize(comic.id, size);
+        if (notify) {
+          _notifyComicsChanged();
+        }
       }
 
       return size;
