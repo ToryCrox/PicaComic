@@ -442,59 +442,15 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     DownloadPageState pageState,
   ) {
     return [
-      // 标签管理
-      Tooltip(
-        message: "标签管理".tl,
-        child: IconButton(
-          icon: const Icon(Icons.label_outline),
-          onPressed: () async {
-            final tagId = await App.globalTo(() => const TagManagementPage());
-            if (tagId != null && tagId is int) {
-              updateTagFilter(ref, _pageId, tagId);
-            }
-          },
-        ),
-      ),
-      // 导入本地漫画
-      Tooltip(
-        message: "导入本地漫画".tl,
-        child: IconButton(
-          icon: const Icon(Icons.folder_open),
-          onPressed: () async {
-            await showDialog(
-              context: context,
-              builder: (context) => const ImportLocalComicDialog(),
-            );
-            ref.invalidate(allDownloadedComicsProvider);
-          },
-        ),
-      ),
-      // 存储库管理
-      Tooltip(
-        message: "存储库管理".tl,
-        child: IconButton(
-          icon: const Icon(Icons.storage),
-          onPressed: () {
-            App.globalTo(() => const LocalRepositoryManagementPage());
-          },
-        ),
-      ),
-      // 下载管理器
-      Tooltip(
-        message: "下载管理器".tl,
-        child: IconButton(
-          icon: const Icon(Icons.download_for_offline),
-          onPressed: () {
-            showPopUpWidget(App.globalContext!, const DownloadingPage());
-          },
-        ),
-      ),
       // 搜索
-      IconButton(
-        icon: const Icon(Icons.search),
-        onPressed: () {
-          setIsSearching(ref, _pageId, true); // trigger search UI
-        },
+      Tooltip(
+        message: "搜索".tl,
+        child: IconButton(
+          icon: const Icon(Icons.search),
+          onPressed: () {
+            setIsSearching(ref, _pageId, true); // trigger search UI
+          },
+        ),
       ),
       // 类型筛选
       WindowsGlassPopupMenuButton<DownloadType?>(
@@ -508,48 +464,99 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
       _buildTagCategoryFilterAction(pageState),
       // 排序
       buildComicSortMenuAnchor(onChanged: () => triggerSortUpdate(ref)),
-      // 更多菜单
-      Builder(
-        builder: (buttonContext) => WindowsGlassPopupMenuButton<void>(
-          tooltip: "更多".tl,
-          position: PopupMenuPosition.under,
-          icon: const Icon(Icons.more_vert),
-          itemBuilder: (_) => [
-            popupMenuItem<void>(
-              text: "多选".tl,
-              icon: Icons.checklist,
-              onTap: () => enterSelecting(ref, _pageId),
-            ),
-            popupMenuItem<void>(
-              text: "漫画翻译结果目录".tl,
-              icon: Icons.translate,
-              onTap: () async {
-                if (!buttonContext.mounted) return;
-                final changed = await showTranslationResultDirectoryDialog(
-                  buttonContext,
-                );
-                if (changed && mounted) {
-                  ref.invalidate(translationResultAvailabilityProvider);
-                }
-              },
-            ),
-            popupMenuItem<void>(
-              text: "重新扫描翻译结果".tl,
-              icon: Icons.refresh,
-              onTap: () =>
-                  ref.invalidate(translationResultAvailabilityProvider),
-            ),
-            popupMenuItem<void>(
-              text: pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl,
-              icon: pageState.isDragDisabled
-                  ? Icons.mouse_outlined
-                  : Icons.mouse,
-              onTap: () => toggleDragDisabled(ref, _pageId),
-            ),
-          ],
-        ),
+      // 更多菜单（除搜索、筛选、分类、排序外的其余操作均收纳于此）
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: _buildMoreMenuAction(context, pageState),
       ),
     ];
+  }
+
+  /// 构建"更多"菜单，收纳搜索、筛选、分类、排序之外的其余操作。
+  Widget _buildMoreMenuAction(
+    BuildContext context,
+    DownloadPageState pageState,
+  ) {
+    return Builder(
+      builder: (buttonContext) => WindowsGlassPopupMenuButton<void>(
+        tooltip: "更多".tl,
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_vert),
+        itemBuilder: (_) => [
+          // 标签管理
+          popupMenuItem<void>(
+            text: "标签管理".tl,
+            icon: Icons.label_outline,
+            onTap: () async {
+              final tagId = await App.globalTo(() => const TagManagementPage());
+              if (tagId != null && tagId is int) {
+                updateTagFilter(ref, _pageId, tagId);
+              }
+            },
+          ),
+          // 导入本地漫画
+          popupMenuItem<void>(
+            text: "导入本地漫画".tl,
+            icon: Icons.folder_open,
+            onTap: () async {
+              await showDialog(
+                context: buttonContext,
+                builder: (context) => const ImportLocalComicDialog(),
+              );
+              ref.invalidate(allDownloadedComicsProvider);
+            },
+          ),
+          // 存储库管理
+          popupMenuItem<void>(
+            text: "存储库管理".tl,
+            icon: Icons.storage,
+            onTap: () =>
+                App.globalTo(() => const LocalRepositoryManagementPage()),
+          ),
+          // 下载管理器
+          popupMenuItem<void>(
+            text: "下载管理器".tl,
+            icon: Icons.download_for_offline,
+            onTap: () =>
+                showPopUpWidget(App.globalContext!, const DownloadingPage()),
+          ),
+          const PopupMenuDivider(),
+          // 多选
+          popupMenuItem<void>(
+            text: "多选".tl,
+            icon: Icons.checklist,
+            onTap: () => enterSelecting(ref, _pageId),
+          ),
+          // 漫画翻译结果目录
+          popupMenuItem<void>(
+            text: "漫画翻译结果目录".tl,
+            icon: Icons.translate,
+            onTap: () async {
+              if (!buttonContext.mounted) return;
+              final changed = await showTranslationResultDirectoryDialog(
+                buttonContext,
+              );
+              if (changed && mounted) {
+                ref.invalidate(translationResultAvailabilityProvider);
+              }
+            },
+          ),
+          // 重新扫描翻译结果
+          popupMenuItem<void>(
+            text: "重新扫描翻译结果".tl,
+            icon: Icons.refresh,
+            onTap: () =>
+                ref.invalidate(translationResultAvailabilityProvider),
+          ),
+          // 拖拽模式
+          popupMenuItem<void>(
+            text: pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl,
+            icon: pageState.isDragDisabled ? Icons.mouse_outlined : Icons.mouse,
+            onTap: () => toggleDragDisabled(ref, _pageId),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTagCategoryFilterAction(DownloadPageState pageState) {
@@ -597,11 +604,14 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
 
   List<Widget> _buildSelectionActions(BuildContext context, int count) {
     return [
-      WindowsGlassPopupMenuButton<void>(
-        tooltip: "更多".tl,
-        position: PopupMenuPosition.under,
-        icon: const Icon(Icons.more_horiz),
-        itemBuilder: (_) => _buildSelectingMenuItems(context),
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: WindowsGlassPopupMenuButton<void>(
+          tooltip: "更多".tl,
+          position: PopupMenuPosition.under,
+          icon: const Icon(Icons.more_vert),
+          itemBuilder: (_) => _buildSelectingMenuItems(context),
+        ),
       ),
     ];
   }

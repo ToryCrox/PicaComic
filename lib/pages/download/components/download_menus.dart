@@ -387,22 +387,22 @@ List<PopupMenuEntry<void>> buildSelectingMenuItems({
   ];
 }
 
-/// 构建漫画排序下拉菜单。
-Widget buildComicSortMenuAnchor({required VoidCallback onChanged}) {
-  return Consumer(
-    builder: (context, ref, _) => _buildComicSortMenuAnchor(ref, onChanged),
-  );
-}
+/// 下载排序设置快照，包含当前选中值及更新方法。
+class _DownloadSortState {
+  const _DownloadSortState({
+    required this.ref,
+    required this.onChanged,
+    required this.sortType,
+    required this.isAscending,
+  });
 
-/// 排序菜单使用统一快照，外部导入时同步选中值。
-Widget _buildComicSortMenuAnchor(WidgetRef ref, VoidCallback onChanged) {
-  final sort = ref.watch(
-    appSettingsProvider.select((s) => s.value(AppSettingKeys.downloadSort)),
-  );
-  final currentSortType = sort[0];
-  final isAscending = sort[1] == "1";
+  final WidgetRef ref;
+  final VoidCallback onChanged;
+  final String sortType;
+  final bool isAscending;
 
-  Future<void> updateSetting(int index, String value) async {
+  /// 更新排序设置，设置成功后触发排序刷新。
+  Future<void> update(int index, String value) async {
     final current = ref
         .read(appSettingsProvider)
         .value(AppSettingKeys.downloadSort);
@@ -420,60 +420,86 @@ Widget _buildComicSortMenuAnchor(WidgetRef ref, VoidCallback onChanged) {
       showToast(message: '保存设置失败');
     }
   }
+}
 
-  return WindowsGlassMenuAnchor(
-    menuChildren: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text("漫画排序模式".tl),
-      ),
-      ...[
-        ("时间", Icons.schedule_outlined),
-        ("漫画名", Icons.title),
-        ("作者名", Icons.person_outline),
-        ("大小", Icons.data_usage),
-      ].asMap().entries.map((entry) {
-        final value = entry.key.toString();
-        return MenuItemButton(
-          leadingIcon: Icon(entry.value.$2),
-          trailingIcon: currentSortType == value
-              ? const Icon(Icons.check)
-              : const SizedBox(width: 24),
-          onPressed: () => updateSetting(0, value),
-          child: Text(entry.value.$1.tl),
-        );
-      }),
-      const Divider(height: 1),
-      MenuItemButton(
-        leadingIcon: const Icon(Icons.arrow_upward),
-        trailingIcon: isAscending
+/// 监听下载排序设置，返回统一快照。
+_DownloadSortState _watchDownloadSort(WidgetRef ref, VoidCallback onChanged) {
+  final sort = ref.watch(
+    appSettingsProvider.select((s) => s.value(AppSettingKeys.downloadSort)),
+  );
+  return _DownloadSortState(
+    ref: ref,
+    onChanged: onChanged,
+    sortType: sort[0],
+    isAscending: sort[1] == "1",
+  );
+}
+
+/// 构建排序菜单项，供独立按钮与"更多"菜单内的子菜单复用。
+List<Widget> _buildDownloadSortMenuItems(_DownloadSortState state) {
+  return [
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Text("漫画排序模式".tl),
+    ),
+    ...[
+      ("时间", Icons.schedule_outlined),
+      ("漫画名", Icons.title),
+      ("作者名", Icons.person_outline),
+      ("大小", Icons.data_usage),
+    ].asMap().entries.map((entry) {
+      final value = entry.key.toString();
+      return MenuItemButton(
+        leadingIcon: Icon(entry.value.$2),
+        trailingIcon: state.sortType == value
             ? const Icon(Icons.check)
             : const SizedBox(width: 24),
-        onPressed: () => updateSetting(1, "1"),
-        child: Text("正序".tl),
-      ),
-      MenuItemButton(
-        leadingIcon: const Icon(Icons.arrow_downward),
-        trailingIcon: !isAscending
-            ? const Icon(Icons.check)
-            : const SizedBox(width: 24),
-        onPressed: () => updateSetting(1, "0"),
-        child: Text("倒序".tl),
-      ),
-    ],
-    builder: (context, controller, child) {
-      return Tooltip(
-        message: "排序".tl,
-        child: IconButton(
-          icon: const Icon(Icons.sort),
-          onPressed: () {
-            if (controller.isOpen) {
-              controller.close();
-            } else {
-              controller.open();
-            }
-          },
-        ),
+        onPressed: () => state.update(0, value),
+        child: Text(entry.value.$1.tl),
+      );
+    }),
+    const Divider(height: 1),
+    MenuItemButton(
+      leadingIcon: const Icon(Icons.arrow_upward),
+      trailingIcon: state.isAscending
+          ? const Icon(Icons.check)
+          : const SizedBox(width: 24),
+      onPressed: () => state.update(1, "1"),
+      child: Text("正序".tl),
+    ),
+    MenuItemButton(
+      leadingIcon: const Icon(Icons.arrow_downward),
+      trailingIcon: !state.isAscending
+          ? const Icon(Icons.check)
+          : const SizedBox(width: 24),
+      onPressed: () => state.update(1, "0"),
+      child: Text("倒序".tl),
+    ),
+  ];
+}
+
+/// 构建漫画排序下拉菜单。
+Widget buildComicSortMenuAnchor({required VoidCallback onChanged}) {
+  return Consumer(
+    builder: (context, ref, _) {
+      final state = _watchDownloadSort(ref, onChanged);
+      return WindowsGlassMenuAnchor(
+        menuChildren: _buildDownloadSortMenuItems(state),
+        builder: (context, controller, child) {
+          return Tooltip(
+            message: "排序".tl,
+            child: IconButton(
+              icon: const Icon(Icons.swap_vert),
+              onPressed: () {
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+            ),
+          );
+        },
       );
     },
   );
@@ -914,7 +940,7 @@ List<Widget> buildAppBarActions({
       WindowsGlassPopupMenuButton<void>(
         tooltip: "更多".tl,
         position: PopupMenuPosition.under,
-        icon: const Icon(Icons.more_horiz),
+        icon: const Icon(Icons.more_vert),
         itemBuilder: (_) => buildSelectingMenuItems(
           context: context,
           ref: ref,
