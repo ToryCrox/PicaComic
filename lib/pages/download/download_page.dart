@@ -29,6 +29,7 @@ import 'package:pica_comic/tools/extensions.dart';
 
 import 'download_providers.dart';
 import 'components/download_list.dart';
+import 'components/download_card_size_dialog.dart';
 import 'components/download_menus.dart';
 
 import 'import_local_comic_dialog.dart';
@@ -545,14 +546,22 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           popupMenuItem<void>(
             text: "重新扫描翻译结果".tl,
             icon: Icons.refresh,
-            onTap: () =>
-                ref.invalidate(translationResultAvailabilityProvider),
+            onTap: () => ref.invalidate(translationResultAvailabilityProvider),
           ),
           // 拖拽模式
           popupMenuItem<void>(
             text: pageState.isDragDisabled ? "开启拖拽模式".tl : "关闭拖拽模式".tl,
             icon: pageState.isDragDisabled ? Icons.mouse_outlined : Icons.mouse,
             onTap: () => toggleDragDisabled(ref, _pageId),
+          ),
+          // 卡片大小
+          popupMenuItem<void>(
+            text: "卡片大小".tl,
+            icon: Icons.photo_size_select_large,
+            onTap: () => Future.delayed(const Duration(milliseconds: 200), () {
+              if (!buttonContext.mounted) return;
+              DownloadCardSizeDialog.show(buttonContext);
+            }),
           ),
         ],
       ),

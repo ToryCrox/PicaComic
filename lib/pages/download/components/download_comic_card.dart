@@ -35,7 +35,8 @@ import '../translation_result_replacer.dart';
 import 'download_tile.dart';
 
 /// 下载项对应的漫画来源；无法识别时返回 null。
-ComicType? downloadComicType(DownloadedItem item) => item is CustomDownloadedItem
+ComicType? downloadComicType(DownloadedItem item) =>
+    item is CustomDownloadedItem
     ? ComicType.fromString(item.sourceKey)
     : item.type.toComicType();
 
@@ -849,15 +850,25 @@ const double downloadComicCardCoverAspectRatio = 0.85;
 
 /// 下载页专用网格：按可用宽度自适应列数，卡片宽度限制在
 /// [minChildWidth] 与 [maxChildWidth] 之间。
+///
+/// [scale] 用于驱动「卡片大小」调节：它同时缩放卡片宽度下限与上限，
+/// 从而改变列数与实际卡片宽度，卡片高度随封面宽高比自动跟随。
 class SliverGridDelegateWithDownloadComics extends SliverGridDelegate {
   const SliverGridDelegateWithDownloadComics({
     required this.infoHeight,
-    this.minChildWidth = 140,
-    this.maxChildWidth = 240,
+    this.minChildWidth = defaultMinChildWidth,
+    this.maxChildWidth = defaultMaxChildWidth,
     this.spacing = 16,
     this.coverAspectRatio = downloadComicCardCoverAspectRatio,
     this.maxColumns = 12,
+    this.scale = 1,
   });
+
+  /// 默认的卡片最小宽度，供「卡片大小」设置展示宽度区间。
+  static const double defaultMinChildWidth = 140;
+
+  /// 默认的卡片最大宽度，供「卡片大小」设置展示宽度区间。
+  static const double defaultMaxChildWidth = 240;
 
   /// 卡片信息区高度，由 [downloadComicCardInfoHeight] 计算。
   final double infoHeight;
@@ -873,6 +884,9 @@ class SliverGridDelegateWithDownloadComics extends SliverGridDelegate {
 
   final int maxColumns;
 
+  /// 卡片宽度缩放系数，1.0 为默认；同时作用于最小与最大卡片宽度。
+  final double scale;
+
   /// 依据可用宽度计算列数、卡片宽度与实际交叉轴间距（余量均分到间距），
   /// 供测试与布局复用。
   ({int columns, double childWidth, double crossAxisSpacing}) resolve(
@@ -881,21 +895,25 @@ class SliverGridDelegateWithDownloadComics extends SliverGridDelegate {
     if (available <= 0) {
       return (columns: 1, childWidth: 0, crossAxisSpacing: 0);
     }
-    // 以「卡片宽度不超过 maxChildWidth」为起点取列数，使卡片尽量宽，
+    // 损坏的缩放系数直接回落到默认值，避免出现 0 宽度或无穷大。
+    final safeScale = scale.isFinite && scale > 0 ? scale : 1.0;
+    final minWidth = minChildWidth * safeScale;
+    final maxWidth = maxChildWidth * safeScale;
+    // 以「卡片宽度不超过 maxWidth」为起点取列数，使卡片尽量宽，
     // 而不是把列数塞到卡片贴着最小宽度。
-    var columns = (available / (maxChildWidth + spacing))
+    var columns = (available / (maxWidth + spacing))
         .ceil()
         .clamp(1, maxColumns)
         .toInt();
     var childWidth = (available - spacing * (columns - 1)) / columns;
     // 卡片被压到最小宽度以下时减少列数，保证可读性。
-    while (childWidth < minChildWidth && columns > 1) {
+    while (childWidth < minWidth && columns > 1) {
       columns -= 1;
       childWidth = (available - spacing * (columns - 1)) / columns;
     }
-    if (childWidth > maxChildWidth) {
+    if (childWidth > maxWidth) {
       // 列数已达上限或只能单列：锁死最大宽度，把余量均分到间距。
-      childWidth = maxChildWidth;
+      childWidth = maxWidth;
     }
     final crossAxisSpacing = columns > 1
         ? (available - childWidth * columns) / (columns - 1)
@@ -932,7 +950,8 @@ class SliverGridDelegateWithDownloadComics extends SliverGridDelegate {
         oldDelegate.maxChildWidth != maxChildWidth ||
         oldDelegate.spacing != spacing ||
         oldDelegate.coverAspectRatio != coverAspectRatio ||
-        oldDelegate.maxColumns != maxColumns;
+        oldDelegate.maxColumns != maxColumns ||
+        oldDelegate.scale != scale;
   }
 }
 

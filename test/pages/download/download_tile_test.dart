@@ -88,6 +88,61 @@ void main() {
         ),
       );
     });
+
+    test('放大系数让卡片变宽同时减少列数', () {
+      const larger = SliverGridDelegateWithDownloadComics(
+        infoHeight: 66,
+        scale: 1.5,
+      );
+      final normalResolved = delegate.resolve(900);
+      final largerResolved = larger.resolve(900);
+      expect(largerResolved.childWidth, greaterThan(normalResolved.childWidth));
+      expect(largerResolved.columns, lessThan(normalResolved.columns));
+      expect(
+        largerResolved.childWidth,
+        inInclusiveRange(
+          SliverGridDelegateWithDownloadComics.defaultMinChildWidth * 1.5,
+          SliverGridDelegateWithDownloadComics.defaultMaxChildWidth * 1.5,
+        ),
+      );
+    });
+
+    test('缩小系数让卡片变窄同时增加列数', () {
+      const smaller = SliverGridDelegateWithDownloadComics(
+        infoHeight: 66,
+        scale: 0.75,
+      );
+      final normalResolved = delegate.resolve(900);
+      final smallerResolved = smaller.resolve(900);
+      expect(smallerResolved.childWidth, lessThan(normalResolved.childWidth));
+      expect(smallerResolved.columns, greaterThan(normalResolved.columns));
+      expect(
+        smallerResolved.childWidth,
+        inInclusiveRange(
+          SliverGridDelegateWithDownloadComics.defaultMinChildWidth * 0.75,
+          SliverGridDelegateWithDownloadComics.defaultMaxChildWidth * 0.75,
+        ),
+      );
+      // 放大 / 缩小后列宽与间距仍需铺满可用宽度。
+      final total =
+          smallerResolved.childWidth * smallerResolved.columns +
+          smallerResolved.crossAxisSpacing * (smallerResolved.columns - 1);
+      expect(total, closeTo(900, 0.01));
+    });
+
+    test('损坏的缩放系数回落到默认宽度', () {
+      for (final scale in [0.0, -1.0, double.nan]) {
+        final broken = SliverGridDelegateWithDownloadComics(
+          infoHeight: 66,
+          scale: scale,
+        );
+        expect(
+          broken.resolve(360).childWidth,
+          closeTo(delegate.resolve(360).childWidth, 0.01),
+          reason: 'scale=$scale',
+        );
+      }
+    });
   });
 
   group('下载漫画卡片', () {

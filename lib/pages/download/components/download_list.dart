@@ -15,6 +15,7 @@ import 'package:pica_comic/tools/image_utils.dart';
 import 'package:path/path.dart' as Path;
 
 import 'package:pica_comic/base.dart';
+import 'package:pica_comic/foundation/app_settings_provider.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
 import '../download_providers.dart';
 import 'download_comic_card.dart';
@@ -65,6 +66,12 @@ class DownloadList extends ConsumerWidget {
               .where((comic) => pageState.selectedIds.contains(comic.id))
               .toList(growable: false)
         : const <DownloadedItem>[];
+    // 卡片大小设置变化时重建网格代理，滑块拖动即可实时预览。
+    final scale = ref.watch(
+      appearanceSettingsProvider.select(
+        (settings) => settings.downloadCardScale,
+      ),
+    );
     return SliverPadding(
       padding: const EdgeInsets.all(8),
       sliver: SliverGrid(
@@ -82,6 +89,7 @@ class DownloadList extends ConsumerWidget {
           infoHeight: downloadComicCardInfoHeight(
             MediaQuery.textScalerOf(context),
           ),
+          scale: scale,
         ),
       ),
     );
@@ -127,10 +135,7 @@ class DownloadList extends ConsumerWidget {
             if (item.type == DownloadType.local) {
               item.read();
             } else {
-              toComicInfoPage(
-                item,
-                heroTag: downloadComicHeroTag(ref, item),
-              );
+              toComicInfoPage(item, heroTag: downloadComicHeroTag(ref, item));
             }
           }
         },

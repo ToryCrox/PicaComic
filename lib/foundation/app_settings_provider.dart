@@ -135,6 +135,15 @@ class AppearanceSettingsState {
     double.tryParse(snapshot.value(AppSettingKeys.imageFavoriteScale)),
   );
 
+  /// 下载页卡片宽度缩放系数，1.0 为默认；越界或损坏数据回落到 1.0。
+  double get downloadCardScale {
+    final value = double.tryParse(
+      snapshot.value(AppSettingKeys.downloadCardScale),
+    );
+    if (value == null || !value.isFinite) return 1.0;
+    return value.clamp(0.75, 1.5);
+  }
+
   /// 防止损坏的旧数据生成 NaN 或无穷大的滑块数值。
   double _safeScale(double? value) {
     if (value == null || !value.isFinite) return 1.0;

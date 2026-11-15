@@ -236,6 +236,9 @@ abstract final class AppSettingKeys {
 
   /// 下载列表拖动开关：1 禁用拖动，0 允许拖动。
   static const downloadPageDragDisabled = "downloadPageDragDisabled";
+
+  /// 下载页卡片宽度缩放系数，取值 0.75–1.5，1.0 为默认宽度。
+  static const downloadCardScale = "downloadCardScale";
 }
 
 /// 设置默认值。字符串编码保留现有业务取值语义，持久化为 JSON 对象。
@@ -320,4 +323,5 @@ const defaultAppSettings = <String, String>{
   AppSettingKeys.showNetworkSpeedBall: "0",
   AppSettingKeys.collectNetworkLogs: "0",
   AppSettingKeys.downloadPageDragDisabled: "1",
+  AppSettingKeys.downloadCardScale: "1.0",
 };
