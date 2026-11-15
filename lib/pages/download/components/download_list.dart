@@ -6,30 +6,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pica_comic/ai/ai.dart';
 import 'package:pica_comic/ai/ai_cached_title_builder.dart';
-import 'package:pica_comic/components/components.dart';
 import 'package:pica_comic/foundation/app.dart';
 import 'package:pica_comic/network/download/download_model.dart';
-import 'package:pica_comic/pages/download/tag_assignment_dialog.dart';
 import 'package:pica_comic/pages/local/local_thumbs_page.dart';
-import 'package:pica_comic/pages/search_result_page.dart';
-import 'package:pica_comic/tools/extensions.dart';
 import 'package:pica_comic/tools/io_extensions.dart';
 import 'package:pica_comic/tools/io_tools.dart';
 import 'package:pica_comic/tools/image_utils.dart';
-import 'package:pica_comic/tools/tags_translation.dart';
-import 'package:pica_comic/tools/translations.dart';
-import 'package:pica_comic/foundation/file_utils.dart';
 import 'package:path/path.dart' as Path;
 
 import 'package:pica_comic/base.dart';
-import 'package:pica_comic/network/download/custom_download_model.dart';
 import 'package:pica_comic/pages/download/download_helper.dart';
 import '../download_providers.dart';
+import 'download_comic_card.dart';
 import 'download_tile.dart';
 import 'download_menus.dart';
 import 'comic_info_view.dart';
-import '../translation_result_replacer.dart';
-import '../translation_result_replace_dialog.dart';
 
 /// 下载列表组件
 ///
@@ -50,49 +41,10 @@ class DownloadList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final comicsAsync = ref.watch(filteredComicsProvider(pageId));
     final pageState = ref.watch(downloadPageStateProvider(pageId));
-    final allTagsAsync = ref.watch(downloadTagsProvider);
-    final userTagsMapAsync = ref.watch(comicUserTagsProvider);
-    final translationResultsAsync = ref.watch(
-      translationResultAvailabilityProvider,
-    );
-    final translationResults =
-        translationResultsAsync.value ??
-        const <String, TranslationResultInfo>{};
 
     return comicsAsync.when(
       skipLoadingOnReload: true,
-      data: (comics) {
-        return allTagsAsync.when(
-          skipLoadingOnReload: true,
-          data: (allTags) {
-            return userTagsMapAsync.when(
-              skipLoadingOnReload: true,
-              data: (userTagsMap) {
-                return _buildGrid(
-                  context,
-                  ref,
-                  comics,
-                  pageState,
-                  allTags,
-                  userTagsMap,
-                  translationResults,
-                );
-              },
-              loading: () => const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, s) =>
-                  SliverToBoxAdapter(child: Center(child: Text("$e"))),
-            );
-          },
-          loading: () => const SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, s) => SliverToBoxAdapter(child: Center(child: Text("$e"))),
-        );
-      },
+      data: (comics) => _buildGrid(context, ref, comics, pageState),
       loading: () => const SliverFillRemaining(
         hasScrollBody: false,
         child: Center(child: CircularProgressIndicator()),
@@ -107,31 +59,31 @@ class DownloadList extends ConsumerWidget {
     WidgetRef ref,
     List<DownloadedItem> comics,
     DownloadPageState pageState,
-    List<TagInfo> allTags,
-    Map<String, List<String>> userTagsMap,
-    Map<String, TranslationResultInfo> translationResults,
   ) {
     final selectedComics = pageState.isSelecting
         ? comics
               .where((comic) => pageState.selectedIds.contains(comic.id))
               .toList(growable: false)
         : const <DownloadedItem>[];
-    return SliverGrid(
-      delegate: SliverChildBuilderDelegate(
-        childCount: comics.length,
-        (context, index) => _buildItem(
-          context,
-          ref,
-          comics[index],
-          index,
-          pageState,
-          allTags,
-          userTagsMap,
-          translationResults,
-          selectedComics,
+    return SliverPadding(
+      padding: const EdgeInsets.all(8),
+      sliver: SliverGrid(
+        delegate: SliverChildBuilderDelegate(
+          childCount: comics.length,
+          (context, index) => _buildItem(
+            context,
+            ref,
+            comics[index],
+            pageState,
+            selectedComics,
+          ),
+        ),
+        gridDelegate: SliverGridDelegateWithDownloadComics(
+          infoHeight: downloadComicCardInfoHeight(
+            MediaQuery.textScalerOf(context),
+          ),
         ),
       ),
-      gridDelegate: SliverGridDelegateWithComics(),
     );
   }
 
@@ -139,204 +91,93 @@ class DownloadList extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     DownloadedItem item,
-    int index,
     DownloadPageState pageState,
-    List<TagInfo> allTags,
-    Map<String, List<String>> userTagsMap,
-    Map<String, TranslationResultInfo> translationResults,
     List<DownloadedItem> selectedComics,
   ) {
     final downloadManager = ref.read(downloadManagerProvider.notifier);
     final isSelected = pageState.selectedIds.contains(item.id);
-    final typeName = getComicTypeName(item);
-    final displayName = getComicDisplayName(item);
-    final sizeText = getComicSizeText(item);
 
-    return Padding(
-      padding: const EdgeInsets.all(2),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.surfaceContainerHighest
-              : Colors.transparent,
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          border: isSelected
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2,
-                )
-              : Border.all(color: Colors.transparent, width: 2),
-        ),
-        child: AiCachedTitleBuilder(
-          resource: AiComicResource(
-            sourceKey: item.sourceKey,
-            downloadId: item.id,
-            targetLanguage: App.locale.toLanguageTag(),
-          ),
-          // 显示名对 EH 等来源会追加页数和下载 ID；缓存校验必须使用
-          // 详情页实际参与翻译的原始标题，不能使用这个仅供 UI 的拼接文本。
-          title: item.name,
-          builder: (context, translatedTitle) => DownloadedComicTile(
-            id: item.id,
-            name: displayName,
-            translatedName: translatedTitle,
-            author: item.subTitle,
-            imagePath: File(item.coverPath ?? ''),
-            type: typeName,
-            primaryTags: getUserTags(item, userTagsMap),
-            tag: getRawTags(item, userTagsMap),
-            onTagTap: (tag) => updateKeyword(ref, pageId, tag),
-            onTagSecondaryTap: (tag, details) => _showTagMenu(
-              context,
-              ref,
-              tag,
-              item,
-              false,
-              details,
-              userTagsMap,
-            ),
-            onPrimaryTagSecondaryTap: (tag, details) => _showTagMenu(
-              context,
-              ref,
-              tag,
-              item,
-              true,
-              details,
-              userTagsMap,
-            ),
-            onPrimaryTagTap: (tag) async {
-              final tagId = allTags
-                  .firstWhere(
-                    (element) => element.name == tag,
-                    orElse: () => TagInfo(id: -1, name: '', comicCount: 0),
-                  )
-                  .id;
-              if (tagId != -1) {
-                updateTagFilter(ref, pageId, tagId);
-              }
-            },
-            onManageTags: () async {
-              final suggestedTags = [
-                item.name,
-                item.subTitle,
-                ...getOriginalTags(item, userTagsMap),
-              ];
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (context) => TagAssignmentDialog(
-                  comicIds: [item.id],
-                  suggestedTags: suggestedTags,
-                ),
-              );
-              if (result == true) {
-                onRefreshTags();
-              }
-            },
-            onOpenFolder: () async {
-              var path = await downloadManager.getFullDirectory(item.id);
-              FileUtils.openFileOrDirectory(path);
-            },
-            onRead: () async {
+    return AiCachedTitleBuilder(
+      resource: AiComicResource(
+        sourceKey: item.sourceKey,
+        downloadId: item.id,
+        targetLanguage: App.locale.toLanguageTag(),
+      ),
+      // 显示名对 EH 等来源会追加页数和下载 ID；缓存校验必须使用
+      // 详情页实际参与翻译的原始标题，不能使用这个仅供 UI 的拼接文本。
+      title: item.name,
+      builder: (context, translatedTitle) => DownloadComicCard(
+        item: item,
+        pageId: pageId,
+        translatedName: translatedTitle,
+        isSelected: isSelected,
+        isDragDisabled: pageState.isDragDisabled,
+        draggedItems: pageState.isSelecting && selectedComics.isNotEmpty
+            ? selectedComics
+            : null,
+        onTap: () async {
+          if (pageState.isSelecting) {
+            toggleSelection(ref, pageId, item.id);
+            // 如果没有选中项，退出选择模式
+            final newState = ref.read(downloadPageStateProvider(pageId));
+            if (newState.selectedIds.isEmpty) {
+              exitSelecting(ref, pageId);
+            }
+          } else {
+            if (item.type == DownloadType.local) {
               item.read();
+            } else {
+              toComicInfoPage(item);
+            }
+          }
+        },
+        onLongTap: () {
+          if (pageState.isSelecting) return;
+          toggleSelection(ref, pageId, item.id);
+          enterSelecting(ref, pageId);
+        },
+        onSecondaryTap: (details) async {
+          final batchComics = pageState.isSelecting
+              ? selectedComics
+              : const <DownloadedItem>[];
+          await showTileContextMenu(
+            context: context,
+            manager: downloadManager,
+            details: details,
+            comic: item,
+            getOriginalTags: (item) => _originalTags(ref, item),
+            onRefresh: onRefresh,
+            onRefreshTags: onRefreshTags,
+            onRemoveComic: () {
+              // Provider will automatically update when DownloadManager notifies
             },
-            onTap: () async {
-              if (pageState.isSelecting) {
-                toggleSelection(ref, pageId, item.id);
-                // 如果没有选中项，退出选择模式
-                final newState = ref.read(downloadPageStateProvider(pageId));
-                if (newState.selectedIds.isEmpty) {
-                  exitSelecting(ref, pageId);
-                }
-              } else {
-                if (item.type == DownloadType.local) {
-                  item.read();
-                } else {
-                  toComicInfoPage(item);
-                }
-              }
-            },
-            size: sizeText,
-            onLongTap: () {
-              if (pageState.isSelecting) return;
-              toggleSelection(ref, pageId, item.id);
-              enterSelecting(ref, pageId);
-            },
-            onSecondaryTap: (details) async {
-              final batchComics = pageState.isSelecting
-                  ? selectedComics
-                  : const <DownloadedItem>[];
-              await showTileContextMenu(
+            onShowInfo: () {
+              showDownloadedComicInfo(
                 context: context,
-                manager: downloadManager,
-                details: details,
                 comic: item,
-                getOriginalTags: (item) => getOriginalTags(item, userTagsMap),
                 onRefresh: onRefresh,
-                onRefreshTags: onRefreshTags,
-                onRemoveComic: () {
-                  // Provider will automatically update when DownloadManager notifies
-                },
-                onShowInfo: () {
-                  showDownloadedComicInfo(
-                    context: context,
-                    comic: item,
-                    onRefresh: onRefresh,
-                  );
-                },
-                onShowImageList: () => _goLocalComicPage(context, ref, item),
-                selectedComics: batchComics,
-                onBatchComplete: batchComics.isNotEmpty
-                    ? () {
-                        exitSelecting(ref, pageId);
-                        onRefresh();
-                      }
-                    : null,
               );
             },
-            draggedItems: pageState.isSelecting && selectedComics.isNotEmpty
-                ? selectedComics
+            onShowImageList: () => _goLocalComicPage(context, ref, item),
+            selectedComics: batchComics,
+            onBatchComplete: batchComics.isNotEmpty
+                ? () {
+                    exitSelecting(ref, pageId);
+                    onRefresh();
+                  }
                 : null,
-            isDragDisabled: pageState.isDragDisabled,
-            downloadedItem: item,
-            sourceComicId: downloadManager.getComicIdFromDownloadId(
-              item.type.toComicType(),
-              item.id,
-            ),
-            translationResult: translationResults[item.directoryPath],
-            onAiTranslationMarkerTap: () async {
-              final hasPendingTranslation =
-                  translationResults[item.directoryPath] != null;
-              if (item.aiTranslationCompletedAt == null &&
-                  hasPendingTranslation) {
-                showToast(message: '存在未处理或替换失败的翻译结果，暂不能标记完成'.tl);
-                return;
-              }
-              if (item.aiTranslationCompletedAt == null) {
-                await downloadManager.markAiTranslationCompleted(item.id);
-              } else {
-                await downloadManager.clearAiTranslationCompleted(item.id);
-              }
-              onRefresh();
-            },
-            onTranslationResultTap:
-                translationResults[item.directoryPath] == null
-                ? null
-                : () async {
-                    final result = await TranslationResultReplaceDialog.show(
-                      context,
-                      comics: [item],
-                      translationResultRootDirectory:
-                          appdata.appSettings.translationResultDirectory,
-                      onComplete: onRefresh,
-                    );
-                    if (result == false && context.mounted) {
-                      showToast(message: '没有可应用的翻译图片'.tl);
-                    }
-                  },
-          ),
-        ),
+          );
+        },
       ),
     );
+  }
+
+  /// 来源标签（排除已被用户标签覆盖的部分）。
+  List<String> _originalTags(WidgetRef ref, DownloadedItem item) {
+    final userTagsMap =
+        ref.read(comicUserTagsProvider).asData?.value ??
+        const <String, List<String>>{};
+    return getOriginalTags(item, userTagsMap);
   }
 
   /// 打开图片列表页面
@@ -395,109 +236,6 @@ class DownloadList extends ConsumerWidget {
           comic.read(initialPage: index, ep: ep);
         },
       ),
-    );
-  }
-
-  void _showTagMenu(
-    BuildContext context,
-    WidgetRef ref,
-    String tag,
-    DownloadedItem comic,
-    bool isPrimary,
-    TapDownDetails details,
-    Map<String, List<String>> userTagsMap,
-  ) {
-    showContextMenu(
-      context: App.globalContext!,
-      globalPosition: details.globalPosition,
-      items: [
-        popupMenuItem<void>(
-          text: "管理标签".tl,
-          icon: Icons.label_outline,
-          onTap: () async {
-            await Future.delayed(const Duration(milliseconds: 300));
-            final suggestedTags = [
-              comic.name,
-              comic.subTitle,
-              ...getOriginalTags(comic, userTagsMap),
-            ];
-            final result = await showDialog<bool>(
-              context: context,
-              builder: (context) => TagAssignmentDialog(
-                comicIds: [comic.id],
-                suggestedTags: suggestedTags,
-              ),
-            );
-            if (result == true) {
-              onRefreshTags();
-            }
-          },
-        ),
-        popupMenuItem<void>(
-          text: "复制".tl,
-          icon: Icons.content_copy,
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: tag));
-            showToast(message: "已复制".tl);
-          },
-        ),
-        popupMenuItem<void>(
-          text: "本地搜索".tl,
-          icon: Icons.search,
-          onTap: () {
-            updateKeyword(ref, pageId, tag);
-          },
-        ),
-        popupMenuItem<void>(
-          text: "搜索漫画".tl,
-          icon: Icons.travel_explore,
-          onTap: () {
-            String searchTag = tag;
-            if (!isPrimary) {
-              // 查找原始标签
-              searchTag = comic.tags.firstWhere(
-                (t) => t.translateTagsToCN == tag,
-                orElse: () => tag,
-              );
-            } else {
-              // 检查用户标签是否对应原始标签
-              var originalTag = comic.tags.firstWhereOrNull(
-                (t) => t.translateTagsToCN == tag || t == tag,
-              );
-              if (originalTag != null) {
-                searchTag = originalTag;
-              }
-            }
-            // 根据漫画类型确定搜索来源
-            String sourceKey = "picacg";
-            if (comic.type == DownloadType.ehentai) {
-              sourceKey = "ehentai";
-            } else if (comic.type == DownloadType.jm) {
-              sourceKey = "jm";
-            } else if (comic.type == DownloadType.hitomi) {
-              sourceKey = "hitomi";
-            } else if (comic.type == DownloadType.htmanga) {
-              sourceKey = "htmanga";
-            } else if (comic.type == DownloadType.nhentai) {
-              sourceKey = "nhentai";
-            } else if (comic.type == DownloadType.manhuagui) {
-              sourceKey = 'manhuagui';
-            } else if (comic.type == DownloadType.hiperdex) {
-              sourceKey = 'hiperdex';
-            } else if (comic.type == DownloadType.other) {
-              if (comic is CustomDownloadedItem) {
-                sourceKey = comic.sourceKey;
-              }
-            }
-            context.to(
-              () => SearchResultPage(
-                keyword: searchTag,
-                comicType: ComicType.fromString(sourceKey),
-              ),
-            );
-          },
-        ),
-      ],
     );
   }
 }
