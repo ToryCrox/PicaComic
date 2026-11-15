@@ -315,12 +315,14 @@ class DownloadComicCard extends ConsumerWidget {
         ),
         const SizedBox(height: 6),
         _CoverOverlayAction(
-          tooltip: '标记'.tl,
+          tooltip: '单击标记蓝色 / 取消，长按选择颜色'.tl,
           icon: item.color?.color == null
               ? Icons.circle_outlined
               : Icons.circle,
           iconColor: item.color?.color ?? Colors.white,
-          onTapDown: (details) => _showColorTagMenu(context, ref, details),
+          onTap: () => _toggleQuickColor(ref),
+          onLongPressStart: (details) =>
+              _showColorTagMenu(context, ref, details.globalPosition),
         ),
       ],
     );
@@ -650,17 +652,30 @@ class DownloadComicCard extends ConsumerWidget {
     }
   }
 
+  /// 单击标记按钮：仅在「蓝色」与「无标记」之间切换。
+  ///
+  /// 其他颜色视为非蓝色，单击后统一切到蓝色，再次单击则清除。
+  void _toggleQuickColor(WidgetRef ref) {
+    final next = item.color == DownloadColorTag.blue
+        ? DownloadColorTag.none
+        : DownloadColorTag.blue;
+    ref.read(downloadManagerProvider.notifier).updateColor(item.id, next);
+  }
+
+  /// 长按标记按钮：弹出颜色选择菜单。
   Future<void> _showColorTagMenu(
     BuildContext context,
     WidgetRef ref,
-    TapDownDetails details,
+    Offset globalPosition,
   ) async {
+    HapticFeedback.mediumImpact();
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final targetPosition = overlay.globalToLocal(details.globalPosition);
+    final targetPosition = overlay.globalToLocal(globalPosition);
     final position = RelativeRect.fromRect(
       Rect.fromPoints(targetPosition, targetPosition),
       Offset.zero & overlay.size,
     );
+    final current = item.color ?? DownloadColorTag.none;
     final color = await showMenu<DownloadColorTag>(
       context: context,
       position: position,
@@ -676,6 +691,10 @@ class DownloadComicCard extends ConsumerWidget {
                   const Icon(Icons.circle_outlined, size: 18),
                 const SizedBox(width: 8),
                 Text(tag.label),
+                if (tag == current) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.check, size: 16),
+                ],
               ],
             ),
           ),
@@ -923,7 +942,7 @@ class _CoverOverlayAction extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     this.onTap,
-    this.onTapDown,
+    this.onLongPressStart,
     this.background,
     this.iconColor,
   });
@@ -931,7 +950,7 @@ class _CoverOverlayAction extends StatelessWidget {
   final String tooltip;
   final IconData icon;
   final VoidCallback? onTap;
-  final void Function(TapDownDetails details)? onTapDown;
+  final void Function(LongPressStartDetails details)? onLongPressStart;
   final Color? background;
   final Color? iconColor;
 
@@ -944,7 +963,7 @@ class _CoverOverlayAction extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          onTapDown: onTapDown,
+          onLongPressStart: onLongPressStart,
           child: Container(
             width: 30,
             height: 30,
