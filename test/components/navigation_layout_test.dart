@@ -148,12 +148,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('探索'));
+    await tester.ensureVisible(find.byTooltip('探索'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('探索'));
     await tester.pumpAndSettle();
     expect(selected, 2);
-    await tester.ensureVisible(find.text('设置'));
+    await tester.ensureVisible(find.byTooltip('设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('设置'));
+    await tester.tap(find.byTooltip('设置'));
     expect(actionCalled, isTrue);
     expect(tester.takeException(), isNull);
   });
@@ -191,6 +193,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('收藏'), findsOneWidget);
     expect(find.byTooltip('设置'), findsOneWidget);
+    await tester.tap(find.byTooltip('收藏'));
+    await tester.pumpAndSettle();
+    expect(selected, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('侧边导航栏只显示图标，宽度收窄且没有展开按钮', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NaviPane(
+          paneItems: [
+            PaneItemEntry(
+              label: '首页',
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home,
+            ),
+            PaneItemEntry(
+              label: '收藏',
+              icon: Icons.bookmark_outline,
+              activeIcon: Icons.bookmark,
+            ),
+          ],
+          paneActions: [
+            PaneActionEntry(label: '设置', icon: Icons.settings, onTap: () {}),
+          ],
+          observer: NaviObserver(),
+          onPageChange: (index) => selected = index,
+          pageBuilder: (_) => const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 只显示图标：侧栏宽度 64，名称放在 Tooltip 里。
+    final rail = find.byType(NavigationRail);
+    expect(tester.getSize(rail).width, 64);
+    expect(find.byTooltip('首页'), findsOneWidget);
+    expect(find.byTooltip('收藏'), findsOneWidget);
+    expect(find.byTooltip('设置'), findsOneWidget);
+    // 没有展开/收起按钮。
+    expect(find.byType(IconButton), findsNothing);
+
     await tester.tap(find.byTooltip('收藏'));
     await tester.pumpAndSettle();
     expect(selected, 1);

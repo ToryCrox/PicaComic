@@ -161,11 +161,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // 侧栏条目在 Material InkWell 之上保留了应用统一的手型指针。
     final navigationRegion = tester.widget<MouseRegion>(
       find
-          .descendant(
-            of: find.byKey(const ValueKey(0)),
-            matching: find.byType(MouseRegion),
+          .ancestor(
+            of: find.byIcon(Icons.home),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is MouseRegion &&
+                  widget.cursor == appClickableMouseCursor,
+            ),
           )
           .first,
     );

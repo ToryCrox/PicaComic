@@ -71,9 +71,8 @@ class _NaviPaneState extends State<NaviPane>
 
   static const _kBottomBarHeight = 58.0;
 
-  static const _kFoldedSideBarWidth = 80.0;
-
-  static const _kSideBarWidth = 150.0;
+  /// 侧栏宽度。比 Material 3 NavigationRail 默认的 80 更窄，只放图标。
+  static const _kRailWidth = 64.0;
 
   static const _kTopBarHeight = 48.0;
 
@@ -83,11 +82,8 @@ class _NaviPaneState extends State<NaviPane>
   /// 窄屏顶部导航布局模式。
   static const _kPaneModeTopBar = 1.0;
 
-  /// 桌面端折叠侧栏布局模式。
-  static const _kPaneModeFoldedSidebar = 2.0;
-
-  /// 宽屏展开侧栏布局模式。
-  static const _kPaneModeExpandedSidebar = 3.0;
+  /// 侧栏布局模式（仅图标）。
+  static const _kPaneModeRail = 2.0;
 
   double get bottomBarHeight =>
       _kBottomBarHeight + MediaQuery.paddingOf(context).bottom;
@@ -105,7 +101,7 @@ class _NaviPaneState extends State<NaviPane>
     controller = AnimationController(
       duration: const Duration(milliseconds: 250),
       lowerBound: _kPaneModeMobile,
-      upperBound: _kPaneModeExpandedSidebar,
+      upperBound: _kPaneModeRail,
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
@@ -132,10 +128,7 @@ class _NaviPaneState extends State<NaviPane>
       target = _kPaneModeTopBar;
     }
     if (width > changePoint) {
-      target = _kPaneModeFoldedSidebar;
-    }
-    if (width > changePoint2) {
-      target = _kPaneModeExpandedSidebar;
+      target = _kPaneModeRail;
     }
     return target;
   }
@@ -160,8 +153,9 @@ class _NaviPaneState extends State<NaviPane>
       } else {
         controller.animateTo(
           target,
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.ease,
+          // 与主题动画时长保持一致，布局切换时页面留白和侧栏宽度同步过渡。
+          duration: kThemeAnimationDuration,
+          curve: Curves.easeInOut,
         );
       }
       animationTarget = target;
@@ -191,13 +185,16 @@ class _NaviPaneState extends State<NaviPane>
                           (value == _kPaneModeTopBar ? 0 : 1))
                   .toDouble();
           final removePageTopPadding =
-              value >= _kPaneModeFoldedSidebar || value == _kPaneModeMobile;
+              value >= _kPaneModeRail || value == _kPaneModeMobile;
           final pageMediaQuery = mediaQuery.copyWith(
             padding: mediaQuery.padding.copyWith(
               top:
                   pageTop + (removePageTopPadding ? 0 : mediaQuery.padding.top),
             ),
           );
+          // 页面向右避让侧栏，随顶部栏 → 侧栏的动画插值。
+          final pageInset =
+              _kRailWidth * ((value - _kPaneModeTopBar).clamp(0, 1));
           return _NaviLayout(
             withPadding: targetFormContext(context) == _kPaneModeTopBar,
             child: Stack(
@@ -205,8 +202,8 @@ class _NaviPaneState extends State<NaviPane>
                 if (!App.isWindows)
                   Positioned(
                     left:
-                        _kFoldedSideBarWidth *
-                        ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
+                        _kRailWidth *
+                        ((value - _kPaneModeRail).clamp(-1.0, 0.0)),
                     top: 0,
                     bottom: 0,
                     child: buildLeft(),
@@ -215,12 +212,7 @@ class _NaviPaneState extends State<NaviPane>
                   // Windows 的标题栏是覆盖层，页面背景从窗口顶部开始绘制；
                   // 原本的避让空间转移到页面的 MediaQuery 顶部 padding。
                   top: App.isWindows ? 0 : pageTop,
-                  left: App.isWindows
-                      ? 0
-                      : _kFoldedSideBarWidth *
-                                ((value - _kPaneModeTopBar).clamp(0, 1)) +
-                            (_kSideBarWidth - _kFoldedSideBarWidth) *
-                                ((value - _kPaneModeFoldedSidebar).clamp(0, 1)),
+                  left: App.isWindows ? 0 : pageInset,
                   right: 0,
                   bottom: bottomBarHeight * ((1 - value).clamp(0, 1)),
                   child: App.isWindows
@@ -229,17 +221,7 @@ class _NaviPaneState extends State<NaviPane>
                           child: Material(
                             color: Theme.of(context).scaffoldBackgroundColor,
                             child: Padding(
-                              padding: EdgeInsets.only(
-                                left:
-                                    _kFoldedSideBarWidth *
-                                        ((value - _kPaneModeTopBar).clamp(
-                                          0,
-                                          1,
-                                        )) +
-                                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                                        ((value - _kPaneModeFoldedSidebar)
-                                            .clamp(0, 1)),
-                              ),
+                              padding: EdgeInsets.only(left: pageInset),
                               child: widget.pageBuilder(currentPage),
                             ),
                           ),
@@ -256,8 +238,8 @@ class _NaviPaneState extends State<NaviPane>
                 if (App.isWindows)
                   Positioned(
                     left:
-                        _kFoldedSideBarWidth *
-                        ((value - _kPaneModeFoldedSidebar).clamp(-1.0, 0.0)),
+                        _kRailWidth *
+                        ((value - _kPaneModeRail).clamp(-1.0, 0.0)),
                     top: 0,
                     bottom: 0,
                     child: buildLeft(),
@@ -357,206 +339,103 @@ class _NaviPaneState extends State<NaviPane>
   }
 
   Widget buildLeft() {
-    final value = controller.value;
-    const paddingHorizontal = 12.0;
-    final expanded = value == _kPaneModeExpandedSidebar;
-    final width =
-        _kFoldedSideBarWidth +
-        (_kSideBarWidth - _kFoldedSideBarWidth) *
-            ((value - _kPaneModeFoldedSidebar).clamp(0, 1));
-    final itemWidth =
-        (expanded ? _kSideBarWidth : _kFoldedSideBarWidth) -
-        paddingHorizontal * 2;
     final colors = Theme.of(context).colorScheme;
 
-    return Material(
-      color: colors.surfaceContainerLow,
-      child: SizedBox(
-        width: width,
-        height: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: itemWidth,
-              child: LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: MediaQuery.paddingOf(context).top + 12,
-                          ),
-                          ...List<Widget>.generate(
-                            widget.paneItems.length,
-                            (index) => _SideNaviWidget(
-                              enabled: currentPage == index,
-                              entry: widget.paneItems[index],
-                              showTitle: expanded,
-                              onTap: () => setState(() => currentPage = index),
-                              key: ValueKey(index),
-                            ),
-                          ),
-                          const Spacer(),
-                          if (widget.paneActions.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              child: Divider(
-                                height: 1,
-                                color: colors.outlineVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                            ),
-                            ...List<Widget>.generate(
-                              widget.paneActions.length,
-                              (index) => _PaneActionWidget(
-                                entry: widget.paneActions[index],
-                                showTitle: expanded,
-                                key: ValueKey(index + widget.paneItems.length),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    return NavigationRail(
+      // 只显示图标的窄侧栏，尺寸/指示器/配色全部由主题默认值决定。
+      extended: false,
+      labelType: NavigationRailLabelType.none,
+      minWidth: _kRailWidth,
+      selectedIndex: currentPage,
+      onDestinationSelected: (index) => setState(() => currentPage = index),
+      backgroundColor: colors.surfaceContainerLow,
+      scrollable: true,
+      trailingAtBottom: true,
+      destinations: [
+        for (final entry in widget.paneItems)
+          NavigationRailDestination(
+            icon: _railIcon(entry.icon, entry.label),
+            selectedIcon: _railIcon(entry.activeIcon, entry.label),
+            label: Text(entry.label),
           ),
+      ],
+      trailing: widget.paneActions.isEmpty
+          ? null
+          : _RailActions(entries: widget.paneActions),
+    );
+  }
+
+  /// 不显示文字，用 Tooltip 提供名称。
+  ///
+  /// Material 的 InkWell 在桌面端使用箭头指针，这里套一层 [MouseRegion] 保持
+  /// 应用统一的手型指针，尺寸与 Material 3 指示器一致。
+  Widget _railIcon(IconData icon, String label) {
+    return MouseRegion(
+      cursor: appClickableMouseCursor,
+      child: Tooltip(
+        message: label,
+        child: SizedBox(
+          width: 56,
+          height: 32,
+          child: Center(child: Icon(icon)),
         ),
       ),
     );
   }
 }
 
-/// 侧栏中的主导航入口。
-class _SideNaviWidget extends StatelessWidget {
-  const _SideNaviWidget({
-    required this.enabled,
-    required this.entry,
-    required this.onTap,
-    required this.showTitle,
-    super.key,
-  });
+/// 侧栏底部的工具入口集合。
+class _RailActions extends StatelessWidget {
+  const _RailActions({required this.entries});
 
-  final bool enabled;
-  final PaneItemEntry entry;
-  final VoidCallback onTap;
-  final bool showTitle;
-
-  @override
-  Widget build(BuildContext context) => _SidePaneItem(
-    label: entry.label,
-    icon: enabled ? entry.activeIcon : entry.icon,
-    selected: enabled,
-    showTitle: showTitle,
-    onTap: onTap,
-  );
-}
-
-/// 侧栏底部的工具入口。
-class _PaneActionWidget extends StatelessWidget {
-  const _PaneActionWidget({
-    required this.entry,
-    required this.showTitle,
-    super.key,
-  });
-
-  final PaneActionEntry entry;
-  final bool showTitle;
-
-  @override
-  Widget build(BuildContext context) => _SidePaneItem(
-    label: entry.label,
-    icon: entry.icon,
-    showTitle: showTitle,
-    onTap: entry.onTap,
-  );
-}
-
-/// 使用 Material 选中态和交互反馈，折叠时提供文字提示。
-class _SidePaneItem extends StatelessWidget {
-  const _SidePaneItem({
-    required this.label,
-    required this.icon,
-    required this.showTitle,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool showTitle;
-  final VoidCallback onTap;
-  final bool selected;
+  final List<PaneActionEntry> entries;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final foreground = selected
-        ? colors.onSecondaryContainer
-        : colors.onSurfaceVariant;
-    final item = Semantics(
-      selected: selected,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Material(
-          color: selected ? colors.secondaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            mouseCursor: appClickableMouseCursor,
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: showTitle ? 12 : 0,
-                  vertical: 8,
-                ),
-                child: showTitle
-                    ? Row(
-                        children: [
-                          Icon(icon, size: 22, color: foreground),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(
-                                    color: foreground,
-                                    fontWeight: selected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Center(child: Icon(icon, size: 22, color: foreground)),
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Divider(
+            height: 1,
+            color: colors.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        for (final entry in entries) _RailActionTile(entry: entry),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+/// 工具入口，只显示图标，名称放在 Tooltip 里。
+class _RailActionTile extends StatelessWidget {
+  const _RailActionTile({required this.entry});
+
+  final PaneActionEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: entry.label,
+      child: Semantics(
+        button: true,
+        label: entry.label,
+        child: InkWell(
+          mouseCursor: appClickableMouseCursor,
+          onTap: entry.onTap,
+          child: SizedBox(
+            width: _NaviPaneState._kRailWidth,
+            height: 44,
+            child: Center(
+              child: Icon(entry.icon, size: 24, color: colors.onSurfaceVariant),
             ),
           ),
         ),
       ),
-    );
-    return MouseRegion(
-      cursor: appClickableMouseCursor,
-      child: showTitle ? item : Tooltip(message: label, child: item),
     );
   }
 }
