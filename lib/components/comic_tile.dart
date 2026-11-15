@@ -774,6 +774,25 @@ abstract class ComicTile extends ConsumerWidget {
     );
   }
 
+  /// 底部描述行需要额外避让的宽度，用于让出右下角悬浮按钮的位置。
+  ///
+  /// 下载按钮固定在 right 16、宽 32；已下载时其左侧还会出现阅读按钮（间距 6）。
+  /// 内容区本身已有 20px 右边距，因此这里只返回需要补足的差值。
+  double _resolveActionsInset(WidgetRef ref) {
+    if (comicID == null || comicType == null) return 0;
+    final manager = ref.read(downloadManagerProvider.notifier);
+    final downloadId = manager.getDownloadIdFromComicId(comicType!, comicID!);
+    final isDownloaded = ref.watch(
+      downloadedIdsProvider.select((ids) => ids.contains(downloadId)),
+    );
+    if (!isDownloaded && onDownloadTap == null) return 0;
+    const downloadButtonWidth = 52.0; // 16 边距 + 32 按钮 + 4 间隙
+    const readButtonWidth = 38.0; // 32 按钮 + 6 间隙
+    return isDownloaded
+        ? downloadButtonWidth + readButtonWidth - 20
+        : downloadButtonWidth - 20;
+  }
+
   Widget _buildDetailedMode(
     BuildContext context,
     WidgetRef ref,
@@ -828,6 +847,7 @@ abstract class ComicTile extends ConsumerWidget {
                     descriptionSuffix: descriptionSuffix,
                     subDescription: buildSubDescription(context, ref),
                     badge: buildBadge(context, ref),
+                    trailingInset: _resolveActionsInset(ref),
                     primaryTags: primaryTags,
                     tags: tags,
                     maxLines: maxLines,
@@ -937,6 +957,7 @@ class _ComicDescription extends StatefulWidget {
     this.descriptionSuffix,
     this.subDescription,
     this.badge,
+    this.trailingInset = 0,
     this.maxLines = 2,
     this.tags,
     this.primaryTags = const [],
@@ -958,6 +979,11 @@ class _ComicDescription extends StatefulWidget {
   final Widget? descriptionSuffix;
   final Widget? subDescription;
   final Widget? badge;
+
+  /// 底部行右侧需要额外避让的宽度，用于让出卡片右下角悬浮按钮的位置。
+  ///
+  /// 语言角标贴在底部行末尾，若不避让会被下载/阅读按钮盖住。
+  final double trailingInset;
   final List<String> primaryTags;
   final List<String>? tags;
   final int maxLines;
@@ -1099,49 +1125,56 @@ class _ComicDescriptionState extends State<_ComicDescription> {
             ),
           ),
         const SizedBox(height: 2),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.subDescription != null) widget.subDescription!,
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant,
+        Padding(
+          // 底部行右侧要让出右下角悬浮按钮的占位，否则语言角标会被按钮压住。
+          padding: EdgeInsets.only(right: widget.trailingInset),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.subDescription != null) widget.subDescription!,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: widget.descriptionMaxLines,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: widget.descriptionMaxLines,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (widget.descriptionSuffix != null) ...[
-                        const SizedBox(width: 4),
-                        widget.descriptionSuffix!,
+                        if (widget.descriptionSuffix != null) ...[
+                          const SizedBox(width: 4),
+                          widget.descriptionSuffix!,
+                        ],
                       ],
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.badge != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.tertiaryContainer,
+                      borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    ),
+                    child: DefaultTextStyle(
+                      style: const TextStyle(fontSize: 12),
+                      child: widget.badge!,
+                    ),
                   ),
-                ],
-              ),
-            ),
-            if (widget.badge != null)
-              Container(
-                padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.tertiaryContainer,
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
                 ),
-                child: DefaultTextStyle(
-                  style: const TextStyle(fontSize: 12),
-                  child: widget.badge!,
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ],
     );
